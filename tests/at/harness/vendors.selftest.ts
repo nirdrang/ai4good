@@ -27,8 +27,40 @@ import { createEmailProviderSim, createAnthropicMessagesSim } from './vendors.ts
 import type { NotificationsSut, World } from '../suites/req-016/_contract.ts';
 
 describe('Anthropic Messages simulator', () => {
-  const request = { model: 'test-model', maxTokens: 128, effort: 'low' as const, system: 'Ask a question.',
+  const request = { model: 'test-model', maxTokens: 128, effort: 'low' as const, system: [{ text: 'Ask a question.', cached: true }], tools: [],
     messages: [{ role: 'user' as const, content: 'Hello' }] };
+  it('streams bounded pieces and records the same request once', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    const text = 'Which reporting deadline would you like the tracker to remind you about first?';
+    sim.script([{ kind: 'text', text, usage: { inputTokens: 512, outputTokens: 32 } }]);
+    const deltas: string[] = [];
+    const answer = await port.stream(request, (delta) => deltas.push(delta), new AbortController().signal);
+    expect(deltas.join('')).toBe(text);
+    expect(deltas.every((delta) => delta.length <= 20)).toBe(true);
+    expect(answer).toMatchObject({ ok: true, text, usage: { inputTokens: 512, outputTokens: 32 } });
+    expect(sim.requests()).toEqual([request]);
+  });
+  it('settles an interrupted replay with partial text and the output cap', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    const text = 'Which reporting deadline would you like the tracker to remind you about first?';
+    sim.script([{ kind: 'text', text, usage: { inputTokens: 512, outputTokens: 32 } }]);
+    const abort = new AbortController();
+    const answer = await port.stream(request, () => abort.abort(), abort.signal);
+    expect(answer).toMatchObject({ ok: true, text: text.slice(0, 20), stopReason: 'user_stopped',
+      usage: { inputTokens: 512, outputTokens: request.maxTokens }, toolUse: null });
+    expect(sim.requests()).toEqual([request]);
+  });
+  it('honours an already aborted stream without emitting text', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([{ kind: 'text', text: 'Question?', usage: { inputTokens: 512, outputTokens: 32 } }]);
+    const abort = new AbortController();
+    abort.abort();
+    const deltas: string[] = [];
+    expect(await port.stream(request, (delta) => deltas.push(delta), abort.signal)).toMatchObject({
+      ok: true, text: '', stopReason: 'user_stopped', usage: { outputTokens: request.maxTokens },
+    });
+    expect(deltas).toEqual([]);
+  });
   it('counts without consuming and caps output on text and tool replies', async () => {
     const { sim, port } = createAnthropicMessagesSim();
     sim.script([

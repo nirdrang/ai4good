@@ -52,6 +52,7 @@ project is still operator SQL (see `project-workspace.md`).
 | Set organization vetting (admin-only vet and unvet, audited) | [set-organization-vetting.md](set-organization-vetting.md) |
 | Discovery allowance (daily credits, read and debit) | [discovery-allowance.md](discovery-allowance.md) |
 | Discovery message (count, reserve, reply and settle) | [discovery-message.md](discovery-message.md) |
+| Discovery conversation (history, elicitation and today's allowance) | [discovery-conversation.md](discovery-conversation.md) |
 
 Not mapped yet, deliberately: the web UI (a placeholder page today) and the Google/GitHub
 OAuth round trips. Consent is a human browser step. Configuration well-formedness is checkable;

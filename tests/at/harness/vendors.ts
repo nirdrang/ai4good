@@ -47,11 +47,25 @@ export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port:
         if (reply.kind === 'error') return { ok: false, status: reply.status, reason: reply.reason };
         const capped = reply.usage.outputTokens > request.maxTokens;
         return {
-          ok: true, text: reply.kind === 'text' ? reply.text : '', model: request.model,
+          ok: true, text: reply.text ?? '', model: request.model,
           stopReason: capped ? 'max_tokens' : reply.kind === 'tool' ? 'tool_use' : reply.stopReason ?? 'end_turn',
           usage: { inputTokens: reply.usage.inputTokens, outputTokens: Math.min(reply.usage.outputTokens, request.maxTokens) },
           toolUse: reply.kind === 'tool' ? { name: reply.name, input: reply.input } : null,
         };
+      },
+      async stream(request, onDelta, signal) {
+        const answer = await this.create(request);
+        if (!answer.ok) return signal.aborted ? { ok: true, text: '', model: request.model, stopReason: 'user_stopped',
+          usage: { inputTokens: 0, outputTokens: request.maxTokens }, toolUse: null } : answer;
+        let text = '';
+        for (let index = 0; index < answer.text.length && !signal.aborted; index += 20) {
+          const delta = answer.text.slice(index, index + 20);
+          text += delta;
+          onDelta(delta);
+          await Promise.resolve();
+        }
+        return signal.aborted ? { ...answer, text, stopReason: 'user_stopped',
+          usage: { ...answer.usage, outputTokens: request.maxTokens }, toolUse: null } : answer;
       },
     },
   };

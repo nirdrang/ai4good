@@ -1,0 +1,1 @@
+Turn each agreed fact into a user story that says who needs what and why. Give each story at least one observable acceptance criterion. Preserve constraints such as staff capacity and the absence of a developer in the stories and criteria. Use the NGO's own terms. Do not prescribe an implementation or expand the scope to make a story sound more impressive.

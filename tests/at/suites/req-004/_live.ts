@@ -1,11 +1,12 @@
 import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
-import { functionPost, sqlClient, type Stack } from '../../harness/live-stack.ts';
+import { functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
 import { AtPending, CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
-import { reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
-import type { DiscoverySut, DiscoveryMessageOutcome, WriteRefusal } from './_contract.ts';
+import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, WriteRefusal } from './_contract.ts';
+import type { Allowance } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 
 export const requirement = 'req-004' as const;
 export async function createLiveAdapter(opts: { stack: Stack }) {
@@ -90,7 +91,15 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         await tx`alter table public.discovery_turns enable trigger discovery_turns_immutable`;
       });
     },
-    readConversation: later, setEmailVerifiedAsOperator: later,
+    readConversation: async (session, projectId) => {
+      const raw = await functionPostRaw(opts.stack, 'discovery-conversation', { projectId }, inner.bearerOf(session));
+      const answer = { status: raw.status, body: raw.text };
+      if (raw.status !== 200) return { ok: false, answer };
+      const value = JSON.parse(raw.text) as { ok: true; conversation: DiscoveryConversationView; allowance: Allowance };
+      if (value.ok !== true || !value.conversation || !value.allowance) throw new Error('discovery-conversation returned no conversation or allowance');
+      return { ok: true, value, answer };
+    },
+    setEmailVerifiedAsOperator: later,
     setProjectFundingAsOperator: async (projectId, value) => {
       if (value.fuelMicros > 0) throw new CapabilityPending([AWAITED.projectFuelCheckout]);
       const rows = value.fundedAt === null
@@ -108,7 +117,33 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       };
     },
     setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
-    seedTurnsAsOperator: later, spendLedgerInvariantProblems: later,
+    seedTurnsAsOperator: async (projectId, seeds) => {
+      await sql.begin(async (tx) => {
+        const projects = await tx`select org_id from public.projects where id = ${projectId}::uuid for update` as { org_id: string }[];
+        if (projects.length !== 1) throw new Error('no project for seeded turns');
+        const rows = await tx`select coalesce(max(seq), 0) as seq from public.discovery_turns where project_id = ${projectId}::uuid` as { seq: number }[];
+        let seq = rows[0].seq;
+        const settings = reserveSettings();
+        for (const seed of seeds) {
+          const estimated = countedInputTokens(seed.usage.inputTokens);
+          const cap = Math.max(settings.max_output_tokens, seed.usage.outputTokens);
+          const bound = reservationFor({ estimatedInputTokens: estimated, maxOutputTokens: cap });
+          const cost = settlementFor({ ...bound, billing: 'free', usage: seed.usage });
+          const request = { model: settings.model, max_tokens: cap, effort: settings.effort };
+          await tx`insert into public.discovery_turns (
+            project_id, org_id, seq, status, billing, utc_day, user_message, assistant_message, request_settings,
+            max_output_tokens, estimated_input_tokens, micros_per_credit, input_micros_per_token, output_micros_per_token,
+            reserved_micros, reserved_credits, input_tokens, output_tokens, stop_reason, served_model, actual_micros,
+            charged_credits, overrun_micros, opened_at, settled_at
+          ) values (${projectId}::uuid, ${projects[0].org_id}::uuid, ${++seq}, 'settled', 'free',
+            (clock_timestamp() at time zone 'utc')::date, ${seed.message}, ${seed.reply}, ${JSON.stringify(request)}::text::jsonb,
+            ${cap}, ${estimated}, ${settings.micros_per_credit}, ${settings.input_micros_per_token}, ${settings.output_micros_per_token},
+            ${bound.reservedMicros}, ${bound.reservedCredits}, ${seed.usage.inputTokens}, ${seed.usage.outputTokens},
+            'end_turn', ${settings.model}, ${cost.actualMicros}, ${cost.chargedCredits}, ${cost.overrunMicros}, clock_timestamp(), clock_timestamp())`;
+        }
+      });
+    },
+    spendLedgerInvariantProblems: later,
   };
   return { sut: { discovery: sut }, fixtures: inner.fixtures,
     teardown: async () => { try { await inner.teardown(); } finally { await sql.close(); } } };

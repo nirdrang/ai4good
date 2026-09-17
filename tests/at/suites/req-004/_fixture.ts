@@ -1,10 +1,11 @@
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
 import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
   DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
-import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, turnViewFromSql, renderDiscoveryMessage,
+import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
 import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
+import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
 import { AtPending } from '../../harness/pending.ts';
 import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome } from './_contract.ts';
 
@@ -23,6 +24,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer'; emailVerified: boolean }>();
   const turns = new Map<string, DiscoveryTurnSqlRow[]>();
   const funding = new Map<string, { fundedAt: string | null; fuelMicros: number }>();
+  const skills = DISCOVERY_SKILLS;
   const now = () => new Date(opts.clock.now()).toISOString();
   const sqlAllowance = (allowance: { organizationId: string; utcDay: string; vetted: boolean; dailyGrant: number; spentToday: number; remaining: number }) => ({
     organization_id: allowance.organizationId, utc_day: allowance.utcDay, vetted: allowance.vetted,
@@ -106,7 +108,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const result = settlementFor({ reservedMicros: row.reserved_micros, reservedCredits: row.reserved_credits,
         billing: row.billing, usage: { inputTokens: args.p_input_tokens, outputTokens: args.p_output_tokens } });
       Object.assign(row, { status: 'settled', assistant_message: args.p_assistant_message, input_tokens: args.p_input_tokens,
-        output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model,
+        output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model, elicitation: args.p_elicitation,
         actual_micros: result.actualMicros, charged_credits: result.chargedCredits, overrun_micros: result.overrunMicros });
       if (row.billing === 'fuel') {
         const entry = funding.get(row.project_id);
@@ -135,6 +137,13 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     provisionVolunteer: async (email) => {
       const session = await needs.provisionVolunteer(email);
       actors.set(session.sessionId, { session, organizationId: null, role: 'member', type: 'volunteer', emailVerified: true });
+      return session;
+    },
+    signInAgain: async (email) => {
+      const session = await needs.signInAgain(email);
+      const actor = [...actors.values()].find((entry) => entry.session.accountId === session.accountId);
+      if (!actor) throw new Error('no Discovery actor for the new session');
+      actors.set(session.sessionId, { ...actor, session });
       return session;
     },
     setMembershipRoleAsOperator: async (org, account, role) => {
@@ -196,8 +205,13 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
             media_type: f.mediaType, byte_size: f.byteSize, description: f.description, added_by_account_id: f.addedByAccountId, added_at: f.addedAt })),
           tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
+        discoveryAllowance: async (organizationId) => {
+          const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
+          const result = await organizations.readAllowance(original.session, organizationId);
+          return result.ok ? { ok: true, value: sqlAllowance(result.allowance) } : { ok: false, detail: result.reason };
+        },
       };
-      const prepared = await discoveryPrepare(opts.vendors.anthropic)(caller, decision.args, reads);
+      const prepared = await discoveryPrepare(opts.vendors.anthropic, skills)(caller, decision.args, reads);
       if (!prepared.ok) return prepared;
       const reserved = await reserve(prepared.args);
       if (!reserved.ok) return reserved;
@@ -206,7 +220,25 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const result = await settle(acted.args);
       return acted.failure === null ? result : { ok: false, kind: 'refused', status: 502, reason: acted.failure };
     },
-    readConversation: later, setEmailVerifiedAsOperator: later,
+    readConversation: async (session, projectId) => {
+      const need = await needs.readNeed(session, projectId);
+      if (!need.ok) return need;
+      const actor = session && actors.get(session.sessionId);
+      if (!actor) return { ok: false, answer: { status: 401, body: JSON.stringify({ ok: false, reason: 'authenticate before Discovery' }) } };
+      const answer = await conversationAnswer({
+        project: async () => ({ ok: true, rows: [{ id: projectId, name: need.value.need.title,
+          org_id: need.value.need.organizationId, assigned_volunteer_id: null }] }),
+        discoveryTurnsOf: async () => ({ ok: true, rows: structuredClone(turns.get(projectId) ?? []) }),
+        discoveryAllowance: async (organizationId) => {
+          const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
+          const result = await organizations.readAllowance(original.session, organizationId);
+          return result.ok ? { ok: true, value: sqlAllowance(result.allowance) } : { ok: false, detail: result.reason };
+        },
+      }, projectId);
+      const raw = { status: answer.status, body: JSON.stringify(answer.body) };
+      return answer.status === 200 ? { ok: true, value: answer.body, answer: raw } : { ok: false, answer: raw };
+    },
+    setEmailVerifiedAsOperator: later,
     setProjectFundingAsOperator: async (projectId, value) => {
       if (value.fundedAt === null) funding.delete(projectId);
       else funding.set(projectId, { fundedAt: value.fundedAt, fuelMicros: value.fuelMicros });
@@ -216,7 +248,30 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return entry === undefined ? { fundedAt: null, fuelMicros: 0 } : { ...entry };
     },
     setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
-    seedTurnsAsOperator: later, spendLedgerInvariantProblems: later,
+    seedTurnsAsOperator: async (projectId, seeds) => {
+      const need = await needs.needRow(projectId);
+      if (!need) throw new Error('no need for seeded turns');
+      const settings = reserveSettings();
+      const rows = turns.get(projectId) ?? [];
+      for (const seed of seeds) {
+        const estimatedInputTokens = countedInputTokens(seed.usage.inputTokens);
+        const maxOutputTokens = Math.max(settings.max_output_tokens, seed.usage.outputTokens);
+        const bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
+        const cost = settlementFor({ ...bound, billing: 'free', usage: seed.usage });
+        rows.push({ id: crypto.randomUUID(), project_id: projectId, org_id: need.organizationId,
+          seq: (rows.at(-1)?.seq ?? 0) + 1, status: 'settled', billing: 'free', utc_day: now().slice(0, 10),
+          user_message: seed.message, assistant_message: seed.reply, elicitation: null,
+          request_settings: { model: settings.model, max_tokens: maxOutputTokens, effort: settings.effort },
+          max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
+          micros_per_credit: settings.micros_per_credit, input_micros_per_token: settings.input_micros_per_token,
+          output_micros_per_token: settings.output_micros_per_token, reserved_micros: bound.reservedMicros,
+          reserved_credits: bound.reservedCredits, input_tokens: seed.usage.inputTokens, output_tokens: seed.usage.outputTokens,
+          stop_reason: 'end_turn', served_model: settings.model, actual_micros: cost.actualMicros,
+          charged_credits: cost.chargedCredits, overrun_micros: cost.overrunMicros, opened_at: now(), settled_at: now() });
+      }
+      turns.set(projectId, rows);
+    },
+    spendLedgerInvariantProblems: later,
   };
   return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); funding.clear(); } };
 }

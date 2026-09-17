@@ -30,6 +30,7 @@
  */
 
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
+import * as discoveryStream from './discovery-stream.ts';
 import type { CallerReads, ReadResult } from './tenant-reads.ts';
 import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
 import {
@@ -378,6 +379,48 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
       return json({ ok: false, kind, reason: outcome.message }, status);
     }
 
+    if (spec.settle?.stream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {
+      const settle = spec.settle;
+      const streamAct = settle.stream!;
+      const reserved = outcome.value;
+      const args = decision.args;
+      const abort = new AbortController();
+      let cancelled = false;
+      let work: Promise<void>;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const encoder = new TextEncoder();
+          const emit = (line: string) => { if (!cancelled) controller.enqueue(encoder.encode(line)); };
+          work = (async () => {
+            const id = crypto.randomUUID();
+            emit(discoveryStream.start(id));
+            emit(discoveryStream.textStart(id));
+            try {
+              const acted = await streamAct(reserved, args, (delta) => emit(discoveryStream.textDelta(id, delta)), abort.signal);
+              emit(discoveryStream.textEnd(id));
+              if (acted.failure !== null) emit(discoveryStream.error(acted.failure));
+              if (acted.args !== null) {
+                const settled = await callDatabaseFunction(settle.rpc, acted.args);
+                if (!settled.ok) emit(discoveryStream.error(settled.message));
+                else if (acted.failure === null) emit(discoveryStream.dataTurn({ ok: true, ...(spec.render ? spec.render(settled.value) : {}) }));
+              } else if (acted.failure === null) emit(discoveryStream.error('the provider outcome is uncertain'));
+            } catch (error) {
+              emit(discoveryStream.error(error instanceof Error ? error.message : String(error)));
+            } finally {
+              emit(discoveryStream.finish());
+              emit(discoveryStream.done());
+              if (!cancelled) controller.close();
+            }
+          })();
+        },
+        cancel() {
+          cancelled = true;
+          abort.abort();
+          EdgeRuntime.waitUntil(work);
+        },
+      });
+      return new Response(body, { headers: { ...CORS_HEADERS, ...discoveryStream.DISCOVERY_STREAM_HEADERS } });
+    }
     if (spec.settle) {
       const acted = await spec.settle.act(outcome.value, decision.args);
       if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', 502);
@@ -414,7 +457,17 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
   return {
     discoveryTurnsOf: (projectId) =>
-      restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&status=eq.settled&order=seq`, { headers }),
+      restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&order=seq`, { headers }),
+    discoveryAllowance: async (organizationId) => {
+      const response = await fetch(`${base}/rpc/viewer_discovery_allowance`, {
+        method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ p_organization_id: organizationId }),
+      });
+      const text = await response.text();
+      if (!response.ok) return { ok: false, detail: text };
+      try { return { ok: true, value: JSON.parse(text) }; }
+      catch { return { ok: false, detail: text }; }
+    },
     need: (projectId) =>
       restJson(
         `${base}/need_intakes?project_id=eq.${encodeURIComponent(projectId)}&select=project_id,description,urgency,stage,cause_labels,reference_files,tier2_classified_at,submitted_at,updated_at`,

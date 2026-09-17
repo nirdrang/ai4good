@@ -1,7 +1,7 @@
 import type { NeedsSut, Session, WriteRefusal, NeedUrgency, TenantReadOutcome } from '../req-003/_contract.ts';
 import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import type { ModelUsage } from '../../../../supabase/functions/_shared/discovery-metering.ts';
-import type { DiscoveryTurnView, Elicitation, Reservation } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import type { DiscoveryTurnView, Elicitation, Reservation, DiscoveryConversationView } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 export type { Session, WriteRefusal, SpendRow, ModelUsage, DiscoveryTurnView, Elicitation, Reservation };
 export type IntakeFixture = { title: string; description: string; urgency?: NeedUrgency };
 export type DiscoveryMessageRequest = { organizationId: string; projectId: string; message: string };
@@ -11,7 +11,7 @@ export type DiscoveryMessageOutcome = {
 export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; countedInputTokens?: number; countedThroughSeq?: number };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
 export type OperatorSettleInput = { accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage };
-export type DiscoveryConversationView = { projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null };
+export type { DiscoveryConversationView };
 export type DiscoverySwitchOutcome = { ok: true; organizationId: string; discoveryEnabled: boolean; changed: boolean; disabledAt: string | null } | WriteRefusal;
 export type DiscoverySwitchAuditRow = { id: string; actorAccountId: string | null; subjectOrgId: string; reason: string; detail: { enabled: boolean; previously_disabled_at: string | null } };
 export type DiscoverySut = NeedsSut & {
@@ -26,7 +26,7 @@ export type DiscoverySut = NeedsSut & {
   reserveTurnAsOperator(input: OperatorReserveInput): Promise<OperatorReserveOutcome>;
   settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
-  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView }>>;
+  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance }>>;
   setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;
   projectFundingAsOperator(projectId: string): Promise<{ fundedAt: string | null; fuelMicros: number }>;
   setDiscoverySwitch(session: Session | null, request: { organizationId: string; enabled: boolean; reason: string }): Promise<DiscoverySwitchOutcome>;

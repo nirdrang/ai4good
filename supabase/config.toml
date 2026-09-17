@@ -583,3 +583,6 @@ enabled = true
 
 [functions.discovery-message]
 verify_jwt = true
+
+[functions.discovery-conversation]
+verify_jwt = true

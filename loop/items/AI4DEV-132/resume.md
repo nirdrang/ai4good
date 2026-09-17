@@ -11,7 +11,7 @@ over anything that disagrees with it, and it names `design/candidate-4-reserve-s
 its base. The founder ruled at the design gate (commit `71f5cb8`): the official SDK for the
 model client, refusal fallbacks on, skills as prompt files.
 
-**Units done: three.**
+**Units done: four.**
 
 | what | commit | acceptance ids green |
 |---|---|---|
@@ -19,6 +19,7 @@ model client, refusal fallbacks on, skills as prompt files.
 | unit 1, per-turn metering with a reserved turn record, plus its fix commit | `d925dad`, `000a22d` | AT-004.01, .02, .08, .47, .49 at loop; .01, .08, .47, .49 at integration, .02 pending on `ui.discovery-surface`; AT-001.10 turned green at integration |
 | unit 2, funded projects route to fuel and never the free pool | `e601230` | AT-004.04, .05, .06, .48, .09 at loop; .48 at integration, the other four pending on `checkout.project-fuel` (and `billing.funded-turn` for .04, .05, .06) |
 | unit 3, zero-credit remedies by tier | `dd75526` | AT-004.03a, .03b at loop; both pending on `ui.discovery-surface` at integration after the operator proof |
+| unit 4, the conversation on Opus, persisted, resumable, streamed, plus its fix commit | `c2353b3`, `de4f2ba` | AT-004.10, .11 at loop; .11 at integration, .10 pending on `vendors.anthropic`; streaming and the live Opus call unverified at runtime (no key yet); the grant-tracker fixture is handwritten |
 
 Item branch `nirdrang/ai4dev-132-credits-engine-and-funded-routing-d1`. The brief commit is
 `4ddf524`; `6ead3d0` carries the sheet change (the writer row is grok at xhigh again). The lane
@@ -103,6 +104,7 @@ bun run at:verify req-016 --tier integration --expect
 - An integration run resets the stack; a check that starts in that window reports every id
   red with a 502. Run it again before looking for a cause.
 - The PR body must not name any id but the parent's. Units are named in words.
+
 
 
 

@@ -222,6 +222,7 @@ export type WriteRouteDecision<Args> =
       readonly status: number;
     };
 
+export type SettleActResult = { readonly args: Record<string, unknown> | null; readonly failure: string | null };
 export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
   readonly target?: (body: Record<string, unknown>) => string | null;
@@ -232,7 +233,8 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   readonly prepare?: (caller: Caller, args: Args, reads: CallerReads) => Promise<WriteRouteDecision<Args>>;
   readonly settle?: {
     readonly rpc: string;
-    readonly act: (reserved: unknown, args: Args) => Promise<{ readonly args: Record<string, unknown> | null; readonly failure: string | null }>;
+    readonly act: (reserved: unknown, args: Args) => Promise<SettleActResult>;
+    readonly stream?: (value: unknown, args: Args, onDelta: (text: string) => void, signal: AbortSignal) => Promise<SettleActResult>;
   };
   readonly render?: (value: unknown) => Record<string, unknown>;
 };
