@@ -2,10 +2,8 @@
   "requirement": "004",
   "tiers": {
     "loop": {
-      "green": ["AT-004.01","AT-004.02","AT-004.04","AT-004.05","AT-004.06","AT-004.08","AT-004.09","AT-004.47","AT-004.48","AT-004.49"],
+      "green": ["AT-004.01","AT-004.02","AT-004.03a","AT-004.03b","AT-004.04","AT-004.05","AT-004.06","AT-004.08","AT-004.09","AT-004.47","AT-004.48","AT-004.49"],
       "red": {
-        "AT-004.03a": {"kind":"pending","phase":"sut-missing"},
-        "AT-004.03b": {"kind":"pending","phase":"sut-missing"},
         "AT-004.10": {"kind":"pending","phase":"sut-missing"},
         "AT-004.11": {"kind":"pending","phase":"sut-missing"},
         "AT-004.12": {"kind":"capability-pending","capabilities":["discovery.guardrails"]},
@@ -58,8 +56,8 @@
       "green": ["AT-004.01","AT-004.08","AT-004.47","AT-004.48","AT-004.49"],
       "red": {
         "AT-004.02": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
-        "AT-004.03a": {"kind":"pending","phase":"sut-missing"},
-        "AT-004.03b": {"kind":"pending","phase":"sut-missing"},
+        "AT-004.03a": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
+        "AT-004.03b": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
         "AT-004.04": {"kind":"capability-pending","capabilities":["checkout.project-fuel","billing.funded-turn"]},
         "AT-004.05": {"kind":"capability-pending","capabilities":["checkout.project-fuel","billing.funded-turn"]},
         "AT-004.06": {"kind":"capability-pending","capabilities":["checkout.project-fuel","billing.funded-turn"]},
