@@ -1045,6 +1045,15 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           });
           return answer.ok ? { ok: true } : answer.refusal;
         },
+        'set-organization-discovery': async () => {
+          if (subject.route !== 'set-organization-discovery') throw new Error('unreachable');
+          const answer = await postWrite('set-organization-discovery', session, {
+            organizationId: subject.organizationId,
+            enabled: subject.enabled,
+            reason: subject.reason,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
         'discovery-allowance': async () => {
           if (subject.route !== 'discovery-allowance') throw new Error('unreachable');
           const body: Record<string, unknown> = { organizationId: subject.organizationId, action: subject.action };

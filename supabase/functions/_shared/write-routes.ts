@@ -69,6 +69,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'discovery_turn_reserve' },
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
+  'set-organization-discovery': {
+    surface: { kind: 'edge', rpc: 'set_organization_discovery' },
+    standing: { kind: 'account-required', admits: ['platform_admin'] },
+  },
 } as const satisfies Record<string, { surface: RouteSurface; standing: RouteStanding }>;
 
 export type WriteRouteName = keyof typeof WRITE_ROUTES;
@@ -104,6 +108,7 @@ export const WRITE_REFUSAL_KINDS = [
   'turn-not-open',
   'stale-context',
   'fuel-exhausted',
+  'discovery-disabled',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];

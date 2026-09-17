@@ -586,3 +586,6 @@ verify_jwt = true
 
 [functions.discovery-conversation]
 verify_jwt = true
+
+[functions.set-organization-discovery]
+verify_jwt = true

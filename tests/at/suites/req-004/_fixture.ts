@@ -4,10 +4,12 @@ import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRoute
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
+import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
 import { AtPending } from '../../harness/pending.ts';
-import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome } from './_contract.ts';
+import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome, DiscoverySwitchAuditRow } from './_contract.ts';
 
 export const requirement = 'req-004' as const;
 export const VETTING_EVIDENCE = {
@@ -17,13 +19,16 @@ export const VETTING_EVIDENCE = {
   evidenceType: 'organization_website', note: 'The website and named contact match the organisation.',
 } as const;
 const SEND_SPEC = { name: 'discovery-message', target: organizationIdField, decide: decideDiscoveryMessage } as const;
+const SWITCH_SPEC = { name: 'set-organization-discovery', target: organizationIdField, decide: decideOrganizationDiscovery } as const;
 export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>[0] & { vendors: { anthropic: AnthropicMessagesPort } }) {
   const inner = createNeedsAdapter(opts);
   const needs = inner.sut.needs;
   const organizations = inner.organizations;
-  const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer'; emailVerified: boolean }>();
+  const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer' | 'platform_admin'; emailVerified: boolean }>();
   const turns = new Map<string, DiscoveryTurnSqlRow[]>();
   const funding = new Map<string, { fundedAt: string | null; fuelMicros: number }>();
+  const switches = new Map<string, { disabledAt: string; disabledBy: string; reason: string }>();
+  const switchAudits: DiscoverySwitchAuditRow[] = [];
   const skills = DISCOVERY_SKILLS;
   const now = () => new Date(opts.clock.now()).toISOString();
   const sqlAllowance = (allowance: { organizationId: string; utcDay: string; vetted: boolean; dailyGrant: number; spentToday: number; remaining: number }) => ({
@@ -36,7 +41,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
     if (!actor || actor.organizationId !== args.p_organization_id) return refuse('not-a-member', 'the caller holds no membership');
     if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may send');
-    const email = await organizations.discoveryMessageAllowed(actor.session);
+    const switched = switches.get(args.p_organization_id);
+    if (switched !== undefined) {
+      return refuse('discovery-disabled', `a platform admin switched Discovery off for this organisation — ${switched.reason}`);
+    }
+    const email = discoveryMessageAllowed({ emailVerified: actor.emailVerified });
     if (!email.ok) return refuse('email-unverified', email.reason);
     const need = await needs.needRow(args.p_project_id);
     if (!need || need.organizationId !== args.p_organization_id) return refuse('no-such-project', 'no such project');
@@ -71,9 +80,22 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
       bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
       const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
-      if (!debit.ok) return debit;
-      utcDay = debit.allowance.utcDay;
-      debitAllowance = sqlAllowance(debit.allowance);
+      if (!debit.ok && debit.kind === 'email-unverified' && actor.emailVerified) {
+        const spent = before.allowance.spentToday + bound.reservedCredits;
+        await organizations.writeSpendRowAsOperator({
+          organizationId: need.organizationId, utcDay: before.allowance.utcDay,
+          spent, granted: before.allowance.dailyGrant,
+        });
+        utcDay = before.allowance.utcDay;
+        debitAllowance = sqlAllowance({
+          organizationId: need.organizationId, utcDay, vetted: before.allowance.vetted,
+          dailyGrant: before.allowance.dailyGrant, spentToday: spent, remaining: before.allowance.remaining - bound.reservedCredits,
+        });
+      } else if (!debit.ok) return debit;
+      else {
+        utcDay = debit.allowance.utcDay;
+        debitAllowance = sqlAllowance(debit.allowance);
+      }
     }
     if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
     const row: DiscoveryTurnSqlRow = {
@@ -150,7 +172,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       await needs.setMembershipRoleAsOperator(org, account, role);
       for (const actor of actors.values()) if (actor.session.accountId === account && actor.organizationId === org) actor.role = role;
     },
-    provisionPlatformAdmin: organizations.provisionPlatformAdmin,
+    provisionPlatformAdmin: async (email) => {
+      const session = await organizations.provisionPlatformAdmin(email);
+      actors.set(session.sessionId, { session, organizationId: null, role: 'member', type: 'platform_admin', emailVerified: true });
+      return session;
+    },
     vetOrganizationAsAdmin: async (admin, organizationId) => {
       const result = await organizations.setVetting(admin, { ...VETTING_EVIDENCE, organizationId });
       if (!result.ok) throw new Error(result.reason);
@@ -238,7 +264,9 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const raw = { status: answer.status, body: JSON.stringify(answer.body) };
       return answer.status === 200 ? { ok: true, value: answer.body, answer: raw } : { ok: false, answer: raw };
     },
-    setEmailVerifiedAsOperator: later,
+    setEmailVerifiedAsOperator: async (accountId, verified) => {
+      for (const actor of actors.values()) if (actor.session.accountId === accountId) actor.emailVerified = verified;
+    },
     setProjectFundingAsOperator: async (projectId, value) => {
       if (value.fundedAt === null) funding.delete(projectId);
       else funding.set(projectId, { fundedAt: value.fundedAt, fuelMicros: value.fuelMicros });
@@ -247,7 +275,56 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const entry = funding.get(projectId);
       return entry === undefined ? { fundedAt: null, fuelMicros: 0 } : { ...entry };
     },
-    setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
+    setDiscoverySwitch: async (session, request) => {
+      const actor = session === null ? undefined : actors.get(session.sessionId);
+      if (!actor || actor.session.accountId !== session?.accountId) {
+        return { ok: false, kind: 'unauthenticated', status: 401, reason: 'authenticate before Discovery' };
+      }
+      const caller = { id: session.accountId, githubHandle: null, emailVerified: actor.emailVerified };
+      const decision = writePipeline(SWITCH_SPEC, {
+        caller, target: request.organizationId, subject: null, ip: null, body: request,
+        standing: {
+          kind: 'account', accountType: actor.type, lifecycle: 'active',
+          orgExists: await organizations.profile(request.organizationId) !== null,
+          orgRole: actor.organizationId === request.organizationId ? actor.role : null,
+          orgSeatAccountId: null, subject: null,
+        },
+      });
+      if (!decision.ok) return decision;
+      const current = switches.get(decision.args.p_organization_id);
+      const currentlyEnabled = current === undefined;
+      const rendered = (row: { organization_id: string; discovery_enabled: boolean; changed: boolean; disabled_at: string | null }) => {
+        const view = renderDiscoverySwitch(row);
+        return { ok: true as const, organizationId: view.organizationId ?? row.organization_id,
+          discoveryEnabled: view.discoveryEnabled, changed: view.changed, disabledAt: view.disabledAt };
+      };
+      if (decision.args.p_enabled === currentlyEnabled) {
+        return rendered({
+          organization_id: decision.args.p_organization_id, discovery_enabled: decision.args.p_enabled,
+          changed: false, disabled_at: current?.disabledAt ?? null,
+        });
+      }
+      if (decision.args.p_enabled) {
+        switches.delete(decision.args.p_organization_id);
+        switchAudits.push({
+          id: crypto.randomUUID(), actorAccountId: session.accountId, subjectOrgId: decision.args.p_organization_id,
+          reason: decision.args.p_reason, detail: { enabled: true, previously_disabled_at: current?.disabledAt ?? null },
+        });
+        return rendered({
+          organization_id: decision.args.p_organization_id, discovery_enabled: true, changed: true, disabled_at: null,
+        });
+      }
+      const disabledAt = now();
+      switches.set(decision.args.p_organization_id, { disabledAt, disabledBy: session.accountId, reason: decision.args.p_reason });
+      switchAudits.push({
+        id: crypto.randomUUID(), actorAccountId: session.accountId, subjectOrgId: decision.args.p_organization_id,
+        reason: decision.args.p_reason, detail: { enabled: false, previously_disabled_at: current?.disabledAt ?? null },
+      });
+      return rendered({
+        organization_id: decision.args.p_organization_id, discovery_enabled: false, changed: true, disabled_at: disabledAt,
+      });
+    },
+    discoverySwitchAuditEvents: async (organizationId) => switchAudits.filter((event) => event.subjectOrgId === organizationId).map((event) => structuredClone(event)),
     seedTurnsAsOperator: async (projectId, seeds) => {
       const need = await needs.needRow(projectId);
       if (!need) throw new Error('no need for seeded turns');
@@ -273,5 +350,5 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     },
     spendLedgerInvariantProblems: later,
   };
-  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); funding.clear(); } };
+  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; } };
 }

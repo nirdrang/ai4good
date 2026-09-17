@@ -53,6 +53,7 @@ project is still operator SQL (see `project-workspace.md`).
 | Discovery allowance (daily credits, read and debit) | [discovery-allowance.md](discovery-allowance.md) |
 | Discovery message (count, reserve, reply and settle) | [discovery-message.md](discovery-message.md) |
 | Discovery conversation (history, elicitation and today's allowance) | [discovery-conversation.md](discovery-conversation.md) |
+| Set organization Discovery (admin per-NGO switch, audited) | [set-organization-discovery.md](set-organization-discovery.md) |
 
 Not mapped yet, deliberately: the web UI (a placeholder page today) and the Google/GitHub
 OAuth round trips. Consent is a human browser step. Configuration well-formedness is checkable;

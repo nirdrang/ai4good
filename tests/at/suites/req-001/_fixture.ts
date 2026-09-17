@@ -246,6 +246,10 @@ import {
   decideOrganizationVetting,
   type OrganizationVettingArgs,
 } from '../../../../supabase/functions/_shared/org-vetting.ts';
+import {
+  decideOrganizationDiscovery,
+  type OrganizationDiscoveryArgs,
+} from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
@@ -760,6 +764,11 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     name: 'set-organization-vetting',
     target: organizationIdField,
     decide: decideOrganizationVetting,
+  };
+  const ORGANIZATION_DISCOVERY: WriteRouteSpec<OrganizationDiscoveryArgs, AccountWriteRouteInput> = {
+    name: 'set-organization-discovery',
+    target: organizationIdField,
+    decide: decideOrganizationDiscovery,
   };
   const DISCOVERY_ALLOWANCE: WriteRouteSpec<DiscoveryAllowanceArgs, AccountWriteRouteInput> = {
     name: 'discovery-allowance',
@@ -1775,6 +1784,17 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
               evidenceType: subject.evidenceType,
               note: subject.note,
             },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
+        },
+        'set-organization-discovery': async () => {
+          if (subject.route !== 'set-organization-discovery') throw new Error('unreachable');
+          const run = runWrite(
+            ORGANIZATION_DISCOVERY,
+            session,
+            { organizationId: subject.organizationId, enabled: subject.enabled, reason: subject.reason },
             null,
           );
           if (!run.ok) return run;

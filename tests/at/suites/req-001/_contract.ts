@@ -335,6 +335,12 @@ export type WriteSubject =
       readonly note: string;
     }
   | {
+      readonly route: 'set-organization-discovery';
+      readonly organizationId: string;
+      readonly enabled: boolean;
+      readonly reason: string;
+    }
+  | {
       readonly route: 'discovery-allowance';
       readonly organizationId: string;
       readonly action: 'read' | 'debit';

@@ -2283,6 +2283,8 @@ function deactivatedSubject(
         evidenceType: 'organization_website',
         note: `deactivated vet ${tag}`,
       };
+    case 'set-organization-discovery':
+      return { route, organizationId: actors.transferOrg, enabled: true, reason: `deactivated discovery ${tag}` };
     case 'discovery-allowance':
       return { route, organizationId, action: 'read' };
     case 'discovery-message':
@@ -2307,6 +2309,8 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
     case 'set-account-lifecycle':
       return { account: await sut.account(subject.accountId) };
     case 'set-organization-vetting':
+      return { audit: await sut.auditEvents({ subjectOrgId: subject.organizationId }) };
+    case 'set-organization-discovery':
       return { audit: await sut.auditEvents({ subjectOrgId: subject.organizationId }) };
     case 'discovery-allowance':
       return { organization: await sut.organization(subject.organizationId) };
@@ -2422,6 +2426,16 @@ async function provisionActiveControl(
           evidenceType: 'organization_website',
           note: `founder vet ${tag}`,
         },
+      };
+    }
+    case 'set-organization-discovery': {
+      const admin = await sut.provisionPlatformAdmin(w.email(`disc-switch-admin-${tag}`), PASSWORD);
+      const ngo = await signIn(w.email(`disc-switch-org-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Discovery Switch Host ${tag}`);
+      return {
+        session: admin,
+        subject: { route, organizationId, enabled: true, reason: `founder discovery switch ${tag}` },
       };
     }
     case 'discovery-allowance': {

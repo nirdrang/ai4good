@@ -9,7 +9,7 @@ const systemFor = (request: DiscoveryModelRequest) => request.system.map((block)
   ...(block.cached ? { cache_control: { type: 'ephemeral' as const } } : {}),
 }));
 const paramsFor = (request: DiscoveryModelRequest) => ({
-  model: DISCOVERY_CLIENT_MODEL, max_tokens: request.maxTokens, system: systemFor(request),
+  model: Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL, max_tokens: request.maxTokens, system: systemFor(request),
   messages: request.messages, tools: request.tools, output_config: { effort: request.effort },
   betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const,
 });
@@ -32,7 +32,7 @@ export function anthropicMessagesPort(): MessagesPort {
     },
     countTokens: async (request) => {
       const count = await clientForCall().messages.countTokens({
-        model: DISCOVERY_CLIENT_MODEL, system: systemFor(request), messages: request.messages, tools: request.tools,
+        model: Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL, system: systemFor(request), messages: request.messages, tools: request.tools,
       });
       return count.input_tokens;
     },

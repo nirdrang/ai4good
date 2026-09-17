@@ -54,7 +54,8 @@ answers 404. With token counting available, an unverified email answers 409
 `email-unverified` with the verification remedy. A draft need answers `need-not-in-discovery`.
 A second send while a young turn is open answers `turn-in-flight`. A stale counted sequence
 answers `stale-context`. Settling twice answers `turn-not-open`. A funded project with no
-fuel left answers `fuel-exhausted`. An unaffordable minimum
+fuel left answers `fuel-exhausted`. A platform admin switch off for the organisation
+answers `discovery-disabled`. An unaffordable minimum
 turn answers the existing allowance refusal and writes nothing. A last-credit turn may
 instead lower its output cap. Settled turns reject updates and every turn rejects deletion.
 

@@ -1,11 +1,12 @@
 import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
-import { functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
+import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
 import { AtPending, CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
 import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
-import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, WriteRefusal } from './_contract.ts';
+import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
+import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal } from './_contract.ts';
 import type { Allowance } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 
 export const requirement = 'req-004' as const;
@@ -20,9 +21,22 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
   };
   const decoded = (value: unknown): unknown => typeof value === 'string' ? JSON.parse(value) : value;
   const later = async (): Promise<never> => { throw new AtPending('AT-004', 'sut-missing', 'lands in a later unit of this run'); };
+  const PASSWORD = 'correct horse battery staple';
+  const adminTokens = new Map<string, string>();
+  const bearerFor = (session: Parameters<DiscoverySut['sendMessage']>[0]): string => {
+    if (session === null) return inner.bearerOf(session);
+    return adminTokens.get(session.sessionId) ?? inner.bearerOf(session);
+  };
   const sut: DiscoverySut = {
     ...needs,
-    provisionPlatformAdmin: organizations.provisionPlatformAdmin,
+    provisionPlatformAdmin: async (email) => {
+      const session = await organizations.provisionPlatformAdmin(email);
+      const signedIn = await authPost(opts.stack, '/auth/v1/token?grant_type=password', { email, password: PASSWORD });
+      const token = String(signedIn.json.access_token ?? '');
+      if (!token) throw new Error('a provisioned platform administrator could not sign in');
+      adminTokens.set(session.sessionId, token);
+      return session;
+    },
     vetOrganizationAsAdmin: async (admin, organizationId) => {
       const result = await organizations.setVetting(admin, {
         organizationId, action: 'vet', organizationName: 'Riverside Shelter', publicReferenceUrl: 'https://example.org/riverside',
@@ -99,7 +113,14 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       if (value.ok !== true || !value.conversation || !value.allowance) throw new Error('discovery-conversation returned no conversation or allowance');
       return { ok: true, value, answer };
     },
-    setEmailVerifiedAsOperator: later,
+    setEmailVerifiedAsOperator: async (accountId, verified) => {
+      const rows = verified
+        ? await sql`update auth.users set email_confirmed_at = coalesce(email_confirmed_at, clock_timestamp())
+            where id = ${accountId}::uuid returning id` as { id: string }[]
+        : await sql`update auth.users set email_confirmed_at = null
+            where id = ${accountId}::uuid returning id` as { id: string }[];
+      if (rows.length !== 1) throw new Error('no auth user whose email confirmation could be set');
+    },
     setProjectFundingAsOperator: async (projectId, value) => {
       if (value.fuelMicros > 0) throw new CapabilityPending([AWAITED.projectFuelCheckout]);
       const rows = value.fundedAt === null
@@ -116,7 +137,41 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         fuelMicros: Number(rows[0].fuel_micros),
       };
     },
-    setDiscoverySwitch: later, discoverySwitchAuditEvents: later,
+    setDiscoverySwitch: async (session, request) => {
+      const answer = await functionPost(opts.stack, 'set-organization-discovery', request, bearerFor(session));
+      if (answer.json.ok !== true) return { ok: false, status: answer.status,
+        kind: answer.status === 401 ? 'unauthenticated' : parseWriteRefusalKind(answer.json.kind),
+        reason: String(answer.json.reason ?? answer.json.message) };
+      const rendered = renderDiscoverySwitch({
+        organization_id: answer.json.organizationId ?? request.organizationId,
+        discovery_enabled: answer.json.discoveryEnabled,
+        changed: answer.json.changed,
+        disabled_at: answer.json.disabledAt,
+      });
+      return { ok: true, organizationId: rendered.organizationId ?? request.organizationId,
+        discoveryEnabled: rendered.discoveryEnabled, changed: rendered.changed, disabledAt: rendered.disabledAt };
+    },
+    discoverySwitchAuditEvents: async (organizationId) => {
+      const rows = await sql`select id, actor_account_id, subject_org_id, reason, detail
+        from public.audit_events
+       where event_kind = 'org_discovery_switched' and subject_org_id = ${organizationId}::uuid
+       order by occurred_at, id` as {
+        id: string; actor_account_id: string | null; subject_org_id: string; reason: string; detail: unknown;
+      }[];
+      return rows.map((row): DiscoverySwitchAuditRow => {
+        const detail = (typeof row.detail === 'string' ? JSON.parse(row.detail) : row.detail) as Record<string, unknown>;
+        return {
+          id: String(row.id),
+          actorAccountId: row.actor_account_id === null ? null : String(row.actor_account_id),
+          subjectOrgId: String(row.subject_org_id),
+          reason: row.reason,
+          detail: {
+            enabled: detail.enabled === true,
+            previously_disabled_at: detail.previously_disabled_at == null ? null : String(detail.previously_disabled_at),
+          },
+        };
+      });
+    },
     seedTurnsAsOperator: async (projectId, seeds) => {
       await sql.begin(async (tx) => {
         const projects = await tx`select org_id from public.projects where id = ${projectId}::uuid for update` as { org_id: string }[];
@@ -146,5 +201,5 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     spendLedgerInvariantProblems: later,
   };
   return { sut: { discovery: sut }, fixtures: inner.fixtures,
-    teardown: async () => { try { await inner.teardown(); } finally { await sql.close(); } } };
+    teardown: async () => { try { await inner.teardown(); } finally { await sql.close(); adminTokens.clear(); } } };
 }
