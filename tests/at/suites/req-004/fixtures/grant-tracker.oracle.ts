@@ -6,7 +6,6 @@ const facts = [
   { name: 'no developer', matches: (text: string) => /no developer|without (?:a )?developer|no .*technical|without coding/i.test(text) },
   { name: 'reminders before deadlines', matches: (text: string) => /remind|email|notif/i.test(text) && /before|advance/i.test(text) && /deadline|due|report/i.test(text) },
 ];
-// A fixture-specific vocabulary makes an extra feature fail even when its story also mentions deadlines.
 const allowed = new Set(`a an the as i we us our my one two 2 both all each every only and or to for of in on at by with without no not
 want need needs should must can able be is are has have so that when before after seven 7 days day week time
 staff member members person people colleague colleagues ngo developer developers technical coding code writing maintain maintenance

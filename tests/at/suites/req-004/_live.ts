@@ -108,8 +108,8 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       const raw = await functionPostRaw(opts.stack, 'discovery-conversation', { projectId }, inner.bearerOf(session));
       const answer = { status: raw.status, body: raw.text };
       if (raw.status !== 200) return { ok: false, answer };
-      const value = JSON.parse(raw.text) as { ok: true; conversation: DiscoveryConversationView; allowance: Allowance };
-      if (value.ok !== true || !value.conversation || !value.allowance) throw new Error('discovery-conversation returned no conversation or allowance');
+      const value = JSON.parse(raw.text) as { ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null };
+      if (value.ok !== true || !value.conversation) throw new Error('discovery-conversation returned no conversation');
       return { ok: true, value, answer };
     },
     setEmailVerifiedAsOperator: async (accountId, verified) => {

@@ -5,23 +5,7 @@
  * "never the Discovery wall" (decision-8, `.taskmaster/docs/prd-new.md` line 787). This module is
  * that floor, written as a decision rather than as a sentence in a document.
  *
- * ============================================================================================
- * THE GATE HAS NO DEPLOYED CALLER YET. IT IS THE HOOK THE DISCOVERY ROUTE MUST CALL.
- * ============================================================================================
- *
- * No Discovery surface exists anywhere in this repository — no table, no edge function, no
- * screen. The Discovery message route belongs to REQ-002/004, and
- * `.taskmaster/docs/migration-nextjs-to-tanstack-VERIFIED.md` maps it to a future
- * `discovery-message` edge function. Building that route here would be another requirement's
- * surface invented early, so this leaf ships the DECISION that route must consult and nothing
- * else. It is the same pattern the suite already ratifies for `hasPlatformAcknowledgment`
- * (`tests/at/suites/req-001/_contract.ts`): enforcement a leaf cannot build is named as the hook
- * the later leaf calls.
- *
- * SO: NO GREEN FROM THIS ITEM MAY BE READ AS "DISCOVERY MESSAGING IS GATED IN PRODUCTION."
- * What a green says is that this module answers as the two criteria require, and that the
- * acceptance suite's stand-in surface consults it. Whether the real route calls it is the real
- * route's leaf to prove, and that leaf does not exist yet.
+ * Discovery's send route calls this gate before it reserves a turn.
  *
  * THE GATE IS TYPE-BLIND, AND THAT IS A DECISION RATHER THAN AN OMISSION. Decision-8 makes
  * verification the floor for ANY Discovery message. AT-001.10's unverified-NGO subject is an

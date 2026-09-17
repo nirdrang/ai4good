@@ -33,10 +33,11 @@ still settles text and usage, with null elicitation. A tool-only answer stores a
 assistant message. Read the latest elicitation through `discovery-conversation`.
 
 Cancel a streamed response after some text arrives. Read the settled turn through the
-conversation route: partial text remains, `stopReason` is `user_stopped`, and the last
-cumulative usage is charged. If no output usage delta arrived, the output count is the
-request's full output cap. Cancellation aborts generation and settlement continues through
-the edge runtime's background task. Definite provider failures emit `error`, settle failed
+conversation route: partial text remains, `stopReason` is `user_stopped`, and the output
+count is the token count of the received text as one assistant message. If that count
+fails, the output count is the request's full output cap. The input count stays the stream
+start value. Cancellation aborts generation and settlement continues through the edge
+runtime's background task. Definite provider failures emit `error`, settle failed
 and release credits. Uncertain failures emit `error` and leave the reservation open. Both
 finish the connected stream with `finish` and `[DONE]`.
 

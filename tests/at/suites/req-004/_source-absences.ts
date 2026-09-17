@@ -1,11 +1,3 @@
-/**
- * REQ-004's absence source arms: no supplemental grant path, no platform-wide breaker,
- * free credits live outside the money ledger.
- *
- * Shared posture (throws rather than report an absence the instrument could not measure;
- * naming oracles over text): req-002 `_source-scan.ts`.
- */
-
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 import {

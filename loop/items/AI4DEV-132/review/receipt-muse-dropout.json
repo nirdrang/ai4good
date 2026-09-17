@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "opencode",
+  "model": "opencode-go/muse-spark-1.3-contributor",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132\\loop\\items\\AI4DEV-132\\review\\prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132\\loop\\items\\AI4DEV-132\\review\\muse.md",
+  "status": "unavailable-model",
+  "startedAt": "2026-09-17T07:13:37.678Z",
+  "completedAt": "2026-09-17T07:13:38.812Z",
+  "elapsedMs": 1134,
+  "executable": "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+      "models",
+      "opencode-go",
+      "--verbose"
+    ],
+    "status": "failed",
+    "evidence": "\u001b[91m\u001b[1mError: \u001b[0mUnexpected error\r\n\r\ndatabase is locked"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+    "run",
+    "--pure",
+    "--format",
+    "json",
+    "--model",
+    "opencode-go/muse-spark-1.3-contributor",
+    "--variant",
+    "xhigh",
+    "--agent",
+    "pstack-read-only",
+    "--dir",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132"
+  ],
+  "exitCode": 1,
+  "signal": null,
+  "reportedModel": null,
+  "modelVerified": false,
+  "modelEvidence": null,
+  "sessionId": null,
+  "usage": null,
+  "costUsd": null,
+  "error": {
+    "message": "authentication or model preflight failed",
+    "evidence": "\u001b[91m\u001b[1mError: \u001b[0mUnexpected error\r\n\r\ndatabase is locked"
+  }
+}

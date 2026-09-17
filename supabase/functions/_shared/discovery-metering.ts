@@ -52,7 +52,9 @@ export function settlementFor(input: {
     overrunMicros: Math.max(0, actualMicros - input.reservedMicros),
   };
 }
-export type DiscoveryReserveSettings = ReturnType<typeof reserveSettings> & { counted_input_tokens?: number };
+export type DiscoveryReserveSettings = Omit<ReturnType<typeof reserveSettings>, 'model'> & {
+  model: string; counted_input_tokens?: number;
+};
 export function reserveSettings() {
   return {
     model: DISCOVERY_REQUEST_SETTINGS.model, effort: DISCOVERY_REQUEST_SETTINGS.effort,

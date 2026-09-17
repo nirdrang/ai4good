@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "opencode",
+  "model": "opencode-go/muse-spark-1.3-contributor",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132\\loop\\items\\AI4DEV-132\\review\\prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132\\loop\\items\\AI4DEV-132\\review\\muse.md",
+  "startedAt": "2026-09-17T07:30:41.689Z",
+  "completedAt": "2026-09-17T07:36:28.797Z",
+  "elapsedMs": 347108,
+  "executable": "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+      "models",
+      "opencode-go",
+      "--verbose"
+    ],
+    "status": "passed",
+    "evidence": "model opencode-go/muse-spark-1.3-contributor lists variant xhigh"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+    "run",
+    "--pure",
+    "--format",
+    "json",
+    "--model",
+    "opencode-go/muse-spark-1.3-contributor",
+    "--variant",
+    "xhigh",
+    "--agent",
+    "pstack-read-only",
+    "--dir",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "opencode-go/muse-spark-1.3-contributor",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "ses_f51b999c9ffeqtpfnjL34krIR5",
+  "usage": {
+    "inputTokens": 197427,
+    "cachedInputTokens": 1941166,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 5696,
+    "reasoningTokens": 26536,
+    "totalTokens": 2170825
+  },
+  "costUsd": 0.030071432000000006,
+  "error": null
+}

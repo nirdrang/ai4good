@@ -1,5 +1,3 @@
-/** The platform administrator's per-organisation Discovery switch: request validation, RPC arguments and result projection. */
-
 import {
   booleanField,
   isRecord,

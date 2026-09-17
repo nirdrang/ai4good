@@ -2,6 +2,7 @@ import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.
 import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
   DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
+  contextMessagesFrom,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
@@ -99,9 +100,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     turns.set(need.projectId, [...rows, row]);
     return { ok: true, reservation: { turn: structuredClone(row),
       need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: need.referenceFiles.map((f) => f.fileName) },
-      context: [...settled.flatMap((r): { role: 'user' | 'assistant'; content: string }[] => [
-        { role: 'user', content: r.user_message }, { role: 'assistant', content: r.assistant_message! },
-      ]), { role: 'user', content: args.p_message }], allowance: debitAllowance } };
+      context: [...contextMessagesFrom(settled), { role: 'user', content: args.p_message }], allowance: debitAllowance } };
   };
   const settle = async (args: DiscoverySettleArgs): Promise<DiscoveryMessageOutcome> => {
     const row = [...turns.values()].flat().find((r) => r.id === args.p_turn_id);

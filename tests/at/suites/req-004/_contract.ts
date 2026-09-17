@@ -26,7 +26,7 @@ export type DiscoverySut = NeedsSut & {
   reserveTurnAsOperator(input: OperatorReserveInput): Promise<OperatorReserveOutcome>;
   settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
-  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance }>>;
+  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null }>>;
   setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;
   projectFundingAsOperator(projectId: string): Promise<{ fundedAt: string | null; fuelMicros: number }>;
   setDiscoverySwitch(session: Session | null, request: { organizationId: string; enabled: boolean; reason: string }): Promise<DiscoverySwitchOutcome>;

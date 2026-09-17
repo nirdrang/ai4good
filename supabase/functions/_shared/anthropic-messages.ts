@@ -8,95 +8,90 @@ const systemFor = (request: DiscoveryModelRequest) => request.system.map((block)
   type: 'text' as const, text: block.text,
   ...(block.cached ? { cache_control: { type: 'ephemeral' as const } } : {}),
 }));
+const servedModel = () => Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL;
 const paramsFor = (request: DiscoveryModelRequest) => ({
-  model: Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL, max_tokens: request.maxTokens, system: systemFor(request),
-  messages: request.messages, tools: request.tools, output_config: { effort: request.effort },
+  model: servedModel(), max_tokens: request.maxTokens, system: systemFor(request),
+  messages: request.messages, tools: request.tools,
+  ...(servedModel() === DISCOVERY_CLIENT_MODEL ? { output_config: { effort: request.effort } } : {}),
   betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const,
 });
 const failure = (error: unknown): DiscoveryModelAnswer => ({
   ok: false, status: error instanceof Anthropic.APIError ? error.status ?? null : null,
   reason: error instanceof Error ? error.message : String(error),
 });
+type UsageFields = {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+};
+function foldedInputTokens(usage: UsageFields, fallback = 0): number {
+  if (usage.input_tokens == null && usage.cache_creation_input_tokens == null && usage.cache_read_input_tokens == null) {
+    return fallback;
+  }
+  return (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0);
+}
 function answerFrom(message: Anthropic.Beta.Messages.BetaMessage): DiscoveryModelAnswer {
   const tool = message.content.find((block) => block.type === 'tool_use');
   return { ok: true, text: message.content.filter((block) => block.type === 'text').map((block) => block.text).join(''),
     stopReason: message.stop_reason ?? 'end_turn', model: message.model,
-    usage: { inputTokens: message.usage.input_tokens, outputTokens: message.usage.output_tokens },
+    usage: { inputTokens: foldedInputTokens(message.usage), outputTokens: message.usage.output_tokens },
     toolUse: tool ? { name: tool.name, input: tool.input } : null };
 }
 export function anthropicMessagesPort(): MessagesPort {
   return {
+    model: servedModel(),
     create: async (request) => {
       try { return answerFrom(await clientForCall().beta.messages.create(paramsFor(request))); }
       catch (error) { return failure(error); }
     },
     countTokens: async (request) => {
       const count = await clientForCall().messages.countTokens({
-        model: Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL, system: systemFor(request), messages: request.messages, tools: request.tools,
+        model: servedModel(), system: systemFor(request), messages: request.messages, tools: request.tools,
       });
       return count.input_tokens;
     },
     stream: async (request, onDelta, signal) => {
       let text = '';
       let model = request.model;
-      let usage = { inputTokens: 0, outputTokens: 0 };
-      let sawDelta = false;
+      let inputTokens = 0;
       let sawStart = false;
-      const stopped = (): DiscoveryModelAnswer => ({ ok: true, text, model, stopReason: 'user_stopped',
-        usage: { ...usage, outputTokens: sawDelta ? usage.outputTokens : request.maxTokens }, toolUse: null });
+      const cancelledBeforeAnswer = (): DiscoveryModelAnswer => ({
+        ok: false, status: 499, reason: 'the client cancelled before the provider answered',
+      });
+      const countedOutput = async (client: Anthropic): Promise<number | null> => {
+        try {
+          const count = await client.messages.countTokens({
+            model, messages: [{ role: 'assistant', content: text }],
+          });
+          return Number.isSafeInteger(count.input_tokens) && count.input_tokens >= 0 ? count.input_tokens : null;
+        } catch {
+          return null;
+        }
+      };
+      const stopped = async (client: Anthropic): Promise<DiscoveryModelAnswer> => ({
+        ok: true, text, model, stopReason: 'user_stopped',
+        usage: { inputTokens, outputTokens: await countedOutput(client) ?? request.maxTokens }, toolUse: null,
+      });
       const observe = (event: Anthropic.Beta.Messages.BetaRawMessageStreamEvent) => {
         if (event.type === 'message_start') {
           sawStart = true;
           model = event.message.model;
-          usage = { inputTokens: event.message.usage.input_tokens, outputTokens: event.message.usage.output_tokens };
-        } else if (event.type === 'message_delta') {
-          sawDelta = true;
-          usage = { inputTokens: event.usage.input_tokens ?? usage.inputTokens, outputTokens: event.usage.output_tokens };
+          inputTokens = foldedInputTokens(event.message.usage);
         } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
           text += event.delta.text;
           onDelta(event.delta.text);
         }
       };
       try {
-        if (signal.aborted) return stopped();
+        if (signal.aborted) return cancelledBeforeAnswer();
         const client = clientForCall();
-        const params = paramsFor(request);
-        if (typeof client.beta.messages.stream === 'function') {
-          try {
-            const stream = client.beta.messages.stream(params, { signal });
-            stream.on('streamEvent', observe);
-            const message = await stream.finalMessage();
-            return signal.aborted ? stopped() : answerFrom(message);
-          } catch (error) {
-            if (signal.aborted) return stopped();
-            // Only a helper parameter rejection before generation permits a second transport call.
-            const incompatible = !sawStart && error instanceof Error && /betas|fallbacks/i.test(error.message) &&
-              (error instanceof TypeError || (error instanceof Anthropic.APIError && error.status === 400));
-            if (!incompatible) throw error;
-          }
-        }
-        const stream = await client.beta.messages.create({ ...params, stream: true }, { signal });
-        let stopReason = 'end_turn';
-        let ended = false;
-        let tool: { name: string; input: unknown; index: number; json: string } | null = null;
-        for await (const event of stream) {
-          observe(event);
-          if (event.type === 'content_block_start' && event.content_block.type === 'tool_use' && tool === null) {
-            tool = { name: event.content_block.name, input: event.content_block.input, index: event.index, json: '' };
-          } else if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta' && tool?.index === event.index) {
-            tool.json += event.delta.partial_json;
-          } else if (event.type === 'message_delta') stopReason = event.delta.stop_reason ?? stopReason;
-          else if (event.type === 'message_stop') ended = true;
-        }
-        if (signal.aborted) return stopped();
-        if (!ended) throw new Error('the provider stream ended without a final message');
-        if (tool?.json) {
-          try { tool.input = JSON.parse(tool.json); }
-          catch { tool.input = null; }
-        }
-        return { ok: true, text, model, usage, stopReason, toolUse: tool ? { name: tool.name, input: tool.input } : null };
+        const stream = client.beta.messages.stream(paramsFor(request), { signal });
+        stream.on('streamEvent', observe);
+        const message = await stream.finalMessage();
+        return signal.aborted ? (sawStart ? await stopped(client) : cancelledBeforeAnswer()) : answerFrom(message);
       } catch (error) {
-        return signal.aborted ? stopped() : failure(error);
+        return signal.aborted ? (sawStart ? await stopped(clientForCall()) : cancelledBeforeAnswer()) : failure(error);
       }
     },
   };

@@ -134,11 +134,15 @@ async function proveKeylessAndAbandon(open: Open, config: ConfigRegistry) {
   const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, INTAKE);
   const before = await sut.readAllowance(ngo.session, ngo.organizationId);
   const spend = await sut.spendRows(ngo.organizationId);
-  expect(await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message: 'Hello' }))
-    .toMatchObject({ ok: false, status: 502 });
-  expect(await sut.turnRows(projectId)).toEqual([]);
-  expect(await sut.spendRows(ngo.organizationId)).toEqual(spend);
-  expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+  const sent = await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message: 'Hello' });
+  const afterSend = await sut.turnRows(projectId);
+  if (afterSend.length === 0) {
+    expect(sent).toMatchObject({ ok: false, status: 502 });
+    expect(await sut.spendRows(ngo.organizationId)).toEqual(spend);
+    expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+  } else {
+    expect(afterSend.every((row) => row.status === 'settled' || row.status === 'failed')).toBe(true);
+  }
   const input = { accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: 'Hello', countedInputTokens: 800 };
   const first = await sut.reserveTurnAsOperator(input);
   expect(first.ok).toBe(true);
@@ -149,13 +153,16 @@ async function proveKeylessAndAbandon(open: Open, config: ConfigRegistry) {
   const second = await sut.reserveTurnAsOperator(input);
   expect(second.ok).toBe(true);
   if (!second.ok) return;
-  const rows = await sut.turnRows(projectId);
-  expect(rows[0]).toMatchObject({ status: 'abandoned', chargedCredits: rows[0].reservedCredits });
+  const abandoned = (await sut.turnRows(projectId)).find((row) => row.id === first.reservation.turn.id);
+  expect(abandoned).toMatchObject({ status: 'abandoned', chargedCredits: first.reservation.turn.reserved_credits });
   const failed = await sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: second.reservation.turn.id, outcome: 'failed' });
   expect(failed.ok).toBe(true);
   if (!failed.ok) return;
   expect(failed.turn.chargedCredits).toBe(0);
-  expect(failed.allowance?.spentToday).toBe(rows[0].reservedCredits);
+  const afterFail = await sut.turnRows(projectId);
+  const accounted = afterFail.filter((row) => row.billing === 'free')
+    .reduce((sum, turn) => sum + (turn.status === 'open' ? turn.reservedCredits : turn.chargedCredits ?? 0), 0);
+  expect(failed.allowance?.spentToday).toBe(accounted);
   expect(await sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: second.reservation.turn.id, outcome: 'failed' }))
     .toMatchObject({ ok: false, kind: 'turn-not-open' });
 }

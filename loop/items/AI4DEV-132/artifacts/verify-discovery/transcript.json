@@ -1,0 +1,1490 @@
+{
+  "ranAt": "2026-09-17T08:20:29.943Z",
+  "ngoEmail": "verify-discovery-1789633219892@example.com",
+  "adminEmail": "verify-discovery-admin-1789633219892@example.com",
+  "orgName": "Verify Discovery Org 1789633219892",
+  "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+  "projectId1": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+  "projectId2": "2eeb638a-270f-45e3-8153-e2e3de573991",
+  "checks": [
+    {
+      "id": "a",
+      "title": "auth health answers",
+      "outcome": "pass",
+      "note": "GET /auth/v1/health -> 200"
+    },
+    {
+      "id": "a2",
+      "title": "mail identification",
+      "outcome": "pass",
+      "note": "Mailpit v1.30.2 at http://127.0.0.1:44324"
+    },
+    {
+      "id": "a3",
+      "title": "edge runtime mount",
+      "outcome": "pass",
+      "note": "edge runtime functions mount C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-132-unit0\\supabase\\functions"
+    },
+    {
+      "id": "setup-ngo",
+      "title": "NGO admin signed up, confirmed and completed",
+      "outcome": "pass",
+      "note": "organizationId 6bf56291-e56d-4e78-82b2-688843aad970"
+    },
+    {
+      "id": "setup-admin1",
+      "title": "admin user API mints a platform administrator account",
+      "outcome": "pass",
+      "note": "status 200, id issued"
+    },
+    {
+      "id": "setup-admin2",
+      "title": "accounts row: account_type=platform_admin",
+      "outcome": "pass",
+      "note": "{\"id\":\"39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9\",\"account_type\":\"platform_admin\"}"
+    },
+    {
+      "id": "setup-admin3",
+      "title": "platform administrator signs in",
+      "outcome": "pass",
+      "note": "status 200, token issued"
+    },
+    {
+      "id": "setup-needs",
+      "title": "both needs started and submitted into discovery_in_progress",
+      "outcome": "pass",
+      "note": "projectId1 94c9140d-fdb5-4c9d-b2c4-5708560bbbb4, projectId2 2eeb638a-270f-45e3-8153-e2e3de573991"
+    },
+    {
+      "id": "d1",
+      "title": "JSON send on an unfunded project answers 200 with turn, reply and allowance",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"replyLength\":272,\"turnStatus\":\"settled\",\"allowance\":{\"organizationId\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"utcDay\":\"2026-09-17\",\"vetted\":false,\"dailyGrant\":10,\"spentToday\":1,\"remaining\":9}}"
+    },
+    {
+      "id": "d1-readback",
+      "title": "discovery_turns is settled with a served model recorded, and discovery_spend.spent equals the charged credits",
+      "outcome": "pass",
+      "note": "served_model=claude-haiku-4-5-20251001 request_settings.model=claude-haiku-4-5-20251001 charged_credits=1 spend.spent=1"
+    },
+    {
+      "id": "d2-headers",
+      "title": "SSE response headers carry content-type and the Vercel UI message stream header",
+      "outcome": "pass",
+      "note": "content-type=text/event-stream x-vercel-ai-ui-message-stream=v1"
+    },
+    {
+      "id": "d2",
+      "title": "SSE parts run text-delta, data-turn (settled, ok true), finish, [DONE]",
+      "outcome": "pass",
+      "note": "parts: start -> text-start -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-delta -> text-end -> data-turn -> finish -> DONE"
+    },
+    {
+      "id": "d2-readback",
+      "title": "discovery_turns row for the streamed turn is settled",
+      "outcome": "pass",
+      "note": "{\"id\":\"471a7292-b1b1-4f39-920d-03232f1746e5\",\"project_id\":\"94c9140d-fdb5-4c9d-b2c4-5708560bbbb4\",\"seq\":2,\"status\":\"settled\",\"billing\":\"free\",\"user_message\":\"There are two of us and we both need to see and update the same list.\",\"assistant_message\":\"That helps. So you need to share visibility and work on the list together.\\n\\n**What information do you need to track for each funder deadline?** For example, the funder's name, the due date, what's being reported, who's responsible—what matters most?\",\"stop_reason\":\"end_turn\",\"served_model\":\"claude-haiku-4-5-20251001\",\"input_tokens\":\"[REDACTED]\",\"output_tokens\":\"[REDACTED]\",\"charged_credits\":1,\"reserved_credits\":2,\"max_output_tokens\":\"[REDACTED]\",\"request_settings_model\":\"claude-haiku-4-5-20251001\"}"
+    },
+    {
+      "id": "d3-abort",
+      "title": "the client aborted after the first text-delta arrived",
+      "outcome": "pass",
+      "note": "aborted=true parts=start,text-start,text-delta"
+    },
+    {
+      "id": "d3",
+      "title": "the cancelled turn settles as user_stopped with output tokens and its charge debited",
+      "outcome": "pass",
+      "note": "status=settled stop_reason=user_stopped output_tokens=31 max_output_tokens=4096 below output cap of 4096: true charged_credits=1"
+    },
+    {
+      "id": "d3-allowance",
+      "title": "the allowance dropped by exactly the cancelled turn's charged credits",
+      "outcome": "pass",
+      "note": "before remaining=8 after remaining=7 charged_credits=1"
+    },
+    {
+      "id": "d4",
+      "title": "discovery-conversation turns are in seq order and match the rows; allowance is present",
+      "outcome": "pass",
+      "note": "turns.length=3 rows.length=3 allowance={\"organizationId\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"utcDay\":\"2026-09-17\",\"vetted\":false,\"dailyGrant\":10,\"spentToday\":3,\"remaining\":7}"
+    },
+    {
+      "id": "d5-off",
+      "title": "platform admin disables Discovery for the organisation",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"discoveryEnabled\":false,\"changed\":true,\"disabledAt\":\"2026-09-17T08:20:27.503289+00:00\"}"
+    },
+    {
+      "id": "d5-refused",
+      "title": "a send while disabled answers 409 discovery-disabled",
+      "outcome": "pass",
+      "note": "status 409: {\"ok\":false,\"kind\":\"discovery-disabled\",\"reason\":\"a platform admin switched Discovery off for this organisation — Discovery drive: disable check\"}"
+    },
+    {
+      "id": "d5-on",
+      "title": "platform admin re-enables Discovery for the organisation",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"organizationId\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"discoveryEnabled\":true,\"changed\":true,\"disabledAt\":null}"
+    },
+    {
+      "id": "d5-resumed",
+      "title": "a send after re-enabling succeeds again",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true}"
+    },
+    {
+      "id": "d5-audit",
+      "title": "audit_events carries the two org_discovery_switched rows in order",
+      "outcome": "pass",
+      "note": "[{\"id\":\"e5c6b8d5-507d-4983-afe3-ed57fb15ee2c\",\"actor_account_id\":\"39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9\",\"subject_org_id\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"reason\":\"Discovery drive: disable check\",\"enabled\":\"false\"},{\"id\":\"9045415f-3808-4d93-b8ce-62179f583a40\",\"actor_account_id\":\"39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9\",\"subject_org_id\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"reason\":\"Discovery drive: re-enable check\",\"enabled\":\"true\"}]"
+    },
+    {
+      "id": "d6-fund",
+      "title": "the operator sets funded_at on the second project",
+      "outcome": "pass",
+      "note": "{\"id\":\"2eeb638a-270f-45e3-8153-e2e3de573991\",\"funded_at\":{}}"
+    },
+    {
+      "id": "d6",
+      "title": "a funded project with no fuel is refused fuel-exhausted, naming the top-up remedy",
+      "outcome": "pass",
+      "note": "status 409: {\"ok\":false,\"kind\":\"fuel-exhausted\",\"reason\":\"this funded project has no fuel left for this Discovery turn; top up project fuel to continue; free credits are never spent on a funded project\"}"
+    },
+    {
+      "id": "d6-unchanged",
+      "title": "the organisation spend row is unchanged by the fuel-exhausted refusal",
+      "outcome": "pass",
+      "note": "before={\"org_id\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"utc_day\":\"2026-09-17\",\"spent\":4,\"granted\":10,\"remaining\":6} after={\"org_id\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"utc_day\":\"2026-09-17\",\"spent\":4,\"granted\":10,\"remaining\":6}"
+    },
+    {
+      "id": "d7-drain",
+      "title": "the operator drains the remaining allowance to zero",
+      "outcome": "pass",
+      "note": "{\"org_id\":\"6bf56291-e56d-4e78-82b2-688843aad970\",\"utc_day\":\"2026-09-17\",\"spent\":10,\"granted\":10,\"remaining\":0}"
+    },
+    {
+      "id": "d7",
+      "title": "a send with no allowance left is refused daily-allowance-exhausted, naming the tier remedies",
+      "outcome": "pass",
+      "note": "status 409: {\"ok\":false,\"kind\":\"daily-allowance-exhausted\",\"reason\":\"discovery_allowance refuses: organisation 6bf56291-e56d-4e78-82b2-688843aad970 has no Discovery credits left today — get vetted (daily grant becomes 30), fund project fuel to continue now, or wait for the next UTC day\"}"
+    }
+  ],
+  "transcript": [
+    {
+      "step": "doctor-auth-health",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/auth/v1/health"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "version": "v2.193.0",
+          "name": "GoTrue",
+          "description": "GoTrue is a user registration and authentication API"
+        }
+      }
+    },
+    {
+      "step": "ngo-signup-verify-discovery-1789633219892@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-discovery-1789633219892@example.com",
+          "phone": "",
+          "confirmation_sent_at": "2026-09-17T08:20:20.658840021Z",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email": "verify-discovery-1789633219892@example.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "9585aa47-2835-4af2-935b-aeb9520f16e0"
+          },
+          "identities": [
+            {
+              "identity_id": "743b6005-05f1-44c7-a789-7e55ff0ad732",
+              "id": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+              "user_id": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+              "identity_data": {
+                "email": "verify-discovery-1789633219892@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "9585aa47-2835-4af2-935b-aeb9520f16e0"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-17T08:20:20.655312423Z",
+              "created_at": "2026-09-17T08:20:20.655329Z",
+              "updated_at": "2026-09-17T08:20:20.655329Z",
+              "email": "verify-discovery-1789633219892@example.com"
+            }
+          ],
+          "created_at": "2026-09-17T08:20:20.650594Z",
+          "updated_at": "2026-09-17T08:20:20.661331Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "ngo-confirmation-link-verify-discovery-1789633219892@example.com",
+      "link": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "step": "ngo-verify-redirect-verify-discovery-1789633219892@example.com",
+      "status": 303,
+      "location": "http://127.0.0.1:3000/"
+    },
+    {
+      "step": "ngo-signin-verify-discovery-1789633219892@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789633340,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-discovery-1789633219892@example.com",
+            "email_confirmed_at": "2026-09-17T08:20:20.690022Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-09-17T08:20:20.65884Z",
+            "confirmed_at": "2026-09-17T08:20:20.690022Z",
+            "last_sign_in_at": "2026-09-17T08:20:20.782987275Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "verify-discovery-1789633219892@example.com",
+              "email_verified": true,
+              "phone_verified": false,
+              "sub": "9585aa47-2835-4af2-935b-aeb9520f16e0"
+            },
+            "identities": [
+              {
+                "identity_id": "743b6005-05f1-44c7-a789-7e55ff0ad732",
+                "id": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+                "user_id": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+                "identity_data": {
+                  "email": "verify-discovery-1789633219892@example.com",
+                  "email_verified": true,
+                  "phone_verified": false,
+                  "sub": "9585aa47-2835-4af2-935b-aeb9520f16e0"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-17T08:20:20.655312Z",
+                "created_at": "2026-09-17T08:20:20.655329Z",
+                "updated_at": "2026-09-17T08:20:20.655329Z",
+                "email": "verify-discovery-1789633219892@example.com"
+              }
+            ],
+            "created_at": "2026-09-17T08:20:20.650594Z",
+            "updated_at": "2026-09-17T08:20:20.786064Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "complete-signup-ngo-verify-discovery-1789633219892@example.com",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/complete-signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "accountId": "9585aa47-2835-4af2-935b-aeb9520f16e0",
+          "accountType": "ngo",
+          "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970"
+        }
+      }
+    },
+    {
+      "step": "provision-platform-admin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/admin/users"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-discovery-admin-1789633219892@example.com",
+          "email_confirmed_at": "2026-09-17T08:20:21.005142797Z",
+          "phone": "",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email_verified": true
+          },
+          "identities": [
+            {
+              "identity_id": "caefddab-c0df-485a-9ed9-f2dec4106ba5",
+              "id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+              "user_id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+              "identity_data": {
+                "email": "verify-discovery-admin-1789633219892@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-17T08:20:21.000298506Z",
+              "created_at": "2026-09-17T08:20:21.000339Z",
+              "updated_at": "2026-09-17T08:20:21.000339Z",
+              "email": "verify-discovery-admin-1789633219892@example.com"
+            }
+          ],
+          "created_at": "2026-09-17T08:20:20.997814Z",
+          "updated_at": "2026-09-17T08:20:21.005786Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "readback accounts (admin)",
+      "rows": [
+        {
+          "id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+          "account_type": "platform_admin"
+        }
+      ]
+    },
+    {
+      "step": "admin-signin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789633341,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-discovery-admin-1789633219892@example.com",
+            "email_confirmed_at": "2026-09-17T08:20:21.005142Z",
+            "phone": "",
+            "confirmed_at": "2026-09-17T08:20:21.005142Z",
+            "last_sign_in_at": "2026-09-17T08:20:21.116829262Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email_verified": true
+            },
+            "identities": [
+              {
+                "identity_id": "caefddab-c0df-485a-9ed9-f2dec4106ba5",
+                "id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+                "user_id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+                "identity_data": {
+                  "email": "verify-discovery-admin-1789633219892@example.com",
+                  "email_verified": false,
+                  "phone_verified": false,
+                  "sub": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-17T08:20:21.000298Z",
+                "created_at": "2026-09-17T08:20:21.000339Z",
+                "updated_at": "2026-09-17T08:20:21.000339Z",
+                "email": "verify-discovery-admin-1789633219892@example.com"
+              }
+            ],
+            "created_at": "2026-09-17T08:20:20.997814Z",
+            "updated_at": "2026-09-17T08:20:21.121701Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "project-need-start-Discovery drive need one",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "title": "Discovery drive need one",
+            "description": "Discovery drive need one — need description for the Discovery drive.",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-17T08:20:21.265025+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "project-need-submit-Discovery drive need one",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "title": "Discovery drive need one",
+            "description": "Discovery drive need one — need description for the Discovery drive.",
+            "urgency": "soon",
+            "stage": "discovery_in_progress",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": "2026-09-17T08:20:21.336984+00:00",
+            "updatedAt": "2026-09-17T08:20:21.336984+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "project-need-start-Discovery drive need two",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "2eeb638a-270f-45e3-8153-e2e3de573991",
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "title": "Discovery drive need two",
+            "description": "Discovery drive need two — need description for the Discovery drive.",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-17T08:20:21.407131+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "project-need-submit-Discovery drive need two",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "2eeb638a-270f-45e3-8153-e2e3de573991",
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "title": "Discovery drive need two",
+            "description": "Discovery drive need two — need description for the Discovery drive.",
+            "urgency": "soon",
+            "stage": "discovery_in_progress",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": "2026-09-17T08:20:21.475058+00:00",
+            "updatedAt": "2026-09-17T08:20:21.475058+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "discovery-message-json-1",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "turn": {
+            "id": "977b37da-c78a-44e1-a587-095e910f64d8",
+            "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+            "seq": 1,
+            "status": "settled",
+            "billing": "free",
+            "utcDay": "2026-09-17",
+            "userMessage": "We keep missing funder reporting deadlines. Please help us scope a tracker.",
+            "assistantMessage": "Thanks for bringing this to me. I want to understand the real problem before we scope a solution.\n\n**When you say you're missing deadlines, what's happening right now?** For example, are the deadlines getting lost, or is the actual reporting work not getting done in time?",
+            "elicitation": null,
+            "requestSettings": {
+              "model": "claude-haiku-4-5-20251001",
+              "maxTokens": "[REDACTED]",
+              "effort": "low"
+            },
+            "maxOutputTokens": "[REDACTED]",
+            "estimatedInputTokens": "[REDACTED]",
+            "reservedCredits": 2,
+            "chargedCredits": 1,
+            "reservedMicros": 109535,
+            "actualMicros": 8390,
+            "overrunMicros": 0,
+            "inputTokens": "[REDACTED]",
+            "outputTokens": "[REDACTED]",
+            "stopReason": "end_turn",
+            "servedModel": "claude-haiku-4-5-20251001",
+            "openedAt": "2026-09-17T08:20:21.786799+00:00",
+            "settledAt": "2026-09-17T08:20:23.602677+00:00"
+          },
+          "reply": "Thanks for bringing this to me. I want to understand the real problem before we scope a solution.\n\n**When you say you're missing deadlines, what's happening right now?** For example, are the deadlines getting lost, or is the actual reporting work not getting done in time?",
+          "elicitation": null,
+          "allowance": {
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "utcDay": "2026-09-17",
+            "vetted": false,
+            "dailyGrant": 10,
+            "spentToday": 1,
+            "remaining": 9
+          }
+        }
+      }
+    },
+    {
+      "step": "readback discovery_turns (latest for 94c9140d-fdb5-4c9d-b2c4-5708560bbbb4)",
+      "rows": [
+        {
+          "id": "977b37da-c78a-44e1-a587-095e910f64d8",
+          "project_id": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+          "seq": 1,
+          "status": "settled",
+          "billing": "free",
+          "user_message": "We keep missing funder reporting deadlines. Please help us scope a tracker.",
+          "assistant_message": "Thanks for bringing this to me. I want to understand the real problem before we scope a solution.\n\n**When you say you're missing deadlines, what's happening right now?** For example, are the deadlines getting lost, or is the actual reporting work not getting done in time?",
+          "stop_reason": "end_turn",
+          "served_model": "claude-haiku-4-5-20251001",
+          "input_tokens": "[REDACTED]",
+          "output_tokens": "[REDACTED]",
+          "charged_credits": 1,
+          "reserved_credits": 2,
+          "max_output_tokens": "[REDACTED]",
+          "request_settings_model": "claude-haiku-4-5-20251001"
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_spend (current)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 1,
+          "granted": 10,
+          "remaining": 9
+        }
+      ]
+    },
+    {
+      "step": "discovery-message-sse-2",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "access-control-allow-headers": "authorization, apikey, content-type, x-client-info",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-origin": "*",
+          "access-control-expose-headers": "x-vercel-ai-ui-message-stream",
+          "cache-control": "no-cache",
+          "connection": "keep-alive",
+          "content-type": "text/event-stream",
+          "date": "Thu, 17 Sep 2026 08:20:23 GMT",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "via": "kong/2.8.1",
+          "x-kong-proxy-latency": "0",
+          "x-kong-upstream-latency": "271",
+          "x-vercel-ai-ui-message-stream": "v1"
+        },
+        "parts": [
+          {
+            "type": "start",
+            "data": {
+              "type": "start",
+              "messageId": "de69b196-a790-45c0-a243-8b4051e4e999"
+            }
+          },
+          {
+            "type": "text-start",
+            "data": {
+              "type": "text-start",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "That"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " helps"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "."
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " So"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " you need to share"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " visibility"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " and"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " work"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " on the list"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " together."
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "\n\n**What information"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " do you need to track"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " for"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " each funder deadline"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "?** For example,"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " the"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " f"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "under's name, the"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " due"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " date, what"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "'s"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " being"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " reported, who"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "'s"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " responsible—"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "what"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " matters"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": " most"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999",
+              "delta": "?"
+            }
+          },
+          {
+            "type": "text-end",
+            "data": {
+              "type": "text-end",
+              "id": "de69b196-a790-45c0-a243-8b4051e4e999"
+            }
+          },
+          {
+            "type": "data-turn",
+            "data": {
+              "type": "data-turn",
+              "data": {
+                "ok": true,
+                "turn": {
+                  "id": "471a7292-b1b1-4f39-920d-03232f1746e5",
+                  "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+                  "seq": 2,
+                  "status": "settled",
+                  "billing": "free",
+                  "utcDay": "2026-09-17",
+                  "userMessage": "There are two of us and we both need to see and update the same list.",
+                  "assistantMessage": "That helps. So you need to share visibility and work on the list together.\n\n**What information do you need to track for each funder deadline?** For example, the funder's name, the due date, what's being reported, who's responsible—what matters most?",
+                  "elicitation": null,
+                  "requestSettings": {
+                    "model": "claude-haiku-4-5-20251001",
+                    "maxTokens": "[REDACTED]",
+                    "effort": "low"
+                  },
+                  "maxOutputTokens": "[REDACTED]",
+                  "estimatedInputTokens": "[REDACTED]",
+                  "reservedCredits": 2,
+                  "chargedCredits": 1,
+                  "reservedMicros": 109950,
+                  "actualMicros": 8755,
+                  "overrunMicros": 0,
+                  "inputTokens": "[REDACTED]",
+                  "outputTokens": "[REDACTED]",
+                  "stopReason": "end_turn",
+                  "servedModel": "claude-haiku-4-5-20251001",
+                  "openedAt": "2026-09-17T08:20:23.879379+00:00",
+                  "settledAt": "2026-09-17T08:20:25.765706+00:00"
+                },
+                "reply": "That helps. So you need to share visibility and work on the list together.\n\n**What information do you need to track for each funder deadline?** For example, the funder's name, the due date, what's being reported, who's responsible—what matters most?",
+                "elicitation": null,
+                "allowance": {
+                  "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+                  "utcDay": "2026-09-17",
+                  "vetted": false,
+                  "dailyGrant": 10,
+                  "spentToday": 2,
+                  "remaining": 8
+                }
+              }
+            }
+          },
+          {
+            "type": "finish",
+            "data": {
+              "type": "finish"
+            }
+          },
+          {
+            "type": "DONE"
+          }
+        ]
+      }
+    },
+    {
+      "step": "readback discovery_turns (latest for 94c9140d-fdb5-4c9d-b2c4-5708560bbbb4)",
+      "rows": [
+        {
+          "id": "471a7292-b1b1-4f39-920d-03232f1746e5",
+          "project_id": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+          "seq": 2,
+          "status": "settled",
+          "billing": "free",
+          "user_message": "There are two of us and we both need to see and update the same list.",
+          "assistant_message": "That helps. So you need to share visibility and work on the list together.\n\n**What information do you need to track for each funder deadline?** For example, the funder's name, the due date, what's being reported, who's responsible—what matters most?",
+          "stop_reason": "end_turn",
+          "served_model": "claude-haiku-4-5-20251001",
+          "input_tokens": "[REDACTED]",
+          "output_tokens": "[REDACTED]",
+          "charged_credits": 1,
+          "reserved_credits": 2,
+          "max_output_tokens": "[REDACTED]",
+          "request_settings_model": "claude-haiku-4-5-20251001"
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_spend (current)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 2,
+          "granted": 10,
+          "remaining": 8
+        }
+      ]
+    },
+    {
+      "step": "discovery-message-sse-3-cancelled",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "access-control-allow-headers": "authorization, apikey, content-type, x-client-info",
+          "access-control-allow-methods": "POST, OPTIONS",
+          "access-control-allow-origin": "*",
+          "access-control-expose-headers": "x-vercel-ai-ui-message-stream",
+          "cache-control": "no-cache",
+          "connection": "keep-alive",
+          "content-type": "text/event-stream",
+          "date": "Thu, 17 Sep 2026 08:20:26 GMT",
+          "transfer-encoding": "chunked",
+          "vary": "Accept-Encoding",
+          "via": "kong/2.8.1",
+          "x-kong-proxy-latency": "0",
+          "x-kong-upstream-latency": "270",
+          "x-vercel-ai-ui-message-stream": "v1"
+        },
+        "parts": [
+          {
+            "type": "start",
+            "data": {
+              "type": "start",
+              "messageId": "b74b5633-2c3b-4f55-9c6a-019968e1bae8"
+            }
+          },
+          {
+            "type": "text-start",
+            "data": {
+              "type": "text-start",
+              "id": "b74b5633-2c3b-4f55-9c6a-019968e1bae8"
+            }
+          },
+          {
+            "type": "text-delta",
+            "data": {
+              "type": "text-delta",
+              "id": "b74b5633-2c3b-4f55-9c6a-019968e1bae8",
+              "delta": "Got"
+            }
+          }
+        ],
+        "aborted": true
+      }
+    },
+    {
+      "step": "readback discovery_turns (latest for 94c9140d-fdb5-4c9d-b2c4-5708560bbbb4)",
+      "rows": [
+        {
+          "id": "53776e42-4b5f-4a17-ab9f-1d6a01888c24",
+          "project_id": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+          "seq": 3,
+          "status": "open",
+          "billing": "free",
+          "user_message": "We write funder names and due dates in a shared list today, but checking it every day is easy to forget.",
+          "assistant_message": null,
+          "stop_reason": null,
+          "served_model": null,
+          "input_tokens": "[REDACTED]",
+          "output_tokens": "[REDACTED]",
+          "charged_credits": null,
+          "reserved_credits": 2,
+          "max_output_tokens": "[REDACTED]",
+          "request_settings_model": "claude-haiku-4-5-20251001"
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_turns (latest for 94c9140d-fdb5-4c9d-b2c4-5708560bbbb4)",
+      "rows": [
+        {
+          "id": "53776e42-4b5f-4a17-ab9f-1d6a01888c24",
+          "project_id": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+          "seq": 3,
+          "status": "settled",
+          "billing": "free",
+          "user_message": "We write funder names and due dates in a shared list today, but checking it every day is easy to forget.",
+          "assistant_message": "Got it—you have the basics recorded, but you need reminders so",
+          "stop_reason": "user_stopped",
+          "served_model": "claude-haiku-4-5-20251001",
+          "input_tokens": "[REDACTED]",
+          "output_tokens": "[REDACTED]",
+          "charged_credits": 1,
+          "reserved_credits": 2,
+          "max_output_tokens": "[REDACTED]",
+          "request_settings_model": "claude-haiku-4-5-20251001"
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_spend (current)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 3,
+          "granted": 10,
+          "remaining": 7
+        }
+      ]
+    },
+    {
+      "step": "discovery-conversation-read",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-conversation"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "conversation": {
+            "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+            "turns": [
+              {
+                "id": "977b37da-c78a-44e1-a587-095e910f64d8",
+                "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+                "seq": 1,
+                "status": "settled",
+                "billing": "free",
+                "utcDay": "2026-09-17",
+                "userMessage": "We keep missing funder reporting deadlines. Please help us scope a tracker.",
+                "assistantMessage": "Thanks for bringing this to me. I want to understand the real problem before we scope a solution.\n\n**When you say you're missing deadlines, what's happening right now?** For example, are the deadlines getting lost, or is the actual reporting work not getting done in time?",
+                "elicitation": null,
+                "requestSettings": {
+                  "model": "claude-haiku-4-5-20251001",
+                  "maxTokens": "[REDACTED]",
+                  "effort": "low"
+                },
+                "maxOutputTokens": "[REDACTED]",
+                "estimatedInputTokens": "[REDACTED]",
+                "reservedCredits": 2,
+                "chargedCredits": 1,
+                "reservedMicros": 109535,
+                "actualMicros": 8390,
+                "overrunMicros": 0,
+                "inputTokens": "[REDACTED]",
+                "outputTokens": "[REDACTED]",
+                "stopReason": "end_turn",
+                "servedModel": "claude-haiku-4-5-20251001",
+                "openedAt": "2026-09-17T08:20:21.786799+00:00",
+                "settledAt": "2026-09-17T08:20:23.602677+00:00"
+              },
+              {
+                "id": "471a7292-b1b1-4f39-920d-03232f1746e5",
+                "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+                "seq": 2,
+                "status": "settled",
+                "billing": "free",
+                "utcDay": "2026-09-17",
+                "userMessage": "There are two of us and we both need to see and update the same list.",
+                "assistantMessage": "That helps. So you need to share visibility and work on the list together.\n\n**What information do you need to track for each funder deadline?** For example, the funder's name, the due date, what's being reported, who's responsible—what matters most?",
+                "elicitation": null,
+                "requestSettings": {
+                  "model": "claude-haiku-4-5-20251001",
+                  "maxTokens": "[REDACTED]",
+                  "effort": "low"
+                },
+                "maxOutputTokens": "[REDACTED]",
+                "estimatedInputTokens": "[REDACTED]",
+                "reservedCredits": 2,
+                "chargedCredits": 1,
+                "reservedMicros": 109950,
+                "actualMicros": 8755,
+                "overrunMicros": 0,
+                "inputTokens": "[REDACTED]",
+                "outputTokens": "[REDACTED]",
+                "stopReason": "end_turn",
+                "servedModel": "claude-haiku-4-5-20251001",
+                "openedAt": "2026-09-17T08:20:23.879379+00:00",
+                "settledAt": "2026-09-17T08:20:25.765706+00:00"
+              },
+              {
+                "id": "53776e42-4b5f-4a17-ab9f-1d6a01888c24",
+                "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+                "seq": 3,
+                "status": "settled",
+                "billing": "free",
+                "utcDay": "2026-09-17",
+                "userMessage": "We write funder names and due dates in a shared list today, but checking it every day is easy to forget.",
+                "assistantMessage": "Got it—you have the basics recorded, but you need reminders so",
+                "elicitation": null,
+                "requestSettings": {
+                  "model": "claude-haiku-4-5-20251001",
+                  "maxTokens": "[REDACTED]",
+                  "effort": "low"
+                },
+                "maxOutputTokens": "[REDACTED]",
+                "estimatedInputTokens": "[REDACTED]",
+                "reservedCredits": 2,
+                "chargedCredits": 1,
+                "reservedMicros": 110390,
+                "actualMicros": 8445,
+                "overrunMicros": 0,
+                "inputTokens": "[REDACTED]",
+                "outputTokens": "[REDACTED]",
+                "stopReason": "user_stopped",
+                "servedModel": "claude-haiku-4-5-20251001",
+                "openedAt": "2026-09-17T08:20:26.038308+00:00",
+                "settledAt": "2026-09-17T08:20:27.278977+00:00"
+              }
+            ],
+            "elicitation": null
+          },
+          "allowance": {
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "utcDay": "2026-09-17",
+            "vetted": false,
+            "dailyGrant": 10,
+            "spentToday": 3,
+            "remaining": 7
+          }
+        }
+      }
+    },
+    {
+      "step": "readback discovery_turns (all, for conversation compare)",
+      "rows": [
+        {
+          "seq": 1,
+          "status": "settled"
+        },
+        {
+          "seq": 2,
+          "status": "settled"
+        },
+        {
+          "seq": 3,
+          "status": "settled"
+        }
+      ]
+    },
+    {
+      "step": "set-organization-discovery-off",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/set-organization-discovery"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "discoveryEnabled": false,
+          "changed": true,
+          "disabledAt": "2026-09-17T08:20:27.503289+00:00"
+        }
+      }
+    },
+    {
+      "step": "discovery-message-while-disabled",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "discovery-disabled",
+          "reason": "a platform admin switched Discovery off for this organisation — Discovery drive: disable check"
+        }
+      }
+    },
+    {
+      "step": "set-organization-discovery-on",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/set-organization-discovery"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "discoveryEnabled": true,
+          "changed": true,
+          "disabledAt": null
+        }
+      }
+    },
+    {
+      "step": "discovery-message-after-reenable",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "turn": {
+            "id": "0e7884c8-7e69-4bf5-a9a9-4d37fa40dec2",
+            "projectId": "94c9140d-fdb5-4c9d-b2c4-5708560bbbb4",
+            "seq": 4,
+            "status": "settled",
+            "billing": "free",
+            "utcDay": "2026-09-17",
+            "userMessage": "We have no developer. We must be able to add and change dates ourselves without coding.",
+            "assistantMessage": "Understood. You need to manage this without technical help.\n\n**When a deadline is coming up, what should happen?** Should you both get a notification, see it highlighted somewhere, or something else?",
+            "elicitation": null,
+            "requestSettings": {
+              "model": "claude-haiku-4-5-20251001",
+              "maxTokens": "[REDACTED]",
+              "effort": "low"
+            },
+            "maxOutputTokens": "[REDACTED]",
+            "estimatedInputTokens": "[REDACTED]",
+            "reservedCredits": 2,
+            "chargedCredits": 1,
+            "reservedMicros": 110585,
+            "actualMicros": 8990,
+            "overrunMicros": 0,
+            "inputTokens": "[REDACTED]",
+            "outputTokens": "[REDACTED]",
+            "stopReason": "end_turn",
+            "servedModel": "claude-haiku-4-5-20251001",
+            "openedAt": "2026-09-17T08:20:28.100152+00:00",
+            "settledAt": "2026-09-17T08:20:29.405288+00:00"
+          },
+          "reply": "Understood. You need to manage this without technical help.\n\n**When a deadline is coming up, what should happen?** Should you both get a notification, see it highlighted somewhere, or something else?",
+          "elicitation": null,
+          "allowance": {
+            "organizationId": "6bf56291-e56d-4e78-82b2-688843aad970",
+            "utcDay": "2026-09-17",
+            "vetted": false,
+            "dailyGrant": 10,
+            "spentToday": 4,
+            "remaining": 6
+          }
+        }
+      }
+    },
+    {
+      "step": "readback audit_events (org_discovery_switched)",
+      "rows": [
+        {
+          "id": "e5c6b8d5-507d-4983-afe3-ed57fb15ee2c",
+          "actor_account_id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+          "subject_org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "reason": "Discovery drive: disable check",
+          "enabled": "false"
+        },
+        {
+          "id": "9045415f-3808-4d93-b8ce-62179f583a40",
+          "actor_account_id": "39100a62-e0b1-4a97-a9b6-3d18ea4e0aa9",
+          "subject_org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "reason": "Discovery drive: re-enable check",
+          "enabled": "true"
+        }
+      ]
+    },
+    {
+      "step": "readback projects (funded, no fuel)",
+      "rows": [
+        {
+          "id": "2eeb638a-270f-45e3-8153-e2e3de573991",
+          "funded_at": {}
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_spend (current)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 4,
+          "granted": 10,
+          "remaining": 6
+        }
+      ]
+    },
+    {
+      "step": "discovery-message-fuel-exhausted",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "fuel-exhausted",
+          "reason": "this funded project has no fuel left for this Discovery turn; top up project fuel to continue; free credits are never spent on a funded project"
+        }
+      }
+    },
+    {
+      "step": "readback discovery_spend (current)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 4,
+          "granted": 10,
+          "remaining": 6
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_spend (current)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 10,
+          "granted": 10,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "step": "readback discovery_spend (drained)",
+      "rows": [
+        {
+          "org_id": "6bf56291-e56d-4e78-82b2-688843aad970",
+          "utc_day": "2026-09-17",
+          "spent": 10,
+          "granted": 10,
+          "remaining": 0
+        }
+      ]
+    },
+    {
+      "step": "discovery-message-allowance-exhausted",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/discovery-message"
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "ok": false,
+          "kind": "daily-allowance-exhausted",
+          "reason": "discovery_allowance refuses: organisation 6bf56291-e56d-4e78-82b2-688843aad970 has no Discovery credits left today — get vetted (daily grant becomes 30), fund project fuel to continue now, or wait for the next UTC day"
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 export const DISCOVERY_STREAM_HEADERS = {
   'content-type': 'text/event-stream', 'cache-control': 'no-cache',
   connection: 'keep-alive', 'x-vercel-ai-ui-message-stream': 'v1',
+  'access-control-expose-headers': 'x-vercel-ai-ui-message-stream',
 };
 const part = (value: unknown): string => `data: ${JSON.stringify(value)}\n\n`;
 export const start = (messageId: string): string => part({ type: 'start', messageId });

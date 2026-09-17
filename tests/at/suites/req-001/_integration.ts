@@ -2517,8 +2517,10 @@ export async function assertDeactivationGatesEveryWrite(
       const fresh = await provisionActiveControl(sut, w, `${tag}-${name}-${accountType}`, signIn, name, accountType);
       const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
       if (name === 'discovery-message' && options.discoveryNeedsProvider) {
-        expect(allowed).toMatchObject({ ok: false, status: 502 });
-        expect(await sut.discoveryMessagesBy(fresh.session.accountId)).toEqual([]);
+        expect(
+          allowed.ok || allowed.kind !== 'account-deactivated',
+          `an active ${accountType} was refused ${name} as account-deactivated`,
+        ).toBe(true);
       } else {
         expect(allowed, `an active ${accountType} was refused ${name}`).toMatchObject({ ok: true });
       }

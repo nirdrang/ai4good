@@ -69,3 +69,7 @@ loop/out/
 # config.toml are tracked; everything the running stack generates is not.
 supabase/.temp/
 supabase/.branches/
+
+# Local edge-function secrets loaded by supabase start. Never committed.
+supabase/functions/.env
+

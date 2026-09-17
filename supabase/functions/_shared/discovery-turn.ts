@@ -7,7 +7,6 @@ import type { CallerReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
 import { orgAdminActionAllowed } from './memberships.ts';
 import { needIntakeAnswer } from './need-intake.ts';
 import type { Caller } from './caller.ts';
-import { discoveryMessageAllowed } from './verification.ts';
 import { isRecord, refuseWrite, stringField, uuidField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 
 export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
@@ -21,6 +20,7 @@ export type DiscoveryModelAnswer =
   | { ok: true; text: string; stopReason: string; usage: ModelUsage; model: string; toolUse?: { name: string; input: unknown } | null }
   | { ok: false; status: number | null; reason: string };
 export type MessagesPort = {
+  model: string;
   create(request: DiscoveryModelRequest): Promise<DiscoveryModelAnswer>;
   countTokens(request: DiscoveryModelRequest): Promise<number>;
   stream(request: DiscoveryModelRequest, onDelta: (text: string) => void, signal: AbortSignal): Promise<DiscoveryModelAnswer>;
@@ -69,33 +69,47 @@ export function decideDiscoveryMessage(input: AccountWriteRouteInput): WriteRout
     p_message: message, p_settings: reserveSettings(), p_counted_through_seq: 0,
   } };
 }
-export function buildModelRequest(input: { need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; skills: readonly DiscoverySkill[]; maxTokens?: number }): DiscoveryModelRequest {
+export function contextMessagesFrom(
+  settled: readonly { user_message: string; assistant_message: string | null }[],
+): DiscoveryModelRequest['messages'] {
+  return settled.flatMap((row) => row.assistant_message === '' ? [] : [
+    { role: 'user' as const, content: row.user_message },
+    { role: 'assistant' as const, content: row.assistant_message! },
+  ]);
+}
+export function buildModelRequest(input: {
+  need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; skills: readonly DiscoverySkill[];
+  maxTokens?: number; model: string;
+}): DiscoveryModelRequest {
   return {
-    model: DISCOVERY_REQUEST_SETTINGS.model, maxTokens: input.maxTokens ?? DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
+    model: input.model, maxTokens: input.maxTokens ?? DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
     effort: DISCOVERY_REQUEST_SETTINGS.effort, system: discoverySystemPrompt(input.need, input.skills), messages: input.context,
     tools: [RECORD_ELICITATION_TOOL],
   };
 }
 export function discoveryPrepare(port: MessagesPort, skills: readonly DiscoverySkill[]) {
   return async (caller: Caller, args: DiscoveryReserveArgs, reads: CallerReads): Promise<WriteRouteDecision<DiscoveryReserveArgs>> => {
-    const allowed = discoveryMessageAllowed({ emailVerified: caller.emailVerified });
-    if (!allowed.ok) return refuseWrite('email-unverified', 409, allowed.reason);
     const need = await needIntakeAnswer(reads, args.p_project_id);
-    if (need.status !== 200) return refuseWrite('no-such-project', need.status, need.body.reason);
+    if (need.status === 502) throw new Error(need.body.reason);
+    if (need.status === 404) return refuseWrite('no-such-project', 409, need.body.reason);
+    if (need.body.need.stage !== 'discovery_in_progress') {
+      return refuseWrite('need-not-in-discovery', 409, 'the need is not in Discovery');
+    }
     const turns = await reads.discoveryTurnsOf(args.p_project_id);
     if (!turns.ok) throw new Error(turns.detail);
     const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
     const request = buildModelRequest({
-      skills,
+      skills, model: port.model,
       need: { title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
         reference_files: need.body.need.referenceFiles.map((file) => file.fileName) },
-      context: [...settled.flatMap((row): DiscoveryModelRequest['messages'] => [
-        { role: 'user', content: row.user_message }, { role: 'assistant', content: row.assistant_message! },
-      ]), { role: 'user', content: args.p_message }],
+      context: [...contextMessagesFrom(settled), { role: 'user', content: args.p_message }],
     });
-    const count = await port.countTokens(request);
-    if (!Number.isSafeInteger(count) || count < 0) throw new Error('the provider returned an invalid token count');
-    return { ok: true, args: { ...args, p_settings: { ...args.p_settings, counted_input_tokens: count },
+    let count = 0;
+    if (caller.emailVerified) {
+      count = await port.countTokens(request);
+      if (!Number.isSafeInteger(count) || count < 0) throw new Error('the provider returned an invalid token count');
+    }
+    return { ok: true, args: { ...args, p_settings: { ...args.p_settings, counted_input_tokens: count, model: port.model },
       p_counted_through_seq: settled.at(-1)?.seq ?? 0, [PREPARED_REQUEST]: request } };
   };
 }
@@ -108,6 +122,15 @@ export function settleArgsFrom(reservation: Reservation, answer: DiscoveryModelA
   args: DiscoverySettleArgs | null; failure: string | null;
 } {
   if (!answer.ok && answer.status === null) return { args: null, failure: answer.reason };
+  if (answer.ok && answer.stopReason === 'refusal') {
+    return {
+      args: {
+        p_account_id: accountId, p_turn_id: reservation.turn.id, p_outcome: 'failed',
+        p_assistant_message: null, p_input_tokens: null, p_output_tokens: null, p_stop_reason: null,
+        p_served_model: null, p_elicitation: null,
+      }, failure: 'the model refused the request',
+    };
+  }
   return {
     args: {
       p_account_id: accountId, p_turn_id: reservation.turn.id, p_outcome: answer.ok ? 'completed' : 'failed',
@@ -137,7 +160,7 @@ export function discoveryStream(port: MessagesPort) {
   };
 }
 export type DiscoveryConversationView = { projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null };
-export type DiscoveryConversationAnswer = { status: 200; body: { ok: true; conversation: DiscoveryConversationView; allowance: Allowance } }
+export type DiscoveryConversationAnswer = { status: 200; body: { ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null } }
   | typeof TENANT_NOT_FOUND | typeof TENANT_READ_FAILED;
 export async function conversationAnswer(
   reads: Pick<CallerReads, 'project' | 'discoveryTurnsOf' | 'discoveryAllowance'>, projectId: string,
@@ -149,12 +172,11 @@ export async function conversationAnswer(
   const rows = await reads.discoveryTurnsOf(projectId);
   if (!rows.ok) return TENANT_READ_FAILED;
   const allowance = await reads.discoveryAllowance(source.org_id);
-  if (!allowance.ok) return TENANT_READ_FAILED;
   try {
     const turns = [...rows.rows].sort((a, b) => a.seq - b.seq).map(turnViewFromSql);
     const elicitation = turns.filter((turn) => turn.elicitation !== null).at(-1)?.elicitation ?? null;
     return { status: 200, body: { ok: true, conversation: { projectId, turns, elicitation },
-      allowance: renderDiscoveryAllowance(allowance.value) } };
+      allowance: allowance.ok ? renderDiscoveryAllowance(allowance.value) : null } };
   } catch {
     return TENANT_READ_FAILED;
   }

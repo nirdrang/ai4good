@@ -40,14 +40,17 @@ describe('Anthropic Messages simulator', () => {
     expect(answer).toMatchObject({ ok: true, text, usage: { inputTokens: 512, outputTokens: 32 } });
     expect(sim.requests()).toEqual([request]);
   });
-  it('settles an interrupted replay with partial text and the output cap', async () => {
+  it('settles an interrupted replay with partial text and a count of that text', async () => {
     const { sim, port } = createAnthropicMessagesSim();
     const text = 'Which reporting deadline would you like the tracker to remind you about first?';
     sim.script([{ kind: 'text', text, usage: { inputTokens: 512, outputTokens: 32 } }]);
     const abort = new AbortController();
     const answer = await port.stream(request, () => abort.abort(), abort.signal);
-    expect(answer).toMatchObject({ ok: true, text: text.slice(0, 20), stopReason: 'user_stopped',
-      usage: { inputTokens: 512, outputTokens: request.maxTokens }, toolUse: null });
+    const received = text.slice(0, 20);
+    expect(answer).toMatchObject({ ok: true, text: received, stopReason: 'user_stopped',
+      usage: { inputTokens: 512,
+        outputTokens: Math.ceil(JSON.stringify([{ role: 'assistant', content: received }]).length / 4) },
+      toolUse: null });
     expect(sim.requests()).toEqual([request]);
   });
   it('honours an already aborted stream without emitting text', async () => {
@@ -56,10 +59,16 @@ describe('Anthropic Messages simulator', () => {
     const abort = new AbortController();
     abort.abort();
     const deltas: string[] = [];
-    expect(await port.stream(request, (delta) => deltas.push(delta), abort.signal)).toMatchObject({
-      ok: true, text: '', stopReason: 'user_stopped', usage: { outputTokens: request.maxTokens },
+    expect(await port.stream(request, (delta) => deltas.push(delta), abort.signal)).toEqual({
+      ok: false, status: 499, reason: 'the client cancelled before the provider answered',
     });
     expect(deltas).toEqual([]);
+    expect(sim.requests()).toEqual([]);
+  });
+  it('folds cache read tokens into the metered input count', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([{ kind: 'text', text: 'Question?', usage: { inputTokens: 80, outputTokens: 32, cacheReadInputTokens: 400 } }]);
+    expect(await port.create(request)).toMatchObject({ ok: true, usage: { inputTokens: 480, outputTokens: 32 } });
   });
   it('counts without consuming and caps output on text and tool replies', async () => {
     const { sim, port } = createAnthropicMessagesSim();

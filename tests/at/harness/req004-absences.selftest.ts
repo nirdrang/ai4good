@@ -1,6 +1,3 @@
-/**
- * Oracle for REQ-004's absence source arms: each refusal the scan names, over injected text.
- */
 
 import { describe, expect, it } from 'vitest';
 

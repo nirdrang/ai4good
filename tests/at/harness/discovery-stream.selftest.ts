@@ -14,7 +14,8 @@ it('encodes the UI message stream parts and response headers', () => {
   for (const [line, part] of parts) expect(line).toBe(`data: ${JSON.stringify(part)}\n\n`);
   expect(stream.done()).toBe('data: [DONE]\n\n');
   expect(stream.DISCOVERY_STREAM_HEADERS).toEqual({ 'content-type': 'text/event-stream', 'cache-control': 'no-cache',
-    connection: 'keep-alive', 'x-vercel-ai-ui-message-stream': 'v1' });
+    connection: 'keep-alive', 'x-vercel-ai-ui-message-stream': 'v1',
+    'access-control-expose-headers': 'x-vercel-ai-ui-message-stream' });
   expect(stream.wantsEventStream('application/json, text/event-stream; charset=utf-8')).toBe(true);
   expect(stream.wantsEventStream(null)).toBe(false);
   expect(stream.wantsEventStream('application/json')).toBe(false);

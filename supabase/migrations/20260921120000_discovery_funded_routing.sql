@@ -1,6 +1,5 @@
 alter table public.projects add column funded_at timestamptz;
 
--- the fuel seam the Stripe top-up requirement replaces
 create function public.project_fuel_available_micros(p_project_id uuid)
 returns bigint language sql stable set search_path = '' as $$ select 0::bigint $$;
 revoke execute on function public.project_fuel_available_micros(uuid) from public, anon, authenticated, service_role;
