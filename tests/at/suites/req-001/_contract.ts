@@ -335,6 +335,12 @@ export type WriteSubject =
       readonly note: string;
     }
   | {
+      readonly route: 'set-organization-discovery';
+      readonly organizationId: string;
+      readonly enabled: boolean;
+      readonly reason: string;
+    }
+  | {
       readonly route: 'discovery-allowance';
       readonly organizationId: string;
       readonly action: 'read' | 'debit';
@@ -822,6 +828,12 @@ export type AccountsSut = {
    * to prove the assigned-volunteer policy conjunct after the write trigger has already fired.
    */
   retypeAccountAsOperator(accountId: string, accountType: AccountType): Promise<void>;
+
+  /**
+   * Clear Auth's confirmation timestamp so a live session belongs to an email-unverified account.
+   * The public path cannot construct that state with confirmations on.
+   */
+  clearEmailConfirmationAsOperator(accountId: string): Promise<void>;
 
   /**
    * The project as it stands, or `null` when there is no such project — the read-back a refused

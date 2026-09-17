@@ -109,7 +109,21 @@ describe('scanWriteRoutes refusals', () => {
   });
 
   it('fails a stand-in row the fixture never drives through the gate', () => {
-    const problems = scan({ fixtureText: 'export const fixture = {};\n' });
+    const inventory = {
+      ...WRITE_ROUTES,
+      'synthetic-stand-in': {
+        surface: { kind: 'stand-in' as const, reason: 'this case supplies a stand-in row' },
+        standing: { kind: 'account-required' as const, admits: ['ngo'] as const },
+      },
+    };
+    const problems = scanWriteRoutes(
+      inventory,
+      tree.files,
+      tree.configToml,
+      tree.edgeModule,
+      tree.migrations,
+      'export const fixture = {};\n',
+    );
     expect(problems.map((p) => p.code)).toContain('stand-in-not-gated');
   });
 

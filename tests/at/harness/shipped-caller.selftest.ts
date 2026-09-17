@@ -54,6 +54,7 @@ describe('the shipped caller module fails closed', () => {
     // No linked identity, so no handle. `null` here is a real answer, not the empty case: the
     // volunteer gate refuses on it.
     expect(caller?.githubHandle).toBeNull();
+    expect(caller?.emailVerified, 'a confirmed GoTrue body must carry emailVerified true').toBe(true);
   });
 
   it('accepts a BLANK string id, because the shipped module says it does', () => {
@@ -87,6 +88,7 @@ describe('the shipped caller module fails closed', () => {
       narrowed?.githubHandle,
       'a pre-narrowed body loses the handle; the live control for this is proof check (g)',
     ).toBeNull();
+    expect(narrowed?.emailVerified, 'a pre-narrowed body has no confirmation field, so it is unverified').toBe(false);
   });
 
   it('accepts the whole 2xx range and refuses everything outside it', () => {

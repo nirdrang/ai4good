@@ -47,6 +47,7 @@
  */
 
 import { extractGithubHandle } from './github.ts';
+import { emailVerifiedFromUser } from './verification.ts';
 
 /**
  * WHAT IS TRUE OF THE CALLER, as Supabase Auth answers it — never what the caller SAID.
@@ -66,6 +67,12 @@ export type Caller = {
    * user later links GitHub carries a handle here while its establishing provider is unchanged.
    */
   githubHandle: string | null;
+  /**
+   * Whether Auth reports this user's email address confirmed — the FACT the Discovery floor turns on.
+   *
+   * It is derived from the `/auth/v1/user` body through `emailVerifiedFromUser`, never from a request field.
+   */
+  emailVerified: boolean;
 };
 
 /**
@@ -115,5 +122,5 @@ export function callerFromAuthAnswer(status: number, user: unknown): Caller | nu
   if (typeof user !== 'object' || user === null) return null;
   const id = (user as { id?: unknown }).id;
   if (typeof id !== 'string') return null;
-  return { id, githubHandle: extractGithubHandle(user) };
+  return { id, githubHandle: extractGithubHandle(user), emailVerified: emailVerifiedFromUser(user) };
 }

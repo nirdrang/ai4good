@@ -21,7 +21,7 @@ const ADMIN_STANDING: AccountStanding = {
 
 function lifecycleInput(overrides: Partial<AccountWriteRouteInput> = {}): AccountWriteRouteInput {
   return {
-    caller: { id: ADMIN, githubHandle: null },
+    caller: { id: ADMIN, githubHandle: null, emailVerified: true },
     standing: ADMIN_STANDING,
     body: { accountId: SUBJECT, lifecycle: 'deactivated', reason: REASON },
     target: null,

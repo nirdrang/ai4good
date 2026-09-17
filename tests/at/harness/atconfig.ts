@@ -33,6 +33,12 @@ export interface AtConfigEntry {
 }
 
 export const AT_CONFIG = {
+  discoveryMicrosPerCredit: { name: 'Discovery cost per credit', value: 100000, unit: 'micros/credit', source: 'AI4DEV-132 design/SYNTHESIS.md correction 8' },
+  discoveryInputMicrosPerToken: { name: 'Discovery input cost', value: 5, unit: 'micros/token', source: 'AI4DEV-132 design/SYNTHESIS.md correction 7' },
+  discoveryOutputMicrosPerToken: { name: 'Discovery output cost', value: 25, unit: 'micros/token', source: 'AI4DEV-132 design/SYNTHESIS.md correction 7' },
+  discoveryMaxOutputTokens: { name: 'Discovery maximum output', value: 4096, unit: 'tokens', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
+  discoveryMinOutputTokens: { name: 'Discovery minimum output', value: 512, unit: 'tokens', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
+  discoveryTurnDeadlineSeconds: { name: 'Discovery open turn deadline', value: 150, unit: 'seconds', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
   gatewayLatencyP95Ms: {
     name: 'gateway added latency, 95th percentile',
     value: 300,

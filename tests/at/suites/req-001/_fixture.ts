@@ -191,6 +191,7 @@
  * shipped gate on a tested path. No green over it says anything about enforcement anywhere.
  */
 
+import { decideDiscoveryMessage, type DiscoveryReserveArgs } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -220,8 +221,6 @@ import {
 import {
   organizationIdField,
   parseWriteStanding,
-  refuseWrite,
-  stringField,
   writePipeline,
   type AccountWriteRouteInput,
   type WriteRouteInput,
@@ -247,6 +246,10 @@ import {
   decideOrganizationVetting,
   type OrganizationVettingArgs,
 } from '../../../../supabase/functions/_shared/org-vetting.ts';
+import {
+  decideOrganizationDiscovery,
+  type OrganizationDiscoveryArgs,
+} from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 // THE SHIPPED IMPORT STUB. The IMPORT SOURCE is the shipped stub, not a copy living in this file —
 // AT-001.05 compares the profile it reads back against `stubGithubStatsFor`, so if the two were
@@ -762,20 +765,18 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
     target: organizationIdField,
     decide: decideOrganizationVetting,
   };
+  const ORGANIZATION_DISCOVERY: WriteRouteSpec<OrganizationDiscoveryArgs, AccountWriteRouteInput> = {
+    name: 'set-organization-discovery',
+    target: organizationIdField,
+    decide: decideOrganizationDiscovery,
+  };
   const DISCOVERY_ALLOWANCE: WriteRouteSpec<DiscoveryAllowanceArgs, AccountWriteRouteInput> = {
     name: 'discovery-allowance',
     target: organizationIdField,
     decide: decideDiscoveryAllowance,
   };
-  const DISCOVERY_MESSAGE: WriteRouteSpec<{ message: string }, AccountWriteRouteInput> = {
-    name: 'discovery-message',
-    decide: (input) => {
-      const allowed = discoveryMessageAllowed({ emailVerified: input.body.emailVerified === true });
-      if (!allowed.ok) return refuseWrite('refused', 403, allowed.reason);
-      const message = stringField(input.body.message);
-      if (message === null) return refuseWrite('invalid-request', 400, 'a Discovery message needs a body');
-      return { ok: true, args: { message } };
-    },
+  const DISCOVERY_MESSAGE: WriteRouteSpec<DiscoveryReserveArgs, AccountWriteRouteInput> = {
+    name: 'discovery-message', target: organizationIdField, decide: decideDiscoveryMessage,
   };
 
   /** The mirror of `public.append_audit_event`; the live adapter is the oracle. */
@@ -1260,19 +1261,18 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
 
     completeSignup,
 
-    // THE STAND-IN SURFACE FOR A ROUTE THAT DOES NOT EXIST — see the header's closing paragraph
-    // and `AccountsSut`'s fourth kind. Every judgement below is the shipped module's; what is left
-    // here is one refusal about bookkeeping and one write.
     sendDiscoveryMessage: async (session, body): Promise<SendDiscoveryMessageOutcome> => {
       const caller = session === null ? null : resolveCaller(session);
       if (caller === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
-      const authUser = state.authUsers.get(caller.id);
-      if (!authUser) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
-      const emailVerified = emailVerifiedFromUser(renderAuthUser(authUser));
-      const run = runWrite(DISCOVERY_MESSAGE, session, { message: body, emailVerified }, null);
+      const membership = [...state.memberships.values()].find((row) => row.accountId === caller.id);
+      const run = runWrite(DISCOVERY_MESSAGE, session, {
+        organizationId: membership?.organizationId ?? null, projectId: crypto.randomUUID(), message: body,
+      }, null);
       if (!run.ok) return run;
+      const allowed = discoveryMessageAllowed({ emailVerified: caller.emailVerified });
+      if (!allowed.ok) return { ok: false, kind: 'email-unverified', status: 409, reason: allowed.reason };
       const sent = state.discoveryMessages.get(run.caller.id) ?? [];
-      sent.push(run.args.message);
+      sent.push(run.args.p_message);
       state.discoveryMessages.set(run.caller.id, sent);
       return { ok: true };
     },
@@ -1605,6 +1605,12 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       state.accounts.set(accountId, { ...account, accountType });
     },
 
+    clearEmailConfirmationAsOperator: async (accountId) => {
+      const user = state.authUsers.get(accountId);
+      if (!user) throw new Error(`no auth user ${accountId} whose confirmation could be cleared`);
+      user.emailConfirmedAt = null;
+    },
+
     deactivateAccountAsOperator: async (accountId) => {
       const account = state.accounts.get(accountId);
       if (!account) throw new Error(`fixture: no account ${accountId} to deactivate`);
@@ -1778,6 +1784,17 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
               evidenceType: subject.evidenceType,
               note: subject.note,
             },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
+        },
+        'set-organization-discovery': async () => {
+          if (subject.route !== 'set-organization-discovery') throw new Error('unreachable');
+          const run = runWrite(
+            ORGANIZATION_DISCOVERY,
+            session,
+            { organizationId: subject.organizationId, enabled: subject.enabled, reason: subject.reason },
             null,
           );
           if (!run.ok) return run;

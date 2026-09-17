@@ -20,7 +20,7 @@ import {
 import type { AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
 
 const MISSING_ORG = '00000000-0000-4000-8000-000000000099';
-const CALLER = { id: '00000000-0000-4000-8000-000000000001', githubHandle: null };
+const CALLER = { id: '00000000-0000-4000-8000-000000000001', githubHandle: null, emailVerified: true };
 
 function missingOrgInput(body: Record<string, unknown>): AccountWriteRouteInput {
   return {

@@ -23,8 +23,81 @@ import { describe, expect, it } from 'vitest';
 
 import { CapabilityPending } from './registry.ts';
 import { createHarness } from './index.ts';
-import { createEmailProviderSim } from './vendors.ts';
+import { createEmailProviderSim, createAnthropicMessagesSim } from './vendors.ts';
 import type { NotificationsSut, World } from '../suites/req-016/_contract.ts';
+
+describe('Anthropic Messages simulator', () => {
+  const request = { model: 'test-model', maxTokens: 128, effort: 'low' as const, system: [{ text: 'Ask a question.', cached: true }], tools: [],
+    messages: [{ role: 'user' as const, content: 'Hello' }] };
+  it('streams bounded pieces and records the same request once', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    const text = 'Which reporting deadline would you like the tracker to remind you about first?';
+    sim.script([{ kind: 'text', text, usage: { inputTokens: 512, outputTokens: 32 } }]);
+    const deltas: string[] = [];
+    const answer = await port.stream(request, (delta) => deltas.push(delta), new AbortController().signal);
+    expect(deltas.join('')).toBe(text);
+    expect(deltas.every((delta) => delta.length <= 20)).toBe(true);
+    expect(answer).toMatchObject({ ok: true, text, usage: { inputTokens: 512, outputTokens: 32 } });
+    expect(sim.requests()).toEqual([request]);
+  });
+  it('settles an interrupted replay with partial text and a count of that text', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    const text = 'Which reporting deadline would you like the tracker to remind you about first?';
+    sim.script([{ kind: 'text', text, usage: { inputTokens: 512, outputTokens: 32 } }]);
+    const abort = new AbortController();
+    const answer = await port.stream(request, () => abort.abort(), abort.signal);
+    const received = text.slice(0, 20);
+    expect(answer).toMatchObject({ ok: true, text: received, stopReason: 'user_stopped',
+      usage: { inputTokens: 512,
+        outputTokens: Math.ceil(JSON.stringify([{ role: 'assistant', content: received }]).length / 4) },
+      toolUse: null });
+    expect(sim.requests()).toEqual([request]);
+  });
+  it('honours an already aborted stream without emitting text', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([{ kind: 'text', text: 'Question?', usage: { inputTokens: 512, outputTokens: 32 } }]);
+    const abort = new AbortController();
+    abort.abort();
+    const deltas: string[] = [];
+    expect(await port.stream(request, (delta) => deltas.push(delta), abort.signal)).toEqual({
+      ok: false, status: 499, reason: 'the client cancelled before the provider answered',
+    });
+    expect(deltas).toEqual([]);
+    expect(sim.requests()).toEqual([]);
+  });
+  it('folds cache read tokens into the metered input count', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([{ kind: 'text', text: 'Question?', usage: { inputTokens: 80, outputTokens: 32, cacheReadInputTokens: 400 } }]);
+    expect(await port.create(request)).toMatchObject({ ok: true, usage: { inputTokens: 480, outputTokens: 32 } });
+  });
+  it('counts without consuming and caps output on text and tool replies', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([
+      { kind: 'text', text: 'Question?', inputTokens: 256, usage: { inputTokens: 512, outputTokens: 200 } },
+      { kind: 'tool', name: 'record_elicitation', input: { complete: true }, usage: { inputTokens: 600, outputTokens: 64 } },
+    ]);
+    expect(await port.countTokens(request)).toBe(256);
+    expect(await port.countTokens(request)).toBe(256);
+    expect(sim.requests()).toEqual([]);
+    expect(await port.create(request)).toMatchObject({ ok: true, text: 'Question?', stopReason: 'max_tokens',
+      usage: { inputTokens: 512, outputTokens: request.maxTokens } });
+    expect(await port.countTokens(request)).toBe(600);
+    expect(await port.create(request)).toMatchObject({ ok: true, stopReason: 'tool_use', toolUse: { name: 'record_elicitation', input: { complete: true } } });
+    expect(sim.requests()).toEqual([request, request]);
+    const copied = sim.requests();
+    copied[0].messages[0].content = 'changed';
+    expect(sim.requests()[0]).toEqual(request);
+    await expect(port.create(request)).rejects.toThrow('exceeded its scripted replies');
+  });
+  it('returns definite and uncertain errors and a deterministic fallback count', async () => {
+    const { sim, port } = createAnthropicMessagesSim();
+    sim.script([{ kind: 'error', status: 429, reason: 'busy' }, { kind: 'error', status: null, reason: 'timeout' }]);
+    expect(await port.countTokens(request)).toBe(Math.ceil(JSON.stringify(request.messages).length / 4));
+    expect(await port.create(request)).toEqual({ ok: false, status: 429, reason: 'busy' });
+    expect(await port.create(request)).toEqual({ ok: false, status: null, reason: 'timeout' });
+    await expect(port.create(request)).rejects.toThrow('exceeded its scripted replies');
+  });
+});
 
 /** Four DISTINCT send identities. Same event, different recipients — the shape a real event produces. */
 const SEND_A = { recipientId: 'volunteer-1', eventId: 'event-1', channel: 'email' };

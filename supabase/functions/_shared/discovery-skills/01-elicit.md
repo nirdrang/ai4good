@@ -1,0 +1,1 @@
+Start with the need the NGO described. Ask one question about the most important missing fact. Learn who will use the tool, what they do today, what must change, and what a successful result looks like. Ask about data and practical constraints before proposing a solution. Use previous answers instead of asking the same question again.

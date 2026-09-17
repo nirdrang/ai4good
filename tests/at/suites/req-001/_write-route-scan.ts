@@ -1,10 +1,11 @@
+import type { RouteSurface } from '../../../../supabase/functions/_shared/write-routes.ts';
 /** The static conformance scan of the write boundary: every route reaches the database through `writeRoute`. */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { WRITE_ROUTES, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { scanWriteGateSql, type MigrationFile } from './_policy-scan.ts';
 
 const REPO_ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -33,12 +34,16 @@ function dirOf(file: RouteFile): string {
   return file.name.replace(/\\/g, '/').replace(/\/index\.ts$/, '');
 }
 
-function edgeKeys(inventory: typeof WRITE_ROUTES): WriteRouteName[] {
-  return (Object.keys(inventory) as WriteRouteName[]).filter((name) => inventory[name].surface.kind === 'edge');
+export type WriteRouteInventory = {
+  readonly [name: string]: { readonly surface: RouteSurface };
+};
+
+function edgeKeys(inventory: WriteRouteInventory): string[] {
+  return Object.keys(inventory).filter((name) => inventory[name]!.surface.kind === 'edge');
 }
 
-function standInKeys(inventory: typeof WRITE_ROUTES): WriteRouteName[] {
-  return (Object.keys(inventory) as WriteRouteName[]).filter((name) => inventory[name].surface.kind === 'stand-in');
+function standInKeys(inventory: WriteRouteInventory): string[] {
+  return Object.keys(inventory).filter((name) => inventory[name]!.surface.kind === 'stand-in');
 }
 
 function functionBlock(configToml: string, name: string): string | null {
@@ -145,7 +150,7 @@ function edgeBypassOutsideConstructors(edgeModule: string): boolean {
 }
 
 export function scanWriteRoutes(
-  inventory: typeof WRITE_ROUTES,
+  inventory: WriteRouteInventory,
   files: readonly RouteFile[],
   configToml: string,
   edgeModule: string,

@@ -580,3 +580,12 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+[functions.discovery-message]
+verify_jwt = true
+
+[functions.discovery-conversation]
+verify_jwt = true
+
+[functions.set-organization-discovery]
+verify_jwt = true

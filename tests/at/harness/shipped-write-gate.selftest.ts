@@ -135,7 +135,7 @@ describe('the shipped write gate checks in its stated order', () => {
         return { ok: true as const, args: { p_account_id: SEAT } };
       },
     };
-    const input = { caller: { id: SEAT, githubHandle: null }, body: {}, target: null, subject: null, ip: null };
+    const input = { caller: { id: SEAT, githubHandle: null, emailVerified: true }, body: {}, target: null, subject: null, ip: null };
     const refused = writePipeline(spec, { ...input, standing: accountOf('ngo') });
     expect(refused.ok, 'the pipeline let an NGO through the platform-admin gate').toBe(false);
     expect(decided, 'the decision ran for a caller the gate refused').toBe(0);

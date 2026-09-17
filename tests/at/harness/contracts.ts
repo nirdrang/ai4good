@@ -153,6 +153,30 @@ export type EmailProviderSim<Channel extends string = string> = {
 
 export type Vendors<Channel extends string = string> = {
   email: EmailProviderSim<Channel>;
+  anthropic: AnthropicMessagesSim;
+};
+
+export type ModelUsage = {
+  inputTokens: number; outputTokens: number;
+  cacheCreationInputTokens?: number; cacheReadInputTokens?: number;
+};
+export type ModelRequestRecord = import('../../../supabase/functions/_shared/discovery-turn.ts').DiscoveryModelRequest;
+export type ScriptedReply =
+  | { kind: 'text'; text: string; usage: ModelUsage; inputTokens?: number; stopReason?: 'end_turn' | 'max_tokens' | 'refusal' }
+  | { kind: 'tool'; name: string; input: unknown; text?: string; usage: ModelUsage; inputTokens?: number }
+  | { kind: 'error'; status: number | null; reason: string; inputTokens?: number };
+export type ModelAnswerRecord =
+  | { ok: true; text: string; stopReason: string; usage: ModelUsage; model: string; toolUse?: { name: string; input: unknown } | null }
+  | { ok: false; status: number | null; reason: string };
+export type AnthropicMessagesPort = {
+  model: string;
+  create(request: ModelRequestRecord): Promise<ModelAnswerRecord>;
+  countTokens(request: ModelRequestRecord): Promise<number>;
+  stream(request: ModelRequestRecord, onDelta: (text: string) => void, signal: AbortSignal): Promise<ModelAnswerRecord>;
+};
+export type AnthropicMessagesSim = {
+  script(replies: readonly ScriptedReply[]): void;
+  requests(): ModelRequestRecord[];
 };
 
 /* ----------------------------------------------------------------------- the harness */

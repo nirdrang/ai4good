@@ -25,6 +25,69 @@
 
 import type { EmailProviderSim, ProviderAttempt, ProviderOutcome } from './contracts.ts';
 import { providerForceCountProblem } from './guards.ts';
+import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
+import { DISCOVERY_REQUEST_SETTINGS } from '../../../supabase/functions/_shared/discovery-metering.ts';
+export type { AnthropicMessagesPort } from './contracts.ts';
+
+function foldedInputTokens(usage: {
+  inputTokens: number; cacheCreationInputTokens?: number; cacheReadInputTokens?: number;
+}): number {
+  return usage.inputTokens + (usage.cacheCreationInputTokens ?? 0) + (usage.cacheReadInputTokens ?? 0);
+}
+
+function countedRequestTokens(messages: unknown): number {
+  return Math.ceil(JSON.stringify(messages).length / 4);
+}
+
+export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port: AnthropicMessagesPort } {
+  let replies: ScriptedReply[] = [];
+  const requests: ModelRequestRecord[] = [];
+  return {
+    sim: {
+      script: (next) => { replies = structuredClone([...next]); },
+      requests: () => structuredClone(requests),
+    },
+    port: {
+      model: DISCOVERY_REQUEST_SETTINGS.model,
+      countTokens: async (request) => replies[0]?.inputTokens ??
+        (replies[0]?.kind !== 'error' ? replies[0]?.usage.inputTokens : undefined) ??
+        countedRequestTokens(request.messages),
+      create: async (request) => {
+        const reply = replies.shift();
+        if (reply === undefined) throw new Error('Anthropic Messages request exceeded its scripted replies');
+        requests.push(structuredClone(request));
+        if (reply.kind === 'error') return { ok: false, status: reply.status, reason: reply.reason };
+        const capped = reply.usage.outputTokens > request.maxTokens;
+        return {
+          ok: true, text: reply.text ?? '', model: request.model,
+          stopReason: capped ? 'max_tokens' : reply.kind === 'tool' ? 'tool_use' : reply.stopReason ?? 'end_turn',
+          usage: {
+            inputTokens: foldedInputTokens(reply.usage),
+            outputTokens: Math.min(reply.usage.outputTokens, request.maxTokens),
+          },
+          toolUse: reply.kind === 'tool' ? { name: reply.name, input: reply.input } : null,
+        };
+      },
+      async stream(request, onDelta, signal) {
+        if (signal.aborted) {
+          return { ok: false, status: 499, reason: 'the client cancelled before the provider answered' };
+        }
+        const answer = await this.create(request);
+        if (!answer.ok) return answer;
+        let text = '';
+        for (let index = 0; index < answer.text.length && !signal.aborted; index += 20) {
+          const delta = answer.text.slice(index, index + 20);
+          text += delta;
+          onDelta(delta);
+          await Promise.resolve();
+        }
+        return signal.aborted ? { ...answer, text, stopReason: 'user_stopped',
+          usage: { ...answer.usage, outputTokens: countedRequestTokens([{ role: 'assistant', content: text }]) },
+          toolUse: null } : answer;
+      },
+    },
+  };
+}
 
 /** What a send looks like at the seam. The channel is the suite's own name for it, never validated here. */
 export type ProviderSend = {

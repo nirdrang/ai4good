@@ -1,0 +1,1 @@
+Write for a busy person with no developer on staff. Use short, familiar sentences and concrete examples from their work. Keep each reply short. Avoid technical jargon, unexplained abbreviations and long dashes. Explain a necessary technical term in ordinary words. Do not overwhelm the reader with a questionnaire or a long list of possible features.
