@@ -8,7 +8,7 @@ Written by setup on 2026-09-02 for ai4good on pstack 1.2.1: the default role map
 matrix default efforts. The earlier customized sheets are kept beside this file as
 `pstack-models.md.bak-*`.
 
-feature, refactoring: codex:gpt-6-astra@low
+feature, refactoring: grok:grok-4.6@xhigh
 bug-fix: codex:gpt-5.6-sol@max
 perf-issue: codex:gpt-6-astra@medium
 hillclimb: codex:gpt-6-astra@high
@@ -30,15 +30,22 @@ Do not write an old row out in full anywhere in this file, even inside a comment
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
 
+### The writer row returns to grok at xhigh, 2026-09-16
+
+`feature, refactoring` held astra at low from 2026-09-13 until 2026-09-16. It is grok at xhigh
+again, by founder ruling and not by measurement. The astra trial on the project need intake run
+is over.
+
+To undo, back to the astra trial descriptor:
+
+    codex:gpt-6-astra@low
+
 ### The writer row moves to astra at low, 2026-09-13
 
-`feature, refactoring` held grok at xhigh until 2026-09-13. It is now astra at low, by founder
-ruling and not by measurement, at the start of the project need intake run. That run is the
-trial: astra has not written feature code here before, and low is its lowest effort.
-
-To undo: replace the astra descriptor with the line below.
-
-    grok:grok-4.6@xhigh
+`feature, refactoring` held grok at xhigh until 2026-09-13. It became astra at low, by founder
+ruling and not by measurement, at the start of the project need intake run. That run was the
+trial: astra had not written feature code here before, and low is its lowest effort. The row
+went back to grok on 2026-09-16, in the entry above.
 
 ### A fifth interrogate lane, DeepSeek V4.1 Flash, 2026-09-11
 
