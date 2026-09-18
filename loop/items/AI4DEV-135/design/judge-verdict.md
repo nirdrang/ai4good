@@ -1,0 +1,46 @@
+| Candidate | 1. Constraint fidelity | 2. Interface depth | 3. Provability | 4. One model for versions | 5. Blast radius | 6. Smallness | Total / 30 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| A | 4 | 4 | 5 | 5 | 1 | 2 | **21** |
+| B | 2 | 3 | 2 | 2 | 3 | 4 | **16** |
+| C | 1 | 4 | 2 | 3 | 3 | 4 | **17** |
+| D | 2 | 3 | 2 | 4 | 2 | 2 | **15** |
+
+**A**  
+Strongest idea: pin the PRD and scorer to the same immutable scope version, with explicit rejection of a different version ([A:147](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/1-astra-tool-in-turn/candidate.md:147)).  
+Its separation of generated labels from NGO removals also prevents an in-flight generation from undoing deletion ([A:176](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/1-astra-tool-in-turn/candidate.md:176)).  
+Worst defect: it changes tested settlement semantics while promising preservation—repeated settlement becomes successful replay ([A:242](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/1-astra-tool-in-turn/candidate.md:242)).  
+The current RPC rejects terminal turns, and AT-004.49 explicitly requires that rejection ([SQL:239](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/supabase/migrations/20260920120000_discovery_turns.sql:239), [test:166](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/tests/at/suites/req-004/a-metering.test.ts:166)).  
+It explicitly acknowledges two billing-CHECK rewrites and an expanded immutable allow-list; those changes, organization-wide budget accounting, and control turns explain its low blast-radius and smallness scores ([A:244](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/1-astra-tool-in-turn/candidate.md:244), [A:777](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/1-astra-tool-in-turn/candidate.md:777)).
+
+**B**  
+Strongest idea: give scope generation one dedicated `record_scope` call, preserving the existing single-tool answer interface ([B:94](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:94), [port:35](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/supabase/functions/_shared/anthropic-messages.ts:35)).  
+Worst defect: regeneration checks the bound in `begin`, records no reservation, then commits without rechecking the bound; concurrent calls can exceed three replacements ([B:587](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:587), [B:599](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:599)).  
+The existing route pipeline really does separate those database calls around the model operation, so the first transaction’s lock cannot protect the second ([edge.ts:375](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/supabase/functions/_shared/edge.ts:375), [edge.ts:425](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/supabase/functions/_shared/edge.ts:425)).  
+Constraint fidelity also suffers: both consumers select “current” with mutable label overlays, and the proposed unconditional prompt still redirects funded requests ([B:96](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:96), [B:406](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:406)).  
+Its green claims for backlog derivation and production PRD/scorer behavior exceed what absence scans and stubs establish ([B:694](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:694), [acceptance:45](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/.taskmaster/docs/acceptance/at-req-004.md:45)).
+
+**C**  
+Strongest idea: retain the small need-facing read interface and bounded historical snapshots without introducing another version table ([C:207](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/3-opus-need-aggregate/candidate.md:207), [C:368](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/3-opus-need-aggregate/candidate.md:368)).  
+Worst defect: it substitutes “nothing extra” for “zero credits”: its successful retry explicitly charges successful usage ([C:161](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/3-opus-need-aggregate/candidate.md:161)).  
+That follows the existing settlement formula, but contradicts AT-004.39; refunding two failed attempts does not prove a successful retry is free ([SQL:254](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/supabase/migrations/20260920120000_discovery_turns.sql:254), [acceptance:80](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/.taskmaster/docs/acceptance/at-req-004.md:80)).  
+It also replaces the explicitly required new deletion route with an action on `project-need`, an acknowledged structural choice that still misreads the task ([C:583](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/3-opus-need-aggregate/candidate.md:583), [task:40](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/task.md:40)).  
+Its integration proofs overclaim model redirection and retries by testing operator-supplied declines and failed-turn refunds instead ([C:659](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/3-opus-need-aggregate/candidate.md:659)).
+
+**D**  
+Strongest idea: record regeneration intent before the model runs, then derive history and counters through a pure fold ([D:200](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:200), [D:292](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:292)).  
+Worst defect: its vocabulary policy uses `USING (true)`, which the existing tenant scan explicitly rejects ([D:119](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:119), [scan:233](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/tests/at/suites/req-001/_policy-scan.ts:233)).  
+It acknowledges adding a tenant posture, but that alone does not remove the independent tautology prohibition ([D:356](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:356)).  
+The third billing kind and rewritten credit CHECK are explicit; excluding its scope module from notification-component coverage weakens the intended sole-writer evidence ([D:122](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:122), [D:165](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:165)).  
+Provability remains weak: operator-appended events cannot establish working model-backed regeneration, and absence alone cannot establish PRD-derived backlog creation ([D:336](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:336)).
+
+**Recommended base: A**  
+It most completely connects all six units without leaving regeneration concurrency to implementation guesswork.  
+Scope identity, replacement slots, reasons, retry lineage, and escalation share one durable model.  
+It explicitly addresses multi-tool preservation, zero-credit billing, fuel bypass, deletion races, and compatible output.  
+Its acceptance plan distinguishes scripted evidence, real-model evidence, and genuinely unbuilt consumers.  
+Adopt it after reconciling settlement replay with AT-004.49 and validating its broader budget changes against existing credit behavior.
+
+**Grafts:**  
+B → Use a single `record_scope` tool for replacement generation, where completed elicitation already exists ([B:94](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/2-grok-scope-route/candidate.md:94)).  
+C → Extend the notification seed oracle to collect every seeding migration; it currently returns the first one ([C:592](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/3-opus-need-aggregate/candidate.md:592), [scan:149](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/tests/at/suites/req-016/_source-scan.ts:149)).  
+D → Extract pure derivation of regeneration and guardrail state from ordered records, retaining A’s storage rather than adding another log ([D:194](C:/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-135/loop/items/AI4DEV-135/design/4-fable-event-log/candidate.md:194)).
