@@ -26,7 +26,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 #
 #   git                         actions/checkout
 #   curl, unzip                 oven-sh/setup-bun downloads and unpacks bun
-#   gh                          the ownership guard and the closure guard both call `gh api`
+#   gh                          the diff-scope step and the item-id guard both call `gh api`
 #   ca-certificates, tar, gzip  fetching the runner and anything else over TLS
 #   sudo                        actions commonly assume an unprivileged user can escalate
 #
