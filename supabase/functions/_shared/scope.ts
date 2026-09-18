@@ -1,4 +1,4 @@
-import { DISCOVERY_REQUEST_SETTINGS } from './discovery-metering.ts';
+import { DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
 import { DISCOVERY_SYSTEM_PROMPT_TEMPLATE, parseElicitation, type DiscoveryNeed } from './discovery-prompt.ts';
 import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts';
 import type { Elicitation, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
@@ -228,7 +228,10 @@ export type ScopeView = {
 };
 export function scopeViewFromSql(row: ScopeSqlRow): ScopeView {
   const labels = Array.isArray(row.cause_labels) ? [...row.cause_labels] : [];
-  const contract = row.contract === null || row.contract === undefined ? null : parseScope(row.contract) ?? row.contract;
+  const contract = row.contract == null ? null : parseScope(row.contract);
+  if (row.contract != null && contract === null) {
+    throw new Error('discovery_scopes row ' + row.id + ' holds a contract parseScope refuses');
+  }
   return {
     id: row.id, version: row.version, status: row.status, reason: row.reason,
     contract, markdown: row.markdown, causeLabels: labels,
@@ -239,7 +242,7 @@ export function scopeViewFromSql(row: ScopeSqlRow): ScopeView {
 export type DiscoveryScopeArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string;
   p_action: 'generate'; p_reason: string | null; p_label: string | null;
-  p_bound: number | null; p_notice: null;
+  p_settings: { turn_deadline_seconds: number }; p_notice: null;
 };
 
 export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteDecision<DiscoveryScopeArgs> {
@@ -257,7 +260,8 @@ export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteD
   }
   return { ok: true, args: {
     p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
-    p_action: 'generate', p_reason: null, p_label: null, p_bound: null, p_notice: null,
+    p_action: 'generate', p_reason: null, p_label: null,
+    p_settings: { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS }, p_notice: null,
   } };
 }
 
@@ -297,7 +301,7 @@ export function renderScopeBegin(value: unknown): ScopeBeginSnapshot {
     changed: value.changed === true,
     scope: isRecord(value.scope) ? value.scope as ScopeSqlRow : null,
     elicitation, context: contextFrom(value.context), need,
-    mission: typeof value.mission === 'string' ? value.mission : value.mission === null ? null : null,
+    mission: typeof value.mission === 'string' ? value.mission : null,
     vocabulary,
   };
 }
@@ -307,7 +311,7 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     const begun = renderScopeBegin(value);
     if (begun.done === true) {
       return { args: {
-        p_account_id: args.p_account_id, p_scope_id: begun.scope?.id ?? args.p_project_id,
+        p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: null,
         p_outcome: 'completed', p_contract: null, p_markdown: null, p_labels: [],
         p_served_model: null, p_input_tokens: null, p_output_tokens: null,
       }, failure: null };
@@ -325,7 +329,7 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     const answer = await port.create(request);
     const failed = (reason: string, usage?: { inputTokens: number; outputTokens: number; model: string }) => ({
       args: {
-        p_account_id: args.p_account_id, p_scope_id: begun.scope!.id, p_outcome: 'failed' as const,
+        p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope!.id, p_outcome: 'failed' as const,
         p_contract: null, p_markdown: null, p_labels: [] as string[],
         p_served_model: usage?.model ?? null,
         p_input_tokens: usage?.inputTokens ?? null, p_output_tokens: usage?.outputTokens ?? null,
@@ -338,7 +342,7 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
       inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
     });
     return { args: {
-      p_account_id: args.p_account_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
+      p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
       p_contract: parsed, p_markdown: renderScopeMarkdown(parsed, { title: begun.need.title }),
       p_labels: parsed.causeLabels, p_served_model: answer.model,
       p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens,
@@ -354,7 +358,7 @@ export function renderDiscoveryScope(value: unknown): {
     ? value.scopes.filter(isRecord).map((row) => scopeViewFromSql(row as ScopeSqlRow)) : [];
   const scope = isRecord(value.scope) ? scopeViewFromSql(value.scope as ScopeSqlRow) : null;
   return {
-    changed: value.changed === true || (scope !== null && (scope.status === 'current' || scope.status === 'failed')),
+    changed: value.changed === true || scope?.status === 'current',
     scope, scopes, need: needViewFromSql(value.need as NeedIntakeSqlRow),
     escalated: value.escalated === true || scopes.some((row) => row.status === 'escalated'),
   };

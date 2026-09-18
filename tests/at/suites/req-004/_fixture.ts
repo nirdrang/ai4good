@@ -155,6 +155,10 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
     if (!actor || actor.organizationId !== args.p_organization_id) return refuse('not-a-member', 'the caller holds no membership');
     if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may write a Discovery scope');
+    const switched = switches.get(args.p_organization_id);
+    if (switched !== undefined) {
+      return refuse('discovery-disabled', `a platform admin switched Discovery off for this organisation — ${switched.reason}`);
+    }
     const need = await needs.needRow(args.p_project_id);
     if (!need || need.organizationId !== args.p_organization_id) return refuse('no-such-project', 'no such project');
     if (need.stage !== 'discovery_in_progress') return refuse('need-not-in-discovery', 'the need is not in Discovery');
@@ -165,7 +169,12 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return refuse('elicitation-incomplete', 'the elicitation is not complete');
     }
     const existing = scopes.get(need.projectId) ?? [];
-    if (existing.some((row) => row.status === 'generating' || row.status === 'current' || row.status === 'superseded')) {
+    const generating = existing.find((row) => row.status === 'generating');
+    if (generating && opts.clock.now() - Date.parse(generating.opened_at) < DISCOVERY_TURN_DEADLINE_SECONDS * 1000) {
+      return refuse('generation-in-flight', 'a Discovery generation is in flight');
+    }
+    if (generating) Object.assign(generating, { status: 'failed', settled_at: now() });
+    if (existing.some((row) => row.status === 'current' || row.status === 'superseded')) {
       return refuse('scope-already-generated', 'a scope has already been generated for this project');
     }
     const profile = await organizations.profile(need.organizationId);
@@ -198,20 +207,23 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     } };
   };
   const commitScope = async (args: Record<string, unknown>): Promise<ScopeWriteOutcome> => {
-    const row = [...scopes.values()].flat().find((item) => item.id === args.p_scope_id);
-    if (!row) return refuse('scope-not-open', 'the Discovery scope is not open');
+    const projectId = typeof args.p_project_id === 'string' ? args.p_project_id : '';
+    const need = await needs.needRow(projectId);
+    if (!need) return refuse('no-such-project', 'no such project');
     const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
-    if (!actor || actor.organizationId !== row.org_id) return refuse('not-a-member', 'the caller holds no membership');
+    if (!actor || actor.organizationId !== need.organizationId) return refuse('not-a-member', 'the caller holds no membership');
     if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may settle a Discovery scope');
-    const snapshot = async () => {
-      const need = await sqlNeed(row.project_id);
-      if (!need) throw new Error('no need for a scope commit');
-      return renderDiscoveryScope({ scope: row, scopes: scopes.get(row.project_id) ?? [], need });
+    const snapshot = async (scope: ScopeSqlRow | null) => {
+      const sqlNeedRow = await sqlNeed(projectId);
+      if (!sqlNeedRow) throw new Error('no need for a scope commit');
+      return renderDiscoveryScope({ scope, scopes: scopes.get(projectId) ?? [], need: sqlNeedRow });
     };
-    if (args.p_outcome === 'completed' && args.p_contract == null) {
-      return { ok: true, ...await snapshot() };
+    if (args.p_scope_id == null) {
+      const current = (scopes.get(projectId) ?? []).find((row) => row.status === 'current') ?? null;
+      return { ok: true, ...await snapshot(current) };
     }
-    if (row.status !== 'generating') return refuse('scope-not-open', 'the Discovery scope is not open');
+    const row = (scopes.get(projectId) ?? []).find((item) => item.id === args.p_scope_id);
+    if (!row || row.status !== 'generating') return refuse('scope-not-open', 'the Discovery scope is not open');
     if (args.p_outcome === 'completed') {
       for (const other of scopes.get(row.project_id) ?? []) {
         if (other.status === 'current') other.status = 'superseded';
@@ -225,7 +237,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     } else if (args.p_outcome === 'failed') {
       Object.assign(row, { status: 'failed', settled_at: now() });
     } else return refuse('invalid-request', 'invalid Discovery scope outcome');
-    return { ok: true, ...await snapshot() };
+    return { ok: true, ...await snapshot(row) };
   };
   const sut: DiscoverySut = {
     ...needs,
