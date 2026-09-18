@@ -13,7 +13,10 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 - Unit 2 (money-free rendering, AT-004.21 and .25) landed at `dbe3417` plus review fixes at
   `6d4d059`, verified at both tiers: `verify/unit2/summary.txt`. The lead applied the three review
   fixes by hand (shared regex, dead `lastIndex` resets, two copy strings) instead of a fixes lane.
-- Units 3 to 6 not started. `lanes/unit3-writer.prompt.md` is written; the others are written
+- Unit 3 (scope as contract, AT-004.24 and .52 red under `backlog.derivation` and
+  `prd.authoring`) landed at `b86704c` plus one review fix at `a99695f`, verified at both tiers:
+  `verify/unit3/summary.txt`.
+- Units 4 to 6 not started. `lanes/unit4-writer.prompt.md` is written; the others are written
   at each gate.
 
 ## How a unit runs
