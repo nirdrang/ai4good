@@ -54,7 +54,8 @@ project is still operator SQL (see `project-workspace.md`).
 | Discovery message (count, reserve, reply and settle) | [discovery-message.md](discovery-message.md) |
 | Discovery conversation (history, elicitation and today's allowance) | [discovery-conversation.md](discovery-conversation.md) |
 | Set organization Discovery (admin per-NGO switch, audited) | [set-organization-discovery.md](set-organization-discovery.md) |
+| Discovery chat page (browser) | [discovery-chat-page.md](discovery-chat-page.md) |
 
-Not mapped yet, deliberately: the web UI (a placeholder page today) and the Google/GitHub
-OAuth round trips. Consent is a human browser step. Configuration well-formedness is checkable;
-the handshake is not.
+Not mapped yet, deliberately: the other screens and the Google/GitHub OAuth consent step.
+Consent is a human browser step. Configuration well-formedness is checkable; the handshake
+is not.
