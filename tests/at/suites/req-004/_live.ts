@@ -114,7 +114,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
           ${input.contract == null ? null : JSON.stringify(input.contract)}::text::jsonb,
           ${input.markdown ?? null}::text,
           coalesce((select array_agg(value) from jsonb_array_elements_text(${labelsJson}::text::jsonb) as value), '{}'::text[]),
-          ${input.servedModel ?? null}::text, ${input.inputTokens ?? null}::integer, ${input.outputTokens ?? null}::integer
+          ${input.servedModel ?? null}::text, ${input.inputTokens ?? null}::integer, ${input.outputTokens ?? null}::integer, null::boolean
         ) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryScope(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }

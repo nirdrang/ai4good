@@ -5,7 +5,7 @@ import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAns
   contextMessagesFrom,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { canonicalLabel, decideDiscoveryScope, renderDiscoveryScope, renderScopeBegin, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
-import { isRecord, organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
+import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
@@ -243,9 +243,8 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const current = (scopes.get(projectId) ?? []).find((row) => row.status === 'current') ?? null;
       const sqlNeedRow = await sqlNeed(projectId);
       if (!sqlNeedRow) throw new Error('no need for a scope commit');
-      const changed = isRecord(args.p_contract) && args.p_contract.changed === true;
       return { ok: true, ...renderDiscoveryScope({
-        scope: current, scopes: scopes.get(projectId) ?? [], need: sqlNeedRow, changed,
+        scope: current, scopes: scopes.get(projectId) ?? [], need: sqlNeedRow, changed: args.p_changed === true,
       }) };
     }
     const row = (scopes.get(projectId) ?? []).find((item) => item.id === args.p_scope_id);
@@ -361,7 +360,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       p_account_id: input.accountId, p_project_id: input.projectId, p_scope_id: input.scopeId,
       p_outcome: input.outcome, p_contract: input.contract ?? null, p_markdown: input.markdown ?? null,
       p_labels: input.labels ?? [], p_served_model: input.servedModel ?? null,
-      p_input_tokens: input.inputTokens ?? null, p_output_tokens: input.outputTokens ?? null,
+      p_input_tokens: input.inputTokens ?? null, p_output_tokens: input.outputTokens ?? null, p_changed: null,
     }),
     needRow: async (projectId) => {
       const row = await needs.needRow(projectId);

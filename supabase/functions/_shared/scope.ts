@@ -402,9 +402,8 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     if (begun.done === true) {
       return { args: {
         p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: null,
-        p_outcome: 'completed', p_contract: { changed: begun.changed === true }, p_markdown: null, p_labels: [],
-        // p_scope_id is null, so commit does not store this envelope; it only echoes `changed`
-        p_served_model: null, p_input_tokens: null, p_output_tokens: null,
+        p_outcome: 'completed', p_contract: null, p_markdown: null, p_labels: [],
+        p_served_model: null, p_input_tokens: null, p_output_tokens: null, p_changed: begun.changed === true,
       }, failure: null };
     }
     if (begun.scope === null || begun.elicitation === null || begun.need === null) {
@@ -423,7 +422,7 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
         p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope!.id, p_outcome: 'failed' as const,
         p_contract: null, p_markdown: null, p_labels: [] as string[],
         p_served_model: usage?.model ?? null,
-        p_input_tokens: usage?.inputTokens ?? null, p_output_tokens: usage?.outputTokens ?? null,
+        p_input_tokens: usage?.inputTokens ?? null, p_output_tokens: usage?.outputTokens ?? null, p_changed: null,
       }, failure: reason,
     });
     if (!answer.ok) return failed(answer.reason);
@@ -445,7 +444,7 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
       p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
       p_contract: stored, p_markdown: markdown,
       p_labels: causeLabels, p_served_model: answer.model,
-      p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens,
+      p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens, p_changed: null,
     }, failure: null };
   };
 }

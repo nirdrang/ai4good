@@ -170,10 +170,13 @@ revoke execute on function public.discovery_scope_begin(uuid, uuid, uuid, text, 
 grant execute on function public.discovery_scope_begin(uuid, uuid, uuid, text, text, text, jsonb, jsonb)
   to service_role;
 
-create or replace function public.discovery_scope_commit(
+drop function public.discovery_scope_commit(uuid, uuid, uuid, text, jsonb, text, text[], text, integer, integer);
+
+-- p_changed is the answer of a pass-through commit (p_scope_id null): whether the begin changed anything.
+create function public.discovery_scope_commit(
   p_account_id uuid, p_project_id uuid, p_scope_id uuid, p_outcome text,
   p_contract jsonb, p_markdown text, p_labels text[],
-  p_served_model text, p_input_tokens integer, p_output_tokens integer
+  p_served_model text, p_input_tokens integer, p_output_tokens integer, p_changed boolean
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_role public.org_role;
@@ -206,7 +209,7 @@ begin
       'scope', to_jsonb(v_scope),
       'scopes', v_scopes,
       'need', to_jsonb(v_need) || jsonb_build_object('title', v_title),
-      'changed', coalesce((p_contract->>'changed')::boolean, false)
+      'changed', coalesce(p_changed, false)
     );
   end if;
   select * into v_scope from public.discovery_scopes
@@ -251,9 +254,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.discovery_scope_commit(uuid, uuid, uuid, text, jsonb, text, text[], text, integer, integer)
+revoke execute on function public.discovery_scope_commit(uuid, uuid, uuid, text, jsonb, text, text[], text, integer, integer, boolean)
   from public, anon, authenticated, service_role;
-grant execute on function public.discovery_scope_commit(uuid, uuid, uuid, text, jsonb, text, text[], text, integer, integer)
+grant execute on function public.discovery_scope_commit(uuid, uuid, uuid, text, jsonb, text, text[], text, integer, integer, boolean)
   to service_role;
 
 notify pgrst, 'reload schema';
