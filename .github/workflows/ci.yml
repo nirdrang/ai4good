@@ -15,7 +15,7 @@ on:
     branches: [main]
 
 # Minimal and explicit. `contents: read` is what checkout needs; `pull-requests: read` is what the
-# ownership guard's `gh api .../pulls/N/files` call needs. Nothing here writes anything.
+# diff-scope step and the item-id guard need for their `gh api` calls. Nothing here writes anything.
 permissions:
   contents: read
   pull-requests: read
@@ -209,73 +209,6 @@ jobs:
             echo "every discovered suite has a declaration manifest"
           fi
           exit $status
-
-      # One pull request may not change both territories. Lovable owns src/; Claude owns
-      # supabase/, tests/, loop/, .claude/ and .github/. Anything else is neither, and is ignored.
-      # The changed-file list comes from the pull request itself, which IS the base-to-head diff —
-      # so the guard never depends on how deep the checkout fetched.
-      - name: Guard against a pull request that changes both territories
-        if: github.event_name == 'pull_request'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          # ONE LINE PER CHANGED FILE, carrying both of its paths: a file MOVED out of src/ into
-          # tests/ changes both territories, and the API reports only its destination under
-          # `filename`. One line per FILE (not per path) is what makes the count below an entry
-          # count, so a pull request full of renames cannot falsely trip the ceiling.
-          if ! files=$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files" --paginate \
-              --jq '.[] | [.filename, (.previous_filename // "")] | @tsv'); then
-            echo "::error::the pull request's changed files could not be read from the GitHub API — the guard does not pass a change set it could not read"
-            exit 1
-          fi
-
-          count=$(printf '%s\n' "$files" | grep -c . || true)
-          echo "the pull request changes $count file(s)"
-          if [ "$count" -eq 0 ]; then
-            echo "::error::the GitHub API reported no changed files for this pull request — the guard does not pass a change set it could not read"
-            exit 1
-          fi
-          if [ "$count" -ge 3000 ]; then
-            echo "::error::the changed-file listing reached the GitHub API's 3000-file ceiling, so it is truncated and the guard cannot prove the two territories are separate"
-            exit 1
-          fi
-
-          # Both fields of every line are matched; the empty second field of an ordinary
-          # (non-renamed) file drops out here.
-          paths=$(printf '%s\n' "$files" | tr '\t' '\n' | grep . || true)
-
-          # THE GENERATED ROUTE MAP BELONGS TO NEITHER TERRITORY (founder ruling 2026-08-12).
-          # `bun run build` rewrites src/routeTree.gen.ts on every build - measured twice that day,
-          # the same ten-line `declare module` block returns each time, while typecheck and the
-          # acceptance runs never touch it. So every Claude-territory item that builds dirties a
-          # Lovable-territory file it never wrote, and this guard fails a pull request for a change
-          # nobody made. The guard protects AUTHORED code; derived output has no author to protect,
-          # and the next build overwrites a hand edit anyway. One exemption here replaces a
-          # restore-after-build ritual that every future item would have to remember.
-          paths=$(printf '%s\n' "$paths" | grep -v '^src/routeTree\.gen\.ts$' || true)
-
-          lovable=$(printf '%s\n' "$paths" | grep -E '^src/' || true)
-          claude=$(printf '%s\n' "$paths" | grep -E '^(supabase|tests|loop|\.claude|\.github)/' || true)
-
-          if [ -n "$lovable" ] && [ -n "$claude" ]; then
-            echo "::error::this pull request changes BOTH Lovable territory and Claude territory — split it into two pull requests"
-            echo "Lovable territory (src/):"
-            printf '%s\n' "$lovable" | sed 's/^/  /'
-            echo "Claude territory (supabase/, tests/, loop/, .claude/, .github/):"
-            printf '%s\n' "$claude" | sed 's/^/  /'
-            exit 1
-          fi
-
-          if [ -n "$lovable" ]; then
-            echo "ownership guard OK — this pull request stays inside Lovable territory"
-          elif [ -n "$claude" ]; then
-            echo "ownership guard OK — this pull request stays inside Claude territory"
-          else
-            echo "ownership guard OK — this pull request touches neither territory"
-          fi
 
       - name: Guard against a pull request that names an item it does not own
         if: github.event_name == 'pull_request'

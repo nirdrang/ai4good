@@ -181,3 +181,6 @@ on PATH.
   GitHub gate refusals, create and update organisation with their refusals, the three tenant
   reads including the byte-identical 404s and the token-free public page, the catalog posture,
   and the three admin operations with their audit rows and the append-only proof.
+- [`scripts/prepare-chat-page.ts`](scripts/prepare-chat-page.ts) — email signup, confirmation,
+  NGO completion, a submitted need, and the chat page URL printed as JSON; `--drain` spends
+  the daily grant through JSON sends until the zero-credit refusal.
