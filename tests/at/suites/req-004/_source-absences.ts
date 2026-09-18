@@ -593,3 +593,57 @@ export function scopeMoneySourceProblems(): string[] {
   }
   return scanScopeMoneySource({ files, toolDescription: RECORD_SCOPE_TOOL.description });
 }
+
+export type ScopeDecompositionInput = {
+  files: readonly SourceFile[];
+};
+
+const TASKISH_TABLE = '(?:tasks|task|backlogs|backlog|issues|issue)';
+const TASKISH_SQL_WRITE = new RegExp(
+  String.raw`\b(?:insert\s+into|update|delete\s+from)\s+(?:only\s+)?(?:public\.)?${TASKISH_TABLE}\b`,
+  'i',
+);
+const TASKISH_CLIENT_FROM = new RegExp(String.raw`\.from\(\s*['"]${TASKISH_TABLE}['"]\s*\)`, 'i');
+const TASKISH_REST = new RegExp(String.raw`\/${TASKISH_TABLE}\b`, 'i');
+const SCOPE_CLIENT_FROM = /\.from\(\s*['"]discovery_scopes['"]\s*\)/;
+const SCOPE_SQL_FROM = /\bfrom\s+(?:public\.)?discovery_scopes\b/i;
+const SCOPE_REST = /\/discovery_scopes\b/;
+const CALL_NAME = /\b([A-Za-z_][\w]*)\s*\(/g;
+const CALL_KEYWORDS = new Set([
+  'if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'new',
+  'await', 'void', 'yield', 'import', 'export', 'super', 'select', 'perform', 'execute',
+]);
+const TASKISH_NAME_TOKENS = ['task', 'tasks', 'backlog', 'backlogs', 'issue', 'issues'] as const;
+
+function readsDiscoveryScopes(text: string): boolean {
+  return SCOPE_CLIENT_FROM.test(text) || SCOPE_SQL_FROM.test(text) || SCOPE_REST.test(text);
+}
+
+function writesTaskBacklogOrIssue(text: string): boolean {
+  if (TASKISH_SQL_WRITE.test(text) || TASKISH_CLIENT_FROM.test(text) || TASKISH_REST.test(text)) {
+    return true;
+  }
+  CALL_NAME.lastIndex = 0;
+  for (const match of text.matchAll(CALL_NAME)) {
+    const name = match[1];
+    if (name === undefined || CALL_KEYWORDS.has(name.toLowerCase())) continue;
+    if (hasToken(words(name), ...TASKISH_NAME_TOKENS)) return true;
+  }
+  return false;
+}
+
+export function scanScopeDecomposition(input: ScopeDecompositionInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanScopeDecomposition found no product source. Refusing to report an absence.');
+  }
+  const problems: string[] = [];
+  for (const file of input.files) {
+    if (!readsDiscoveryScopes(file.text) || !writesTaskBacklogOrIssue(file.text)) continue;
+    problems.push(`${file.path} reads discovery_scopes and writes a task, backlog, or issue`);
+  }
+  return [...new Set(problems)].sort();
+}
+
+export function scopeDecompositionProblems(): string[] {
+  return scanScopeDecomposition({ files: productFiles('scopeDecompositionProblems') });
+}

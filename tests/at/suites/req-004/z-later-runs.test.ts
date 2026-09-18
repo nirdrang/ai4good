@@ -9,7 +9,6 @@ atTest('AT-004.16', 'Discovery criterion 16 awaits referenceUpload', { default: 
 atTest('AT-004.17', 'Discovery criterion 17 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.18', 'Discovery criterion 18 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.19', 'Discovery criterion 19 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
-atTest('AT-004.24', 'Discovery criterion 24 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
 atTest('AT-004.26', 'Discovery criterion 26 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
 atTest('AT-004.27', 'Discovery criterion 27 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
 atTest('AT-004.28', 'Discovery criterion 28 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
@@ -26,7 +25,6 @@ atTest('AT-004.38', 'Discovery criterion 38 awaits regeneration', { default: awa
 atTest('AT-004.39', 'Discovery criterion 39 awaits regeneration', { default: awaiting(AWAITED.regeneration) });
 atTest('AT-004.50', 'Discovery criterion 50 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
 atTest('AT-004.51', 'Discovery criterion 51 awaits triageQueue', { default: awaiting(AWAITED.triageQueue) });
-atTest('AT-004.52', 'Discovery criterion 52 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
 atTest('AT-004.53', 'Discovery criterion 53 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.54', 'Discovery criterion 54 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.55', 'Discovery criterion 55 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });

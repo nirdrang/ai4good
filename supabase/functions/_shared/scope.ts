@@ -246,7 +246,7 @@ export type ScopeSqlRow = {
   opened_at: string; settled_at: string | null;
 };
 export type ScopeView = {
-  id: string; version: number; status: ScopeSqlRow['status']; reason: string | null;
+  id: string; projectId: string; version: number; status: ScopeSqlRow['status']; reason: string | null;
   contract: Scope | null; markdown: string | null; causeLabels: string[];
   generatedAt: string | null; requestedAt: string;
 };
@@ -257,10 +257,43 @@ export function scopeViewFromSql(row: ScopeSqlRow): ScopeView {
     throw new Error('discovery_scopes row ' + row.id + ' holds a contract parseScope refuses');
   }
   return {
-    id: row.id, version: row.version, status: row.status, reason: row.reason,
+    id: row.id, projectId: row.project_id, version: row.version, status: row.status, reason: row.reason,
     contract, markdown: row.markdown, causeLabels: labels,
     generatedAt: row.settled_at, requestedAt: row.opened_at,
   };
+}
+
+export type ScopeContractRef = { projectId: string; version: number };
+type ScopeContractResult =
+  | { ok: true; scope: Scope; markdown: string }
+  | { ok: false; reason: 'no-such-version' | 'not-settled' };
+
+function resolveScopeContract(scopes: readonly ScopeView[], ref: ScopeContractRef): ScopeContractResult {
+  const row = scopes.find((item) => item.projectId === ref.projectId && item.version === ref.version);
+  if (row === undefined) return { ok: false, reason: 'no-such-version' };
+  if (
+    (row.status !== 'current' && row.status !== 'superseded')
+    || row.contract === null
+    || row.markdown === null
+  ) {
+    return { ok: false, reason: 'not-settled' };
+  }
+  return { ok: true, scope: row.contract, markdown: row.markdown };
+}
+
+export function scopeSourceForPrd(
+  scopes: readonly ScopeView[],
+  ref: ScopeContractRef,
+): ScopeContractResult {
+  return resolveScopeContract(scopes, ref);
+}
+
+/** Same resolver under the scorer's name so a caller reads which consumer it serves. */
+export function scopeReferenceForScorer(
+  scopes: readonly ScopeView[],
+  ref: ScopeContractRef,
+): ScopeContractResult {
+  return resolveScopeContract(scopes, ref);
 }
 
 export type DiscoveryScopeArgs = {

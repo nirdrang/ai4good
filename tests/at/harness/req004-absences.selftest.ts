@@ -9,8 +9,10 @@ import {
   noSupplementalGrantPathProblems,
   scanFreeCreditsOutsideMoney,
   scanPlatformBreaker,
+  scanScopeDecomposition,
   scanScopeMoneySource,
   scanSupplementalGrantPath,
+  scopeDecompositionProblems,
   scopeMoneySourceProblems,
 } from '../suites/req-004/_source-absences.ts';
 import type { RouteInventory } from '../suites/req-002/_source-scan.ts';
@@ -54,6 +56,7 @@ describe('REQ-004 absence source oracles over the real tree', () => {
     expect(noPlatformBreakerProblems()).toEqual([]);
     expect(freeCreditsOutsideMoneyProblems()).toEqual([]);
     expect(scopeMoneySourceProblems()).toEqual([]);
+    expect(scopeDecompositionProblems()).toEqual([]);
   });
 });
 
@@ -269,5 +272,23 @@ describe('scanScopeMoneySource refusals', () => {
       toolDescription: 'Record the technical scope of this NGO software need.',
     });
     expect(problems.some((problem) => /cost/.test(problem))).toBe(true);
+  });
+});
+
+describe('scanScopeDecomposition refusals', () => {
+  it('throws when the source files are missing', () => {
+    expect(() => scanScopeDecomposition({ files: [] })).toThrow(/no product source/);
+  });
+
+  it('flags a file that reads the scope and inserts into tasks', () => {
+    const problems = scanScopeDecomposition({
+      files: [{
+        path: 'supabase/functions/_shared/decompose.ts',
+        text:
+          "const rows = await client.from('discovery_scopes').select('*');\n" +
+          "await client.from('tasks').insert({ title: 'first story' });\n",
+      }],
+    });
+    expect(problems.some((problem) => problem.includes('decompose.ts'))).toBe(true);
   });
 });
