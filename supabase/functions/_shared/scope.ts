@@ -105,6 +105,25 @@ export function canonicalLabel(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+export function normaliseLabels(candidates: readonly string[], vocabulary: readonly string[]): string[] {
+  const vocabByCanonical = new Map<string, string>();
+  for (const entry of vocabulary) {
+    const key = canonicalLabel(entry);
+    if (key === '' || vocabByCanonical.has(key)) continue;
+    vocabByCanonical.set(key, entry);
+  }
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const raw of candidates) {
+    const key = canonicalLabel(raw);
+    if (key === '' || seen.has(key)) continue;
+    seen.add(key);
+    labels.push(vocabByCanonical.get(key) ?? key);
+    if (labels.length === SCOPE_CAUSE_LABELS_MAX) break;
+  }
+  return labels;
+}
+
 export function parseScope(input: unknown): Scope | null {
   if (!isRecord(input) || !exactKeys(input, SCOPE_KEYS)) return null;
   const summary = trimmed(input.summary);
@@ -298,7 +317,7 @@ export function scopeReferenceForScorer(
 
 export type DiscoveryScopeArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string;
-  p_action: 'generate'; p_reason: string | null; p_label: string | null;
+  p_action: 'generate' | 'remove-label'; p_reason: string | null; p_label: string | null;
   p_settings: { turn_deadline_seconds: number }; p_notice: null;
 };
 
@@ -309,11 +328,25 @@ export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteD
   if (!allowed.ok) return refuseWrite(allowed.kind, 403, allowed.reason);
   const projectId = uuidField(input.body.projectId);
   if (projectId === null) return refuseWrite('invalid-request', 400, 'a Discovery scope write must name the project as a uuid');
-  if (Object.keys(input.body).some((key) => !['organizationId', 'projectId', 'action'].includes(key))) {
+  const known = input.body.action === 'remove-label'
+    ? ['organizationId', 'projectId', 'action', 'label']
+    : ['organizationId', 'projectId', 'action'];
+  if (Object.keys(input.body).some((key) => !known.includes(key))) {
     return refuseWrite('invalid-request', 400, 'a Discovery scope write contains an unknown field');
   }
+  if (input.body.action === 'remove-label') {
+    const label = typeof input.body.label === 'string' ? canonicalLabel(input.body.label) : '';
+    if (label === '') {
+      return refuseWrite('invalid-request', 400, 'a Discovery scope write requires a label to remove');
+    }
+    return { ok: true, args: {
+      p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
+      p_action: 'remove-label', p_reason: null, p_label: label,
+      p_settings: { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS }, p_notice: null,
+    } };
+  }
   if (input.body.action !== 'generate') {
-    return refuseWrite('invalid-request', 400, 'a Discovery scope write requires the generate action');
+    return refuseWrite('invalid-request', 400, 'a Discovery scope write requires the generate or remove-label action');
   }
   return { ok: true, args: {
     p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
@@ -369,7 +402,8 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     if (begun.done === true) {
       return { args: {
         p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: null,
-        p_outcome: 'completed', p_contract: null, p_markdown: null, p_labels: [],
+        p_outcome: 'completed', p_contract: { changed: begun.changed === true }, p_markdown: null, p_labels: [],
+        // p_scope_id is null, so commit does not store this envelope; it only echoes `changed`
         p_served_model: null, p_input_tokens: null, p_output_tokens: null,
       }, failure: null };
     }
@@ -398,7 +432,9 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     if (parsed === null) return failed('the model did not record a valid scope', {
       inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
     });
-    const markdown = renderScopeMarkdown(parsed, { title: begun.need.title });
+    const causeLabels = normaliseLabels(parsed.causeLabels, begun.vocabulary);
+    const stored = { ...parsed, causeLabels };
+    const markdown = renderScopeMarkdown(stored, { title: begun.need.title });
     const money = scopeMoneyProblems(markdown);
     if (money.length > 0) {
       return failed(money[0], {
@@ -407,8 +443,8 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     }
     return { args: {
       p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
-      p_contract: parsed, p_markdown: markdown,
-      p_labels: parsed.causeLabels, p_served_model: answer.model,
+      p_contract: stored, p_markdown: markdown,
+      p_labels: causeLabels, p_served_model: answer.model,
       p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens,
     }, failure: null };
   };
@@ -422,7 +458,7 @@ export function renderDiscoveryScope(value: unknown): {
     ? value.scopes.filter(isRecord).map((row) => scopeViewFromSql(row as ScopeSqlRow)) : [];
   const scope = isRecord(value.scope) ? scopeViewFromSql(value.scope as ScopeSqlRow) : null;
   return {
-    changed: value.changed === true || scope?.status === 'current',
+    changed: typeof value.changed === 'boolean' ? value.changed : scope?.status === 'current',
     scope, scopes, need: needViewFromSql(value.need as NeedIntakeSqlRow),
     escalated: value.escalated === true || scopes.some((row) => row.status === 'escalated'),
   };

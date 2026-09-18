@@ -9,9 +9,11 @@ import {
   noSupplementalGrantPathProblems,
   scanFreeCreditsOutsideMoney,
   scanPlatformBreaker,
+  scanLabelCurationSurface,
   scanScopeDecomposition,
   scanScopeMoneySource,
   scanSupplementalGrantPath,
+  labelCurationSurfaceProblems,
   scopeDecompositionProblems,
   scopeMoneySourceProblems,
 } from '../suites/req-004/_source-absences.ts';
@@ -57,6 +59,7 @@ describe('REQ-004 absence source oracles over the real tree', () => {
     expect(freeCreditsOutsideMoneyProblems()).toEqual([]);
     expect(scopeMoneySourceProblems()).toEqual([]);
     expect(scopeDecompositionProblems()).toEqual([]);
+    expect(labelCurationSurfaceProblems()).toEqual([]);
   });
 });
 
@@ -290,5 +293,35 @@ describe('scanScopeDecomposition refusals', () => {
       }],
     });
     expect(problems.some((problem) => problem.includes('decompose.ts'))).toBe(true);
+  });
+});
+
+describe('scanLabelCurationSurface refusals', () => {
+  it('throws when the source files are missing', () => {
+    expect(() => scanLabelCurationSurface({ files: [] })).toThrow(/no product source/);
+  });
+
+  it('flags a create-label write route', () => {
+    const problems = scanLabelCurationSurface({
+      files: [{ path: 'supabase/migrations/spend.sql', text: 'select 1;' }],
+      inventory: inventory({
+        'create-label': {
+          surface: { kind: 'edge', rpc: 'create_label' },
+          standing: { kind: 'account-required', admits: ['ngo'] },
+        },
+      }),
+    });
+    expect(problems.some((problem) => /create-label/.test(problem))).toBe(true);
+    expect(problems.some((problem) => /create_label/.test(problem))).toBe(true);
+  });
+
+  it('flags a client grant on cause_labels', () => {
+    const problems = scanLabelCurationSurface({
+      files: [{
+        path: 'supabase/migrations/labels.sql',
+        text: 'grant select on table public.cause_labels to authenticated;',
+      }],
+    });
+    expect(problems.some((problem) => /cause_labels/.test(problem) && /authenticated/.test(problem))).toBe(true);
   });
 });

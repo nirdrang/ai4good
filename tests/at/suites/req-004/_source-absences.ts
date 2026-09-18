@@ -646,3 +646,96 @@ export function scanScopeDecomposition(input: ScopeDecompositionInput): string[]
 export function scopeDecompositionProblems(): string[] {
   return scanScopeDecomposition({ files: productFiles('scopeDecompositionProblems') });
 }
+
+export type LabelCurationSurfaceInput = {
+  files: readonly SourceFile[];
+  inventory?: RouteInventory;
+  routeFolders?: readonly string[];
+  sharedModules?: readonly string[];
+  uiRoutes?: readonly string[];
+};
+
+const LABEL_CURATION_VERBS = ['create', 'add', 'rename', 'merge', 'curate', 'manage', 'admin', 'upsert'] as const;
+const LABEL_CURATION_SUBJECTS = ['label', 'labels', 'taxonomy'] as const;
+const ALLOWED_LABEL_SURFACES = new Set(['removelabel', 'discoveryscopebegin', 'discoveryscopecommit']);
+const CLIENT_GRANT_ROLES = new Set(['anon', 'authenticated', 'public']);
+
+function foldedIdent(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isAllowedLabelSurface(name: string): boolean {
+  return ALLOWED_LABEL_SURFACES.has(foldedIdent(name));
+}
+
+function isLabelCurationName(name: string): boolean {
+  if (isAllowedLabelSurface(name)) return false;
+  const tokens = words(name);
+  return hasToken(tokens, ...LABEL_CURATION_SUBJECTS) && hasToken(tokens, ...LABEL_CURATION_VERBS);
+}
+
+function namedLabelCuration(name: string, where: string): string | null {
+  return isLabelCurationName(name) ? `${where} ${name} names a cause-label create, curate, or admin surface` : null;
+}
+
+function causeLabelClientGrants(file: SourceFile, statement: string): string[] {
+  const folded = statement.replace(/\s+/g, ' ').trim();
+  const grant = /^grant\s+(.+?)\s+on\s+(?:table\s+)?(.+?)\s+to\s+(.+)$/i.exec(folded);
+  if (grant === null || /\bon\s+function\b/i.test(folded) || !/\bcause_labels\b/i.test(grant[2])) return [];
+  const roles = grant[3].split(',').map((role) => role.trim().toLowerCase().replace(/;+$/, ''));
+  const client = roles.filter((role) => CLIENT_GRANT_ROLES.has(role));
+  if (client.length === 0) return [];
+  return [`${file.path} grants ${grant[1]} on cause_labels to ${client.join(', ')}`];
+}
+
+export function scanLabelCurationSurface(input: LabelCurationSurfaceInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanLabelCurationSurface found no product source. Refusing to report an absence.');
+  }
+  const problems: string[] = [];
+  const inventory = input.inventory ?? {};
+  for (const name of Object.keys(inventory)) {
+    const named = namedLabelCuration(name, 'write route');
+    if (named) problems.push(named);
+    const rpc = rpcOf(inventory[name]!);
+    if (rpc !== null) {
+      const rpcNamed = namedLabelCuration(rpc, `write route ${name} rpc`);
+      if (rpcNamed) problems.push(rpcNamed);
+    }
+  }
+  for (const name of input.routeFolders ?? []) {
+    const named = namedLabelCuration(name, 'route folder');
+    if (named) problems.push(named);
+  }
+  for (const name of input.sharedModules ?? []) {
+    const named = namedLabelCuration(name.replace(/\.[^.]+$/, ''), 'shared module');
+    if (named) problems.push(named);
+  }
+  for (const name of input.uiRoutes ?? []) {
+    const named = namedLabelCuration(name, 'ui route');
+    if (named) problems.push(named);
+  }
+  for (const file of input.files) {
+    for (const name of declarationNames(file.text)) {
+      const named = namedLabelCuration(name, file.path);
+      if (named) problems.push(named);
+    }
+    if (file.path.startsWith('supabase/migrations/') && file.path.endsWith('.sql')) {
+      for (const statement of splitSqlStatements(file.text)) {
+        problems.push(...causeLabelClientGrants(file, statement));
+      }
+    }
+  }
+  return [...new Set(problems)].sort();
+}
+
+export function labelCurationSurfaceProblems(): string[] {
+  const surfaces = loadProductSurfaces('labelCurationSurfaceProblems');
+  return scanLabelCurationSurface({
+    files: productFiles('labelCurationSurfaceProblems'),
+    inventory: WRITE_ROUTES,
+    routeFolders: surfaces.routeFolders,
+    sharedModules: surfaces.sharedModules,
+    uiRoutes: surfaces.uiRoutes,
+  });
+}

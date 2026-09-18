@@ -30,6 +30,3 @@ atTest('AT-004.54', 'Discovery criterion 54 awaits fitDecline', { default: await
 atTest('AT-004.55', 'Discovery criterion 55 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.56', 'Discovery criterion 56 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.57', 'Discovery criterion 57 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
-atTest('AT-004.58', 'Discovery criterion 58 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
-atTest('AT-004.59', 'Discovery criterion 59 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
-atTest('AT-004.60', 'Discovery criterion 60 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });

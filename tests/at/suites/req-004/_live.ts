@@ -2,9 +2,9 @@ import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
 import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
-import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
-import { scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
+import { canonicalLabel, renderDiscoveryScope, renderScopeBegin, scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal, ScopeWriteOutcome } from './_contract.ts';
@@ -78,6 +78,46 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         kind: answer.status === 401 ? 'unauthenticated' : parseWriteRefusalKind(answer.json.kind),
         reason: String(answer.json.reason ?? answer.json.message) };
       return answer.json as Extract<ScopeWriteOutcome, { ok: true }>;
+    },
+    seedCauseLabelsAsOperator: async (labels) => {
+      for (const raw of labels) {
+        const label = canonicalLabel(raw);
+        if (label === '') continue;
+        await sql`insert into public.cause_labels (label) values (${label}) on conflict (label) do nothing`;
+      }
+    },
+    causeLabelRows: async () => {
+      const rows = await sql`select label, first_project_id from public.cause_labels order by label` as {
+        label: string; first_project_id: string | null;
+      }[];
+      return rows.map((row) => ({
+        label: String(row.label),
+        firstProjectId: row.first_project_id === null ? null : String(row.first_project_id),
+      }));
+    },
+    beginScopeAsOperator: async (input) => {
+      const settings = { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS };
+      try {
+        const result = await sql`select public.discovery_scope_begin(${input.accountId}::uuid, ${input.organizationId}::uuid,
+          ${input.projectId}::uuid, 'generate'::text, null::text, null::text,
+          ${JSON.stringify(settings)}::text::jsonb, null::jsonb) as value` as { value: unknown }[];
+        const snapshot = renderScopeBegin(decoded(result[0].value));
+        if (snapshot.scope === null) return sqlRefusal(new Error('the Discovery scope is not open'));
+        return { ok: true, scopeId: snapshot.scope.id };
+      } catch (error) { return sqlRefusal(error); }
+    },
+    commitScopeAsOperator: async (input) => {
+      try {
+        const labelsJson = JSON.stringify(input.labels ?? []);
+        const result = await sql`select public.discovery_scope_commit(${input.accountId}::uuid, ${input.projectId}::uuid,
+          ${input.scopeId}::uuid, ${input.outcome}::text,
+          ${input.contract == null ? null : JSON.stringify(input.contract)}::text::jsonb,
+          ${input.markdown ?? null}::text,
+          coalesce((select array_agg(value) from jsonb_array_elements_text(${labelsJson}::text::jsonb) as value), '{}'::text[]),
+          ${input.servedModel ?? null}::text, ${input.inputTokens ?? null}::integer, ${input.outputTokens ?? null}::integer
+        ) as value` as { value: unknown }[];
+        return { ok: true, ...renderDiscoveryScope(decoded(result[0].value)) };
+      } catch (error) { return sqlRefusal(error); }
     },
     turnRows: async (projectId) => {
       const rows = await sql`select to_jsonb(t) as turn from public.discovery_turns t
@@ -198,12 +238,14 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
           const cost = settlementFor({ ...bound, billing: 'free', usage: seed.usage });
           const request = { model: settings.model, max_tokens: cap, effort: settings.effort };
           await tx`insert into public.discovery_turns (
-            project_id, org_id, seq, status, billing, utc_day, user_message, assistant_message, request_settings,
+            project_id, org_id, seq, status, billing, utc_day, user_message, assistant_message, elicitation, request_settings,
             max_output_tokens, estimated_input_tokens, micros_per_credit, input_micros_per_token, output_micros_per_token,
             reserved_micros, reserved_credits, input_tokens, output_tokens, stop_reason, served_model, actual_micros,
             charged_credits, overrun_micros, opened_at, settled_at
           ) values (${projectId}::uuid, ${projects[0].org_id}::uuid, ${++seq}, 'settled', 'free',
-            (clock_timestamp() at time zone 'utc')::date, ${seed.message}, ${seed.reply}, ${JSON.stringify(request)}::text::jsonb,
+            (clock_timestamp() at time zone 'utc')::date, ${seed.message}, ${seed.reply},
+            ${seed.elicitation == null ? null : JSON.stringify(seed.elicitation)}::text::jsonb,
+            ${JSON.stringify(request)}::text::jsonb,
             ${cap}, ${estimated}, ${settings.micros_per_credit}, ${settings.input_micros_per_token}, ${settings.output_micros_per_token},
             ${bound.reservedMicros}, ${bound.reservedCredits}, ${seed.usage.inputTokens}, ${seed.usage.outputTokens},
             'end_turn', ${settings.model}, ${cost.actualMicros}, ${cost.chargedCredits}, ${cost.overrunMicros}, clock_timestamp(), clock_timestamp())`;
