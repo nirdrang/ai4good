@@ -2,13 +2,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { WRITE_ROUTES } from '../../../supabase/functions/_shared/write-routes.ts';
+import { SCOPE_COPY } from '../../../supabase/functions/_shared/scope-copy.ts';
 import {
   freeCreditsOutsideMoneyProblems,
   noPlatformBreakerProblems,
   noSupplementalGrantPathProblems,
   scanFreeCreditsOutsideMoney,
   scanPlatformBreaker,
+  scanScopeMoneySource,
   scanSupplementalGrantPath,
+  scopeMoneySourceProblems,
 } from '../suites/req-004/_source-absences.ts';
 import type { RouteInventory } from '../suites/req-002/_source-scan.ts';
 
@@ -50,6 +53,7 @@ describe('REQ-004 absence source oracles over the real tree', () => {
     expect(noSupplementalGrantPathProblems()).toEqual([]);
     expect(noPlatformBreakerProblems()).toEqual([]);
     expect(freeCreditsOutsideMoneyProblems()).toEqual([]);
+    expect(scopeMoneySourceProblems()).toEqual([]);
   });
 });
 
@@ -198,5 +202,72 @@ describe('scanFreeCreditsOutsideMoney refusals', () => {
       ],
     });
     expect(problems.some((problem) => /fuel_checkout/.test(problem))).toBe(true);
+  });
+});
+
+const SCOPE_TS = 'supabase/functions/_shared/scope.ts';
+const SCOPE_COPY_TS = 'supabase/functions/_shared/scope-copy.ts';
+const SCOPE_SKILL = 'supabase/functions/_shared/discovery-skills/06-write-the-scope.md';
+
+const cleanScopeMoney = [
+  { path: SCOPE_TS, text: "export const RECORD_SCOPE_TOOL = { description: 'Record the technical scope of this NGO software need.' };\n" },
+  {
+    path: SCOPE_COPY_TS,
+    text:
+      'export const SCOPE_COPY = { maintenance: ' +
+      JSON.stringify(SCOPE_COPY.maintenance) +
+      ', lovablePricingUrl: ' +
+      JSON.stringify(SCOPE_COPY.lovablePricingUrl) +
+      ' };\n',
+  },
+  { path: SCOPE_SKILL, text: 'When you write the scope, call record_scope. Never name a project or build figure in money.\n' },
+];
+
+describe('scanScopeMoneySource refusals', () => {
+  it('accepts the allow-listed maintenance sentence and pricing URL', () => {
+    expect(scanScopeMoneySource({
+      files: cleanScopeMoney, toolDescription: 'Record the technical scope of this NGO software need.',
+    })).toEqual([]);
+  });
+
+  it('throws when the source files are missing', () => {
+    expect(() => scanScopeMoneySource({ files: [], toolDescription: 'Record the technical scope.' }))
+      .toThrow(/no product source/);
+  });
+
+  it('throws when a named scope source is missing', () => {
+    expect(() => scanScopeMoneySource({
+      files: [{ path: 'supabase/migrations/spend.sql', text: SPEND_TABLE }],
+      toolDescription: 'Record the technical scope.',
+    })).toThrow(/scope\.ts/);
+  });
+
+  it('throws when the tool description is empty', () => {
+    expect(() => scanScopeMoneySource({ files: cleanScopeMoney, toolDescription: '   ' }))
+      .toThrow(/RECORD_SCOPE_TOOL description/);
+  });
+
+  it('fails a quoted build figure in the renderer', () => {
+    const problems = scanScopeMoneySource({
+      files: [
+        { path: SCOPE_TS, text: "export const hint = 'roughly $4,000 to build';\n" },
+        cleanScopeMoney[1],
+        cleanScopeMoney[2],
+      ],
+      toolDescription: 'Record the technical scope of this NGO software need.',
+    });
+    expect(problems.some((problem) => problem.includes('$'))).toBe(true);
+  });
+
+  it('fails a cost word in the skill', () => {
+    const problems = scanScopeMoneySource({
+      files: [
+        cleanScopeMoney[0],
+        cleanScopeMoney[1],
+        { path: SCOPE_SKILL, text: 'Never state a project cost or a build cost.\n' },
+      ],
+      toolDescription: 'Record the technical scope of this NGO software need.',
+    });
+    expect(problems.some((problem) => /cost/.test(problem))).toBe(true);
   });
 });

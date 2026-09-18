@@ -9,9 +9,7 @@ atTest('AT-004.16', 'Discovery criterion 16 awaits referenceUpload', { default: 
 atTest('AT-004.17', 'Discovery criterion 17 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.18', 'Discovery criterion 18 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.19', 'Discovery criterion 19 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
-atTest('AT-004.21', 'Discovery criterion 21 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
 atTest('AT-004.24', 'Discovery criterion 24 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
-atTest('AT-004.25', 'Discovery criterion 25 awaits scopeOutput', { default: awaiting(AWAITED.scopeOutput) });
 atTest('AT-004.26', 'Discovery criterion 26 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
 atTest('AT-004.27', 'Discovery criterion 27 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
 atTest('AT-004.28', 'Discovery criterion 28 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });

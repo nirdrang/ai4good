@@ -1,8 +1,13 @@
 import { expect } from 'vitest';
+import { renderScopeMarkdown, scopeMoneyProblems } from '../../../../supabase/functions/_shared/scope.ts';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
+import { scopeMoneySourceProblems } from './_source-absences.ts';
 import { GRANT_TRACKER, GRANT_TRACKER_ELICITATION } from './fixtures/grant-tracker.ts';
-import { GRANT_TRACKER_SCOPE, GRANT_TRACKER_SCOPE_REPLY, scopeContractProblems } from './fixtures/scope-tiers.ts';
+import {
+  GRANT_TRACKER_SCOPE, GRANT_TRACKER_SCOPE_REPLY, SCOPE_TIER_FIXTURES,
+  scopeContractProblems, scopeDocumentProblems,
+} from './fixtures/scope-tiers.ts';
 
 const ELICITATION_REPLY = {
   kind: 'tool' as const, name: 'record_elicitation', input: GRANT_TRACKER_ELICITATION,
@@ -77,4 +82,50 @@ atTest('AT-004.22', 'every generated scope emits both build-split parts', {
     expect(scopeContractProblems(generated.scope?.contract)).toEqual([]);
   },
   integration: awaiting(AWAITED.anthropicLive),
+});
+
+function proveRenderedMoneyFree() {
+  expect(scopeMoneySourceProblems()).toEqual([]);
+  for (const fixture of SCOPE_TIER_FIXTURES) {
+    expect(scopeMoneyProblems(renderScopeMarkdown(fixture.scope, { title: fixture.title }))).toEqual([]);
+  }
+}
+
+atTest('AT-004.21', 'the rendered scope shows no project or build-cost estimate', {
+  loop: async ({ open }) => {
+    const { w, sut, h } = await open();
+    proveRenderedMoneyFree();
+    const ngo = await sut.provisionNgo(w.email('scope-21'), { emailVerified: true });
+    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
+    const priced = {
+      kind: 'tool' as const, name: 'record_scope',
+      input: { ...GRANT_TRACKER_SCOPE, summary: 'A shared deadline list, roughly $4,000 to build.' },
+      text: '', usage: { inputTokens: 1800, outputTokens: 640 },
+    };
+    h.vendors.anthropic.script([ELICITATION_REPLY, priced]);
+    expect(await sut.sendMessage(ngo.session, {
+      organizationId: ngo.organizationId, projectId, message: 'That covers it.',
+    })).toMatchObject({ ok: true, scopeReady: true });
+    const refused = await sut.writeScope(ngo.session, {
+      organizationId: ngo.organizationId, projectId, action: 'generate',
+    });
+    expect(refused).toMatchObject({ ok: false, kind: 'refused', status: 502 });
+    expect((await sut.scopeRows(projectId)).some((row) => row.status === 'current')).toBe(false);
+  },
+  default: async ({ open }) => {
+    await open();
+    proveRenderedMoneyFree();
+  },
+});
+
+atTest('AT-004.25', 'each tier document explains its data tier, complexity, maintenance and pricing', {
+  default: async ({ open }) => {
+    await open();
+    for (const fixture of SCOPE_TIER_FIXTURES) {
+      expect(scopeDocumentProblems(
+        renderScopeMarkdown(fixture.scope, { title: fixture.title }),
+        fixture,
+      )).toEqual([]);
+    }
+  },
 });

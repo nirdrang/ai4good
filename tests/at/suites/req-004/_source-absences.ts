@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { RECORD_SCOPE_TOOL } from '../../../../supabase/functions/_shared/scope.ts';
+import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 import {
@@ -8,6 +12,7 @@ import {
   migrationFiles,
   productFiles,
   quotedStrings,
+  REPO_ROOT,
   rpcOf,
   words,
   type RouteInventory,
@@ -500,4 +505,94 @@ export function scanFreeCreditsOutsideMoney(input: FreeCreditsMoneyInput): strin
 
 export function freeCreditsOutsideMoneyProblems(): string[] {
   return scanFreeCreditsOutsideMoney({ files: productFiles('freeCreditsOutsideMoneyProblems') });
+}
+
+const SCOPE_MONEY_SOURCE_PATHS = [
+  'supabase/functions/_shared/scope.ts',
+  'supabase/functions/_shared/scope-copy.ts',
+  'supabase/functions/_shared/discovery-skills/06-write-the-scope.md',
+] as const;
+
+const SCOPE_MONEY = /\$|\bUSD\b|\bdollars?\b|\bcost\b|\bestimate\b|\bbudget\b|\bprice\b/gi;
+
+export type ScopeMoneySourceInput = {
+  files: readonly SourceFile[];
+  toolDescription: string;
+};
+
+function allowedSpans(text: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  for (const piece of [SCOPE_COPY.maintenance, SCOPE_COPY.lovablePricingUrl]) {
+    let from = 0;
+    while (from < text.length) {
+      const at = text.indexOf(piece, from);
+      if (at < 0) break;
+      spans.push({ start: at, end: at + piece.length });
+      from = at + piece.length;
+    }
+  }
+  return spans;
+}
+
+function inAllowed(index: number, spans: readonly { start: number; end: number }[]): boolean {
+  return spans.some((span) => index >= span.start && index < span.end);
+}
+
+function moneyHits(text: string, path: string, lineAt: (index: number) => number): string[] {
+  const spans = allowedSpans(text);
+  const problems: string[] = [];
+  SCOPE_MONEY.lastIndex = 0;
+  for (const match of text.matchAll(SCOPE_MONEY)) {
+    const index = match.index ?? 0;
+    if (inAllowed(index, spans)) continue;
+    if (match[0] === '$' && text[index + 1] === '{') continue;
+    problems.push(`${path}:${lineAt(index)} names ${JSON.stringify(match[0])}`);
+  }
+  return problems;
+}
+
+export function scanScopeMoneySource(input: ScopeMoneySourceInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanScopeMoneySource found no product source. Refusing to report an absence.');
+  }
+  const byPath = new Map(input.files.map((file) => [file.path, file]));
+  for (const path of SCOPE_MONEY_SOURCE_PATHS) {
+    const file = byPath.get(path);
+    if (file === undefined || file.text.trim() === '') {
+      throw new Error(
+        `scanScopeMoneySource found no source at ${path}. Refusing to report an absence.`,
+      );
+    }
+  }
+  if (input.toolDescription.trim() === '') {
+    throw new Error(
+      'scanScopeMoneySource found no RECORD_SCOPE_TOOL description. Refusing to report an absence.',
+    );
+  }
+  const problems: string[] = [];
+  for (const file of input.files) {
+    if (file.path.endsWith('.md')) {
+      problems.push(...moneyHits(file.text, file.path, (index) => lineOf(file.text, index)));
+      continue;
+    }
+    for (const piece of quotedStrings(file.text)) {
+      problems.push(...moneyHits(piece.value, file.path, () => lineOf(file.text, piece.index)));
+    }
+  }
+  problems.push(...moneyHits(input.toolDescription, 'RECORD_SCOPE_TOOL.description', () => 1));
+  return [...new Set(problems)].sort();
+}
+
+export function scopeMoneySourceProblems(): string[] {
+  const files: SourceFile[] = [];
+  for (const path of SCOPE_MONEY_SOURCE_PATHS) {
+    try {
+      files.push({ path, text: readFileSync(join(REPO_ROOT, path), 'utf8') });
+    } catch (error) {
+      throw new Error(
+        `scopeMoneySourceProblems could not read ${path}. Refusing to report an absence: ${(error as Error).message}`,
+      );
+    }
+  }
+  return scanScopeMoneySource({ files, toolDescription: RECORD_SCOPE_TOOL.description });
 }

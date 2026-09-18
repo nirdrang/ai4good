@@ -4,6 +4,7 @@ import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts'
 import type { Elicitation, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 import { orgAdminActionAllowed } from './memberships.ts';
 import { needViewFromSql, type NeedIntakeSqlRow, type NeedIntakeView } from './need-intake.ts';
+import { SCOPE_COPY } from './scope-copy.ts';
 import {
   isRecord, refuseWrite, stringField, uuidField,
   type AccountWriteRouteInput, type SettleActResult, type WriteRouteDecision,
@@ -198,19 +199,43 @@ function listBlock(items: readonly string[]): string {
 export function renderScopeMarkdown(scope: Scope, need: { title: string }): string {
   const stories = scope.userStories.map((story) =>
     `### ${story.story}\n${listBlock(story.acceptanceCriteria)}`).join('\n\n');
+  const lovable = [
+    scope.lovableRecommendation.rationale,
+    scope.lovableRecommendation.recommended
+      ? '[Lovable pricing](' + SCOPE_COPY.lovablePricingUrl + ')'
+      : '',
+  ].filter((part) => part !== '').join('\n\n');
   return [
     `# ${need.title}`,
     `## Summary\n${scope.summary}`,
     `## User stories\n${stories}`,
     `## Suggested stack\n${listBlock(scope.suggestedStack)}`,
-    `## Complexity\n- Tier: ${scope.complexity.tier}\n- Rationale: ${scope.complexity.rationale}\n- Start small: ${scope.complexity.startSmallAdvice}`,
+    `## Complexity\nThis need is ${scope.complexity.tier}.\n${scope.complexity.rationale}\n\n${SCOPE_COPY.startSmall}\n${scope.complexity.startSmallAdvice}`,
     `## Risk flags\n${listBlock(scope.riskFlags)}`,
-    `## Data sensitivity\n- Tier: ${scope.dataSensitivity.tier}\n- Rationale: ${scope.dataSensitivity.rationale}`,
+    `## Data sensitivity\n${SCOPE_COPY.dataTier[scope.dataSensitivity.tier]}\n${scope.dataSensitivity.rationale}`,
     `## Maintainability fit\n- Verdict: ${scope.maintainabilityFit.verdict}\n- Rationale: ${scope.maintainabilityFit.rationale}`,
     `## Cause labels\n${listBlock(scope.causeLabels)}`,
-    `## Lovable recommendation\n- Recommended: ${scope.lovableRecommendation.recommended ? 'yes' : 'no'}\n- Rationale: ${scope.lovableRecommendation.rationale}`,
+    `## Maintenance\n${SCOPE_COPY.maintenance}\n\n${SCOPE_COPY.ownership}`,
+    `## Lovable recommendation\n${lovable}`,
     `## Build split\n### Lovable\n${listBlock(scope.buildSplit.lovable)}\n### Claude Code\n${listBlock(scope.buildSplit.claudeCode)}`,
   ].join('\n\n');
+}
+
+const SCOPE_MONEY = /\$|\bUSD\b|\bdollars?\b|\bcost\b|\bestimate\b|\bbudget\b|\bprice\b/gi;
+
+export function scopeMoneyProblems(markdown: string): string[] {
+  const allowed = [SCOPE_COPY.maintenance, SCOPE_COPY.lovablePricingUrl];
+  let rest = markdown;
+  for (const piece of allowed) rest = rest.split(piece).join('');
+  const problems: string[] = [];
+  const lines = rest.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    SCOPE_MONEY.lastIndex = 0;
+    for (const match of lines[i].matchAll(SCOPE_MONEY)) {
+      problems.push('line ' + String(i + 1) + ': ' + match[0]);
+    }
+  }
+  return problems;
 }
 
 export type ScopeSqlRow = {
@@ -341,9 +366,16 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     if (parsed === null) return failed('the model did not record a valid scope', {
       inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
     });
+    const markdown = renderScopeMarkdown(parsed, { title: begun.need.title });
+    const money = scopeMoneyProblems(markdown);
+    if (money.length > 0) {
+      return failed(money[0], {
+        inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
+      });
+    }
     return { args: {
       p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
-      p_contract: parsed, p_markdown: renderScopeMarkdown(parsed, { title: begun.need.title }),
+      p_contract: parsed, p_markdown: markdown,
       p_labels: parsed.causeLabels, p_served_model: answer.model,
       p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens,
     }, failure: null };
