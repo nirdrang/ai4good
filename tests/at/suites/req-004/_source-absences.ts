@@ -623,7 +623,6 @@ function writesTaskBacklogOrIssue(text: string): boolean {
   if (TASKISH_SQL_WRITE.test(text) || TASKISH_CLIENT_FROM.test(text) || TASKISH_REST.test(text)) {
     return true;
   }
-  CALL_NAME.lastIndex = 0;
   for (const match of text.matchAll(CALL_NAME)) {
     const name = match[1];
     if (name === undefined || CALL_KEYWORDS.has(name.toLowerCase())) continue;
