@@ -12,6 +12,7 @@ const servedModel = () => Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MO
 const paramsFor = (request: DiscoveryModelRequest) => ({
   model: servedModel(), max_tokens: request.maxTokens, system: systemFor(request),
   messages: request.messages, tools: request.tools,
+  ...(request.toolChoice ? { tool_choice: request.toolChoice } : {}),
   ...(servedModel() === DISCOVERY_CLIENT_MODEL ? { output_config: { effort: request.effort } } : {}),
   betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const,
 });
@@ -48,6 +49,7 @@ export function anthropicMessagesPort(): MessagesPort {
     countTokens: async (request) => {
       const count = await clientForCall().messages.countTokens({
         model: servedModel(), system: systemFor(request), messages: request.messages, tools: request.tools,
+        ...(request.toolChoice ? { tool_choice: request.toolChoice } : {}),
       });
       return count.input_tokens;
     },

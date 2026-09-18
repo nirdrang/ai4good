@@ -1,4 +1,5 @@
 import type { NeedReads } from './need-intake.ts';
+import type { ScopeSqlRow } from './scope.ts';
 import type { ReadResult, TenantReads } from './tenant-reads.ts';
 
 export type DiscoveryTurnSqlRow = {
@@ -15,8 +16,10 @@ export type DiscoveryTurnSqlRow = {
   actual_micros: number | null; charged_credits: number | null; overrun_micros: number | null;
   opened_at: string; settled_at: string | null;
 };
+
 export type DiscoveryReads = {
   discoveryTurnsOf(projectId: string): Promise<ReadResult<DiscoveryTurnSqlRow>>;
+  discoveryScopesOf(projectId: string): Promise<ReadResult<ScopeSqlRow>>;
   discoveryAllowance(organizationId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;
 };
 export type CallerReads = TenantReads & NeedReads & DiscoveryReads;

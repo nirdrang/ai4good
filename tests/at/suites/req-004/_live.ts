@@ -4,9 +4,10 @@ import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
 import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
-import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal } from './_contract.ts';
+import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal, ScopeWriteOutcome } from './_contract.ts';
 import type { Allowance } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 
 export const requirement = 'req-004' as const;
@@ -71,10 +72,22 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         reason: String(answer.json.reason ?? answer.json.message) };
       return answer.json as Extract<DiscoveryMessageOutcome, { ok: true }>;
     },
+    writeScope: async (session, request): Promise<ScopeWriteOutcome> => {
+      const answer = await functionPost(opts.stack, 'discovery-scope', request, inner.bearerOf(session));
+      if (answer.json.ok !== true) return { ok: false, status: answer.status,
+        kind: answer.status === 401 ? 'unauthenticated' : parseWriteRefusalKind(answer.json.kind),
+        reason: String(answer.json.reason ?? answer.json.message) };
+      return answer.json as Extract<ScopeWriteOutcome, { ok: true }>;
+    },
     turnRows: async (projectId) => {
       const rows = await sql`select to_jsonb(t) as turn from public.discovery_turns t
         where project_id = ${projectId}::uuid order by seq` as { turn: unknown }[];
       return rows.map((r) => turnViewFromSql(decoded(r.turn) as DiscoveryTurnSqlRow));
+    },
+    scopeRows: async (projectId) => {
+      const rows = await sql`select to_jsonb(s) as scope from public.discovery_scopes s
+        where project_id = ${projectId}::uuid order by version` as { scope: unknown }[];
+      return rows.map((r) => scopeViewFromSql(decoded(r.scope) as ScopeSqlRow));
     },
     reserveTurnAsOperator: async (input) => {
       const rows = await sql`select coalesce(max(seq), 0) as seq from public.discovery_turns

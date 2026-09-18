@@ -39,6 +39,7 @@ export const AT_CONFIG = {
   discoveryMaxOutputTokens: { name: 'Discovery maximum output', value: 4096, unit: 'tokens', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
   discoveryMinOutputTokens: { name: 'Discovery minimum output', value: 512, unit: 'tokens', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
   discoveryTurnDeadlineSeconds: { name: 'Discovery open turn deadline', value: 150, unit: 'seconds', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
+  discoveryCauseLabelsMax: { name: 'Discovery cause labels maximum', value: 3, unit: 'labels', source: 'PRD REQ-004 "zero to three"' },
   gatewayLatencyP95Ms: {
     name: 'gateway added latency, 95th percentile',
     value: 300,

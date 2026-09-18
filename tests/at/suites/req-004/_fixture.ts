@@ -4,12 +4,13 @@ import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRoute
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   contextMessagesFrom,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { decideDiscoveryScope, renderDiscoveryScope, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
-import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome, DiscoverySwitchAuditRow } from './_contract.ts';
+import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome, DiscoverySwitchAuditRow, ScopeWriteOutcome } from './_contract.ts';
 
 export const requirement = 'req-004' as const;
 export const VETTING_EVIDENCE = {
@@ -19,6 +20,7 @@ export const VETTING_EVIDENCE = {
   evidenceType: 'organization_website', note: 'The website and named contact match the organisation.',
 } as const;
 const SEND_SPEC = { name: 'discovery-message', target: organizationIdField, decide: decideDiscoveryMessage } as const;
+const SCOPE_SPEC = { name: 'discovery-scope', target: organizationIdField, decide: decideDiscoveryScope } as const;
 const SWITCH_SPEC = { name: 'set-organization-discovery', target: organizationIdField, decide: decideOrganizationDiscovery } as const;
 export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>[0] & { vendors: { anthropic: AnthropicMessagesPort } }) {
   const inner = createNeedsAdapter(opts);
@@ -27,6 +29,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const accounts = inner.accounts;
   const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer' | 'platform_admin'; emailVerified: boolean }>();
   const turns = new Map<string, DiscoveryTurnSqlRow[]>();
+  const scopes = new Map<string, ScopeSqlRow[]>();
   const funding = new Map<string, { fundedAt: string | null; fuelMicros: number }>();
   const switches = new Map<string, { disabledAt: string; disabledBy: string; reason: string }>();
   const switchAudits: DiscoverySwitchAuditRow[] = [];
@@ -134,6 +137,96 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     if (!after.ok) return after;
     return { ok: true, ...renderDiscoveryMessage({ turn: row, allowance: sqlAllowance(after.allowance) }) };
   };
+  const sqlNeed = async (projectId: string) => {
+    const need = await needs.needRow(projectId);
+    if (!need) return null;
+    return {
+      project_id: need.projectId, org_id: need.organizationId, title: need.title,
+      description: need.description, urgency: need.urgency, stage: need.stage,
+      cause_labels: [...need.causeLabels],
+      reference_files: need.referenceFiles.map((file) => ({
+        id: file.id, file_name: file.fileName, media_type: file.mediaType, byte_size: file.byteSize,
+        description: file.description, added_by_account_id: file.addedByAccountId, added_at: file.addedAt,
+      })),
+      tier2_classified_at: need.tier2ClassifiedAt, submitted_at: need.submittedAt, updated_at: need.updatedAt,
+    };
+  };
+  const beginScope = async (args: DiscoveryScopeArgs): Promise<{ ok: true; value: unknown } | Extract<ScopeWriteOutcome, { ok: false }>> => {
+    const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
+    if (!actor || actor.organizationId !== args.p_organization_id) return refuse('not-a-member', 'the caller holds no membership');
+    if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may write a Discovery scope');
+    const need = await needs.needRow(args.p_project_id);
+    if (!need || need.organizationId !== args.p_organization_id) return refuse('no-such-project', 'no such project');
+    if (need.stage !== 'discovery_in_progress') return refuse('need-not-in-discovery', 'the need is not in Discovery');
+    if (args.p_action !== 'generate') return refuse('invalid-request', 'a Discovery scope write requires the generate action');
+    const turnRows = turns.get(need.projectId) ?? [];
+    const elicitation = [...turnRows].filter((row) => row.elicitation !== null).at(-1)?.elicitation ?? null;
+    if (elicitation === null || elicitation.complete !== true) {
+      return refuse('elicitation-incomplete', 'the elicitation is not complete');
+    }
+    const existing = scopes.get(need.projectId) ?? [];
+    if (existing.some((row) => row.status === 'generating' || row.status === 'current' || row.status === 'superseded')) {
+      return refuse('scope-already-generated', 'a scope has already been generated for this project');
+    }
+    const profile = await organizations.profile(need.organizationId);
+    const settled = turnRows.filter((row) => row.status === 'settled');
+    const context = settled.flatMap((row) => [
+      { role: 'user' as const, content: row.user_message },
+      { role: 'assistant' as const, content: row.assistant_message },
+    ]);
+    const failed = [...existing].filter((row) => row.status === 'failed').sort((a, b) => b.version - a.version)[0];
+    let row: ScopeSqlRow;
+    if (failed) {
+      Object.assign(failed, {
+        status: 'generating', contract: null, markdown: null, served_model: null,
+        input_tokens: null, output_tokens: null, settled_at: null, elicitation,
+        requested_by: args.p_account_id, opened_at: now(), cause_labels: [],
+      });
+      row = failed;
+    } else {
+      row = {
+        id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId, version: 1,
+        status: 'generating', reason: null, requested_by: args.p_account_id, elicitation, contract: null,
+        markdown: null, cause_labels: [], served_model: null, input_tokens: null, output_tokens: null,
+        opened_at: now(), settled_at: null,
+      };
+      scopes.set(need.projectId, [...existing, row]);
+    }
+    return { ok: true, value: {
+      done: false, scope: structuredClone(row), elicitation, context,
+      need: await sqlNeed(need.projectId), mission: profile?.mission ?? null, vocabulary: [],
+    } };
+  };
+  const commitScope = async (args: Record<string, unknown>): Promise<ScopeWriteOutcome> => {
+    const row = [...scopes.values()].flat().find((item) => item.id === args.p_scope_id);
+    if (!row) return refuse('scope-not-open', 'the Discovery scope is not open');
+    const actor = [...actors.values()].find((a) => a.session.accountId === args.p_account_id);
+    if (!actor || actor.organizationId !== row.org_id) return refuse('not-a-member', 'the caller holds no membership');
+    if (actor.role !== 'admin') return refuse('not-an-admin', 'only the organisation admin may settle a Discovery scope');
+    const snapshot = async () => {
+      const need = await sqlNeed(row.project_id);
+      if (!need) throw new Error('no need for a scope commit');
+      return renderDiscoveryScope({ scope: row, scopes: scopes.get(row.project_id) ?? [], need });
+    };
+    if (args.p_outcome === 'completed' && args.p_contract == null) {
+      return { ok: true, ...await snapshot() };
+    }
+    if (row.status !== 'generating') return refuse('scope-not-open', 'the Discovery scope is not open');
+    if (args.p_outcome === 'completed') {
+      for (const other of scopes.get(row.project_id) ?? []) {
+        if (other.status === 'current') other.status = 'superseded';
+      }
+      Object.assign(row, {
+        status: 'current', contract: args.p_contract, markdown: args.p_markdown,
+        cause_labels: Array.isArray(args.p_labels) ? args.p_labels : [],
+        served_model: args.p_served_model, input_tokens: args.p_input_tokens,
+        output_tokens: args.p_output_tokens, settled_at: now(),
+      });
+    } else if (args.p_outcome === 'failed') {
+      Object.assign(row, { status: 'failed', settled_at: now() });
+    } else return refuse('invalid-request', 'invalid Discovery scope outcome');
+    return { ok: true, ...await snapshot() };
+  };
   const sut: DiscoverySut = {
     ...needs,
     provisionNgo: async (email, options) => {
@@ -182,7 +275,25 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       }
     },
     writeSpendRowAsOperator: organizations.writeSpendRowAsOperator, spendRows: organizations.spendRows,
+    writeScope: async (session, request) => {
+      const actor = session === null ? undefined : actors.get(session.sessionId);
+      if (!actor || actor.session.accountId !== session?.accountId) {
+        return { ok: false, kind: 'unauthenticated', status: 401, reason: 'authenticate before Discovery' };
+      }
+      const caller = { id: session.accountId, githubHandle: null, emailVerified: actor.emailVerified };
+      const decision = writePipeline(SCOPE_SPEC, { caller, target: request.organizationId, subject: null, ip: null, body: request,
+        standing: { kind: 'account', accountType: actor.type, lifecycle: 'active', orgExists: await organizations.profile(request.organizationId) !== null,
+          orgRole: actor.organizationId === request.organizationId ? actor.role : null, orgSeatAccountId: null, subject: null } });
+      if (!decision.ok) return decision;
+      const begun = await beginScope(decision.args);
+      if (!begun.ok) return begun;
+      const acted = await scopeAct(opts.vendors.anthropic, skills)(begun.value, decision.args);
+      if (acted.args === null) return { ok: false, kind: 'refused', status: 502, reason: acted.failure! };
+      const result = await commitScope(acted.args);
+      return acted.failure === null ? result : { ok: false, kind: 'refused', status: 502, reason: acted.failure };
+    },
     turnRows: async (projectId) => structuredClone((turns.get(projectId) ?? []).map(turnViewFromSql)),
+    scopeRows: async (projectId) => structuredClone((scopes.get(projectId) ?? []).map(scopeViewFromSql)),
     reserveTurnAsOperator: async (input) => reserve({
       p_account_id: input.accountId, p_organization_id: input.organizationId, p_project_id: input.projectId,
       p_message: input.message, p_settings: { ...reserveSettings(), counted_input_tokens: input.countedInputTokens ?? 0 },
@@ -216,6 +327,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
             media_type: f.mediaType, byte_size: f.byteSize, description: f.description, added_by_account_id: f.addedByAccountId, added_at: f.addedAt })),
           tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
+        discoveryScopesOf: async () => ({ ok: true, rows: visible ? structuredClone(scopes.get(request.projectId) ?? []) : [] }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);
@@ -240,6 +352,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         project: async () => ({ ok: true, rows: [{ id: projectId, name: need.value.need.title,
           org_id: need.value.need.organizationId, assigned_volunteer_id: null }] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: structuredClone(turns.get(projectId) ?? []) }),
+        discoveryScopesOf: async () => ({ ok: true, rows: structuredClone(scopes.get(projectId) ?? []) }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);
@@ -360,5 +473,5 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return problems;
     },
   };
-  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; } };
+  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); scopes.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; } };
 }

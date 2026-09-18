@@ -35,6 +35,7 @@ export const CONFIG_KEYS: Record<string, AtConfigKey> = {
   'req-004.discovery.max_output_tokens': 'discoveryMaxOutputTokens',
   'req-004.discovery.min_output_tokens': 'discoveryMinOutputTokens',
   'req-004.discovery.turn_deadline_seconds': 'discoveryTurnDeadlineSeconds',
+  'req-004.discovery.cause_labels_max': 'discoveryCauseLabelsMax',
   'req-002.discovery.daily_credits.unverified': 'discoveryDailyCreditsUnverified',
   'req-002.discovery.daily_credits.vetted': 'discoveryDailyCreditsVetted',
   'req-015.thread_comment_notifications.max_per_window': 'threadCommentNotificationsMaxPerWindow',

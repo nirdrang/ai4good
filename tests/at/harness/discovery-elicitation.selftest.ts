@@ -53,6 +53,7 @@ it('skips an empty assistant reply when preparing the next turn', async () => {
     discoveryTurnsOf: async () => ({ ok: true, rows: [{
       seq: 1, status: 'settled', user_message: 'Hello', assistant_message: '', elicitation: GRANT_TRACKER_ELICITATION,
     } as DiscoveryTurnSqlRow] }),
+    discoveryScopesOf: async () => ({ ok: true, rows: [] }),
     discoveryAllowance: async () => ({ ok: true, value: {} }),
   };
   const args: DiscoveryReserveArgs = {

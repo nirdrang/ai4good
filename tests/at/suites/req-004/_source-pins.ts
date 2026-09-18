@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS, fuelExhaustedReason } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { SCOPE_CAUSE_LABELS_MAX } from '../../../../supabase/functions/_shared/scope.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
@@ -14,6 +15,7 @@ export function meteringPinProblems(): string[] {
     [DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, AT_CONFIG.discoveryMaxOutputTokens.value],
     [DISCOVERY_REQUEST_SETTINGS.minOutputTokens, AT_CONFIG.discoveryMinOutputTokens.value],
     [DISCOVERY_TURN_DEADLINE_SECONDS, AT_CONFIG.discoveryTurnDeadlineSeconds.value],
+    [SCOPE_CAUSE_LABELS_MAX, AT_CONFIG.discoveryCauseLabelsMax.value],
   ];
   const problems = pairs.flatMap(([value, pin], i) => value === pin ? [] : [`metering pin ${i} differs: ${value} versus ${pin}`]);
   const client = readFileSync(join(REPO_ROOT, 'supabase/functions/_shared/anthropic-messages.ts'), 'utf8');

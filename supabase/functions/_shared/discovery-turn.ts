@@ -1,6 +1,7 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { discoverySystemPrompt, parseElicitation, RECORD_ELICITATION_TOOL, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
+import { scopeViewFromSql, type RecordScopeTool, type ScopeView } from './scope.ts';
 import type { DiscoverySkill } from './discovery-skills.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED } from './tenant-reads.ts';
 import type { CallerReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
@@ -13,7 +14,8 @@ export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discove
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
 export type DiscoveryModelRequest = {
   model: string; maxTokens: number; effort: 'low'; system: SystemBlock[];
-  tools: typeof RECORD_ELICITATION_TOOL[];
+  tools: readonly (typeof RECORD_ELICITATION_TOOL | RecordScopeTool)[];
+  toolChoice?: { type: 'tool'; name: string };
   messages: { role: 'user' | 'assistant'; content: string }[];
 };
 export type DiscoveryModelAnswer =
@@ -159,11 +161,14 @@ export function discoveryStream(port: MessagesPort) {
     return settleArgsFrom(reservation, answer, args.p_account_id);
   };
 }
-export type DiscoveryConversationView = { projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null };
+export type DiscoveryConversationView = {
+  projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null;
+  scopes: ScopeView[]; scope: ScopeView | null;
+};
 export type DiscoveryConversationAnswer = { status: 200; body: { ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null } }
   | typeof TENANT_NOT_FOUND | typeof TENANT_READ_FAILED;
 export async function conversationAnswer(
-  reads: Pick<CallerReads, 'project' | 'discoveryTurnsOf' | 'discoveryAllowance'>, projectId: string,
+  reads: Pick<CallerReads, 'project' | 'discoveryTurnsOf' | 'discoveryAllowance' | 'discoveryScopesOf'>, projectId: string,
 ): Promise<DiscoveryConversationAnswer> {
   const project = await reads.project(projectId);
   if (!project.ok) return TENANT_READ_FAILED;
@@ -171,21 +176,26 @@ export async function conversationAnswer(
   if (source === undefined) return TENANT_NOT_FOUND;
   const rows = await reads.discoveryTurnsOf(projectId);
   if (!rows.ok) return TENANT_READ_FAILED;
+  const scopeRows = await reads.discoveryScopesOf(projectId);
+  if (!scopeRows.ok) return TENANT_READ_FAILED;
   const allowance = await reads.discoveryAllowance(source.org_id);
   try {
     const turns = [...rows.rows].sort((a, b) => a.seq - b.seq).map(turnViewFromSql);
     const elicitation = turns.filter((turn) => turn.elicitation !== null).at(-1)?.elicitation ?? null;
-    return { status: 200, body: { ok: true, conversation: { projectId, turns, elicitation },
+    const scopes = [...scopeRows.rows].sort((a, b) => a.version - b.version).map(scopeViewFromSql);
+    const scope = scopes.find((row) => row.status === 'current') ?? null;
+    return { status: 200, body: { ok: true, conversation: { projectId, turns, elicitation, scopes, scope },
       allowance: allowance.ok ? renderDiscoveryAllowance(allowance.value) : null } };
   } catch {
     return TENANT_READ_FAILED;
   }
 }
 export function renderDiscoveryMessage(value: unknown): {
-  turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
+  turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null; scopeReady: boolean;
 } {
   if (!isRecord(value) || !isRecord(value.turn)) throw new Error('discovery settle returned no turn');
   const turn = turnViewFromSql(value.turn as DiscoveryTurnSqlRow);
   return { turn, reply: turn.assistantMessage ?? '', elicitation: turn.elicitation,
-    allowance: value.allowance === null ? null : renderDiscoveryAllowance(value.allowance) };
+    allowance: value.allowance === null ? null : renderDiscoveryAllowance(value.allowance),
+    scopeReady: turn.elicitation?.complete === true };
 }

@@ -458,6 +458,8 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
   return {
     discoveryTurnsOf: (projectId) =>
       restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&order=seq`, { headers }),
+    discoveryScopesOf: (projectId) =>
+      restJson(`${base}/discovery_scopes?project_id=eq.${encodeURIComponent(projectId)}&order=version`, { headers }),
     discoveryAllowance: async (organizationId) => {
       const response = await fetch(`${base}/rpc/viewer_discovery_allowance`, {
         method: 'POST', headers: { ...headers, 'content-type': 'application/json' },

@@ -2,7 +2,7 @@
   "requirement": "004",
   "tiers": {
     "loop": {
-      "green": ["AT-004.01","AT-004.02","AT-004.03a","AT-004.03b","AT-004.04","AT-004.05","AT-004.06","AT-004.08","AT-004.09","AT-004.10","AT-004.11","AT-004.41","AT-004.42","AT-004.43","AT-004.44","AT-004.45","AT-004.46","AT-004.47","AT-004.48","AT-004.49"],
+      "green": ["AT-004.01","AT-004.02","AT-004.03a","AT-004.03b","AT-004.04","AT-004.05","AT-004.06","AT-004.08","AT-004.09","AT-004.10","AT-004.11","AT-004.20","AT-004.22","AT-004.41","AT-004.42","AT-004.43","AT-004.44","AT-004.45","AT-004.46","AT-004.47","AT-004.48","AT-004.49"],
       "red": {
         "AT-004.12": {"kind":"capability-pending","capabilities":["discovery.guardrails"]},
         "AT-004.13": {"kind":"capability-pending","capabilities":["discovery.guardrails"]},
@@ -12,9 +12,7 @@
         "AT-004.17": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
         "AT-004.18": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
         "AT-004.19": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
-        "AT-004.20": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
         "AT-004.21": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
-        "AT-004.22": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
         "AT-004.24": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
         "AT-004.25": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
         "AT-004.26": {"kind":"capability-pending","capabilities":["discovery.sensitivity-tiers"]},
@@ -64,9 +62,9 @@
         "AT-004.17": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
         "AT-004.18": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
         "AT-004.19": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
-        "AT-004.20": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
+        "AT-004.20": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
         "AT-004.21": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
-        "AT-004.22": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
+        "AT-004.22": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
         "AT-004.24": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
         "AT-004.25": {"kind":"capability-pending","capabilities":["discovery.scope-output"]},
         "AT-004.26": {"kind":"capability-pending","capabilities":["discovery.sensitivity-tiers"]},

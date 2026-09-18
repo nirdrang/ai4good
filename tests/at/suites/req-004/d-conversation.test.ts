@@ -28,7 +28,7 @@ async function returnNextDay(sut: DiscoverySut, ngo: { session: Session; organiz
   const read = await sut.readConversation(session, projectId);
   expect(read.ok).toBe(true);
   if (!read.ok) throw new Error(read.answer.body);
-  expect(read.value.conversation).toEqual({ projectId, turns: rows, elicitation: null });
+  expect(read.value.conversation).toEqual({ projectId, turns: rows, elicitation: null, scopes: [], scope: null });
   expect(read.value.allowance).toMatchObject({ utcDay: today, spentToday: 0, remaining: before.allowance.dailyGrant });
   return { session, rows };
 }

@@ -192,6 +192,7 @@
  */
 
 import { decideDiscoveryMessage, type DiscoveryReserveArgs } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { decideDiscoveryScope, type DiscoveryScopeArgs } from '../../../../supabase/functions/_shared/scope.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -777,6 +778,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   };
   const DISCOVERY_MESSAGE: WriteRouteSpec<DiscoveryReserveArgs, AccountWriteRouteInput> = {
     name: 'discovery-message', target: organizationIdField, decide: decideDiscoveryMessage,
+  };
+  const DISCOVERY_SCOPE: WriteRouteSpec<DiscoveryScopeArgs, AccountWriteRouteInput> = {
+    name: 'discovery-scope', target: organizationIdField, decide: decideDiscoveryScope,
   };
 
   /** The mirror of `public.append_audit_event`; the live adapter is the oracle. */
@@ -1812,6 +1816,17 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           if (subject.route !== 'discovery-message') throw new Error('unreachable');
           if (session === null) return { ok: false, kind: 'unauthenticated', status: 401, reason: DEAD_SESSION_REASON };
           return asAttempt(await this.sendDiscoveryMessage(session, subject.message));
+        },
+        'discovery-scope': async () => {
+          if (subject.route !== 'discovery-scope') throw new Error('unreachable');
+          const run = runWrite(
+            DISCOVERY_SCOPE,
+            session,
+            { organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
         },
       };
       return attempts[subject.route]();

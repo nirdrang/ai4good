@@ -2,11 +2,19 @@ import type { NeedsSut, Session, WriteRefusal, NeedUrgency, TenantReadOutcome } 
 import type { Allowance, SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import type { ModelUsage } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import type { DiscoveryTurnView, Elicitation, Reservation, DiscoveryConversationView } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import type { NeedIntakeView } from '../../../../supabase/functions/_shared/need-intake.ts';
+import type { ScopeView } from '../../../../supabase/functions/_shared/scope.ts';
 export type { Session, WriteRefusal, SpendRow, ModelUsage, DiscoveryTurnView, Elicitation, Reservation };
+export type { ScopeView };
 export type IntakeFixture = { title: string; description: string; urgency?: NeedUrgency };
 export type DiscoveryMessageRequest = { organizationId: string; projectId: string; message: string };
 export type DiscoveryMessageOutcome = {
   ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
+  scopeReady: boolean;
+} | WriteRefusal;
+export type ScopeWriteRequest = { organizationId: string; projectId: string; action: 'generate' };
+export type ScopeWriteOutcome = {
+  ok: true; changed: boolean; scope: ScopeView | null; scopes: ScopeView[]; need: NeedIntakeView; escalated: boolean;
 } | WriteRefusal;
 export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; countedInputTokens?: number; countedThroughSeq?: number };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
@@ -22,7 +30,9 @@ export type DiscoverySut = NeedsSut & {
   writeSpendRowAsOperator(row: SpendRow): Promise<void>;
   spendRows(organizationId: string): Promise<SpendRow[]>;
   sendMessage(session: Session | null, request: DiscoveryMessageRequest): Promise<DiscoveryMessageOutcome>;
+  writeScope(session: Session | null, request: ScopeWriteRequest): Promise<ScopeWriteOutcome>;
   turnRows(projectId: string): Promise<DiscoveryTurnView[]>;
+  scopeRows(projectId: string): Promise<ScopeView[]>;
   reserveTurnAsOperator(input: OperatorReserveInput): Promise<OperatorReserveOutcome>;
   settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;

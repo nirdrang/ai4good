@@ -69,6 +69,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'discovery_turn_reserve' },
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
+  'discovery-scope': {
+    surface: { kind: 'edge', rpc: 'discovery_scope_begin' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
   'set-organization-discovery': {
     surface: { kind: 'edge', rpc: 'set_organization_discovery' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },
@@ -109,6 +113,12 @@ export const WRITE_REFUSAL_KINDS = [
   'stale-context',
   'fuel-exhausted',
   'discovery-disabled',
+  'elicitation-incomplete',
+  'scope-already-generated',
+  'scope-not-generated',
+  'scope-not-open',
+  'generation-in-flight',
+  'turn-ceiling',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];
