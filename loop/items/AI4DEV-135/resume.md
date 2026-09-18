@@ -1,4 +1,4 @@
-# Resume note for the scope run (AI4DEV-135)
+﻿# Resume note for the scope run (AI4DEV-135)
 
 Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 `lanes/unitN-writer.report.md`.
@@ -24,11 +24,12 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 5. Rewrite this note, commit, gate with `AskUserQuestion`.
 
 ## Open with the founder
-- Generation is an explicit `discovery-scope` write, not automatic on the completing settle
-  (design decision 2). Confirm or change at the unit 1 gate.
+- Settled at the unit 1 gate (founder, 2026-09-18): generation stays an explicit `discovery-scope`
+  write (design decision 2). Nothing to change.
 - Unit 5 needs two pin values: the turn ceiling and the off-topic strikes threshold.
 
 ## Not done here (for the pull request)
 - The chat page shows no scope and no generate control; the wiring leaf owns that.
 - A regeneration may re-emit a label the NGO removed; nothing records removals.
 - Fuel is not billed for the scope model call; generation is zero-cost on both billing kinds.
+
