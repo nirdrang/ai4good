@@ -16,8 +16,12 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 - Unit 3 (scope as contract, AT-004.24 and .52 red under `backlog.derivation` and
   `prd.authoring`) landed at `b86704c` plus one review fix at `a99695f`, verified at both tiers:
   `verify/unit3/summary.txt`.
-- Units 4 to 6 not started. `lanes/unit4-writer.prompt.md` is written; the others are written
-  at each gate.
+- Unit 4 (cause labels, AT-004.58 to .60) landed at `32922f6` plus one review fix at `2483a0b`
+  (the pass-through commit takes `p_changed`), verified at both tiers: `verify/unit4/summary.txt`
+  (loop) and `verify/unit4-rerun/summary.txt` (integration; the first integration pass hit two
+  auth hiccups on ids the unit does not touch, AT-004.03a and .05, and the rerun was clean).
+- Units 5 and 6 not started. `lanes/unit5-writer.prompt.md` is written with three placeholders
+  (`<<TURN_CEILING>>`, `<<STRIKES>>`, `<<REQ_TEXT_RULING>>`) the founder fills at the unit 4 gate.
 
 ## How a unit runs
 1. `git worktree add -b lane/ai4dev-135/unitN ../AI4DEV-135-unitN HEAD` from this worktree, then
