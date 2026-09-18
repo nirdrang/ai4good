@@ -1,0 +1,2 @@
+﻿2026-09-18T06:38:09Z	exit 0	bun run typecheck	 | === typecheck: acceptance tests (tests/at/tsconfig.json) === |  | === typecheck: verify drive (.claude/skills/verify-ai4good/scripts/tsconfig.json) === |  | typecheck OK: all three projects clean
+2026-09-18T06:38:18Z	exit 0	bun run at:selftest	 |  Test Files  34 passed (34) |       Tests  457 passed (457) |    Start at  09:38:18 |    Duration  8.48s (transform 2.99s, setup 0ms, import 4.51s, tests 23.00s, environment 4ms) | 

@@ -1,0 +1,8 @@
+
+=== typecheck: app (tsconfig.json) ===
+
+=== typecheck: acceptance tests (tests/at/tsconfig.json) ===
+
+=== typecheck: verify drive (.claude/skills/verify-ai4good/scripts/tsconfig.json) ===
+
+typecheck OK: all three projects clean

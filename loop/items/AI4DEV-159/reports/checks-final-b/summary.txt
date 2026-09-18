@@ -1,0 +1,2 @@
+﻿2026-09-18T06:57:39Z	exit 0	bun run typecheck	 | === typecheck: acceptance tests (tests/at/tsconfig.json) === |  | === typecheck: verify drive (.claude/skills/verify-ai4good/scripts/tsconfig.json) === |  | typecheck OK: all three projects clean
+2026-09-18T06:57:48Z	exit 1	bun run at:selftest	 Test Files  1 failed | 33 passed (34) |       Tests  2 failed | 456 passed (458) |    Start at  09:57:49 |    Duration  8.67s (transform 3.25s, setup 0ms, import 4.79s, tests 21.80s, environment 4ms) |  | error: script "at:selftest" exited with code 1

@@ -1,0 +1,300 @@
+{
+  "ranAt": "2026-09-18T05:33:24.283Z",
+  "email": "verify-chat-page-1789709603711@example.com",
+  "orgName": "Verify Chat Page Org 1789709603711",
+  "organizationId": "d94cbad7-e806-4af3-a8d4-b2d3708acb60",
+  "projectId": "24feccb6-3264-4c19-b321-e81019d8f9c2",
+  "checks": [
+    {
+      "id": "a",
+      "title": "auth health answers",
+      "outcome": "pass",
+      "note": "GET /auth/v1/health -> 200"
+    },
+    {
+      "id": "a2",
+      "title": "mail identification",
+      "outcome": "pass",
+      "note": "Mailpit v1.30.2 at http://127.0.0.1:44324"
+    },
+    {
+      "id": "a3",
+      "title": "edge runtime mount",
+      "outcome": "pass",
+      "note": "edge runtime functions mount /run/desktop/mnt/host/c/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-159/supabase/functions"
+    },
+    {
+      "id": "setup-signup",
+      "title": "email signup",
+      "outcome": "pass",
+      "note": "status 200"
+    },
+    {
+      "id": "setup-confirm",
+      "title": "mail confirmation",
+      "outcome": "pass",
+      "note": "status 303"
+    },
+    {
+      "id": "setup-signin",
+      "title": "password sign-in",
+      "outcome": "pass",
+      "note": "status 200"
+    },
+    {
+      "id": "setup-ngo",
+      "title": "complete-signup as NGO",
+      "outcome": "pass",
+      "note": "organizationId d94cbad7-e806-4af3-a8d4-b2d3708acb60"
+    },
+    {
+      "id": "setup-start",
+      "title": "project-need start",
+      "outcome": "pass",
+      "note": "projectId 24feccb6-3264-4c19-b321-e81019d8f9c2"
+    },
+    {
+      "id": "setup-submit",
+      "title": "project-need submit",
+      "outcome": "pass",
+      "note": "status 200"
+    }
+  ],
+  "transcript": [
+    {
+      "step": "doctor-auth-health",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/auth/v1/health"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "version": "v2.193.0",
+          "name": "GoTrue",
+          "description": "GoTrue is a user registration and authentication API"
+        }
+      }
+    },
+    {
+      "step": "signup",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-chat-page-1789709603711@example.com",
+          "phone": "",
+          "confirmation_sent_at": "2026-09-18T05:33:23.863850776Z",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email": "verify-chat-page-1789709603711@example.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505"
+          },
+          "identities": [
+            {
+              "identity_id": "a8aad280-64ae-4abe-b10b-ffe87c264ba9",
+              "id": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+              "user_id": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+              "identity_data": {
+                "email": "verify-chat-page-1789709603711@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-09-18T05:33:23.860353194Z",
+              "created_at": "2026-09-18T05:33:23.860372Z",
+              "updated_at": "2026-09-18T05:33:23.860372Z",
+              "email": "verify-chat-page-1789709603711@example.com"
+            }
+          ],
+          "created_at": "2026-09-18T05:33:23.854963Z",
+          "updated_at": "2026-09-18T05:33:23.866743Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "confirmation-link",
+      "link": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "step": "verify-redirect",
+      "status": 303,
+      "location": "http://127.0.0.1:3000/"
+    },
+    {
+      "step": "signin",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 120,
+          "expires_at": 1789709723,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-chat-page-1789709603711@example.com",
+            "email_confirmed_at": "2026-09-18T05:33:23.89595Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-09-18T05:33:23.86385Z",
+            "confirmed_at": "2026-09-18T05:33:23.89595Z",
+            "last_sign_in_at": "2026-09-18T05:33:23.99349772Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "verify-chat-page-1789709603711@example.com",
+              "email_verified": true,
+              "phone_verified": false,
+              "sub": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505"
+            },
+            "identities": [
+              {
+                "identity_id": "a8aad280-64ae-4abe-b10b-ffe87c264ba9",
+                "id": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+                "user_id": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+                "identity_data": {
+                  "email": "verify-chat-page-1789709603711@example.com",
+                  "email_verified": true,
+                  "phone_verified": false,
+                  "sub": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-09-18T05:33:23.860353Z",
+                "created_at": "2026-09-18T05:33:23.860372Z",
+                "updated_at": "2026-09-18T05:33:23.860372Z",
+                "email": "verify-chat-page-1789709603711@example.com"
+              }
+            ],
+            "created_at": "2026-09-18T05:33:23.854963Z",
+            "updated_at": "2026-09-18T05:33:23.996429Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "complete-signup",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/complete-signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "accountId": "c6de3fe7-2d7b-4633-83a0-c2e5b1445505",
+          "accountType": "ngo",
+          "organizationId": "d94cbad7-e806-4af3-a8d4-b2d3708acb60"
+        }
+      }
+    },
+    {
+      "step": "project-need-start",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "24feccb6-3264-4c19-b321-e81019d8f9c2",
+            "organizationId": "d94cbad7-e806-4af3-a8d4-b2d3708acb60",
+            "title": "Chat page need",
+            "description": "We miss funder reporting deadlines and need a shared reminder list.",
+            "urgency": "soon",
+            "stage": "draft",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": null,
+            "updatedAt": "2026-09-18T05:33:24.204721+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "project-need-submit",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/project-need"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "changed": true,
+          "need": {
+            "projectId": "24feccb6-3264-4c19-b321-e81019d8f9c2",
+            "organizationId": "d94cbad7-e806-4af3-a8d4-b2d3708acb60",
+            "title": "Chat page need",
+            "description": "We miss funder reporting deadlines and need a shared reminder list.",
+            "urgency": "soon",
+            "stage": "discovery_in_progress",
+            "causeLabels": [],
+            "referenceFiles": [],
+            "tier2ClassifiedAt": null,
+            "upload": {
+              "disclosure": {
+                "level": "base",
+                "acknowledgmentRequired": false,
+                "heading": "Redacted or sample data only.",
+                "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+                "acknowledgment": null
+              }
+            },
+            "submittedAt": "2026-09-18T05:33:24.275851+00:00",
+            "updatedAt": "2026-09-18T05:33:24.275851+00:00"
+          }
+        }
+      }
+    },
+    {
+      "step": "summary",
+      "body": {
+        "email": "verify-chat-page-1789709603711@example.com",
+        "password": "[REDACTED]",
+        "organizationId": "d94cbad7-e806-4af3-a8d4-b2d3708acb60",
+        "projectId": "24feccb6-3264-4c19-b321-e81019d8f9c2",
+        "pageUrl": "http://localhost:8080/discovery/d94cbad7-e806-4af3-a8d4-b2d3708acb60/24feccb6-3264-4c19-b321-e81019d8f9c2"
+      }
+    }
+  ]
+}
