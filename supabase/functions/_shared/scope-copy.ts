@@ -8,6 +8,6 @@ export const SCOPE_COPY = {
     tier2:
       'This tool handles special-category or high-volume personal data. Use synthetic or anonymised fixtures only during the build. The NGO connects real data itself after completion. Real tier-2 data never reaches Anthropic, Lovable, or the volunteer.',
   },
-  startSmall: 'Start small.',
+  startSmall: 'Start small. Build the least the NGO needs first, then grow it by chat.',
   ownership: 'The NGO owns the code.',
 } as const;

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { RECORD_SCOPE_TOOL } from '../../../../supabase/functions/_shared/scope.ts';
+import { RECORD_SCOPE_TOOL, SCOPE_MONEY } from '../../../../supabase/functions/_shared/scope.ts';
 import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
@@ -513,8 +513,6 @@ const SCOPE_MONEY_SOURCE_PATHS = [
   'supabase/functions/_shared/discovery-skills/06-write-the-scope.md',
 ] as const;
 
-const SCOPE_MONEY = /\$|\bUSD\b|\bdollars?\b|\bcost\b|\bestimate\b|\bbudget\b|\bprice\b/gi;
-
 export type ScopeMoneySourceInput = {
   files: readonly SourceFile[];
   toolDescription: string;
@@ -541,7 +539,6 @@ function inAllowed(index: number, spans: readonly { start: number; end: number }
 function moneyHits(text: string, path: string, lineAt: (index: number) => number): string[] {
   const spans = allowedSpans(text);
   const problems: string[] = [];
-  SCOPE_MONEY.lastIndex = 0;
   for (const match of text.matchAll(SCOPE_MONEY)) {
     const index = match.index ?? 0;
     if (inAllowed(index, spans)) continue;

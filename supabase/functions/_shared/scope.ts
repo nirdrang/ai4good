@@ -221,7 +221,7 @@ export function renderScopeMarkdown(scope: Scope, need: { title: string }): stri
   ].join('\n\n');
 }
 
-const SCOPE_MONEY = /\$|\bUSD\b|\bdollars?\b|\bcost\b|\bestimate\b|\bbudget\b|\bprice\b/gi;
+export const SCOPE_MONEY = /\$|\bUSD\b|\bdollars?\b|\bcost\b|\bestimate\b|\bbudget\b|\bprice\b/gi;
 
 export function scopeMoneyProblems(markdown: string): string[] {
   const allowed = [SCOPE_COPY.maintenance, SCOPE_COPY.lovablePricingUrl];
@@ -230,7 +230,6 @@ export function scopeMoneyProblems(markdown: string): string[] {
   const problems: string[] = [];
   const lines = rest.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
-    SCOPE_MONEY.lastIndex = 0;
     for (const match of lines[i].matchAll(SCOPE_MONEY)) {
       problems.push('line ' + String(i + 1) + ': ' + match[0]);
     }
