@@ -66,6 +66,7 @@ export const TAXONOMY: TaxonomyRow[] = [
   { event: 'discovery.fit_declined', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['declineCause', 'reshapingSuggestion', 'oversightSentence'] },
   { event: 'discovery.fit_decline_review', recipients: ['platform_admin'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['declineCause'], opsItem: true },
   { event: 'discovery.decline_overturned', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['discoveryReopened'] },
+  { event: 'discovery.off_topic_flagged', recipients: ['platform_admin'], channels: ['email', 'inapp'], tone: 'normal', class: 'other', payloadKeys: ['projectId', 'organizationId', 'strikes'] },
 
   // --- Matching (line 7) ---
   { event: 'candidacy.marked', recipients: ['platform_admin'], channels: null, tone: 'normal', class: 'other' },
@@ -289,6 +290,14 @@ export const PAYLOAD_PREDICATES: Record<string, Record<string, (value: unknown, 
   },
   'discovery.decline_overturned': {
     discoveryReopened: (v) => (v === true ? null : `expected boolean true, got ${JSON.stringify(v)}`),
+  },
+  'discovery.off_topic_flagged': {
+    projectId: (v) => (typeof v === 'string' && v.trim().length > 0 ? null : `not a project id: ${JSON.stringify(v)}`),
+    organizationId: (v) => (typeof v === 'string' && v.trim().length > 0 ? null : `not an organisation id: ${JSON.stringify(v)}`),
+    strikes: (v) => {
+      const n = typeof v === 'number' ? v : Number(v);
+      return Number.isInteger(n) && n > 0 ? null : `not a strike count: ${JSON.stringify(v)}`;
+    },
   },
   'access.key_revoked': {
     // "replacement on dashboard"

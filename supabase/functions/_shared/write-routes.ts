@@ -118,7 +118,6 @@ export const WRITE_REFUSAL_KINDS = [
   'scope-not-generated',
   'scope-not-open',
   'generation-in-flight',
-  'turn-ceiling',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];

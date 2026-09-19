@@ -492,7 +492,7 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
       ),
     project: (projectId) =>
       restJson(
-        `${base}/projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,org_id,assigned_volunteer_id`,
+        `${base}/projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,org_id,assigned_volunteer_id,funded_at`,
         { headers },
       ),
   };

@@ -139,19 +139,26 @@ export function providerClientImporters(): string[] {
   return [...components].sort();
 }
 
-/** The event names the migration seeds into `public.notification_event_types`, in seed order. */
+/** The event names the migrations seed into `public.notification_event_types`, in file order. */
 function seededEventNames(): { file: string; names: string[] } {
-  const migrations = productFiles('taxonomySeedProblems').filter((file) => file.path.startsWith('supabase/migrations/'));
+  const migrations = productFiles('taxonomySeedProblems')
+    .filter((file) => file.path.startsWith('supabase/migrations/'))
+    .sort((left, right) => left.path.localeCompare(right.path));
+  const files: string[] = [];
+  const names: string[] = [];
   for (const file of migrations) {
     const seed = /insert\s+into\s+public\.notification_event_types\s*\(\s*event\s*\)\s*values\s*([^;]+);/i.exec(file.text);
     if (!seed) continue;
-    const names = [...seed[1].matchAll(/\(\s*'([^']+)'\s*\)/g)].map((match) => match[1]);
-    return { file: file.path, names };
+    files.push(file.path);
+    names.push(...[...seed[1].matchAll(/\(\s*'([^']+)'\s*\)/g)].map((match) => match[1]));
   }
-  throw new Error(
-    'taxonomySeedProblems found no migration that seeds public.notification_event_types, so there is no seed to compare ' +
-      'the product taxonomy against. Refusing to report agreement.',
-  );
+  if (names.length === 0) {
+    throw new Error(
+      'taxonomySeedProblems found no migration that seeds public.notification_event_types, so there is no seed to compare ' +
+        'the product taxonomy against. Refusing to report agreement.',
+    );
+  }
+  return { file: files.join(', '), names };
 }
 
 /** Where the migration's seeded event names and the product's TAXONOMY disagree. Empty is the assertion. */

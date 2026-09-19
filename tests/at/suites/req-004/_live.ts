@@ -2,8 +2,8 @@ import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
 import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
-import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
-import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { countedInputTokens, reservationFor, settlementFor, reserveSettings, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { turnViewFromSql, renderReservation, renderDiscoveryMessage, offTopicFlaggedNotice, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { canonicalLabel, renderDiscoveryScope, renderScopeBegin, scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
@@ -142,9 +142,25 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     },
     settleTurnAsOperator: async (input) => {
       try {
+        let noticeJson: string | null = null;
+        if (input.offTopic === true) {
+          const found = await sql`select project_id, org_id, request_settings from public.discovery_turns
+            where id = ${input.turnId}::uuid` as { project_id: string; org_id: string; request_settings: unknown }[];
+          const row = found[0];
+          if (row === undefined) return sqlRefusal(new Error('no open Discovery turn'));
+          const settings = (typeof row.request_settings === 'string' ? JSON.parse(row.request_settings) : row.request_settings) as {
+            guardrails?: { off_topic_flag_strikes?: number };
+          } | null;
+          const notice = offTopicFlaggedNotice({
+            projectId: String(row.project_id), organizationId: String(row.org_id),
+            strikes: settings?.guardrails?.off_topic_flag_strikes ?? DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
+          });
+          if (notice.ok) noticeJson = JSON.stringify(notice.value);
+        }
         const result = await sql`select public.discovery_turn_settle(${input.accountId}::uuid, ${input.turnId}::uuid,
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
-          ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text, null::jsonb) as value` as { value: unknown }[];
+          ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text, null::jsonb,
+          ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },
@@ -251,6 +267,14 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
             'end_turn', ${settings.model}, ${cost.actualMicros}, ${cost.chargedCredits}, ${cost.overrunMicros}, clock_timestamp(), clock_timestamp())`;
         }
       });
+    },
+    notificationEvents: async (event) => {
+      const rows = await sql`select event, payload from public.notification_events
+        where event = ${event} order by created_at, id` as { event: string; payload: unknown }[];
+      return rows.map((row) => ({
+        event: String(row.event),
+        payload: (typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload) as Record<string, unknown>,
+      }));
     },
     spendLedgerInvariantProblems: async (organizationId) => {
       const mismatches = await sql`select s.utc_day::text as utc_day, s.spent,

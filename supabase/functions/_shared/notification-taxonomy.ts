@@ -1,7 +1,7 @@
 /**
  * REQ-016's notification taxonomy, as the product declares it.
  *
- * ONE TYPED CONST, CLOSED BY CONSTRUCTION. Forty-eight rows, one per wire event, transcribed from
+ * ONE TYPED CONST, CLOSED BY CONSTRUCTION. One row per wire event, transcribed from
  * `.taskmaster/docs/requirements/req-016.md` independently of the acceptance suite's own table in
  * `tests/at/suites/req-016/taxonomy.ts`. The suite's table is the oracle and this one is the
  * implementation; AT-016.02 compares them both ways, so the two can disagree and a drift is a red.
@@ -59,6 +59,7 @@ export const TAXONOMY: readonly TaxonomyRow[] = [
   { event: 'discovery.fit_declined', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['declineCause', 'reshapingSuggestion', 'oversightSentence'] },
   { event: 'discovery.fit_decline_review', recipients: ['platform_admin'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['declineCause'], opsItem: true },
   { event: 'discovery.decline_overturned', recipients: ['ngo'], channels: ['email', 'inapp'], tone: 'normal', class: 'decision', payloadKeys: ['discoveryReopened'] },
+  { event: 'discovery.off_topic_flagged', recipients: ['platform_admin'], channels: ['email', 'inapp'], tone: 'normal', class: 'other', payloadKeys: ['projectId', 'organizationId', 'strikes'] },
 
   // Matching
   { event: 'candidacy.marked', recipients: ['platform_admin'], channels: null, tone: 'normal', class: 'other' },

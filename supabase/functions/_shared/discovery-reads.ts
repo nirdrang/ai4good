@@ -9,12 +9,15 @@ export type DiscoveryTurnSqlRow = {
     complete: true; facts: string[]; constraints: string[];
     userStories: { story: string; acceptanceCriteria: string[] }[]; openQuestions: string[];
   } | null;
-  request_settings: { model: string; max_tokens: number; effort: 'low' };
+  request_settings: {
+    model: string; max_tokens: number; effort: 'low';
+    guardrails?: { active: boolean; off_topic_flag_strikes: number };
+  };
   max_output_tokens: number; estimated_input_tokens: number; micros_per_credit: number;
   input_micros_per_token: number; output_micros_per_token: number; reserved_micros: number; reserved_credits: number;
   input_tokens: number | null; output_tokens: number | null; stop_reason: string | null; served_model: string | null;
   actual_micros: number | null; charged_credits: number | null; overrun_micros: number | null;
-  opened_at: string; settled_at: string | null;
+  opened_at: string; settled_at: string | null; off_topic: boolean;
 };
 
 export type DiscoveryReads = {

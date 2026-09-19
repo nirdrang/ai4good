@@ -40,6 +40,13 @@ export const AT_CONFIG = {
   discoveryMinOutputTokens: { name: 'Discovery minimum output', value: 512, unit: 'tokens', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
   discoveryTurnDeadlineSeconds: { name: 'Discovery open turn deadline', value: 150, unit: 'seconds', source: 'AI4DEV-132 design/candidate-4-reserve-settle.md' },
   discoveryCauseLabelsMax: { name: 'Discovery cause labels maximum', value: 3, unit: 'labels', source: 'PRD REQ-004 "zero to three"' },
+  discoveryOffTopicFlagStrikes: {
+    name: 'Discovery off-topic flag strikes',
+    value: 3,
+    unit: 'declines',
+    provisional: true,
+    source: 'founder ruling at the unit 4 gate of the scope run, 2026-09-19, pilot-tuned',
+  },
   gatewayLatencyP95Ms: {
     name: 'gateway added latency, 95th percentile',
     value: 300,

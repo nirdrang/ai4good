@@ -10,7 +10,7 @@ export type IntakeFixture = { title: string; description: string; urgency?: Need
 export type DiscoveryMessageRequest = { organizationId: string; projectId: string; message: string };
 export type DiscoveryMessageOutcome = {
   ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
-  scopeReady: boolean;
+  scopeReady: boolean; guardrail: { offTopicCount: number; flagged: boolean; notice: string | null } | null;
 } | WriteRefusal;
 export type ScopeWriteRequest =
   | { organizationId: string; projectId: string; action: 'generate' }
@@ -28,7 +28,9 @@ export type ScopeWriteOutcome = {
 } | WriteRefusal;
 export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; countedInputTokens?: number; countedThroughSeq?: number };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
-export type OperatorSettleInput = { accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage };
+export type OperatorSettleInput = {
+  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage; offTopic?: boolean;
+};
 export type { DiscoveryConversationView };
 export type DiscoverySwitchOutcome = { ok: true; organizationId: string; discoveryEnabled: boolean; changed: boolean; disabledAt: string | null } | WriteRefusal;
 export type DiscoverySwitchAuditRow = { id: string; actorAccountId: string | null; subjectOrgId: string; reason: string; detail: { enabled: boolean; previously_disabled_at: string | null } };
@@ -49,6 +51,7 @@ export type DiscoverySut = NeedsSut & {
   scopeRows(projectId: string): Promise<ScopeView[]>;
   reserveTurnAsOperator(input: OperatorReserveInput): Promise<OperatorReserveOutcome>;
   settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
+  notificationEvents(event: string): Promise<{ event: string; payload: Record<string, unknown> }[]>;
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
   readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null }>>;
   setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;

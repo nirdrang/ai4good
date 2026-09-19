@@ -1,8 +1,8 @@
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
 import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
-  DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+  DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
-  contextMessagesFrom,
+  contextMessagesFrom, offTopicFlaggedNotice,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { canonicalLabel, decideDiscoveryScope, renderDiscoveryScope, renderScopeBegin, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
@@ -35,6 +35,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const funding = new Map<string, { fundedAt: string | null; fuelMicros: number }>();
   const switches = new Map<string, { disabledAt: string; disabledBy: string; reason: string }>();
   const switchAudits: DiscoverySwitchAuditRow[] = [];
+  const notificationRows: { event: string; payload: Record<string, unknown> }[] = [];
   const skills = DISCOVERY_SKILLS;
   const now = () => new Date(opts.clock.now()).toISOString();
   const sqlAllowance = (allowance: { organizationId: string; utcDay: string; vetted: boolean; dailyGrant: number; spentToday: number; remaining: number }) => ({
@@ -96,11 +97,16 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       status: 'open', billing: target.kind, utc_day: utcDay, user_message: args.p_message,
       assistant_message: null, elicitation: null, request_settings: {
         model: args.p_settings.model, max_tokens: maxOutputTokens, effort: args.p_settings.effort,
+        guardrails: {
+          active: target.kind === 'free',
+          off_topic_flag_strikes: args.p_settings.off_topic_flag_strikes,
+        },
       }, max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
       micros_per_credit: args.p_settings.micros_per_credit, input_micros_per_token: args.p_settings.input_micros_per_token,
       output_micros_per_token: args.p_settings.output_micros_per_token, reserved_micros: bound.reservedMicros,
       reserved_credits: bound.reservedCredits, input_tokens: null, output_tokens: null, stop_reason: null, served_model: null,
       actual_micros: null, charged_credits: null, overrun_micros: null, opened_at: now(), settled_at: null,
+      off_topic: false,
     };
     turns.set(need.projectId, [...rows, row]);
     return { ok: true, reservation: { turn: structuredClone(row),
@@ -120,9 +126,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       }
       const result = settlementFor({ reservedMicros: row.reserved_micros, reservedCredits: row.reserved_credits,
         billing: row.billing, usage: { inputTokens: args.p_input_tokens, outputTokens: args.p_output_tokens } });
+      const offTopic = args.p_off_topic === true && row.billing !== 'fuel';
       Object.assign(row, { status: 'settled', assistant_message: args.p_assistant_message, input_tokens: args.p_input_tokens,
         output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model, elicitation: args.p_elicitation,
-        actual_micros: result.actualMicros, charged_credits: result.chargedCredits, overrun_micros: result.overrunMicros });
+        actual_micros: result.actualMicros, charged_credits: result.chargedCredits, overrun_micros: result.overrunMicros,
+        off_topic: offTopic });
       if (row.billing === 'fuel') {
         const entry = funding.get(row.project_id);
         if (entry) entry.fuelMicros -= result.actualMicros;
@@ -135,9 +143,21 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       if (!spend || spend.spent < released) throw new Error('release exceeds recorded spend');
       await organizations.writeSpendRowAsOperator({ ...spend, spent: spend.spent - released });
     }
+    const projectRows = turns.get(row.project_id) ?? [];
+    const offTopicCount = projectRows.filter((item) => item.off_topic).length;
+    const strikes = row.request_settings.guardrails?.off_topic_flag_strikes;
+    if (args.p_outcome === 'completed' && row.off_topic && row.request_settings.guardrails?.active === true
+      && typeof strikes === 'number' && offTopicCount === strikes) {
+      notificationRows.push({
+        event: 'discovery.off_topic_flagged',
+        payload: { projectId: row.project_id, organizationId: row.org_id, strikes },
+      });
+    }
     const after = await organizations.readAllowance(actor.session, row.org_id);
     if (!after.ok) return after;
-    return { ok: true, ...renderDiscoveryMessage({ turn: row, allowance: sqlAllowance(after.allowance) }) };
+    return { ok: true, ...renderDiscoveryMessage({
+      turn: row, allowance: sqlAllowance(after.allowance), off_topic_count: offTopicCount,
+    }) };
   };
   const sqlNeed = async (projectId: string) => {
     const need = await needs.needRow(projectId);
@@ -375,11 +395,19 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       p_message: input.message, p_settings: { ...reserveSettings(), counted_input_tokens: input.countedInputTokens ?? 0 },
       p_counted_through_seq: input.countedThroughSeq ?? (turns.get(input.projectId) ?? []).filter((r) => r.status === 'settled').at(-1)?.seq ?? 0,
     }),
-    settleTurnAsOperator: async (input) => settle({
-      p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
-      p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
-      p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: null,
-    }),
+    settleTurnAsOperator: async (input) => {
+      const row = [...turns.values()].flat().find((item) => item.id === input.turnId);
+      const notice = input.offTopic === true && row !== undefined ? offTopicFlaggedNotice({
+        projectId: row.project_id, organizationId: row.org_id,
+        strikes: row.request_settings.guardrails?.off_topic_flag_strikes ?? DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
+      }) : null;
+      return settle({
+        p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
+        p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
+        p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: null,
+        p_off_topic: input.offTopic === true, p_notice: notice?.ok ? notice.value : null,
+      });
+    },
     backdateOpenTurnAsOperator: async (id, openedAt) => {
       const row = [...turns.values()].flat().find((r) => r.id === id && r.status === 'open');
       if (!row) throw new Error('no open turn to backdate');
@@ -397,7 +425,10 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const visible = need && actor.organizationId === need.organizationId ? need : null;
       const reads: CallerReads = {
         organization: async () => ({ ok: true, rows: [] }), seatsOf: async () => ({ ok: true, rows: [] }), projectsOf: async () => ({ ok: true, rows: [] }),
-        project: async () => ({ ok: true, rows: visible ? [{ id: visible.projectId, name: visible.title, org_id: visible.organizationId, assigned_volunteer_id: null }] : [] }),
+        project: async () => ({ ok: true, rows: visible ? [{
+          id: visible.projectId, name: visible.title, org_id: visible.organizationId, assigned_volunteer_id: null,
+          funded_at: funding.get(request.projectId)?.fundedAt ?? null,
+        }] : [] }),
         need: async () => ({ ok: true, rows: visible ? [{ project_id: visible.projectId, description: visible.description, urgency: visible.urgency,
           stage: visible.stage, cause_labels: visible.causeLabels, reference_files: visible.referenceFiles.map((f) => ({ id: f.id, file_name: f.fileName,
             media_type: f.mediaType, byte_size: f.byteSize, description: f.description, added_by_account_id: f.addedByAccountId, added_at: f.addedAt })),
@@ -528,10 +559,12 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           output_micros_per_token: settings.output_micros_per_token, reserved_micros: bound.reservedMicros,
           reserved_credits: bound.reservedCredits, input_tokens: seed.usage.inputTokens, output_tokens: seed.usage.outputTokens,
           stop_reason: 'end_turn', served_model: settings.model, actual_micros: cost.actualMicros,
-          charged_credits: cost.chargedCredits, overrun_micros: cost.overrunMicros, opened_at: now(), settled_at: now() });
+          charged_credits: cost.chargedCredits, overrun_micros: cost.overrunMicros, opened_at: now(), settled_at: now(),
+          off_topic: false });
       }
       turns.set(projectId, rows);
     },
+    notificationEvents: async (event) => notificationRows.filter((row) => row.event === event).map((row) => structuredClone(row)),
     spendLedgerInvariantProblems: async (organizationId) => {
       const spend = await organizations.spendRows(organizationId);
       const free = [...turns.values()].flat().filter((row) => row.org_id === organizationId && row.billing === 'free');
@@ -549,5 +582,5 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return problems;
     },
   };
-  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); scopes.clear(); vocabulary.clear(); needCauseLabels.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; } };
+  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); scopes.clear(); vocabulary.clear(); needCauseLabels.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; notificationRows.length = 0; } };
 }

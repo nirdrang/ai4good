@@ -34,7 +34,9 @@ export type TenantReads = {
   organization(organizationId: string): Promise<ReadResult<OrganizationProjection>>;
   seatsOf(organizationId: string): Promise<ReadResult<{ account_id: string; role: string }>>;
   projectsOf(organizationId: string): Promise<ReadResult<{ id: string; name: string; assigned_volunteer_id: string | null }>>;
-  project(projectId: string): Promise<ReadResult<{ id: string; name: string; org_id: string; assigned_volunteer_id: string | null }>>;
+  project(projectId: string): Promise<ReadResult<{
+    id: string; name: string; org_id: string; assigned_volunteer_id: string | null; funded_at?: string | null;
+  }>>;
 };
 
 export type OrganizationDashboard = {

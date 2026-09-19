@@ -5,6 +5,7 @@ export const DISCOVERY_REQUEST_SETTINGS = {
 } as const;
 export const DISCOVERY_INPUT_MARGIN_TOKENS = 64;
 export const DISCOVERY_TURN_DEADLINE_SECONDS = 150;
+export const DISCOVERY_OFF_TOPIC_FLAG_STRIKES = 3;
 export const DISCOVERY_MESSAGE_MAX_CHARS = 4000;
 export type ModelUsage = { inputTokens: number; outputTokens: number };
 export type BillingTarget = { kind: 'free' } | { kind: 'fuel'; projectId: string };
@@ -64,5 +65,6 @@ export function reserveSettings() {
     input_micros_per_token: DISCOVERY_PRICE_MICROS_PER_TOKEN.input,
     output_micros_per_token: DISCOVERY_PRICE_MICROS_PER_TOKEN.output,
     turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
+    off_topic_flag_strikes: DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
   };
 }

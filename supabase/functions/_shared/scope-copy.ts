@@ -10,4 +10,6 @@ export const SCOPE_COPY = {
   },
   startSmall: 'Start small. Build the least the NGO needs first, then grow it by chat.',
   ownership: 'The NGO owns the code.',
+  offTopicNotice:
+    'This conversation was flagged because several messages were not about scoping this software need. You can keep talking. A person can see this conversation.',
 } as const;

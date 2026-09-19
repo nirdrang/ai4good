@@ -48,6 +48,10 @@ const NAMED: Readonly<Record<string, (payload: Record<string, unknown>) => Copy>
     subject: 'Discovery has been reopened',
     body: 'The decline was overturned. Discovery is reopened.',
   }),
+  'discovery.off_topic_flagged': () => ({
+    subject: 'Discovery off-topic pattern flagged',
+    body: 'A Discovery conversation was flagged after repeated off-topic requests. The NGO can keep talking.',
+  }),
   'match.created': (payload) => ({
     subject: 'A project match is ready for your consent',
     body: `A project match is ready. ${text(payload, 'consentCta')}`,
