@@ -310,7 +310,6 @@ export function scopeSourceForPrd(
   return resolveScopeContract(scopes, ref);
 }
 
-/** Same resolver under the scorer's name so a caller reads which consumer it serves. */
 export function scopeReferenceForScorer(
   scopes: readonly ScopeView[],
   ref: ScopeContractRef,

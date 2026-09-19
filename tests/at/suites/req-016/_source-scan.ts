@@ -139,7 +139,6 @@ export function providerClientImporters(): string[] {
   return [...components].sort();
 }
 
-/** The event names the migrations seed into `public.notification_event_types`, in file order. */
 function seededEventNames(): { file: string; names: string[] } {
   const migrations = productFiles('taxonomySeedProblems')
     .filter((file) => file.path.startsWith('supabase/migrations/'))

@@ -565,7 +565,6 @@ begin
         where id = v_scope.id;
     end if;
     select coalesce(max(version), 0) + 1 into v_next from public.discovery_scopes where project_id = p_project_id;
-    -- the conversation may continue after a scope; a regeneration takes the latest recorded elicitation, as generate does
     select t.elicitation into v_elicitation
       from public.discovery_turns t
      where t.project_id = p_project_id and t.elicitation is not null and (t.elicitation->>'complete') = 'true'
