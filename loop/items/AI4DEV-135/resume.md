@@ -26,7 +26,17 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
   acceptance file on this branch with the ruling cited inline.
 - Unit 5 (free-phase guardrails, AT-004.12 to .15) landed at `b7b95c0`, no review fix, verified
   at both tiers: `verify/unit5/summary.txt`.
-- Unit 6 not started. `lanes/unit6-writer.prompt.md` is written.
+- Unit 6 (regeneration, AT-004.37 to .39) landed at `75fa9be` plus three fixes: `56200f4` (a
+  regeneration reads the latest complete elicitation, not the current scope's copy; three
+  unused pending names removed), `bed3a91` (AT-004.60 asserts the removed label stays in the
+  shared vocabulary instead of a whole-table snapshot; the regeneration asserts print the
+  refusal), `b257e0c` (the live SQL client pools two connections: bun pools ten per client,
+  and ten req-004 files in parallel filled the local postgres, so auth answered 500 or no token
+  on a different test each run). Verified at both tiers on `b257e0c`:
+  `verify/unit6-head/summary.txt` (the earlier folders `verify/unit6`, `unit6-final` and
+  `unit6-rerun/` hold the runs that found the two defects).
+- All six units are built. Next: deslop, the comment audit on the mechanical model, interrogate,
+  the decision-trail audit, the pull request.
 
 ## How a unit runs
 1. `git worktree add -b lane/ai4dev-135/unitN ../AI4DEV-135-unitN HEAD` from this worktree, then
@@ -43,7 +53,7 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 ## Open with the founder
 - Settled at the unit 1 gate (founder, 2026-09-18): generation stays an explicit `discovery-scope`
   write (design decision 2).
-- None open. Unit 6 needs no ruling (the regeneration bound is 3 from the architecture notes).
+- None open. Unit 6 needed no ruling (the regeneration bound is 3 from the architecture notes).
 
 ## Not done here (for the pull request)
 - The chat page shows no scope and no generate control; the wiring leaf owns that.
@@ -51,3 +61,6 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 - Fuel is not billed for the scope model call; generation is zero-cost on both billing kinds.
 - The money check on a generated scope is a word list (`$`, USD, dollar, cost, estimate,
   budget, price). A figure spelled in words or another currency passes it.
+- A retry is recognised by the exact same message after a failed turn; a message edited by one
+  character costs credits again.
+- An escalated project stays escalated; no admin path lifts the escalation.
