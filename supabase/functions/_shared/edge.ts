@@ -458,6 +458,8 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
   return {
     discoveryTurnsOf: (projectId) =>
       restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&order=seq`, { headers }),
+    discoveryScopesOf: (projectId) =>
+      restJson(`${base}/discovery_scopes?project_id=eq.${encodeURIComponent(projectId)}&order=version`, { headers }),
     discoveryAllowance: async (organizationId) => {
       const response = await fetch(`${base}/rpc/viewer_discovery_allowance`, {
         method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
@@ -490,7 +492,7 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
       ),
     project: (projectId) =>
       restJson(
-        `${base}/projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,org_id,assigned_volunteer_id`,
+        `${base}/projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,org_id,assigned_volunteer_id,funded_at`,
         { headers },
       ),
   };

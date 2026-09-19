@@ -1,0 +1,7 @@
+﻿# 2026-09-18T20:30:08.2037006+03:00 on 2483a0b
+bun run at:verify req-004 --tier integration --expect => exit 0, 41s :: 58 P0: 13 green, 45 red, 0 missing :: EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-135\tests\at\expected\req-004.json exactly (13 declared green, 45 declared red)
+bun run at:verify req-001 --tier integration --expect => exit 0, 204s :: 38 P0: 29 green, 9 red, 0 missing :: EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-135\tests\at\expected\req-001.json exactly (29 declared green, 9 declared red)
+bun run at:verify req-002 --tier integration --expect => exit 0, 42s :: 27 P0: 19 green, 8 red, 0 missing :: EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-135\tests\at\expected\req-002.json exactly (19 declared green, 8 declared red)
+bun run at:verify req-003 --tier integration --expect => exit 0, 41s :: 13 P0: 10 green, 3 red, 0 missing :: EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-135\tests\at\expected\req-003.json exactly (10 declared green, 3 declared red)
+bun run at:verify req-016 --tier integration --expect => exit 0, 49s :: 12 P0: 12 green, 0 red, 0 missing :: EXPECTED: the run matches C:\Users\nirdr\Downloads\ai4good\.claude\worktrees\AI4DEV-135\tests\at\expected\req-016.json exactly (12 declared green, 0 declared red)
+# done 2026-09-18T20:36:25.0706001+03:00

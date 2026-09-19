@@ -2289,6 +2289,8 @@ function deactivatedSubject(
       return { route, organizationId, action: 'read' };
     case 'discovery-message':
       return { route, message: `hello ${tag} ${route} ${accountType} deactivated` };
+    case 'discovery-scope':
+      return { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'generate' };
   }
 }
 
@@ -2316,6 +2318,8 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
       return { organization: await sut.organization(subject.organizationId) };
     case 'discovery-message':
       return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
+    case 'discovery-scope':
+      return { organization: await sut.organization(subject.organizationId) };
     case 'complete-signup':
       return { account: session ? await sut.account(session.accountId) : null };
   }
@@ -2463,6 +2467,15 @@ async function provisionActiveControl(
             : await sut.provisionPlatformAdmin(w.email(`disc-admin-${tag}`), PASSWORD);
       return { session, subject: { route, message: `hello ${tag}` } };
     }
+    case 'discovery-scope': {
+      const ngo = await signIn(w.email(`scope-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Scope Host ${tag}`);
+      return {
+        session: ngo,
+        subject: { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'generate' },
+      };
+    }
   }
 }
 
@@ -2516,7 +2529,7 @@ export async function assertDeactivationGatesEveryWrite(
 
       const fresh = await provisionActiveControl(sut, w, `${tag}-${name}-${accountType}`, signIn, name, accountType);
       const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
-      if (name === 'discovery-message' && options.discoveryNeedsProvider) {
+      if ((name === 'discovery-message' || name === 'discovery-scope') && options.discoveryNeedsProvider) {
         expect(
           allowed.ok || allowed.kind !== 'account-deactivated',
           `an active ${accountType} was refused ${name} as account-deactivated`,

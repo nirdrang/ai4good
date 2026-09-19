@@ -20,6 +20,11 @@ const NAMED_SAMPLES: Readonly<Record<string, unknown>> = {
   reshapingSuggestion: 'Consider reshaping this as a staffer-maintainable intake tool',
   oversightSentence: 'A person reads every decline; if we got it wrong, we will reach out',
   discoveryReopened: true,
+  projectId: '11111111-1111-4111-8111-111111111111',
+  organizationId: '22222222-2222-4222-8222-222222222222',
+  strikes: 3,
+  regenerations: 3,
+  lastReason: 'The reminder channel is missing from the scope',
 };
 
 /** The producer's context for one firing: the caller's params plus a sample for every named key. */

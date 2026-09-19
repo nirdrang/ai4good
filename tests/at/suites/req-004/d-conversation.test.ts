@@ -28,7 +28,7 @@ async function returnNextDay(sut: DiscoverySut, ngo: { session: Session; organiz
   const read = await sut.readConversation(session, projectId);
   expect(read.ok).toBe(true);
   if (!read.ok) throw new Error(read.answer.body);
-  expect(read.value.conversation).toEqual({ projectId, turns: rows, elicitation: null });
+  expect(read.value.conversation).toEqual({ projectId, turns: rows, elicitation: null, scopes: [], scope: null });
   expect(read.value.allowance).toMatchObject({ utcDay: today, spentToday: 0, remaining: before.allowance.dailyGrant });
   return { session, rows };
 }
@@ -57,6 +57,7 @@ atTest('AT-004.10', 'the grant tracker conversation satisfies its semantic oracl
     expect(requests.every((request) => request.system.map((block) => block.text).join('\n').includes(GRANT_TRACKER.intake.description))).toBe(true);
     expect(requests.every((request) => request.system[0].cached && !request.system[1].cached)).toBe(true);
     expect(requests.every((request) => request.model === DISCOVERY_REQUEST_SETTINGS.model)).toBe(true);
+    requests.forEach((request) => expect(request.tools.map((tool) => tool.name)).toEqual(['record_elicitation', 'decline_off_topic']));
     const read = await sut.readConversation(ngo.session, projectId);
     expect(read.ok && read.value.conversation.elicitation).toEqual(rows.at(-1)?.elicitation);
   },

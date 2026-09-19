@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS, fuelExhaustedReason } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS, fuelExhaustedReason } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { DISCOVERY_STOP_RULE } from '../../../../supabase/functions/_shared/discovery-prompt.ts';
+import { SCOPE_CAUSE_LABELS_MAX } from '../../../../supabase/functions/_shared/scope.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
@@ -14,6 +16,9 @@ export function meteringPinProblems(): string[] {
     [DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, AT_CONFIG.discoveryMaxOutputTokens.value],
     [DISCOVERY_REQUEST_SETTINGS.minOutputTokens, AT_CONFIG.discoveryMinOutputTokens.value],
     [DISCOVERY_TURN_DEADLINE_SECONDS, AT_CONFIG.discoveryTurnDeadlineSeconds.value],
+    [SCOPE_CAUSE_LABELS_MAX, AT_CONFIG.discoveryCauseLabelsMax.value],
+    [DISCOVERY_OFF_TOPIC_FLAG_STRIKES, AT_CONFIG.discoveryOffTopicFlagStrikes.value],
+    [DISCOVERY_REGENERATION_BOUND, AT_CONFIG.discoveryRegenerationBound.value],
   ];
   const problems = pairs.flatMap(([value, pin], i) => value === pin ? [] : [`metering pin ${i} differs: ${value} versus ${pin}`]);
   const client = readFileSync(join(REPO_ROOT, 'supabase/functions/_shared/anthropic-messages.ts'), 'utf8');
@@ -38,5 +43,13 @@ export function sendSentencePinProblems(): string[] {
   const problems: string[] = [];
   if (decision.ok || decision.reason !== sentence) problems.push('the SQL and TypeScript email refusal sentences differ');
   if (fuel !== fuelExhaustedReason()) problems.push('the SQL and TypeScript fuel-exhausted sentences differ');
+  return problems;
+}
+export function stopRulePinProblems(): string[] {
+  const skill = readFileSync(join(REPO_ROOT, 'supabase/functions/_shared/discovery-skills/04-complete-the-record.md'), 'utf8');
+  const generated = readFileSync(join(REPO_ROOT, 'supabase/functions/_shared/discovery-skills/index.ts'), 'utf8');
+  const problems: string[] = [];
+  if (!skill.includes(DISCOVERY_STOP_RULE)) problems.push('the complete-the-record skill does not carry the stop rule');
+  if (!generated.includes(DISCOVERY_STOP_RULE)) problems.push('the generated skills module does not carry the stop rule');
   return problems;
 }

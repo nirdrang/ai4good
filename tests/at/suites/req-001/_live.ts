@@ -1065,6 +1065,13 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           if (subject.route !== 'discovery-message') throw new Error('unreachable');
           return sendDiscoveryMessage(session, subject.message);
         },
+        'discovery-scope': async () => {
+          if (subject.route !== 'discovery-scope') throw new Error('unreachable');
+          const answer = await postWrite('discovery-scope', session, {
+            organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
       };
       return attempts[subject.route]();
     },

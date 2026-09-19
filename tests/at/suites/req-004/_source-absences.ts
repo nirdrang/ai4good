@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { RECORD_SCOPE_TOOL, SCOPE_MONEY } from '../../../../supabase/functions/_shared/scope.ts';
+import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 import {
@@ -8,6 +12,7 @@ import {
   migrationFiles,
   productFiles,
   quotedStrings,
+  REPO_ROOT,
   rpcOf,
   words,
   type RouteInventory,
@@ -500,4 +505,237 @@ export function scanFreeCreditsOutsideMoney(input: FreeCreditsMoneyInput): strin
 
 export function freeCreditsOutsideMoneyProblems(): string[] {
   return scanFreeCreditsOutsideMoney({ files: productFiles('freeCreditsOutsideMoneyProblems') });
+}
+
+const SCOPE_MONEY_SOURCE_PATHS = [
+  'supabase/functions/_shared/scope.ts',
+  'supabase/functions/_shared/scope-copy.ts',
+  'supabase/functions/_shared/discovery-skills/06-write-the-scope.md',
+] as const;
+
+export type ScopeMoneySourceInput = {
+  files: readonly SourceFile[];
+  toolDescription: string;
+};
+
+function allowedSpans(text: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  for (const piece of [SCOPE_COPY.maintenance, SCOPE_COPY.lovablePricingUrl]) {
+    let from = 0;
+    while (from < text.length) {
+      const at = text.indexOf(piece, from);
+      if (at < 0) break;
+      spans.push({ start: at, end: at + piece.length });
+      from = at + piece.length;
+    }
+  }
+  return spans;
+}
+
+function inAllowed(index: number, spans: readonly { start: number; end: number }[]): boolean {
+  return spans.some((span) => index >= span.start && index < span.end);
+}
+
+function moneyHits(text: string, path: string, lineAt: (index: number) => number): string[] {
+  const spans = allowedSpans(text);
+  const problems: string[] = [];
+  for (const match of text.matchAll(SCOPE_MONEY)) {
+    const index = match.index ?? 0;
+    if (inAllowed(index, spans)) continue;
+    if (match[0] === '$' && text[index + 1] === '{') continue;
+    problems.push(`${path}:${lineAt(index)} names ${JSON.stringify(match[0])}`);
+  }
+  return problems;
+}
+
+export function scanScopeMoneySource(input: ScopeMoneySourceInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanScopeMoneySource found no product source. Refusing to report an absence.');
+  }
+  const byPath = new Map(input.files.map((file) => [file.path, file]));
+  for (const path of SCOPE_MONEY_SOURCE_PATHS) {
+    const file = byPath.get(path);
+    if (file === undefined || file.text.trim() === '') {
+      throw new Error(
+        `scanScopeMoneySource found no source at ${path}. Refusing to report an absence.`,
+      );
+    }
+  }
+  if (input.toolDescription.trim() === '') {
+    throw new Error(
+      'scanScopeMoneySource found no RECORD_SCOPE_TOOL description. Refusing to report an absence.',
+    );
+  }
+  const problems: string[] = [];
+  for (const file of input.files) {
+    if (file.path.endsWith('.md')) {
+      problems.push(...moneyHits(file.text, file.path, (index) => lineOf(file.text, index)));
+      continue;
+    }
+    for (const piece of quotedStrings(file.text)) {
+      problems.push(...moneyHits(piece.value, file.path, () => lineOf(file.text, piece.index)));
+    }
+  }
+  problems.push(...moneyHits(input.toolDescription, 'RECORD_SCOPE_TOOL.description', () => 1));
+  return [...new Set(problems)].sort();
+}
+
+export function scopeMoneySourceProblems(): string[] {
+  const files: SourceFile[] = [];
+  for (const path of SCOPE_MONEY_SOURCE_PATHS) {
+    try {
+      files.push({ path, text: readFileSync(join(REPO_ROOT, path), 'utf8') });
+    } catch (error) {
+      throw new Error(
+        `scopeMoneySourceProblems could not read ${path}. Refusing to report an absence: ${(error as Error).message}`,
+      );
+    }
+  }
+  return scanScopeMoneySource({ files, toolDescription: RECORD_SCOPE_TOOL.description });
+}
+
+export type ScopeDecompositionInput = {
+  files: readonly SourceFile[];
+};
+
+const TASKISH_TABLE = '(?:tasks|task|backlogs|backlog|issues|issue)';
+const TASKISH_SQL_WRITE = new RegExp(
+  String.raw`\b(?:insert\s+into|update|delete\s+from)\s+(?:only\s+)?(?:public\.)?${TASKISH_TABLE}\b`,
+  'i',
+);
+const TASKISH_CLIENT_FROM = new RegExp(String.raw`\.from\(\s*['"]${TASKISH_TABLE}['"]\s*\)`, 'i');
+const TASKISH_REST = new RegExp(String.raw`\/${TASKISH_TABLE}\b`, 'i');
+const SCOPE_CLIENT_FROM = /\.from\(\s*['"]discovery_scopes['"]\s*\)/;
+const SCOPE_SQL_FROM = /\bfrom\s+(?:public\.)?discovery_scopes\b/i;
+const SCOPE_REST = /\/discovery_scopes\b/;
+const CALL_NAME = /\b([A-Za-z_][\w]*)\s*\(/g;
+const CALL_KEYWORDS = new Set([
+  'if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'new',
+  'await', 'void', 'yield', 'import', 'export', 'super', 'select', 'perform', 'execute',
+]);
+const TASKISH_NAME_TOKENS = ['task', 'tasks', 'backlog', 'backlogs', 'issue', 'issues'] as const;
+
+function readsDiscoveryScopes(text: string): boolean {
+  return SCOPE_CLIENT_FROM.test(text) || SCOPE_SQL_FROM.test(text) || SCOPE_REST.test(text);
+}
+
+function writesTaskBacklogOrIssue(text: string): boolean {
+  if (TASKISH_SQL_WRITE.test(text) || TASKISH_CLIENT_FROM.test(text) || TASKISH_REST.test(text)) {
+    return true;
+  }
+  for (const match of text.matchAll(CALL_NAME)) {
+    const name = match[1];
+    if (name === undefined || CALL_KEYWORDS.has(name.toLowerCase())) continue;
+    if (hasToken(words(name), ...TASKISH_NAME_TOKENS)) return true;
+  }
+  return false;
+}
+
+export function scanScopeDecomposition(input: ScopeDecompositionInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanScopeDecomposition found no product source. Refusing to report an absence.');
+  }
+  const problems: string[] = [];
+  for (const file of input.files) {
+    if (!readsDiscoveryScopes(file.text) || !writesTaskBacklogOrIssue(file.text)) continue;
+    problems.push(`${file.path} reads discovery_scopes and writes a task, backlog, or issue`);
+  }
+  return [...new Set(problems)].sort();
+}
+
+export function scopeDecompositionProblems(): string[] {
+  return scanScopeDecomposition({ files: productFiles('scopeDecompositionProblems') });
+}
+
+export type LabelCurationSurfaceInput = {
+  files: readonly SourceFile[];
+  inventory?: RouteInventory;
+  routeFolders?: readonly string[];
+  sharedModules?: readonly string[];
+  uiRoutes?: readonly string[];
+};
+
+const LABEL_CURATION_VERBS = ['create', 'add', 'rename', 'merge', 'curate', 'manage', 'admin', 'upsert'] as const;
+const LABEL_CURATION_SUBJECTS = ['label', 'labels', 'taxonomy'] as const;
+const ALLOWED_LABEL_SURFACES = new Set(['removelabel', 'discoveryscopebegin', 'discoveryscopecommit']);
+const CLIENT_GRANT_ROLES = new Set(['anon', 'authenticated', 'public']);
+
+function foldedIdent(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isAllowedLabelSurface(name: string): boolean {
+  return ALLOWED_LABEL_SURFACES.has(foldedIdent(name));
+}
+
+function isLabelCurationName(name: string): boolean {
+  if (isAllowedLabelSurface(name)) return false;
+  const tokens = words(name);
+  return hasToken(tokens, ...LABEL_CURATION_SUBJECTS) && hasToken(tokens, ...LABEL_CURATION_VERBS);
+}
+
+function namedLabelCuration(name: string, where: string): string | null {
+  return isLabelCurationName(name) ? `${where} ${name} names a cause-label create, curate, or admin surface` : null;
+}
+
+function causeLabelClientGrants(file: SourceFile, statement: string): string[] {
+  const folded = statement.replace(/\s+/g, ' ').trim();
+  const grant = /^grant\s+(.+?)\s+on\s+(?:table\s+)?(.+?)\s+to\s+(.+)$/i.exec(folded);
+  if (grant === null || /\bon\s+function\b/i.test(folded) || !/\bcause_labels\b/i.test(grant[2])) return [];
+  const roles = grant[3].split(',').map((role) => role.trim().toLowerCase().replace(/;+$/, ''));
+  const client = roles.filter((role) => CLIENT_GRANT_ROLES.has(role));
+  if (client.length === 0) return [];
+  return [`${file.path} grants ${grant[1]} on cause_labels to ${client.join(', ')}`];
+}
+
+export function scanLabelCurationSurface(input: LabelCurationSurfaceInput): string[] {
+  if (input.files.length === 0) {
+    throw new Error('scanLabelCurationSurface found no product source. Refusing to report an absence.');
+  }
+  const problems: string[] = [];
+  const inventory = input.inventory ?? {};
+  for (const name of Object.keys(inventory)) {
+    const named = namedLabelCuration(name, 'write route');
+    if (named) problems.push(named);
+    const rpc = rpcOf(inventory[name]!);
+    if (rpc !== null) {
+      const rpcNamed = namedLabelCuration(rpc, `write route ${name} rpc`);
+      if (rpcNamed) problems.push(rpcNamed);
+    }
+  }
+  for (const name of input.routeFolders ?? []) {
+    const named = namedLabelCuration(name, 'route folder');
+    if (named) problems.push(named);
+  }
+  for (const name of input.sharedModules ?? []) {
+    const named = namedLabelCuration(name.replace(/\.[^.]+$/, ''), 'shared module');
+    if (named) problems.push(named);
+  }
+  for (const name of input.uiRoutes ?? []) {
+    const named = namedLabelCuration(name, 'ui route');
+    if (named) problems.push(named);
+  }
+  for (const file of input.files) {
+    for (const name of declarationNames(file.text)) {
+      const named = namedLabelCuration(name, file.path);
+      if (named) problems.push(named);
+    }
+    if (file.path.startsWith('supabase/migrations/') && file.path.endsWith('.sql')) {
+      for (const statement of splitSqlStatements(file.text)) {
+        problems.push(...causeLabelClientGrants(file, statement));
+      }
+    }
+  }
+  return [...new Set(problems)].sort();
+}
+
+export function labelCurationSurfaceProblems(): string[] {
+  const surfaces = loadProductSurfaces('labelCurationSurfaceProblems');
+  return scanLabelCurationSurface({
+    files: productFiles('labelCurationSurfaceProblems'),
+    inventory: WRITE_ROUTES,
+    routeFolders: surfaces.routeFolders,
+    sharedModules: surfaces.sharedModules,
+    uiRoutes: surfaces.uiRoutes,
+  });
 }

@@ -346,7 +346,8 @@ export type WriteSubject =
       readonly action: 'read' | 'debit';
       readonly credits?: number;
     }
-  | { readonly route: 'discovery-message'; readonly message: string };
+  | { readonly route: 'discovery-message'; readonly message: string }
+  | { readonly route: 'discovery-scope'; readonly organizationId: string; readonly projectId: string; readonly action: 'generate' };
 
 export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
 
