@@ -373,3 +373,32 @@ lane, not the hardest-tasks lane.
   built by a fixed-contract writer, and a design that rewrites the tested ledger is the one
   most likely to be scrapped mid-run. The judge's grafts (one tool for replacement generation,
   the seed oracle fix, pure derivation of counts) are all taken.
+
+## Rulings at the unit 4 gate (founder, 2026-09-19)
+
+Three rulings change decision 7 and unit 5. They supersede the text above where they differ.
+
+1. **No turn ceiling.** Founder: "No limit of number of turns (except credit) but ngo can always
+   say stop now". The daily free credits are the only bound. Unit 5 lands no `turn_ceiling`
+   pin, no ceiling refusal in the reserve, no wrap-up block on a final turn. The `turn-ceiling`
+   refusal kind unit 1 added to `WRITE_REFUSAL_KINDS` is removed. AT-004.14 is reworded in the
+   acceptance file to the ruling and AT-004.15 loses its ceiling clause (both edited on this
+   branch, ruling cited inline).
+2. **Wrap-up on request.** The pattern is the grill-me interview skill: the interviewer keeps
+   asking until nothing is left silently assumed, and the person can end it at any point; the
+   interviewer then works from what it has. Here: when the NGO says to stop (any billing), the
+   model calls `record_elicitation` with `complete: true`, the facts it has, and every
+   unresolved point in `openQuestions`, then writes its two closing sentences. That is a prompt
+   rule in the skill file `04-complete-the-record.md` (regenerated index; pinned by the source
+   scan the way the template line is), not new machinery. The scope can then be generated.
+   AT-004.14 at loop: a scripted `record_elicitation` with open questions after a "stop"
+   message answers `scopeReady: true` and the skill text carries the stop rule; integration
+   red `vendors.anthropic`.
+3. **Off-topic strikes = 3.** `DISCOVERY_OFF_TOPIC_FLAG_STRIKES = 3`, `provisional: true`,
+   source the ruling. Decision 6 stands as written. The guardrail block of "The chat side" is
+   not needed: the free-only switch is the presence of the `decline_off_topic` tool on the
+   request, and the tool's own description tells the model when to call it. `GuardrailSettings`
+   becomes `{ active, offTopicFlagStrikes }`; `guardrailBlock` is dropped. The reserve
+   settings store `guardrails: { active, off_topic_flag_strikes }`.
+4. **Requirement text.** The two new taxonomy rows get one prose line each in
+   `.taskmaster/docs/requirements/req-016.md` under the Discovery bullet, on this branch.
