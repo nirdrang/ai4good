@@ -253,23 +253,25 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       }
       if (generating) Object.assign(generating, { status: 'failed', settled_at: now() });
       const held = scopes.get(need.projectId) ?? existing;
+      const turnRows = turns.get(need.projectId) ?? [];
+      const elicitation = [...turnRows].filter((item) => item.elicitation?.complete === true).at(-1)?.elicitation
+        ?? current.elicitation;
       const row: ScopeSqlRow = {
         id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId,
         version: Math.max(...held.map((item) => item.version)) + 1,
-        status: 'generating', reason, requested_by: args.p_account_id, elicitation: current.elicitation,
+        status: 'generating', reason, requested_by: args.p_account_id, elicitation,
         contract: null, markdown: null, cause_labels: [], served_model: null, input_tokens: null,
         output_tokens: null, opened_at: now(), settled_at: null,
       };
       scopes.set(need.projectId, [...held, row]);
       const profile = await organizations.profile(need.organizationId);
-      const turnRows = turns.get(need.projectId) ?? [];
       const settled = turnRows.filter((item) => item.status === 'settled');
       const context = settled.flatMap((item) => [
         { role: 'user' as const, content: item.user_message },
         { role: 'assistant' as const, content: item.assistant_message },
       ]);
       return { ok: true, value: {
-        done: false, scope: structuredClone(row), elicitation: current.elicitation, context,
+        done: false, scope: structuredClone(row), elicitation, context,
         need: await sqlNeed(need.projectId), mission: profile?.mission ?? null,
         vocabulary: [...vocabulary.values()].map((item) => item.label).sort(),
       } };

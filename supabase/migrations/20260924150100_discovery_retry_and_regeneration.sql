@@ -565,6 +565,13 @@ begin
         where id = v_scope.id;
     end if;
     select coalesce(max(version), 0) + 1 into v_next from public.discovery_scopes where project_id = p_project_id;
+    -- the conversation may continue after a scope; a regeneration takes the latest recorded elicitation, as generate does
+    select t.elicitation into v_elicitation
+      from public.discovery_turns t
+     where t.project_id = p_project_id and t.elicitation is not null and (t.elicitation->>'complete') = 'true'
+     order by t.seq desc
+     limit 1;
+    v_elicitation := coalesce(v_elicitation, v_current.elicitation);
     select coalesce(jsonb_agg(m.message order by t.seq, m.position), '[]'::jsonb) into v_context
       from public.discovery_turns t cross join lateral (values
         (1, jsonb_build_object('role', 'user', 'content', t.user_message)),
@@ -573,13 +580,13 @@ begin
     insert into public.discovery_scopes (
       project_id, org_id, version, status, reason, requested_by, elicitation, cause_labels, opened_at
     ) values (
-      p_project_id, p_organization_id, v_next, 'generating', v_reason, p_account_id, v_current.elicitation, '{}',
+      p_project_id, p_organization_id, v_next, 'generating', v_reason, p_account_id, v_elicitation, '{}',
       clock_timestamp()
     ) returning * into v_scope;
     return jsonb_build_object(
       'done', false,
       'scope', to_jsonb(v_scope),
-      'elicitation', v_current.elicitation,
+      'elicitation', v_elicitation,
       'context', v_context,
       'need', to_jsonb(v_need) || jsonb_build_object('title', v_project.name),
       'mission', v_mission,
