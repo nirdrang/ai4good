@@ -49,7 +49,7 @@ async function operatorGenerate(
   const begun = await sut.beginScopeAsOperator({
     accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
   });
-  expect(begun.ok).toBe(true);
+  expect(begun).toMatchObject({ ok: true });
   if (!begun.ok) return begun;
   return commitOperatorScope(sut, ngo.accountId, projectId, begun);
 }
@@ -61,7 +61,7 @@ async function operatorRegenerate(
     accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
     action: 'regenerate', reason,
   });
-  expect(begun.ok).toBe(true);
+  expect(begun).toMatchObject({ ok: true });
   if (!begun.ok) return begun;
   return commitOperatorScope(sut, ngo.accountId, projectId, begun);
 }
@@ -91,7 +91,7 @@ atTest('AT-004.37', 'regeneration logs a reason, versions the scope, and costs z
       organizationId: ngo.organizationId, projectId, message: 'That covers it.',
     })).toMatchObject({ ok: true, scopeReady: true });
     const before = await sut.readAllowance(ngo.session, ngo.organizationId);
-    expect(before.ok).toBe(true);
+    expect(before).toMatchObject({ ok: true });
     if (!before.ok) return;
     const generated = await sut.writeScope(ngo.session, {
       organizationId: ngo.organizationId, projectId, action: 'generate',
@@ -121,7 +121,7 @@ atTest('AT-004.37', 'regeneration logs a reason, versions the scope, and costs z
     const bound = h.config.get<number>('req-004.discovery.regeneration_bound');
     await seedCompletedElicitation(sut, projectId);
     const before = await sut.readAllowance(ngo.session, ngo.organizationId);
-    expect(before.ok).toBe(true);
+    expect(before).toMatchObject({ ok: true });
     if (!before.ok) return;
     expect(await operatorGenerate(sut, ngo, projectId)).toMatchObject({
       ok: true, scope: { version: 1, status: 'current', reason: null },
@@ -153,10 +153,10 @@ async function proveExhaustion(
   const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
   const bound = h.config.get<number>('req-004.discovery.regeneration_bound');
   await seedCompletedElicitation(sut, projectId);
-  expect((await operatorGenerate(sut, ngo, projectId)).ok).toBe(true);
+  expect(await operatorGenerate(sut, ngo, projectId)).toMatchObject({ ok: true });
   for (let i = 0; i < bound; i += 1) {
     const regenerated = await operatorRegenerate(sut, ngo, projectId, `Regeneration ${i + 1} needs a different split.`);
-    expect(regenerated.ok).toBe(true);
+    expect(regenerated).toMatchObject({ ok: true });
     if (!regenerated.ok) return;
     expect(usedOf(await sut.scopeRows(projectId))).toBeLessThanOrEqual(bound);
   }
@@ -198,22 +198,22 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
       message: MESSAGE, countedInputTokens: USAGE.inputTokens,
     });
-    expect(reserved.ok).toBe(true);
+    expect(reserved).toMatchObject({ ok: true });
     if (!reserved.ok) return;
     expect(reserved.reservation.turn.billing).toBe('free');
     const failed = await sut.settleTurnAsOperator({
       accountId: ngo.accountId, turnId: reserved.reservation.turn.id, outcome: 'failed',
     });
-    expect(failed.ok).toBe(true);
+    expect(failed).toMatchObject({ ok: true });
     if (!failed.ok) return;
     const afterFail = await sut.readAllowance(ngo.session, ngo.organizationId);
-    expect(afterFail.ok).toBe(true);
+    expect(afterFail).toMatchObject({ ok: true });
     if (!afterFail.ok) return;
     const retry = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
       message: MESSAGE, countedInputTokens: USAGE.inputTokens,
     });
-    expect(retry.ok).toBe(true);
+    expect(retry).toMatchObject({ ok: true });
     if (!retry.ok) return;
     expect(retry.reservation.turn.billing).toBe('retry');
     expect(retry.reservation.turn.reserved_credits).toBe(0);
@@ -223,7 +223,7 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
       accountId: ngo.accountId, turnId: retry.reservation.turn.id, outcome: 'completed',
       reply: 'Which reporting deadlines matter most?', usage: USAGE,
     });
-    expect(completed.ok).toBe(true);
+    expect(completed).toMatchObject({ ok: true });
     if (!completed.ok) return;
     expect(completed.turn.billing).toBe('retry');
     expect(completed.turn.chargedCredits).toBe(0);
@@ -233,7 +233,7 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
       message: OTHER_MESSAGE, countedInputTokens: USAGE.inputTokens,
     });
-    expect(next.ok).toBe(true);
+    expect(next).toMatchObject({ ok: true });
     if (!next.ok) return;
     expect(next.reservation.turn.billing).toBe('free');
     expect(await sut.settleTurnAsOperator({

@@ -32,7 +32,8 @@ async function proveRemoveLabel(
     organizationId, projectId, action: 'remove-label', label,
   });
   expect(removed).toMatchObject({ ok: true, changed: true, need: { causeLabels: [] } });
-  expect(await sut.causeLabelRows()).toEqual(before);
+  // the vocabulary is one table for every project; a sibling file may add a label meanwhile, so assert the removed one stays
+  expect((await sut.causeLabelRows()).some((row) => row.label === label)).toBe(true);
   const again = await sut.writeScope(session, {
     organizationId, projectId, action: 'remove-label', label,
   });
