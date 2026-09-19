@@ -12,4 +12,6 @@ export const SCOPE_COPY = {
   ownership: 'The NGO owns the code.',
   offTopicNotice:
     'This conversation was flagged because several messages were not about scoping this software need. You can keep talking. A person can see this conversation.',
+  regenerationExhausted:
+    'Scope regeneration is exhausted. A person will review this case.',
 } as const;

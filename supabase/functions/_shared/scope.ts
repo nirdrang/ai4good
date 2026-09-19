@@ -1,9 +1,12 @@
-import { DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
+import type { Decision } from './accounts.ts';
+import { DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
 import { DISCOVERY_SYSTEM_PROMPT_TEMPLATE, parseElicitation, type DiscoveryNeed } from './discovery-prompt.ts';
 import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts';
 import type { Elicitation, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 import { orgAdminActionAllowed } from './memberships.ts';
 import { needViewFromSql, type NeedIntakeSqlRow, type NeedIntakeView } from './need-intake.ts';
+import { renderCopy } from './notification-copy.ts';
+import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
 import { SCOPE_COPY } from './scope-copy.ts';
 import {
   isRecord, refuseWrite, stringField, uuidField,
@@ -315,11 +318,39 @@ export function scopeReferenceForScorer(
   return resolveScopeContract(scopes, ref);
 }
 
+const REGENERATION_EXHAUSTED_EVENT = 'discovery.regeneration_exhausted';
+export type RegenerationExhaustedNotice = {
+  readonly channels: readonly Channel[];
+  readonly copy: { readonly subject: string; readonly body: string };
+};
+export function regenerationExhaustedNotice(payload: {
+  projectId: string; organizationId: string; regenerations: number; lastReason: string;
+}, row = taxonomyRow(REGENERATION_EXHAUSTED_EVENT) ?? null): Decision<RegenerationExhaustedNotice> {
+  if (row === null) {
+    return { ok: false, reason: 'discovery.regeneration_exhausted is missing from the notification taxonomy' };
+  }
+  return {
+    ok: true,
+    value: {
+      channels: channelsFor(row),
+      copy: renderCopy(row, payload),
+    },
+  };
+}
+
 export type DiscoveryScopeArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string;
-  p_action: 'generate' | 'remove-label'; p_reason: string | null; p_label: string | null;
-  p_settings: { turn_deadline_seconds: number }; p_notice: null;
+  p_action: 'generate' | 'remove-label' | 'regenerate'; p_reason: string | null; p_label: string | null;
+  p_settings: { turn_deadline_seconds: number; regeneration_bound: number };
+  p_notice: RegenerationExhaustedNotice | null;
 };
+
+function scopeBeginSettings() {
+  return {
+    turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
+    regeneration_bound: DISCOVERY_REGENERATION_BOUND,
+  };
+}
 
 export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteDecision<DiscoveryScopeArgs> {
   if (input.target === null) return refuseWrite('invalid-request', 400, 'a Discovery scope write must name its organisation');
@@ -330,7 +361,9 @@ export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteD
   if (projectId === null) return refuseWrite('invalid-request', 400, 'a Discovery scope write must name the project as a uuid');
   const known = input.body.action === 'remove-label'
     ? ['organizationId', 'projectId', 'action', 'label']
-    : ['organizationId', 'projectId', 'action'];
+    : input.body.action === 'regenerate'
+      ? ['organizationId', 'projectId', 'action', 'reason']
+      : ['organizationId', 'projectId', 'action'];
   if (Object.keys(input.body).some((key) => !known.includes(key))) {
     return refuseWrite('invalid-request', 400, 'a Discovery scope write contains an unknown field');
   }
@@ -342,16 +375,31 @@ export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteD
     return { ok: true, args: {
       p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
       p_action: 'remove-label', p_reason: null, p_label: label,
-      p_settings: { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS }, p_notice: null,
+      p_settings: scopeBeginSettings(), p_notice: null,
+    } };
+  }
+  if (input.body.action === 'regenerate') {
+    const reason = stringField(input.body.reason);
+    if (reason === null) {
+      return refuseWrite('invalid-request', 400, 'a Discovery scope write requires a reason');
+    }
+    const notice = regenerationExhaustedNotice({
+      projectId, organizationId: input.target, regenerations: DISCOVERY_REGENERATION_BOUND, lastReason: reason,
+    });
+    if (!notice.ok) return refuseWrite('invalid-request', 400, notice.reason);
+    return { ok: true, args: {
+      p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
+      p_action: 'regenerate', p_reason: reason, p_label: null,
+      p_settings: scopeBeginSettings(), p_notice: notice.value,
     } };
   }
   if (input.body.action !== 'generate') {
-    return refuseWrite('invalid-request', 400, 'a Discovery scope write requires the generate or remove-label action');
+    return refuseWrite('invalid-request', 400, 'a Discovery scope write requires the generate, regenerate or remove-label action');
   }
   return { ok: true, args: {
     p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
     p_action: 'generate', p_reason: null, p_label: null,
-    p_settings: { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS }, p_notice: null,
+    p_settings: scopeBeginSettings(), p_notice: null,
   } };
 }
 

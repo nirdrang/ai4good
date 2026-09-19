@@ -14,9 +14,13 @@ export type DiscoveryMessageOutcome = {
 } | WriteRefusal;
 export type ScopeWriteRequest =
   | { organizationId: string; projectId: string; action: 'generate' }
+  | { organizationId: string; projectId: string; action: 'regenerate'; reason: string }
   | { organizationId: string; projectId: string; action: 'remove-label'; label: string };
 export type CauseLabelRow = { label: string; firstProjectId: string | null };
-export type OperatorScopeBeginInput = { accountId: string; organizationId: string; projectId: string };
+export type OperatorScopeBeginInput = {
+  accountId: string; organizationId: string; projectId: string;
+  action?: 'generate' | 'regenerate'; reason?: string;
+};
 export type OperatorScopeBeginOutcome = { ok: true; scopeId: string } | WriteRefusal;
 export type OperatorScopeCommitInput = {
   accountId: string; projectId: string; scopeId: string; outcome: 'completed' | 'failed';

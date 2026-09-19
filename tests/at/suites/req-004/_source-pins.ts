@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS, fuelExhaustedReason } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_PRICE_MICROS_PER_TOKEN, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS, fuelExhaustedReason } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { DISCOVERY_STOP_RULE } from '../../../../supabase/functions/_shared/discovery-prompt.ts';
 import { SCOPE_CAUSE_LABELS_MAX } from '../../../../supabase/functions/_shared/scope.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
@@ -18,6 +18,7 @@ export function meteringPinProblems(): string[] {
     [DISCOVERY_TURN_DEADLINE_SECONDS, AT_CONFIG.discoveryTurnDeadlineSeconds.value],
     [SCOPE_CAUSE_LABELS_MAX, AT_CONFIG.discoveryCauseLabelsMax.value],
     [DISCOVERY_OFF_TOPIC_FLAG_STRIKES, AT_CONFIG.discoveryOffTopicFlagStrikes.value],
+    [DISCOVERY_REGENERATION_BOUND, AT_CONFIG.discoveryRegenerationBound.value],
   ];
   const problems = pairs.flatMap(([value, pin], i) => value === pin ? [] : [`metering pin ${i} differs: ${value} versus ${pin}`]);
   const client = readFileSync(join(REPO_ROOT, 'supabase/functions/_shared/anthropic-messages.ts'), 'utf8');

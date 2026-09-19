@@ -6,6 +6,7 @@ export const DISCOVERY_REQUEST_SETTINGS = {
 export const DISCOVERY_INPUT_MARGIN_TOKENS = 64;
 export const DISCOVERY_TURN_DEADLINE_SECONDS = 150;
 export const DISCOVERY_OFF_TOPIC_FLAG_STRIKES = 3;
+export const DISCOVERY_REGENERATION_BOUND = 3;
 export const DISCOVERY_MESSAGE_MAX_CHARS = 4000;
 export type ModelUsage = { inputTokens: number; outputTokens: number };
 export type BillingTarget = { kind: 'free' } | { kind: 'fuel'; projectId: string };
@@ -43,7 +44,7 @@ export function reservationFor(input: { estimatedInputTokens: number; maxOutputT
   return { reservedMicros, reservedCredits: creditsForMicros(reservedMicros) };
 }
 export function settlementFor(input: {
-  reservedMicros: number; reservedCredits: number; billing: 'free' | 'fuel'; usage: ModelUsage;
+  reservedMicros: number; reservedCredits: number; billing: 'free' | 'fuel' | 'retry'; usage: ModelUsage;
 }) {
   const actualMicros = input.usage.inputTokens * DISCOVERY_PRICE_MICROS_PER_TOKEN.input +
     input.usage.outputTokens * DISCOVERY_PRICE_MICROS_PER_TOKEN.output;

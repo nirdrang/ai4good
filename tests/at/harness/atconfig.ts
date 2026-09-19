@@ -47,6 +47,12 @@ export const AT_CONFIG = {
     provisional: true,
     source: 'founder ruling at the unit 4 gate of the scope run, 2026-09-19, pilot-tuned',
   },
+  discoveryRegenerationBound: {
+    name: 'Discovery regeneration bound',
+    value: 3,
+    unit: 'regenerations',
+    source: 'architecture notes REQ-004 "up to 3x"',
+  },
   gatewayLatencyP95Ms: {
     name: 'gateway added latency, 95th percentile',
     value: 300,

@@ -1,10 +1,10 @@
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
 import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
-  DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+  DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   contextMessagesFrom, offTopicFlaggedNotice,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
-import { canonicalLabel, decideDiscoveryScope, renderDiscoveryScope, renderScopeBegin, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
+import { canonicalLabel, decideDiscoveryScope, regenerationExhaustedNotice, renderDiscoveryScope, renderScopeBegin, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
@@ -64,14 +64,21 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     }
     const settled = rows.filter((row) => row.status === 'settled');
     if ((settled.at(-1)?.seq ?? 0) !== args.p_counted_through_seq) return refuse('stale-context', 'the conversation changed after token counting');
+    const message = args.p_message.trim();
     const estimatedInputTokens = countedInputTokens(args.p_settings.counted_input_tokens!);
     const funded = funding.get(need.projectId);
     const target = billingTargetFor({ id: need.projectId, fundedAt: funded?.fundedAt ?? null });
+    const latest = [...rows].sort((a, b) => a.seq - b.seq).at(-1);
+    const billing = target.kind === 'fuel'
+      ? 'fuel' as const
+      : latest?.status === 'failed' && latest.user_message === message
+        ? 'retry' as const
+        : 'free' as const;
     let maxOutputTokens: number;
     let bound: ReturnType<typeof reservationFor>;
     let utcDay: string;
     let debitAllowance: ReturnType<typeof sqlAllowance> | null = null;
-    if (target.kind === 'fuel') {
+    if (billing === 'fuel') {
       const fuel = { availableMicros: funded?.fuelMicros ?? 0 };
       maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
         affordableOutputTokens({ availableMicros: fuel.availableMicros, estimatedInputTokens }));
@@ -86,19 +93,24 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
         affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
       bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
-      const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
-      if (!debit.ok) return debit;
-      utcDay = debit.allowance.utcDay;
-      debitAllowance = sqlAllowance(debit.allowance);
+      if (billing === 'retry') {
+        bound = { reservedMicros: bound.reservedMicros, reservedCredits: 0 };
+        utcDay = before.allowance.utcDay;
+      } else {
+        const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
+        if (!debit.ok) return debit;
+        utcDay = debit.allowance.utcDay;
+        debitAllowance = sqlAllowance(debit.allowance);
+      }
     }
     if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
     const row: DiscoveryTurnSqlRow = {
       id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId, seq: (rows.at(-1)?.seq ?? 0) + 1,
-      status: 'open', billing: target.kind, utc_day: utcDay, user_message: args.p_message,
+      status: 'open', billing, utc_day: utcDay, user_message: message,
       assistant_message: null, elicitation: null, request_settings: {
         model: args.p_settings.model, max_tokens: maxOutputTokens, effort: args.p_settings.effort,
         guardrails: {
-          active: target.kind === 'free',
+          active: billing !== 'fuel',
           off_topic_flag_strikes: args.p_settings.off_topic_flag_strikes,
         },
       }, max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
@@ -111,7 +123,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     turns.set(need.projectId, [...rows, row]);
     return { ok: true, reservation: { turn: structuredClone(row),
       need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: need.referenceFiles.map((f) => f.fileName) },
-      context: [...contextMessagesFrom(settled), { role: 'user', content: args.p_message }], allowance: debitAllowance } };
+      context: [...contextMessagesFrom(settled), { role: 'user', content: message }], allowance: debitAllowance } };
   };
   const settle = async (args: DiscoverySettleArgs): Promise<DiscoveryMessageOutcome> => {
     const row = [...turns.values()].flat().find((r) => r.id === args.p_turn_id);
@@ -202,7 +214,67 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         scopes: structuredClone(existing), need: await sqlNeed(need.projectId),
       } };
     }
-    if (args.p_action !== 'generate') return refuse('invalid-request', 'a Discovery scope write requires the generate or remove-label action');
+    if (args.p_action === 'regenerate') {
+      const existing = scopes.get(need.projectId) ?? [];
+      const current = existing.find((row) => row.status === 'current');
+      if (current === undefined) return refuse('scope-not-generated', 'a scope has not been generated for this project');
+      const reason = (args.p_reason ?? '').trim();
+      if (reason === '') return refuse('invalid-request', 'a Discovery scope write requires a reason');
+      const snapshot = async (changed: boolean, escalated: boolean) => {
+        const held = scopes.get(need.projectId) ?? [];
+        return { ok: true as const, value: {
+          done: true, changed, escalated, scope: structuredClone(current),
+          scopes: structuredClone(held), need: await sqlNeed(need.projectId),
+        } };
+      };
+      if (existing.some((row) => row.status === 'escalated')) return snapshot(false, true);
+      const used = existing.filter((row) => row.version > 1 && row.status !== 'failed' && row.status !== 'escalated').length;
+      if (used >= args.p_settings.regeneration_bound) {
+        const row: ScopeSqlRow = {
+          id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId,
+          version: Math.max(...existing.map((item) => item.version)) + 1,
+          status: 'escalated', reason, requested_by: args.p_account_id, elicitation: current.elicitation,
+          contract: null, markdown: null, cause_labels: [], served_model: null, input_tokens: null,
+          output_tokens: null, opened_at: now(), settled_at: now(),
+        };
+        scopes.set(need.projectId, [...existing, row]);
+        notificationRows.push({
+          event: 'discovery.regeneration_exhausted',
+          payload: {
+            projectId: need.projectId, organizationId: need.organizationId,
+            regenerations: used, lastReason: reason,
+          },
+        });
+        return snapshot(true, true);
+      }
+      const generating = existing.find((row) => row.status === 'generating');
+      if (generating && opts.clock.now() - Date.parse(generating.opened_at) < DISCOVERY_TURN_DEADLINE_SECONDS * 1000) {
+        return refuse('generation-in-flight', 'a Discovery generation is in flight');
+      }
+      if (generating) Object.assign(generating, { status: 'failed', settled_at: now() });
+      const held = scopes.get(need.projectId) ?? existing;
+      const row: ScopeSqlRow = {
+        id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId,
+        version: Math.max(...held.map((item) => item.version)) + 1,
+        status: 'generating', reason, requested_by: args.p_account_id, elicitation: current.elicitation,
+        contract: null, markdown: null, cause_labels: [], served_model: null, input_tokens: null,
+        output_tokens: null, opened_at: now(), settled_at: null,
+      };
+      scopes.set(need.projectId, [...held, row]);
+      const profile = await organizations.profile(need.organizationId);
+      const turnRows = turns.get(need.projectId) ?? [];
+      const settled = turnRows.filter((item) => item.status === 'settled');
+      const context = settled.flatMap((item) => [
+        { role: 'user' as const, content: item.user_message },
+        { role: 'assistant' as const, content: item.assistant_message },
+      ]);
+      return { ok: true, value: {
+        done: false, scope: structuredClone(row), elicitation: current.elicitation, context,
+        need: await sqlNeed(need.projectId), mission: profile?.mission ?? null,
+        vocabulary: [...vocabulary.values()].map((item) => item.label).sort(),
+      } };
+    }
+    if (args.p_action !== 'generate') return refuse('invalid-request', 'a Discovery scope write requires the generate, regenerate or remove-label action');
     const turnRows = turns.get(need.projectId) ?? [];
     const elicitation = [...turnRows].filter((row) => row.elicitation !== null).at(-1)?.elicitation ?? null;
     if (elicitation === null || elicitation.complete !== true) {
@@ -366,10 +438,19 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       .sort((left, right) => left.label.localeCompare(right.label))
       .map((row) => ({ ...row })),
     beginScopeAsOperator: async (input) => {
+      const action = input.action ?? 'generate';
+      const reason = input.reason ?? null;
+      const notice = action === 'regenerate' ? regenerationExhaustedNotice({
+        projectId: input.projectId, organizationId: input.organizationId,
+        regenerations: DISCOVERY_REGENERATION_BOUND, lastReason: reason ?? '',
+      }) : null;
       const begun = await beginScope({
         p_account_id: input.accountId, p_organization_id: input.organizationId, p_project_id: input.projectId,
-        p_action: 'generate', p_reason: null, p_label: null,
-        p_settings: { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS }, p_notice: null,
+        p_action: action, p_reason: reason, p_label: null,
+        p_settings: {
+          turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
+          regeneration_bound: DISCOVERY_REGENERATION_BOUND,
+        }, p_notice: notice?.ok ? notice.value : null,
       });
       if (!begun.ok) return begun;
       const snapshot = renderScopeBegin(begun.value);
