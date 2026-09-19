@@ -35,8 +35,10 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
   on a different test each run). Verified at both tiers on `b257e0c`:
   `verify/unit6-head/summary.txt` (the earlier folders `verify/unit6`, `unit6-final` and
   `unit6-rerun/` hold the runs that found the two defects).
-- All six units are built. Next: deslop, the comment audit on the mechanical model, interrogate,
-  the decision-trail audit, the pull request.
+- All six units are built. Closing stations done: deslop (nothing to cut), the comment audit on the
+  mechanical model at `7ca1baf`, interrogate (five lanes, `interrogate/verdict.md`) with the fixes at
+  `3830cbf`, verified at both tiers on `d82cadb`: `verify/interrogate-fixes/summary.txt`.
+- Next: the trail review by another model family, then the pull request.
 
 ## How a unit runs
 1. `git worktree add -b lane/ai4dev-135/unitN ../AI4DEV-135-unitN HEAD` from this worktree, then
@@ -64,3 +66,17 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 - A retry is recognised by the exact same message after a failed turn; a message edited by one
   character costs credits again.
 - An escalated project stays escalated; no admin path lifts the escalation.
+- Scope calls sit outside metering: a failed generation can be retried at zero cost without a
+  bound. A failed regeneration takes a version number but never counts toward the bound.
+- The chat's cached prompt carries the scope skill and the scope call carries the chat skills; one
+  cached block serves both by design.
+- The conversation read carries no guardrail state (count, flagged, notice) for a page reload.
+- The four migrations of this branch rewrite `discovery_scope_begin` three times; a squash is a
+  founder call.
+- Scope calls sit outside metering: a failed generation can be retried at zero cost without a
+  bound. A failed regeneration takes a version number but never counts toward the bound.
+- The chat's cached prompt carries the scope skill and the scope call carries the chat skills; one
+  cached block serves both by design.
+- The conversation read carries no guardrail state (count, flagged, notice) for a page reload.
+- The four migrations of this branch rewrite `discovery_scope_begin` three times; a squash is a
+  founder call.
