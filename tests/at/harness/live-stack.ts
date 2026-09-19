@@ -33,7 +33,7 @@ interface BunSqlClient {
   begin<T>(callback: (transaction: BunSqlClient) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
-type BunSqlCtor = new (url: string) => BunSqlClient;
+type BunSqlCtor = new (url: string, options: { max: number }) => BunSqlClient;
 
 function stripSlash(url: string): string {
   return url.replace(/\/$/, '');
@@ -323,7 +323,8 @@ export async function followLink(url: string): Promise<{ status: number; locatio
 export function sqlClient(stack: Stack): BunSqlClient {
   const SQL = (globalThis as { Bun?: { SQL?: BunSqlCtor } }).Bun?.SQL;
   if (!SQL) throw new Error('this runtime has no SQL client (expected bun) — the live adapter reads the stack directly');
-  return new SQL(stack.dbUrl);
+  // bun pools ten connections per client by default; a requirement's files run in parallel, and ten files at ten each fill the local postgres (100 slots) and make auth fail with 'remaining connection slots are reserved'
+  return new SQL(stack.dbUrl, { max: 2 });
 }
 
 export function redactString(s: string): string {
