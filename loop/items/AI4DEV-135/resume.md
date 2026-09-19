@@ -20,8 +20,13 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
   (the pass-through commit takes `p_changed`), verified at both tiers: `verify/unit4/summary.txt`
   (loop) and `verify/unit4-rerun/summary.txt` (integration; the first integration pass hit two
   auth hiccups on ids the unit does not touch, AT-004.03a and .05, and the rerun was clean).
-- Units 5 and 6 not started. `lanes/unit5-writer.prompt.md` is written with three placeholders
-  (`<<TURN_CEILING>>`, `<<STRIKES>>`, `<<REQ_TEXT_RULING>>`) the founder fills at the unit 4 gate.
+- The unit 4 gate rulings (founder, 2026-09-19) are in `design/SYNTHESIS.md`, last section: no
+  turn ceiling, wrap-up on request (the grill-me pattern), three off-topic strikes, the two
+  taxonomy lines added to the req-016 requirement text. AT-004.14 and .15 were reworded in the
+  acceptance file on this branch with the ruling cited inline.
+- Unit 5 (free-phase guardrails, AT-004.12 to .15) landed at `b7b95c0`, no review fix, verified
+  at both tiers: `verify/unit5/summary.txt`.
+- Unit 6 not started. `lanes/unit6-writer.prompt.md` is written.
 
 ## How a unit runs
 1. `git worktree add -b lane/ai4dev-135/unitN ../AI4DEV-135-unitN HEAD` from this worktree, then
@@ -38,7 +43,7 @@ Read this first in a fresh session, then `design/SYNTHESIS.md`, then the latest
 ## Open with the founder
 - Settled at the unit 1 gate (founder, 2026-09-18): generation stays an explicit `discovery-scope`
   write (design decision 2).
-- Unit 5 needs two pin values: the turn ceiling and the off-topic strikes threshold.
+- None open. Unit 6 needs no ruling (the regeneration bound is 3 from the architecture notes).
 
 ## Not done here (for the pull request)
 - The chat page shows no scope and no generate control; the wiring leaf owns that.
