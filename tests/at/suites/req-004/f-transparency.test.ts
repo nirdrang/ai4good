@@ -44,7 +44,7 @@ async function recordCompleted(
   expect(sent.ok).toBe(true);
   if (!sent.ok) return;
   const after = await remainingOf(sut, ngo);
-  expect(after - before).toBe(-sent.turn.chargedCredits!);
+  expect(before - after).toBe(sent.turn.chargedCredits!);
   deltas.push(-sent.turn.reservedCredits);
   const released = sent.turn.reservedCredits - sent.turn.chargedCredits!;
   if (released > 0) deltas.push(released);
@@ -76,7 +76,7 @@ async function proveTransparency(sut: DiscoverySut, w: { email(name: string): st
   const rows = await sut.turnRows(projectId);
   const byCredit = (left: number, right: number) => left - right;
   expect(deltas.filter((delta) => delta < 0).map((delta) => -delta).sort(byCredit))
-    .toEqual(rows.map((row) => row.reservedCredits).sort(byCredit));
+    .toEqual(rows.map((row) => row.reservedCredits).filter((credits) => credits > 0).sort(byCredit));
   expect(await sut.spendLedgerInvariantProblems(ngo.organizationId)).toEqual([]);
   const read = await sut.readConversation(ngo.session, projectId);
   expect(read.ok).toBe(true);

@@ -14,11 +14,12 @@ const ELICITATION_REPLY = {
 const USAGE = { inputTokens: 900, outputTokens: 400 };
 const MESSAGE = 'Help us scope the deadline tracker.';
 const OTHER_MESSAGE = 'What should the tracker do first?';
+const LOST_MESSAGE = 'Which reminders go out first?';
 const REASON_ONE = 'The reminder channel is missing.';
 const REASON_TWO = 'The stack should start smaller.';
 
 function usedOf(rows: readonly ScopeView[]): number {
-  return rows.filter((row) => row.version > 1 && row.status !== 'failed' && row.status !== 'escalated').length;
+  return rows.filter((row) => row.version > 1 && (row.status === 'current' || row.status === 'superseded')).length;
 }
 
 async function seedCompletedElicitation(sut: DiscoverySut, projectId: string) {
@@ -105,6 +106,12 @@ atTest('AT-004.37', 'regeneration logs a reason, versions the scope, and costs z
       organizationId: ngo.organizationId, projectId, action: 'regenerate', reason: REASON_TWO,
     });
     expect(second).toMatchObject({ ok: true, scope: { version: 3, status: 'current', reason: REASON_TWO } });
+    const requests = h.vendors.anthropic.requests();
+    expect(requests).toHaveLength(4);
+    expect(requests[1]!.system[1].text).not.toContain('reason for a new scope');
+    expect(requests[2]!.system[1].text).toContain(REASON_ONE);
+    expect(requests[3]!.system[1].text).toContain(REASON_TWO);
+    expect(requests[3]!.system[1].text).toContain(GRANT_TRACKER_SCOPE.summary);
     const rows = await sut.scopeRows(projectId);
     expect(rows.find((row) => row.version === 1)).toMatchObject({ status: 'superseded', reason: null });
     expectRegenVersion(rows, 2, REASON_ONE, 'superseded');
@@ -154,12 +161,23 @@ async function proveExhaustion(
   const bound = h.config.get<number>('req-004.discovery.regeneration_bound');
   await seedCompletedElicitation(sut, projectId);
   expect(await operatorGenerate(sut, ngo, projectId)).toMatchObject({ ok: true });
-  for (let i = 0; i < bound; i += 1) {
+  for (let i = 0; i < bound - 1; i += 1) {
     const regenerated = await operatorRegenerate(sut, ngo, projectId, `Regeneration ${i + 1} needs a different split.`);
     expect(regenerated).toMatchObject({ ok: true });
     if (!regenerated.ok) return;
     expect(usedOf(await sut.scopeRows(projectId))).toBeLessThanOrEqual(bound);
   }
+  const inFlight = await sut.beginScopeAsOperator({
+    accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
+    action: 'regenerate', reason: `Regeneration ${bound} needs a different split.`,
+  });
+  expect(inFlight).toMatchObject({ ok: true });
+  if (!inFlight.ok) return;
+  expect(await sut.writeScope(ngo.session, {
+    organizationId: ngo.organizationId, projectId, action: 'regenerate', reason: 'A second click while the last one runs.',
+  })).toMatchObject({ ok: false, kind: 'generation-in-flight' });
+  expect(await sut.notificationEvents('discovery.regeneration_exhausted')).toEqual([]);
+  expect(await commitOperatorScope(sut, ngo.accountId, projectId, inFlight)).toMatchObject({ ok: true });
   expect(usedOf(await sut.scopeRows(projectId))).toBe(bound);
   const requestsBefore = sim?.requests().length;
   const exhaustedReason = 'Please try one more regeneration.';
@@ -239,5 +257,25 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
     expect(await sut.settleTurnAsOperator({
       accountId: ngo.accountId, turnId: next.reservation.turn.id, outcome: 'failed',
     })).toMatchObject({ ok: true });
+    const lost = await sut.reserveTurnAsOperator({
+      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
+      message: LOST_MESSAGE, countedInputTokens: USAGE.inputTokens,
+    });
+    expect(lost).toMatchObject({ ok: true });
+    if (!lost.ok) return;
+    await sut.backdateOpenTurnAsOperator(lost.reservation.turn.id, new Date(0).toISOString());
+    const afterLoss = await sut.readAllowance(ngo.session, ngo.organizationId);
+    expect(afterLoss).toMatchObject({ ok: true });
+    if (!afterLoss.ok) return;
+    const resent = await sut.reserveTurnAsOperator({
+      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
+      message: LOST_MESSAGE, countedInputTokens: USAGE.inputTokens,
+    });
+    expect(resent).toMatchObject({ ok: true });
+    if (!resent.ok) return;
+    expect(resent.reservation.turn.billing).toBe('retry');
+    expect(resent.reservation.turn.reserved_credits).toBe(0);
+    const afterResend = await sut.readAllowance(ngo.session, ngo.organizationId);
+    expect(afterResend.ok && afterResend.allowance.remaining).toBe(afterLoss.allowance.remaining);
   },
 });

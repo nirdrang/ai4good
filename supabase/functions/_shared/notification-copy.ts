@@ -49,9 +49,9 @@ const NAMED: Readonly<Record<string, (payload: Record<string, unknown>) => Copy>
     subject: 'Discovery has been reopened',
     body: 'The decline was overturned. Discovery is reopened.',
   }),
-  'discovery.off_topic_flagged': () => ({
+  'discovery.off_topic_flagged': (payload) => ({
     subject: 'Discovery off-topic pattern flagged',
-    body: 'A Discovery conversation was flagged after repeated off-topic requests. The NGO can keep talking.',
+    body: `A Discovery conversation was flagged after repeated off-topic requests. The NGO can keep talking. Project ${text(payload, 'projectId')} of organisation ${text(payload, 'organizationId')}.`,
   }),
   'discovery.regeneration_exhausted': (payload) => ({
     subject: 'Discovery regeneration bound reached',

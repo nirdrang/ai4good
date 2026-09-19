@@ -1,6 +1,6 @@
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
 import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
-  DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+  DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   contextMessagesFrom, offTopicFlaggedNotice,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
@@ -68,10 +68,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     const estimatedInputTokens = countedInputTokens(args.p_settings.counted_input_tokens!);
     const funded = funding.get(need.projectId);
     const target = billingTargetFor({ id: need.projectId, fundedAt: funded?.fundedAt ?? null });
+    if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
     const latest = [...rows].sort((a, b) => a.seq - b.seq).at(-1);
     const billing = target.kind === 'fuel'
       ? 'fuel' as const
-      : latest?.status === 'failed' && latest.user_message === message
+      : (latest?.status === 'failed' || latest?.status === 'abandoned') && latest.user_message === message
         ? 'retry' as const
         : 'free' as const;
     let maxOutputTokens: number;
@@ -103,7 +104,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         debitAllowance = sqlAllowance(debit.allowance);
       }
     }
-    if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
     const row: DiscoveryTurnSqlRow = {
       id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId, seq: (rows.at(-1)?.seq ?? 0) + 1,
       status: 'open', billing, utc_day: utcDay, user_message: message,
@@ -193,9 +193,14 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     if (switched !== undefined) {
       return refuse('discovery-disabled', `a platform admin switched Discovery off for this organisation — ${switched.reason}`);
     }
+    const email = discoveryMessageAllowed({ emailVerified: actor.emailVerified });
+    if (!email.ok) return refuse('email-unverified', email.reason);
     const need = await needs.needRow(args.p_project_id);
     if (!need || need.organizationId !== args.p_organization_id) return refuse('no-such-project', 'no such project');
     if (need.stage !== 'discovery_in_progress') return refuse('need-not-in-discovery', 'the need is not in Discovery');
+    const transcript = () => (turns.get(need.projectId) ?? [])
+      .filter((item) => item.status === 'settled' && !item.off_topic)
+      .map((item) => ({ user_message: item.user_message, assistant_message: item.assistant_message }));
     if (args.p_action === 'remove-label') {
       const label = args.p_label ?? '';
       if (label === '') return refuse('invalid-request', 'a Discovery scope write requires a label to remove');
@@ -219,7 +224,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const current = existing.find((row) => row.status === 'current');
       if (current === undefined) return refuse('scope-not-generated', 'a scope has not been generated for this project');
       const reason = (args.p_reason ?? '').trim();
-      if (reason === '') return refuse('invalid-request', 'a Discovery scope write requires a reason');
+      if (reason === '' || reason.length > DISCOVERY_MESSAGE_MAX_CHARS) return refuse('invalid-request', 'a Discovery scope write requires a reason');
       const snapshot = async (changed: boolean, escalated: boolean) => {
         const held = scopes.get(need.projectId) ?? [];
         return { ok: true as const, value: {
@@ -228,7 +233,12 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         } };
       };
       if (existing.some((row) => row.status === 'escalated')) return snapshot(false, true);
-      const used = existing.filter((row) => row.version > 1 && row.status !== 'failed' && row.status !== 'escalated').length;
+      const generating = existing.find((row) => row.status === 'generating');
+      if (generating && opts.clock.now() - Date.parse(generating.opened_at) < DISCOVERY_TURN_DEADLINE_SECONDS * 1000) {
+        return refuse('generation-in-flight', 'a Discovery generation is in flight');
+      }
+      if (generating) Object.assign(generating, { status: 'failed', settled_at: now() });
+      const used = existing.filter((row) => row.version > 1 && (row.status === 'current' || row.status === 'superseded')).length;
       if (used >= args.p_settings.regeneration_bound) {
         const row: ScopeSqlRow = {
           id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId,
@@ -247,11 +257,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         });
         return snapshot(true, true);
       }
-      const generating = existing.find((row) => row.status === 'generating');
-      if (generating && opts.clock.now() - Date.parse(generating.opened_at) < DISCOVERY_TURN_DEADLINE_SECONDS * 1000) {
-        return refuse('generation-in-flight', 'a Discovery generation is in flight');
-      }
-      if (generating) Object.assign(generating, { status: 'failed', settled_at: now() });
       const held = scopes.get(need.projectId) ?? existing;
       const turnRows = turns.get(need.projectId) ?? [];
       const elicitation = [...turnRows].filter((item) => item.elicitation?.complete === true).at(-1)?.elicitation
@@ -265,13 +270,8 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       };
       scopes.set(need.projectId, [...held, row]);
       const profile = await organizations.profile(need.organizationId);
-      const settled = turnRows.filter((item) => item.status === 'settled');
-      const context = settled.flatMap((item) => [
-        { role: 'user' as const, content: item.user_message },
-        { role: 'assistant' as const, content: item.assistant_message },
-      ]);
       return { ok: true, value: {
-        done: false, scope: structuredClone(row), elicitation, context,
+        done: false, scope: structuredClone(row), elicitation, transcript: transcript(), previous: current.contract,
         need: await sqlNeed(need.projectId), mission: profile?.mission ?? null,
         vocabulary: [...vocabulary.values()].map((item) => item.label).sort(),
       } };
@@ -292,16 +292,11 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return refuse('scope-already-generated', 'a scope has already been generated for this project');
     }
     const profile = await organizations.profile(need.organizationId);
-    const settled = turnRows.filter((row) => row.status === 'settled');
-    const context = settled.flatMap((row) => [
-      { role: 'user' as const, content: row.user_message },
-      { role: 'assistant' as const, content: row.assistant_message },
-    ]);
     const failed = [...existing].filter((row) => row.status === 'failed').sort((a, b) => b.version - a.version)[0];
     let row: ScopeSqlRow;
     if (failed) {
       Object.assign(failed, {
-        status: 'generating', contract: null, markdown: null, served_model: null,
+        id: crypto.randomUUID(), status: 'generating', contract: null, markdown: null, served_model: null,
         input_tokens: null, output_tokens: null, settled_at: null, elicitation,
         requested_by: args.p_account_id, opened_at: now(), cause_labels: [],
       });
@@ -316,7 +311,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       scopes.set(need.projectId, [...existing, row]);
     }
     return { ok: true, value: {
-      done: false, scope: structuredClone(row), elicitation, context,
+      done: false, scope: structuredClone(row), elicitation, transcript: transcript(), previous: null,
       need: await sqlNeed(need.projectId), mission: profile?.mission ?? null,
       vocabulary: [...vocabulary.values()].map((row) => row.label).sort(),
     } };

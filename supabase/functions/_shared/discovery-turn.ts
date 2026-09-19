@@ -1,6 +1,6 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { billingTargetFor, DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
-import { DECLINE_OFF_TOPIC_TOOL, discoverySystemPrompt, guardrailSettingsFor, parseElicitation, RECORD_ELICITATION_TOOL, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
+import { contextMessagesFrom, DECLINE_OFF_TOPIC_TOOL, discoverySystemPrompt, guardrailSettingsFor, parseElicitation, RECORD_ELICITATION_TOOL, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
 import { SCOPE_COPY } from './scope-copy.ts';
@@ -76,14 +76,8 @@ export function decideDiscoveryMessage(input: AccountWriteRouteInput): WriteRout
     p_message: message, p_settings: reserveSettings(), p_counted_through_seq: 0,
   } };
 }
-export function contextMessagesFrom(
-  settled: readonly { user_message: string; assistant_message: string | null }[],
-): DiscoveryModelRequest['messages'] {
-  return settled.flatMap((row) => row.assistant_message === '' ? [] : [
-    { role: 'user' as const, content: row.user_message },
-    { role: 'assistant' as const, content: row.assistant_message! },
-  ]);
-}
+export { contextMessagesFrom } from './discovery-prompt.ts';
+
 export function buildModelRequest(input: {
   need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; skills: readonly DiscoverySkill[];
   maxTokens?: number; model: string; tools?: DiscoveryModelRequest['tools'];

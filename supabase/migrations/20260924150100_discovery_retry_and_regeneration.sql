@@ -100,7 +100,7 @@ begin
     when exists (
       select 1 from public.discovery_turns t
        where t.project_id = p_project_id
-         and t.status = 'failed'
+         and t.status in ('failed', 'abandoned')
          and t.user_message = btrim(p_message)
          and t.seq = (select max(seq) from public.discovery_turns where project_id = p_project_id)
     ) then 'retry'::public.discovery_billing
@@ -380,6 +380,10 @@ begin
     raise exception 'a platform admin switched Discovery off for this organisation — %', v_disabled_reason
       using errcode = 'P0001', detail = 'discovery-disabled';
   end if;
+  if not exists (select 1 from auth.users where id = p_account_id and email_confirmed_at is not null) then
+    raise exception 'a Discovery scope write needs a verified email address — this account is email-unverified. Use the verification link sent to the account address, then try again'
+      using errcode = '42501', detail = 'email-unverified';
+  end if;
   if jsonb_typeof(p_settings) is distinct from 'object' then
     raise exception 'invalid Discovery settings' using errcode = '22023', detail = 'invalid-request';
   end if;
@@ -441,8 +445,8 @@ begin
         using errcode = 'P0001', detail = 'scope-not-generated';
     end if;
     v_reason := btrim(coalesce(p_reason, ''));
-    if v_reason = '' then
-      raise exception 'a Discovery scope write requires a reason'
+    if v_reason = '' or length(v_reason) > 4000 then
+      raise exception 'a Discovery scope write requires a reason of at most 4000 characters'
         using errcode = '22023', detail = 'invalid-request';
     end if;
     select coalesce(jsonb_agg(to_jsonb(s) order by s.version), '[]'::jsonb) into v_scopes
@@ -457,11 +461,20 @@ begin
         'need', to_jsonb(v_need) || jsonb_build_object('title', v_project.name)
       );
     end if;
+    select * into v_scope from public.discovery_scopes
+      where project_id = p_project_id and status = 'generating' for update;
+    if found then
+      if v_scope.opened_at > clock_timestamp() - make_interval(secs => (p_settings->>'turn_deadline_seconds')::integer) then
+        raise exception 'a Discovery generation is in flight' using errcode = 'P0001', detail = 'generation-in-flight';
+      end if;
+      update public.discovery_scopes set status = 'failed', settled_at = clock_timestamp()
+        where id = v_scope.id;
+    end if;
     select count(*)::integer into v_used
       from public.discovery_scopes
      where project_id = p_project_id
        and version > 1
-       and status not in ('failed', 'escalated');
+       and status in ('current', 'superseded');
     if v_used >= (p_settings->>'regeneration_bound')::integer then
       if p_notice is null or jsonb_typeof(p_notice) is distinct from 'object' then
         raise exception 'invalid Discovery notice' using errcode = '22023', detail = 'invalid-request';
@@ -555,15 +568,6 @@ begin
         'need', to_jsonb(v_need) || jsonb_build_object('title', v_project.name)
       );
     end if;
-    select * into v_scope from public.discovery_scopes
-      where project_id = p_project_id and status = 'generating' for update;
-    if found then
-      if v_scope.opened_at > clock_timestamp() - make_interval(secs => (p_settings->>'turn_deadline_seconds')::integer) then
-        raise exception 'a Discovery generation is in flight' using errcode = 'P0001', detail = 'generation-in-flight';
-      end if;
-      update public.discovery_scopes set status = 'failed', settled_at = clock_timestamp()
-        where id = v_scope.id;
-    end if;
     select coalesce(max(version), 0) + 1 into v_next from public.discovery_scopes where project_id = p_project_id;
     select t.elicitation into v_elicitation
       from public.discovery_turns t
@@ -571,11 +575,10 @@ begin
      order by t.seq desc
      limit 1;
     v_elicitation := coalesce(v_elicitation, v_current.elicitation);
-    select coalesce(jsonb_agg(m.message order by t.seq, m.position), '[]'::jsonb) into v_context
-      from public.discovery_turns t cross join lateral (values
-        (1, jsonb_build_object('role', 'user', 'content', t.user_message)),
-        (2, jsonb_build_object('role', 'assistant', 'content', t.assistant_message))
-      ) as m(position, message) where t.project_id = p_project_id and t.status = 'settled';
+    select coalesce(jsonb_agg(jsonb_build_object('user_message', t.user_message, 'assistant_message', t.assistant_message) order by t.seq), '[]'::jsonb)
+      into v_context
+      from public.discovery_turns t
+     where t.project_id = p_project_id and t.status = 'settled' and not t.off_topic;
     insert into public.discovery_scopes (
       project_id, org_id, version, status, reason, requested_by, elicitation, cause_labels, opened_at
     ) values (
@@ -586,7 +589,8 @@ begin
       'done', false,
       'scope', to_jsonb(v_scope),
       'elicitation', v_elicitation,
-      'context', v_context,
+      'transcript', v_context,
+      'previous', v_current.contract,
       'need', to_jsonb(v_need) || jsonb_build_object('title', v_project.name),
       'mission', v_mission,
       'vocabulary', (select coalesce(jsonb_agg(c.label order by c.label), '[]'::jsonb) from public.cause_labels c)
@@ -620,12 +624,12 @@ begin
     raise exception 'a scope has already been generated for this project'
       using errcode = 'P0001', detail = 'scope-already-generated';
   end if;
-  select coalesce(jsonb_agg(m.message order by t.seq, m.position), '[]'::jsonb) into v_context
-    from public.discovery_turns t cross join lateral (values
-      (1, jsonb_build_object('role', 'user', 'content', t.user_message)),
-      (2, jsonb_build_object('role', 'assistant', 'content', t.assistant_message))
-    ) as m(position, message) where t.project_id = p_project_id and t.status = 'settled';
+  select coalesce(jsonb_agg(jsonb_build_object('user_message', t.user_message, 'assistant_message', t.assistant_message) order by t.seq), '[]'::jsonb)
+    into v_context
+    from public.discovery_turns t
+   where t.project_id = p_project_id and t.status = 'settled' and not t.off_topic;
   -- a failed version still occupies (project_id, version); later versions require a reason, so generate reopens the latest failed row
+  -- under a fresh id, so a commit still in flight for the old attempt cannot settle this one
   select * into v_scope from public.discovery_scopes
    where project_id = p_project_id and status = 'failed'
    order by version desc
@@ -633,6 +637,7 @@ begin
    for update;
   if found then
     update public.discovery_scopes set
+      id = gen_random_uuid(),
       status = 'generating', contract = null, markdown = null, served_model = null,
       input_tokens = null, output_tokens = null, settled_at = null,
       elicitation = v_elicitation, requested_by = p_account_id,
@@ -650,7 +655,8 @@ begin
     'done', false,
     'scope', to_jsonb(v_scope),
     'elicitation', v_elicitation,
-    'context', v_context,
+    'transcript', v_context,
+    'previous', null,
     'need', to_jsonb(v_need) || jsonb_build_object('title', v_project.name),
     'mission', v_mission,
     'vocabulary', (select coalesce(jsonb_agg(c.label order by c.label), '[]'::jsonb) from public.cause_labels c)

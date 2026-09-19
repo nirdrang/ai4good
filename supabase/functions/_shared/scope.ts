@@ -1,6 +1,6 @@
 import type { Decision } from './accounts.ts';
-import { DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
-import { DISCOVERY_SYSTEM_PROMPT_TEMPLATE, parseElicitation, type DiscoveryNeed } from './discovery-prompt.ts';
+import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
+import { contextMessagesFrom, DISCOVERY_SYSTEM_PROMPT_TEMPLATE, parseElicitation, type DiscoveryNeed } from './discovery-prompt.ts';
 import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts';
 import type { Elicitation, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 import { orgAdminActionAllowed } from './memberships.ts';
@@ -20,6 +20,7 @@ export type DataTier = (typeof DATA_TIERS)[number];
 export const FIT_VERDICTS = ['fit', 'declined'] as const;
 export type FitVerdict = (typeof FIT_VERDICTS)[number];
 export const SCOPE_CAUSE_LABELS_MAX = 3;
+export const SCOPE_CAUSE_LABEL_MAX_CHARS = 40;
 
 export type Scope = {
   summary: string;
@@ -62,7 +63,7 @@ export const RECORD_SCOPE_TOOL = {
       maintainabilityFit: { type: 'object', additionalProperties: false,
         properties: { verdict: { type: 'string', enum: ['fit', 'declined'] }, rationale: { type: 'string' } },
         required: ['verdict', 'rationale'] },
-      causeLabels: { type: 'array', maxItems: 3, items: { type: 'string' } },
+      causeLabels: strings,
       lovableRecommendation: { type: 'object', additionalProperties: false,
         properties: { recommended: { type: 'boolean' }, rationale: { type: 'string' } },
         required: ['recommended', 'rationale'] },
@@ -108,25 +109,6 @@ export function canonicalLabel(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-export function normaliseLabels(candidates: readonly string[], vocabulary: readonly string[]): string[] {
-  const vocabByCanonical = new Map<string, string>();
-  for (const entry of vocabulary) {
-    const key = canonicalLabel(entry);
-    if (key === '' || vocabByCanonical.has(key)) continue;
-    vocabByCanonical.set(key, entry);
-  }
-  const seen = new Set<string>();
-  const labels: string[] = [];
-  for (const raw of candidates) {
-    const key = canonicalLabel(raw);
-    if (key === '' || seen.has(key)) continue;
-    seen.add(key);
-    labels.push(vocabByCanonical.get(key) ?? key);
-    if (labels.length === SCOPE_CAUSE_LABELS_MAX) break;
-  }
-  return labels;
-}
-
 export function parseScope(input: unknown): Scope | null {
   if (!isRecord(input) || !exactKeys(input, SCOPE_KEYS)) return null;
   const summary = trimmed(input.summary);
@@ -161,7 +143,7 @@ export function parseScope(input: unknown): Scope | null {
   for (const item of input.causeLabels) {
     if (typeof item !== 'string') return null;
     const label = canonicalLabel(item);
-    if (label === '') return null;
+    if (label === '' || label.length > SCOPE_CAUSE_LABEL_MAX_CHARS) return null;
     if (seen.has(label)) continue;
     seen.add(label);
     causeLabels.push(label);
@@ -191,10 +173,16 @@ export function parseScope(input: unknown): Scope | null {
 export const SCOPE_REQUEST_MESSAGE =
   'Produce the technical scope now from the recorded elicitation and this conversation. Call record_scope.';
 
+export type ScopeRegeneration = { reason: string; previous: Scope };
+
 export function buildScopeRequest(input: {
   need: DiscoveryNeed; mission: string | null; elicitation: Elicitation; vocabulary: readonly string[];
-  context: DiscoveryModelRequest['messages'];
+  context: DiscoveryModelRequest['messages']; regeneration: ScopeRegeneration | null;
 }, skills: readonly DiscoverySkill[]): DiscoveryModelRequest {
+  const regeneration = input.regeneration === null ? [] : [
+    `Previous scope, which the NGO rejected:\n${JSON.stringify(input.regeneration.previous)}`,
+    `The NGO's reason for a new scope:\n${input.regeneration.reason}`,
+  ];
   return {
     model: DISCOVERY_REQUEST_SETTINGS.model,
     maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
@@ -206,6 +194,7 @@ export function buildScopeRequest(input: {
         `Organisation mission:\n${input.mission ?? ''}`,
         `Completed elicitation:\n${JSON.stringify(input.elicitation)}`,
         `Cause-label vocabulary:\n${JSON.stringify(input.vocabulary)}`,
+        ...regeneration,
       ].join('\n\n'), cached: false },
     ],
     messages: [...input.context, { role: 'user', content: SCOPE_REQUEST_MESSAGE }],
@@ -237,7 +226,7 @@ export function renderScopeMarkdown(scope: Scope, need: { title: string }): stri
     `## Data sensitivity\n${SCOPE_COPY.dataTier[scope.dataSensitivity.tier]}\n${scope.dataSensitivity.rationale}`,
     `## Maintainability fit\n- Verdict: ${scope.maintainabilityFit.verdict}\n- Rationale: ${scope.maintainabilityFit.rationale}`,
     `## Cause labels\n${listBlock(scope.causeLabels)}`,
-    `## Maintenance\n${SCOPE_COPY.maintenance}\n\n${SCOPE_COPY.ownership}`,
+    `## Maintenance\n${SCOPE_COPY.maintenance}`,
     `## Lovable recommendation\n${lovable}`,
     `## Build split\n### Lovable\n${listBlock(scope.buildSplit.lovable)}\n### Claude Code\n${listBlock(scope.buildSplit.claudeCode)}`,
   ].join('\n\n');
@@ -257,6 +246,20 @@ export function scopeMoneyProblems(markdown: string): string[] {
     }
   }
   return problems;
+}
+
+/** The text the model wrote on its own; the title and the user stories carry the NGO's words, so the money check leaves them out. */
+export function scopeModelText(scope: Scope): string {
+  return [
+    scope.summary,
+    ...scope.suggestedStack,
+    scope.complexity.rationale, scope.complexity.startSmallAdvice,
+    ...scope.riskFlags,
+    scope.dataSensitivity.rationale,
+    scope.maintainabilityFit.rationale,
+    scope.lovableRecommendation.rationale,
+    ...scope.buildSplit.lovable, ...scope.buildSplit.claudeCode,
+  ].join('\n');
 }
 
 export type ScopeSqlRow = {
@@ -379,8 +382,8 @@ export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteD
   }
   if (input.body.action === 'regenerate') {
     const reason = stringField(input.body.reason);
-    if (reason === null) {
-      return refuseWrite('invalid-request', 400, 'a Discovery scope write requires a reason');
+    if (reason === null || reason.length > DISCOVERY_MESSAGE_MAX_CHARS) {
+      return refuseWrite('invalid-request', 400, 'a Discovery scope write requires a reason of at most ' + String(DISCOVERY_MESSAGE_MAX_CHARS) + ' characters');
     }
     const notice = regenerationExhaustedNotice({
       projectId, organizationId: input.target, regenerations: DISCOVERY_REGENERATION_BOUND, lastReason: reason,
@@ -409,21 +412,20 @@ export type ScopeBeginSnapshot = {
   scope: ScopeSqlRow | null;
   elicitation: Elicitation | null;
   context: DiscoveryModelRequest['messages'];
+  previous: Scope | null;
   need: NeedIntakeView | null;
   mission: string | null;
   vocabulary: string[];
 };
 
-function contextFrom(value: unknown): DiscoveryModelRequest['messages'] {
+function transcriptFrom(value: unknown): { user_message: string; assistant_message: string | null }[] {
   if (!Array.isArray(value)) return [];
-  const messages: DiscoveryModelRequest['messages'] = [];
+  const rows: { user_message: string; assistant_message: string | null }[] = [];
   for (const item of value) {
-    if (!isRecord(item) || (item.role !== 'user' && item.role !== 'assistant') || typeof item.content !== 'string') {
-      continue;
-    }
-    messages.push({ role: item.role, content: item.content });
+    if (!isRecord(item) || typeof item.user_message !== 'string') continue;
+    rows.push({ user_message: item.user_message, assistant_message: typeof item.assistant_message === 'string' ? item.assistant_message : null });
   }
-  return messages;
+  return rows;
 }
 
 export function renderScopeBegin(value: unknown): ScopeBeginSnapshot {
@@ -437,7 +439,9 @@ export function renderScopeBegin(value: unknown): ScopeBeginSnapshot {
     escalated: value.escalated === true,
     changed: value.changed === true,
     scope: isRecord(value.scope) ? value.scope as ScopeSqlRow : null,
-    elicitation, context: contextFrom(value.context), need,
+    elicitation, context: contextMessagesFrom(transcriptFrom(value.transcript)),
+    previous: value.previous == null ? null : parseScope(value.previous),
+    need,
     mission: typeof value.mission === 'string' ? value.mission : null,
     vocabulary,
   };
@@ -462,6 +466,8 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
         reference_files: begun.need.referenceFiles.map((file) => file.fileName),
       },
       mission: begun.mission, elicitation: begun.elicitation, vocabulary: begun.vocabulary, context: begun.context,
+      regeneration: begun.scope.reason !== null && begun.previous !== null
+        ? { reason: begun.scope.reason, previous: begun.previous } : null,
     }, skills);
     const answer = await port.create(request);
     const failed = (reason: string, usage?: { inputTokens: number; outputTokens: number; model: string }) => ({
@@ -478,10 +484,8 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     if (parsed === null) return failed('the model did not record a valid scope', {
       inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
     });
-    const causeLabels = normaliseLabels(parsed.causeLabels, begun.vocabulary);
-    const stored = { ...parsed, causeLabels };
-    const markdown = renderScopeMarkdown(stored, { title: begun.need.title });
-    const money = scopeMoneyProblems(markdown);
+    const markdown = renderScopeMarkdown(parsed, { title: begun.need.title });
+    const money = scopeMoneyProblems(scopeModelText(parsed));
     if (money.length > 0) {
       return failed(money[0], {
         inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
@@ -489,8 +493,8 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
     }
     return { args: {
       p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
-      p_contract: stored, p_markdown: markdown,
-      p_labels: causeLabels, p_served_model: answer.model,
+      p_contract: parsed, p_markdown: markdown,
+      p_labels: parsed.causeLabels, p_served_model: answer.model,
       p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens, p_changed: null,
     }, failure: null };
   };

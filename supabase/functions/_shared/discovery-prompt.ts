@@ -65,3 +65,12 @@ export type GuardrailSettings = { active: boolean; offTopicFlagStrikes: number }
 export function guardrailSettingsFor(billing: 'free' | 'fuel'): GuardrailSettings {
   return { active: billing === 'free', offTopicFlagStrikes: DISCOVERY_OFF_TOPIC_FLAG_STRIKES };
 }
+/** The settled transcript as model messages; a turn whose reply was tool-only (empty text) is skipped, because the API refuses an empty assistant message before the last one. */
+export function contextMessagesFrom(
+  settled: readonly { user_message: string; assistant_message: string | null }[],
+): { role: 'user' | 'assistant'; content: string }[] {
+  return settled.flatMap((row) => row.assistant_message === '' ? [] : [
+    { role: 'user' as const, content: row.user_message },
+    { role: 'assistant' as const, content: row.assistant_message! },
+  ]);
+}
