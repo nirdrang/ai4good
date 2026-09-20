@@ -70,6 +70,12 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
 
 ## 4. Visual direction
 
+**Discovery update, 2026-09-20:** [Discovery interface contract](discovery-ui-contract.md) governs screen 6.
+Preserve the agreed conversation layout and use the current app font and shared tokens from `src/styles.css`.
+For Discovery, these current system tokens supersede the earlier standalone palette below.
+Change order 008 carries the screen revision and funding states.
+
+
 - Civic-tech / human, not fintech-slick. Generous whitespace, large readable type, soft cards,
   rounded corners, gentle shadows. Money UI sober and exact.
 - **Palette:** warm neutral base (off-white/stone), one hopeful primary accent (friendly
@@ -169,9 +175,10 @@ contract rather than to classes, structure, or button text.
    distinctly** (fuel = Anthropic build compute vs Lovable credits = NGO-paid app layer,
    REQ-010/021); they are never conflated, never summed. States: setup-pending → connected →
    low → exhausted (with a direct route to Lovable top-up).
-4. **Discovery credit gauge** — "Discovery credits: 7 of 10 today" chip + per-turn credit cost.
-   Credits are abstract units — **never render with a $ sign**, never as a balance the NGO
-   owns. Vetted tier shows 30/day. Exhausted state offers the three remedies (§8).
+4. **Discovery usage gauge** — show only the current gate gauge, daily free turns, remaining beta turns, paid USD, and the next reply mode.
+   Free turns have no dollar conversion. The enrolled project has 10 daily turns and 50 beta turns, without a vetting increase.
+   Use green below 80% consumed, yellow from 80% through 95%, and red above 95%.
+   Follow [the Discovery contract](discovery-ui-contract.md) for question flow, counters, states, carryover, and shared app styling.
 5. **PM requirement tree panel** — the plain-language requirement view renders the **PM tree only**
    (d82, REQ-026): requirement-level items deduced from the scope doc, seeded at kickoff
    (including the "Author the project PRD" bootstrap item, REQ-036), with status per item,
@@ -235,10 +242,13 @@ contract rather than to classes, structure, or button text.
   complexity tier is context only, with start-small / top-up-stepwise guidance. **First-fund
   cap** (default $200/project) for NGOs with no completed history — shown plainly, not as a
   punishment.
-- **Free Discovery credits:** 10/day unverified · 30/day vetted; hard reset once per UTC day,
-  no rollover. Exhausted-state CTAs: **get vetted → 30/day** (only if unvetted) · **fund this
-  project to keep going now** · **come back tomorrow**. File attachments never consume credits
-  and never interrupt (no pre-ingest confirmation dialog).
+- **Free Discovery turns:** one completed reply consumes one turn. Each enrolled project receives 10 daily and 50 beta turns.
+  The first cohort has 20 NGOs and one sponsored project per NGO. Vetting does not increase the grant.
+  Use free capacity first, including on funded projects. After either cap, use paid USD fuel.
+  Show **Buy fuel** and an applicable reset time when blocked. Never promise more free turns after beta exhaustion.
+  Paid receipts show API-priced usage and the existing 15% fee separately, with fractional cents where needed.
+  Checkout still credits the full gross amount and uses the existing $50 minimum.
+  Upload, reading, manual editing, and NGO review or approval consume no turns.
 - **Honest cost line near every spend:** fuel powers AI work, is not cash-refundable, and
   unused fuel stays as credit for the NGO's projects. Later top-ups carry a passive Promise
   link only — no repeated hard modals.
@@ -312,7 +322,7 @@ lifecycle badges.
 | # | Screen | Purpose & key elements | States | REQ |
 |---|--------|------------------------|--------|-----|
 | 5 | Project intake | Title, problem description, cause tags, urgency; optional reference-file upload; **drafts persist automatically** (no save button) | — | REQ-003 |
-| 6 | **Discovery chat** | 5–10 structured turns → scope. Credit gauge + per-turn credit cost (unfunded) OR per-turn fuel cost (funded — "Funded → all-$"); resumable; agent may request files mid-chat and cite them; bounded regeneration with logged reason (free) | streaming; credits-exhausted-unvetted (3 CTAs) / -vetted (2 CTAs); funded mode; off-topic decline notice; turn-ceiling wrap-up; **fit-decline** (needs developer maintenance / confidential codebase — plain, kind, final in the moment — carries the cause + a reshaping suggestion + the oversight sentence "a person reads every decline; if we got it wrong, we reach out" (test-enforced: the sentence must appear in the copy the NGO receives — d89); **reopened-after-overturn** (the SAME conversation resumes intact with a reopen notice; runs on free daily credits — the notice must NOT imply fuel released at decline came back); finished | REQ-004 |
+| 6 | **Discovery chat** | NGO and AI question workspace with live brief. Reuse intake facts; order dependent questions; support suggested, custom, and uncertain answers. Show only the Discovery gauge, daily and beta counters, paid USD, and Free/Paid before Send. Inherit the app font and src/styles.css tokens. NGO confirms the current brief. See discovery-ui-contract.md and change order 008 | free; paid; daily cap; beta cap; no fuel; pending usage; streaming; retry; edited answer needs review; brief ready; approved; existing decline and admin-overturn states | REQ-004/002/005.5/006 |
 | 7 | Reference files | Upload at intake, mid-Discovery, or from project page (pre-completion). List with name/type/uploader/description; data-responsibility disclosure ("redacted/sample data only — ai4good and the volunteer will see these"); downloads restricted to NGO/volunteer/admin | default disclosure / **Tier-2 hard fixtures-only acknowledgment** / upload error | REQ-032 |
 | 8 | Scope document editor | Editable: summary, user stories + nested ACs, suggested stack. Read-only context: complexity tier + rationale (**no dollars**), data-sensitivity tier (Tier-2 renders fixtures-only plan), maintainability verdict, Lovable recommendation + build split, "Lovable paid directly ~$25/mo" disclaimer, start-small advice | invalid-output retry | REQ-005 |
 | 9 | Publish → triage | Publish CTA (vetted only; unvetted see "get vetted to publish"). **Every publish is founder-reviewed (d74 — no auto-publish exists):** every NGO sees the same calm "under review" state (no SLA promise). Exactly three outcomes: approved → live / returned-to-scoped with the founder's reason note (edit + republish) / terminally declined | unvetted-blocked / under-review / returned-to-scoped / terminally-declined | REQ-005/023 |

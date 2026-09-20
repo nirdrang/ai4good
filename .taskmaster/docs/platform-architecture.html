@@ -1,0 +1,1214 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="The ai4good platform architecture: shared planning, governed cloud builds, and NGO ownership. Full diagrams, PRD comparisons, and implementation decisions."><meta name="robots" content="noindex,nofollow"><title>ai4good | Platform architecture</title><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%23102b46%22%2F%3E%3Cpath%20d%3D%22M8%2022V10h8v6h8v6H8%22%20fill%3D%22none%22%20stroke%3D%22%2379dfb8%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E"><style>:root{--ink:#142d45;--body:#293e50;--muted:#536a7c;--line:#dce5ed;--accent:#116653;--blue:#235bc1;--nav:#f3f7fa;--paper:#fff;--header:72px;font-size:16px;color-scheme:light}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:96px}body{margin:0;background:var(--paper);color:var(--body);font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:1.0625rem;line-height:1.75;-webkit-font-smoothing:antialiased}a{color:var(--blue);text-decoration-thickness:1px;text-underline-offset:3px}a:hover{color:#0c397f}button,a,summary{-webkit-tap-highlight-color:transparent}:focus-visible{outline:3px solid #276fd1;outline-offset:4px}button{font:inherit}h1,h2,h3{color:var(--ink);font-weight:650;line-height:1.23;letter-spacing:-.025em}p{margin:0 0 1.1em}h1{font-size:clamp(2.1rem,4vw,3rem);margin:10px 0 17px}h2{font-size:1.8rem;margin:0 0 28px;display:flex;gap:17px;align-items:baseline;scroll-margin-top:100px}h3{font-size:1.28rem;margin:2em 0 .8em;scroll-margin-top:100px}ul,ol{padding-left:1.5em;margin:0 0 1.5em}li{padding-left:.2em;margin:.5em 0}strong{font-weight:650;color:var(--ink)}code{font: .9em Consolas,"SFMono-Regular",monospace;background:#edf2f6;border-radius:4px;padding:.12em .3em;overflow-wrap:anywhere}pre{white-space:pre-wrap}.skip-link{position:fixed;top:-70px;left:20px;background:white;z-index:100;padding:10px 18px}.skip-link:focus{top:10px}
+.topbar{height:var(--header);position:sticky;top:0;z-index:30;background:rgba(255,255,255,.97);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 30px;gap:18px}.brand{display:flex;gap:12px;align-items:center;text-decoration:none;color:var(--ink);font-size:1.15rem;font-weight:750;white-space:nowrap}.brand:hover{color:var(--ink)}.brand-mark{display:grid;place-items:center;width:35px;height:35px;border-radius:9px;background:var(--ink);color:#93e7c7;font-size:1.03rem;letter-spacing:-.06em}.brand-divider{height:22px;width:1px;background:var(--line);margin:0 5px}.brand-context{font-weight:450;font-size:.95rem;color:var(--muted)}.topbar-right{display:flex;align-items:center;gap:20px}.document-state{font-size:.875rem;border:1px solid #b8d8cd;background:#edf8f3;color:#185c48;border-radius:20px;padding:3px 13px;line-height:1.5}#menu-toggle{display:none;background:white;border:1px solid var(--line);border-radius:7px;padding:7px 11px;color:var(--ink);font-size:.875rem;cursor:pointer}.page-shell{display:grid;grid-template-columns:288px minmax(0,1fr);max-width:1600px;margin:auto}.sidebar{position:sticky;top:var(--header);height:calc(100dvh - var(--header));overflow-y:auto;background:var(--nav);border-right:1px solid var(--line);padding:26px 18px 22px;scrollbar-width:thin}.nav-title{font-size:.875rem;font-weight:700;color:var(--ink);margin:0 12px 25px}.nav-group{font-size:.75rem;letter-spacing:.075em;text-transform:uppercase;color:var(--muted);font-weight:650;margin:24px 12px 9px}.sidebar nav a{display:flex;align-items:baseline;gap:10px;color:#445b6f;text-decoration:none;padding:9px 12px;margin:2px 0;border-radius:6px;font-size:.875rem;line-height:1.45;border-left:3px solid transparent}.sidebar nav a:hover{background:#e8eff5;color:var(--ink)}.sidebar nav a[aria-current="location"]{background:#e1eee9;color:#104f40;border-left-color:var(--accent);font-weight:650}.nav-number{flex-shrink:0;width:20px;font-variant-numeric:tabular-nums;font-size:.75rem;opacity:.85}.sidebar-footer{font-size:.8125rem;color:var(--muted);line-height:1.7;border-top:1px solid var(--line);margin:25px 12px 0;padding-top:17px}
+main{min-width:0;padding:49px clamp(26px,4.5vw,78px) 40px;max-width:1170px;width:100%;margin:auto}.document-header{padding-bottom:38px;border-bottom:1px solid var(--line);margin-bottom:42px}.eyebrow{font-size:.8125rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}.document-meta{display:flex;flex-wrap:wrap;gap:9px 24px;font-size:.875rem;color:var(--muted)}.source-details{margin-top:22px;font-size:.875rem;background:var(--nav);padding:11px 16px;border:1px solid var(--line);border-radius:7px}.source-details summary{font-weight:600;color:#425c70}.source-details[open] summary{margin-bottom:15px}.source-details p:last-child{margin-bottom:4px}.source-details code{word-break:break-all}summary{cursor:pointer}article section{padding-bottom:30px;margin-bottom:42px;border-bottom:1px solid var(--line)}article section:last-child{margin-bottom:0}.section-number{font-size:.9375rem;font-weight:500;color:var(--accent);letter-spacing:0;font-variant-numeric:tabular-nums;padding-top:5px;min-width:26px}.table-scroll{width:100%;overflow:auto;margin:24px 0 28px;border:1px solid var(--line);border-radius:9px;scrollbar-width:thin}table{border-collapse:collapse;width:100%;min-width:560px;font-size:.9375rem;line-height:1.6;text-align:left}th{background:#f0f5f9;color:var(--ink);font-size:.875rem;font-weight:650;vertical-align:bottom}th,td{padding:15px 17px;border-bottom:1px solid var(--line);border-right:1px solid #e8eef3;vertical-align:top}th:last-child,td:last-child{border-right:0}tr:last-child td{border-bottom:0}tbody tr:nth-child(even){background:#fafcfd}td:first-child{min-width:135px}td p{margin:0}table a{overflow-wrap:anywhere}td code{font-size:.84rem}.diagram{margin:30px 0;border:1px solid var(--line);border-radius:10px;background:#fbfdff;overflow:hidden}.diagram figcaption{padding:16px 20px;background:#f0f5f9;border-bottom:1px solid var(--line);font-size:.9375rem;color:var(--ink);font-weight:600;line-height:1.5}.figure-number{color:var(--muted);font-weight:450;margin-right:14px;white-space:nowrap}.diagram-scroll{padding:24px 16px;overflow:auto;max-width:100%;scrollbar-width:thin}.diagram svg{display:block;width:100%;height:auto;font:17px "Segoe UI",Arial,sans-serif;fill:var(--ink);min-width:580px}.node rect{fill:white;stroke:#bed0de;stroke-width:1.5}.node.primary rect{fill:#edf4ff;stroke:#8aaadd}.node.engineering rect{fill:#f2efff;stroke:#b8aadf}.node.delivery rect{fill:#e8f7ef;stroke:#81bfa6}.node.human rect{fill:#142d45;stroke:#142d45}.node.human text{fill:#fff}.node.data rect{fill:#eaf1f6;stroke:#96b4c9}.connector{fill:none;stroke:#52708c;stroke-width:1.7;stroke-linejoin:round}.dashed{stroke-dasharray:6 4}.boundary{fill:#f1f6fc;stroke:#b4c9db;stroke-width:1.5;stroke-dasharray:7 5}.delivery-boundary{fill:#f1faf5;stroke:#8fbea9}.boundary-label{fill:#42617b;font-size:16px;font-weight:600;letter-spacing:.025em}.lifeline{stroke:#b9cbd9;stroke-width:1.5;stroke-dasharray:5 7}.message-label{font-size:16px;paint-order:stroke;stroke:#fbfdff;stroke-width:7;stroke-linejoin:round}.flow-steps{font-size:.9375rem;margin:24px 5px 0}.flow-steps summary{color:var(--blue)}.flow-steps ol{max-width:800px;margin:20px 0 0}.document-footer{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;color:var(--muted);font-size:.875rem;padding-top:24px}
+html{scroll-behavior:auto}h2,h3{scroll-margin-top:0}.diagram svg{min-width:850px}.diagram-note{font-size:.875rem;color:var(--muted);padding:12px 20px 0;margin:0}
+@media(min-width:1500px){.page-shell{border-left:1px solid var(--line);border-right:1px solid var(--line)}.diagram:not(:has(.sequence-map)) .diagram-note{display:none}}
+@media(max-width:1090px){.page-shell{grid-template-columns:254px minmax(0,1fr)}main{padding:35px 30px}.sidebar{padding-left:12px;padding-right:12px}.brand-context{display:none}.brand-divider{display:none}}
+@media(max-width:800px){:root{--header:64px}html{scroll-padding-top:84px}.topbar{padding:0 18px}.page-shell{display:block}main{padding:30px 20px}h1{font-size:2.1rem}h2{font-size:1.5rem;gap:12px}h3{font-size:1.18rem}.document-header{margin-bottom:32px;padding-bottom:28px}.document-meta{gap:8px 18px}#menu-toggle{display:block}.sidebar{display:none;position:fixed;left:0;right:0;top:var(--header);height:calc(100dvh - var(--header));z-index:25;border-right:0;padding:20px 24px}.sidebar.is-open{display:block}.sidebar nav a{font-size:1rem;padding:12px}.sidebar nav{max-width:560px;margin:auto}.sidebar-footer{max-width:536px;margin:25px auto}.nav-title{font-size:1rem}.nav-group{font-size:.8125rem}.topbar-right{gap:12px}.document-state{font-size:.8125rem;padding:3px 9px}.diagram figcaption{padding:14px;font-size:.875rem}.diagram-scroll{padding:16px 10px}.figure-number{display:block;margin-bottom:4px}.table-scroll{margin:20px 0 26px}th,td{padding:12px 14px}.source-details{font-size:.875rem}.document-footer{font-size:.875rem}}
+@media(max-width:380px){.brand{font-size:1rem;gap:8px}.topbar{padding:0 12px}.document-state{display:none}main{padding:28px 16px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{@page{margin:17mm}html{scroll-behavior:auto}body{font-size:10pt;color:#111}.topbar,.sidebar,.skip-link,.document-footer{display:none}.page-shell{display:block}main{padding:0;max-width:none}.document-header{margin:0 0 25px;padding:0 0 20px}h1{font-size:27pt}h2{font-size:18pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}p,li{orphans:3;widows:3}.table-scroll{overflow:visible}table{font-size:8pt;min-width:0}th,td{padding:7px}tr{break-inside:avoid}a{color:#111}.diagram{break-inside:avoid;background:white}.diagram-scroll{padding:10px;overflow:visible}.diagram svg{min-width:0!important;max-height:245mm}.flow-steps{display:none}article section{margin-bottom:25px;padding-bottom:15px}.document-meta{font-size:9pt}.source-details{background:white}.source-details summary{display:none}.source-details>*{display:block!important}}
+</style></head>
+<body>
+<a class="skip-link" href="#main">Skip to the architecture</a>
+<header class="topbar"><a class="brand" href="#top" aria-label="ai4good architecture, back to top"><span class="brand-mark" aria-hidden="true">a4</span>ai4good<span class="brand-divider"></span><span class="brand-context">Architecture</span></a><div class="topbar-right"><span class="document-state">Proposed</span><button id="menu-toggle" aria-expanded="false" aria-controls="contents">Contents <span aria-hidden="true">☰</span></button></div></header>
+<div class="page-shell" id="top"><aside class="sidebar" id="contents"><nav aria-label="Document contents"><div class="nav-title">In this document</div><div class="nav-group">Foundation</div><a href="#1-architecture-summary-and-status"><span class="nav-number">01</span><span>Architecture summary and status</span></a><a href="#2-product-lifecycle"><span class="nav-number">02</span><span>Product lifecycle</span></a><a href="#3-human-actors-and-decision-authority"><span class="nav-number">03</span><span>Human actors and decision authority</span></a><a href="#4-systems-and-where-they-run"><span class="nav-number">04</span><span>Systems and where they run</span></a><a href="#5-records-and-ownership"><span class="nav-number">05</span><span>Records and ownership</span></a><div class="nav-group">Build system</div><a href="#6-planning-and-the-build-contract"><span class="nav-number">06</span><span>Planning and the build contract</span></a><a href="#7-build-initiation-and-engineering"><span class="nav-number">07</span><span>Build initiation and engineering</span></a><a href="#8-questions-escalation-and-continuation"><span class="nav-number">08</span><span>Questions, escalation, and continuation</span></a><a href="#9-state-and-durable-records"><span class="nav-number">09</span><span>State and durable records</span></a><a href="#10-integration-and-monitoring"><span class="nav-number">10</span><span>Integration and monitoring</span></a><a href="#11-funding-usage-and-budget-limits"><span class="nav-number">11</span><span>Funding, usage, and budget limits</span></a><div class="nav-group">Delivery and ownership</div><a href="#12-delivered-application-architecture"><span class="nav-number">12</span><span>Delivered application architecture</span></a><a href="#13-verification-merge-and-deployment"><span class="nav-number">13</span><span>Verification, merge, and deployment</span></a><a href="#14-handoff-and-ngo-operation"><span class="nav-number">14</span><span>Handoff and NGO operation</span></a><a href="#15-security-privacy-and-operations"><span class="nav-number">15</span><span>Security, privacy, and operations</span></a><div class="nav-group">PRD and next steps</div><a href="#16-provider-choice-and-unresolved-integration-work"><span class="nav-number">16</span><span>Provider choice and unresolved integration work</span></a><a href="#17-changes-needed-in-the-existing-prd"><span class="nav-number">17</span><span>Changes needed in the existing PRD</span></a><a href="#18-implementation-sequence-and-acceptance-evidence"><span class="nav-number">18</span><span>Implementation sequence and acceptance evidence</span></a><a href="#19-decisions-required-before-production-implementation"><span class="nav-number">19</span><span>Decisions required before production implementation</span></a><a href="#20-source-coverage"><span class="nav-number">20</span><span>Source coverage</span></a></nav><div class="sidebar-footer">Architecture reference<br><time datetime="2026-09-13">13 September 2026</time></div></aside>
+<main id="main"><div class="document-header"><div class="eyebrow">Platform design</div><h1>ai4good architecture</h1><div class="document-meta"><span>20 sections</span><span>4 diagrams</span><span>Prepared 13 September 2026</span></div><details class="source-details"><summary>Source and document status</summary><p>Status: proposed architecture for PRD integration.</p>
+<p>Prepared: 2026-09-13.</p>
+<p>Follow-up decision: the accepted Discovery pilot funding rules are recorded in section 11. They are integrated into the PRD under decision d92; implementation remains open.</p>
+<p>Primary source: <a href="https://chatgpt.com/share/6aa68591-5740-83eb-96a9-99988da7f3c7" target="_blank" rel="noopener noreferrer">Cloud Codex Claude Setup, the shared architecture conversation</a>. This document covers all 22 question-and-answer exchanges.</p>
+<p>Repository baseline: <code>main</code> at <code>c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0</code>. The comparison uses the current <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/prd-mvp.md" target="_blank" rel="noopener noreferrer">MVP PRD</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/architecture-notes.md" target="_blank" rel="noopener noreferrer">architecture notes</a>.</p>
+</details></div>
+<article><section aria-labelledby="1-architecture-summary-and-status"><h2 id="1-architecture-summary-and-status"><span class="section-number">01</span>Architecture summary and status</h2><p>ai4good gives an NGO and its volunteer developer a shared place to define a product, discuss decisions, and supervise its construction. Frontier-model APIs support planning. A developer starts a bounded cloud build from an approved board item. A Cursor lead runs the pstack engineering workflow and reports progress and questions through ai4good.</p>
+<p>Cursor builds the frontend and backend in a repository that originates from a Lovable project. The NGO receives a running application that it can change and publish through Lovable chat. Routine operation and maintenance no longer depend on ai4good, Cursor, or pstack.</p>
+<p>The board defines the scope of autonomous work. Each build has an approved objective, acceptance criteria, budget authority, repository, and decision authorities. The lead works within those limits. A change outside those limits requires a recorded decision.</p>
+<p>This document distinguishes three kinds of statements:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Conversation direction</td>
+<td>The user&#39;s requests establish the intended experience and system boundaries.</td>
+</tr>
+<tr>
+<td>Proposed design</td>
+<td>This document supplies a concrete mechanism that the conversation does not fully specify.</td>
+</tr>
+<tr>
+<td>Provider fact</td>
+<td>Official documentation supports the stated capability. Account access and end-to-end behavior still need validation.</td>
+</tr>
+</tbody></table>
+</div><p>Unless a section identifies a current requirement or provider fact, it describes the proposed design. It does not claim that the platform already implements that design. It does not amend the PRD, project instructions, or existing decisions by itself.</p>
+<p>Two provider constraints affect the design immediately:</p>
+<ul>
+<li>Lovable documents that a workspace move breaks the project&#39;s GitHub connection. Reconnecting creates a new repository. Handoff therefore needs an explicit repository-continuity plan. <a href="https://docs.lovable.dev/integrations/github" target="_blank" rel="noopener noreferrer">Lovable GitHub integration</a></li>
+<li>Cursor distinguishes a durable agent from its execution runs. A decision normally starts another run on the same agent. A cancelled run itself does not resume. <a href="https://prod.cursor.com/docs/cloud-agent/api/endpoints" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents API</a></li>
+</ul>
+</section><section aria-labelledby="2-product-lifecycle"><h2 id="2-product-lifecycle"><span class="section-number">02</span>Product lifecycle</h2><p>The proposed build system fits within the existing marketplace. It retains NGO vetting, Discovery, human publication review, volunteer matching, and project funding.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Main actor</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Intake and Discovery</td>
+<td>NGO representative with the planning assistant</td>
+<td>A scoped need, data-handling constraints, and a maintainability assessment.</td>
+</tr>
+<tr>
+<td>Publication and matching</td>
+<td>Platform founder or authorized administrator, then volunteer</td>
+<td>A reviewed project and an assigned volunteer.</td>
+</tr>
+<tr>
+<td>Product planning</td>
+<td>NGO representative and volunteer</td>
+<td>A versioned PRD, screen designs where relevant, acceptance criteria, and recorded decisions.</td>
+</tr>
+<tr>
+<td>Board preparation</td>
+<td>ai4good with volunteer review</td>
+<td>Requirement items and development items with dependencies and readiness evidence.</td>
+</tr>
+<tr>
+<td>Provisioning</td>
+<td>ai4good through an authorized operator or supported integration</td>
+<td>A Lovable project, connected repository, backend choice, and tested cloud environment.</td>
+</tr>
+<tr>
+<td>Build authorization</td>
+<td>Assigned volunteer within project policy</td>
+<td>A frozen build contract and a reserved budget.</td>
+</tr>
+<tr>
+<td>Cloud engineering</td>
+<td>Cursor lead and pstack workers</td>
+<td>Implemented changes, verification evidence, and a pull request.</td>
+</tr>
+<tr>
+<td>Review and release</td>
+<td>Authorized reviewer and release authority</td>
+<td>A checked merge, a tested platform deployment, and release evidence.</td>
+</tr>
+<tr>
+<td>Handoff</td>
+<td>NGO owner, supported by the volunteer</td>
+<td>Verified control of the application, data, billing, and chat maintenance.</td>
+</tr>
+<tr>
+<td>NGO operation</td>
+<td>NGO staff</td>
+<td>Ordinary changes through Lovable. Larger work can return to ai4good under a new authorization.</td>
+</tr>
+</tbody></table>
+</div><p>The conversation moves more planning into ai4good before engineering starts. The current PRD instead puts PRD authoring in the volunteer&#39;s repository after kickoff. Section 17 identifies the required changes.</p>
+<p>Screen approval is relevant to items that change visible behavior. A backend-only item within an eligible application can use an explicit &quot;no screen change&quot; designation.</p>
+</section><section aria-labelledby="3-human-actors-and-decision-authority"><h2 id="3-human-actors-and-decision-authority"><span class="section-number">03</span>Human actors and decision authority</h2><p>The NGO is an organization with named human representatives. It is not an AI persona that can invent policy.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Actor</th>
+<th>Uses</th>
+<th>Responsibility and authority</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NGO representative</td>
+<td>ai4good during planning and build, Lovable after handoff</td>
+<td>Explains the need, answers operational questions, reviews intended behavior, and learns maintenance.</td>
+</tr>
+<tr>
+<td>NGO budget and data owner</td>
+<td>ai4good approvals and the destination platform</td>
+<td>Approves spending commitments, data use, production access, and ownership acceptance.</td>
+</tr>
+<tr>
+<td>Volunteer developer</td>
+<td>ai4good build view, with GitHub evidence available</td>
+<td>Prepares work, starts builds, supervises the lead, resolves technical questions, and reviews results.</td>
+</tr>
+<tr>
+<td>Platform founder</td>
+<td>ai4good administration and escalations</td>
+<td>Owns platform policy, eligibility, exceptions, and decisions beyond the volunteer&#39;s assigned authority.</td>
+</tr>
+<tr>
+<td>Designated product owner</td>
+<td>ai4good decision gates</td>
+<td>Resolves changes to agreed product behavior or scope. This can be an NGO representative or the founder.</td>
+</tr>
+<tr>
+<td>Application user</td>
+<td>The deployed NGO application</td>
+<td>Uses the delivered tool without access to the development system.</td>
+</tr>
+</tbody></table>
+</div><p>One person can hold several roles. The project records each role assignment explicitly. A platform administrator does not automatically gain authority to approve an NGO&#39;s spending or sensitive-data use.</p>
+<p>The normal question path is lead, volunteer, then the required authority. ai4good routes the question and records the answer. The volunteer cannot clear a gate that exceeds the volunteer&#39;s permissions.</p>
+</section><section aria-labelledby="4-systems-and-where-they-run"><h2 id="4-systems-and-where-they-run"><span class="section-number">04</span>Systems and where they run</h2><p>The architecture separates the ai4good platform, the engineering environment, and the delivered NGO application.</p>
+<figure class="diagram"><figcaption><span class="figure-number">Figure 1</span> System boundaries and connections</figcaption><p class="diagram-note">Scroll sideways to see the full diagram.</p><div class="diagram-scroll" tabindex="0" role="region" aria-label="System boundaries and connections. Scroll horizontally if needed."><svg class="system-map" viewBox="0 0 980 1540" role="img" aria-labelledby="systems-title systems-desc" xmlns="http://www.w3.org/2000/svg"><title id="systems-title">The platform, engineering environment, and delivered application</title><desc id="systems-desc">People use ai4good. Its controller coordinates Cursor, Linear, and payments. The Cursor lead runs pstack workers. Checked GitHub changes reach Lovable through an authorized release. NGO staff operate the delivered application.</desc><defs><marker id="arrow-1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker><marker id="arrow-start-1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker></defs><rect class="boundary" x="25" y="135" width="930" height="405" rx="16"/><text class="boundary-label" x="48" y="165">ai4good platform</text><path d="M170,102 L170,150 L470,150 L470,190" class="connector" marker-end="url(#arrow-1)"/><path d="M490,102 L490,190" class="connector" marker-end="url(#arrow-1)"/><path d="M810,102 L810,150 L510,150 L510,190" class="connector" marker-end="url(#arrow-1)"/><path d="M490,262 L490,305" class="connector" marker-end="url(#arrow-1)"/><path d="M465,377 L465,398 L170,398 L170,430" class="connector" marker-end="url(#arrow-1)"/><path d="M490,377 L490,430" class="connector" marker-end="url(#arrow-1)"/><path d="M515,377 L515,398 L810,398 L810,430" class="connector" marker-end="url(#arrow-1)"/><path d="M615,466 L685,466" class="connector" marker-end="url(#arrow-1)"/><path d="M170,502 L170,585" class="connector" marker-end="url(#arrow-1)"/><path d="M490,502 L490,675" class="connector" marker-end="url(#arrow-1)" marker-start="url(#arrow-start-1)"/><path d="M615,448 L650,448 L650,621 L685,621" class="connector" marker-end="url(#arrow-1)" marker-start="url(#arrow-start-1)"/><path d="M615,484 L630,484 L630,741 L685,741" class="connector" marker-end="url(#arrow-1)" marker-start="url(#arrow-start-1)"/><path d="M490,747 L490,805" class="connector" marker-end="url(#arrow-1)"/><path d="M490,877 L490,935" class="connector" marker-end="url(#arrow-1)"/><path d="M490,1007 L490,1065" class="connector" marker-end="url(#arrow-1)"/><path d="M490,1137 L490,1170 L170,1170 L170,1220" class="connector" marker-end="url(#arrow-1)"/><path d="M295,1256 L365,1256" class="connector" marker-end="url(#arrow-1)"/><path d="M615,1256 L685,1256" class="connector" marker-end="url(#arrow-1)"/><path d="M810,1292 L810,1400" class="connector" marker-end="url(#arrow-1)"/><path d="M45,66 L15,66 L15,1510 L810,1510 L810,1472" class="connector" marker-end="url(#arrow-1)"/><g class="node human"><rect x="45" y="30" width="250" height="72" rx="10"/><text x="170" y="62" text-anchor="middle" class=""><tspan x="170" dy="0">NGO representative and</tspan><tspan x="170" dy="20">owner</tspan></text></g><g class="node human"><rect x="365" y="30" width="250" height="72" rx="10"/><text x="490" y="72" text-anchor="middle" class=""><tspan x="490" dy="0">Volunteer developer</tspan></text></g><g class="node human"><rect x="685" y="30" width="250" height="72" rx="10"/><text x="810" y="62" text-anchor="middle" class=""><tspan x="810" dy="0">Founder or product</tspan><tspan x="810" dy="20">authority</tspan></text></g><g class="node primary"><rect x="365" y="190" width="250" height="72" rx="10"/><text x="490" y="222" text-anchor="middle" class=""><tspan x="490" dy="0">Project workspace and</tspan><tspan x="490" dy="20">build view</tspan></text></g><g class="node primary"><rect x="365" y="305" width="250" height="72" rx="10"/><text x="490" y="337" text-anchor="middle" class=""><tspan x="490" dy="0">Edge functions and</tspan><tspan x="490" dy="20">authorization</tspan></text></g><g class="node "><rect x="45" y="430" width="250" height="72" rx="10"/><text x="170" y="472" text-anchor="middle" class=""><tspan x="170" dy="0">Planning assistant</tspan></text></g><g class="node primary"><rect x="365" y="430" width="250" height="72" rx="10"/><text x="490" y="462" text-anchor="middle" class=""><tspan x="490" dy="0">Build controller and</tspan><tspan x="490" dy="20">background worker</tspan></text></g><g class="node data"><rect x="685" y="430" width="250" height="72" rx="10"/><text x="810" y="462" text-anchor="middle" class=""><tspan x="810" dy="0">Projects, contracts,</tspan><tspan x="810" dy="20">decisions, budgets, events</tspan></text></g><g class="node "><rect x="45" y="585" width="250" height="72" rx="10"/><text x="170" y="627" text-anchor="middle" class=""><tspan x="170" dy="0">Frontier-model APIs</tspan></text></g><g class="node "><rect x="685" y="585" width="250" height="72" rx="10"/><text x="810" y="617" text-anchor="middle" class=""><tspan x="810" dy="0">Linear requirement and</tspan><tspan x="810" dy="20">development trees</tspan></text></g><g class="node "><rect x="685" y="705" width="250" height="72" rx="10"/><text x="810" y="747" text-anchor="middle" class=""><tspan x="810" dy="0">Stripe payment records</tspan></text></g><g class="node engineering"><rect x="365" y="675" width="250" height="72" rx="10"/><text x="490" y="717" text-anchor="middle" class=""><tspan x="490" dy="0">Cursor agent service</tspan></text></g><g class="node engineering"><rect x="365" y="805" width="250" height="72" rx="10"/><text x="490" y="847" text-anchor="middle" class=""><tspan x="490" dy="0">Build lead running pstack</tspan></text></g><g class="node engineering"><rect x="365" y="935" width="250" height="72" rx="10"/><text x="490" y="967" text-anchor="middle" class=""><tspan x="490" dy="0">Implementation and</tspan><tspan x="490" dy="20">verification workers</tspan></text></g><g class="node engineering"><rect x="365" y="1065" width="250" height="72" rx="10"/><text x="490" y="1097" text-anchor="middle" class=""><tspan x="490" dy="0">Isolated repository,</tspan><tspan x="490" dy="20">tools, tests, browser</tspan></text></g><g class="node "><rect x="45" y="1220" width="250" height="72" rx="10"/><text x="170" y="1252" text-anchor="middle" class=""><tspan x="170" dy="0">GitHub branches and pull</tspan><tspan x="170" dy="20">requests</tspan></text></g><g class="node "><rect x="365" y="1220" width="250" height="72" rx="10"/><text x="490" y="1262" text-anchor="middle" class=""><tspan x="490" dy="0">Required checks and review</tspan></text></g><g class="node "><rect x="685" y="1220" width="250" height="72" rx="10"/><text x="810" y="1262" text-anchor="middle" class=""><tspan x="810" dy="0">Authorized release</tspan></text></g><g class="node delivery"><rect x="685" y="1400" width="250" height="72" rx="10"/><text x="810" y="1432" text-anchor="middle" class=""><tspan x="810" dy="0">Lovable project and</tspan><tspan x="810" dy="20">application backend</tspan></text></g></svg></div></figure><h3 id="ai4good-platform">ai4good platform</h3><p>The browser presents project discussions, approved documents, the board, build progress, decision gates, and budgets. Edge functions authorize every application action. The browser does not query the database directly or call Cursor with a service credential.</p>
+<p>A durable background worker launches builds, processes provider events, delivers decisions, reconciles usage, and recovers interrupted operations. A database-backed work queue is sufficient for the first version. The design does not require a separate event-broker product.</p>
+<p>An interactive HTTP request must not own an hours-long build. The edge function records the request and returns its build identifier. Background work continues after the user closes the browser.</p>
+<h3 id="cursor-and-pstack">Cursor and pstack</h3><p>The Cursor lead owns engineering within one build contract. It loads a pinned pstack version, the project rules, and the configured model roles. It plans work, delegates implementation, collects reviews, resolves routine failures, and prepares the pull request.</p>
+<p>Cursor supplies the agent service and a development environment. Cloud setup supports repository preparation and development tools. The target uses Cursor-managed execution first. Self-hosting remains an option if a proven requirement warrants it. <a href="https://prod.cursor.com/docs/cloud-agent" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents</a>, <a href="https://prod.cursor.com/docs/cloud-agent/setup" target="_blank" rel="noopener noreferrer">cloud environment setup</a></p>
+<p>The model instructions and pstack workflow are agent context. Commands, builds, tests, and browser checks execute in the development environment. The pstack plugin is not a separate service that ai4good must keep running locally.</p>
+<p>A subagent is not necessarily a separate virtual machine. The selected delegation mechanism determines isolation. Each concurrent writer needs an independent checkout or worktree. Read-only reviewers can share an immutable revision.</p>
+<h3 id="lovable-and-the-application-runtime">Lovable and the application runtime</h3><p>Lovable is the initial project source and the intended maintenance destination. Cursor edits application code through GitHub. Ordinary frontend and backend authoring does not require Lovable MCP.</p>
+<p>Provisioning, configuration, backend deployment, publishing, and transfer remain platform operations. They need a supported interface or an authorized human action, even when Cursor writes all application code.</p>
+</section><section aria-labelledby="5-records-and-ownership"><h2 id="5-records-and-ownership"><span class="section-number">05</span>Records and ownership</h2><p>ai4good owns authorization and project governance. Each connected system remains authoritative for the facts it produces.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Record</th>
+<th>Authority</th>
+<th>ai4good responsibility</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NGO, membership, role assignments</td>
+<td>ai4good</td>
+<td>Validate access and retain audit evidence.</td>
+</tr>
+<tr>
+<td>Approved PRD, designs, decisions</td>
+<td>Versioned project records</td>
+<td>Preserve approved revisions and their relationship to work.</td>
+</tr>
+<tr>
+<td>Requirement and development task state</td>
+<td>Linear under current PRD rules</td>
+<td>Maintain the projection, authorize pulls and completion, and reconcile unauthorized changes.</td>
+</tr>
+<tr>
+<td>Build contract and budget reservation</td>
+<td>ai4good</td>
+<td>Validate, version, and enforce the approved work.</td>
+</tr>
+<tr>
+<td>Agent identity and run status</td>
+<td>Cursor</td>
+<td>Retain provider identifiers and normalize observed state.</td>
+</tr>
+<tr>
+<td>Lead progress messages</td>
+<td>Cursor lead</td>
+<td>Present a useful account of work, clearly distinct from completion evidence.</td>
+</tr>
+<tr>
+<td>Commits, reviews, and merges</td>
+<td>GitHub</td>
+<td>Verify the relevant repository and exact commit.</td>
+</tr>
+<tr>
+<td>Acceptance evidence</td>
+<td>Referenced tests, artifacts, and review records</td>
+<td>Check completeness and bind evidence to the tested revision.</td>
+</tr>
+<tr>
+<td>Payments and billed usage</td>
+<td>Stripe and the relevant billing provider</td>
+<td>Reconcile the financial ledger against provider records.</td>
+</tr>
+<tr>
+<td>Published release and backend configuration</td>
+<td>Destination platform</td>
+<td>Record and verify the deployed result.</td>
+</tr>
+<tr>
+<td>Ownership acceptance</td>
+<td>NGO owner</td>
+<td>Record completed checks and the explicit acceptance.</td>
+</tr>
+</tbody></table>
+</div><p>The existing Linear design has two trees. The requirement tree supplies the NGO&#39;s progress view. The development tree contains engineering work. This proposal keeps that distinction unless the PRD explicitly changes it. See <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-026.md" target="_blank" rel="noopener noreferrer">task management</a>.</p>
+<p>A new build record does not replace the Linear task. It records an attempt to implement authorized work. Several attempts can belong to the same development item and parent requirement.</p>
+<p>A lead message cannot mark a requirement complete. Completion still requires linked work to merge and acceptance evidence to pass.</p>
+</section><section aria-labelledby="6-planning-and-the-build-contract"><h2 id="6-planning-and-the-build-contract"><span class="section-number">06</span>Planning and the build contract</h2><p>The planning assistant uses approved frontier-model APIs through ai4good&#39;s backend. It helps the NGO and volunteer refine the need, PRD, designs, acceptance criteria, and board decomposition.</p>
+<p>Draft content and approved content are separate revisions. The assistant can propose a change. An authorized action establishes approval. A conversational suggestion does not silently change an active build&#39;s scope.</p>
+<p>The build controller checks readiness before launch:</p>
+<ol>
+<li>The project and assigned volunteer can start work under the current lifecycle rules.</li>
+<li>The relevant requirement has an authorized pull and its dependencies are satisfied.</li>
+<li>The PRD passes the agreed completeness gate.</li>
+<li>The selected work has testable acceptance criteria and approved designs where needed.</li>
+<li>The repository, backend, and cloud environment pass provisioning checks.</li>
+<li>The project has available funds and the requester has spending authority.</li>
+<li>The build names the people who can resolve technical, product, budget, and release decisions.</li>
+<li>No incompatible build already owns the same work.</li>
+</ol>
+<p>The controller then freezes a build contract. The following fields define the proposed logical record. They are not a Cursor request schema.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Contract field</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Project, requirement, and development item</td>
+<td>Bind work to the approved project and requirement tree.</td>
+</tr>
+<tr>
+<td>Contract version and content digest</td>
+<td>Identify the exact authorization.</td>
+</tr>
+<tr>
+<td>PRD revision and design revisions</td>
+<td>Prevent silent changes to the build&#39;s inputs.</td>
+</tr>
+<tr>
+<td>Goal, allowed scope, and exclusions</td>
+<td>Define what the lead can change.</td>
+</tr>
+<tr>
+<td>Acceptance criteria and verification commands</td>
+<td>Define observable success.</td>
+</tr>
+<tr>
+<td>Dependencies and relevant decisions</td>
+<td>Supply required context.</td>
+</tr>
+<tr>
+<td>Repository identity, starting commit, and branch policy</td>
+<td>Bound code access and preserve attribution.</td>
+</tr>
+<tr>
+<td>Platform compatibility contract</td>
+<td>Define the supported application runtime.</td>
+</tr>
+<tr>
+<td>Allowed models, pstack version, and role configuration</td>
+<td>Make the engineering setup reproducible.</td>
+</tr>
+<tr>
+<td>Budget authorization, concurrency limit, and retry policy</td>
+<td>Bound resource use.</td>
+</tr>
+<tr>
+<td>Tool permissions and allowed environments</td>
+<td>Separate development access from production authority.</td>
+</tr>
+<tr>
+<td>Decision authorities and escalation routes</td>
+<td>Direct questions to the correct people.</td>
+</tr>
+<tr>
+<td>Review, merge, release, and handoff conditions</td>
+<td>Prevent an agent result from becoming an unauthorized release.</td>
+</tr>
+</tbody></table>
+</div><p>The build environment receives a readable brief generated from this record. The authoritative record remains in ai4good. Editing the brief inside the repository does not expand the build&#39;s authority.</p>
+<p>If an approved answer changes scope, ai4good creates a contract amendment. The amendment names its approver and the superseded revision. Dependent work resumes only after the controller applies the amendment.</p>
+</section><section aria-labelledby="7-build-initiation-and-engineering"><h2 id="7-build-initiation-and-engineering"><span class="section-number">07</span>Build initiation and engineering</h2><figure class="diagram"><figcaption><span class="figure-number">Figure 2</span> Build initiation and engineering</figcaption><p class="diagram-note">Scroll sideways to see the full diagram.</p><div class="diagram-scroll" tabindex="0" role="region" aria-label="Build initiation and engineering. Scroll horizontally if needed."><svg class="sequence-map" style="min-width:1509px" viewBox="0 0 1715 1566" role="img" aria-labelledby="sequence-2" xmlns="http://www.w3.org/2000/svg"><title id="sequence-2">Start a build and collect review evidence</title><defs><marker id="arrow-2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker><marker id="arrow-start-2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker></defs><line class="lifeline" x1="120" x2="120" y1="104" y2="1566"/><line class="lifeline" x1="365" x2="365" y1="104" y2="1566"/><line class="lifeline" x1="610" x2="610" y1="104" y2="1566"/><line class="lifeline" x1="855" x2="855" y1="104" y2="1566"/><line class="lifeline" x1="1100" x2="1100" y1="104" y2="1566"/><line class="lifeline" x1="1345" x2="1345" y1="104" y2="1566"/><line class="lifeline" x1="1590" x2="1590" y1="104" y2="1566"/><text x="242.5" y="165" text-anchor="middle" class="message-label"><tspan x="242.5" dy="0">Start the selected board</tspan><tspan x="242.5" dy="20">item</tspan></text><path d="M120,207 L365,207" class="connector" marker-end="url(#arrow-2)"/><text x="487.5" y="273" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Request an authorized build</tspan></text><path d="M365,295 L610,295" class="connector" marker-end="url(#arrow-2)"/><text x="732.5" y="361" text-anchor="middle" class="message-label"><tspan x="732.5" dy="0">Check readiness, reserve</tspan><tspan x="732.5" dy="20">funds, save contract</tspan></text><path d="M610,403 L855,403" class="connector" marker-end="url(#arrow-2)"/><text x="487.5" y="469" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Return build identifier</tspan></text><path d="M610,491 L365,491" class="connector dashed" marker-end="url(#arrow-2)"/><text x="855" y="557" text-anchor="middle" class="message-label"><tspan x="855" dy="0">Create lead for the approved repository</tspan></text><path d="M610,579 L1100,579" class="connector" marker-end="url(#arrow-2)"/><text x="855" y="645" text-anchor="middle" class="message-label"><tspan x="855" dy="0">Agent identifier and initial run identifier</tspan></text><path d="M1100,667 L610,667" class="connector dashed" marker-end="url(#arrow-2)"/><text x="732.5" y="733" text-anchor="middle" class="message-label"><tspan x="732.5" dy="0">Save the provider mapping</tspan></text><path d="M610,755 L855,755" class="connector" marker-end="url(#arrow-2)"/><text x="1222.5" y="821" text-anchor="middle" class="message-label"><tspan x="1222.5" dy="0">Load the build brief and</tspan><tspan x="1222.5" dy="20">pinned workflow</tspan></text><path d="M1100,863 L1345,863" class="connector" marker-end="url(#arrow-2)"/><text x="1450" y="929" text-anchor="middle" class="message-label"><tspan x="1450" dy="0">Plan, implement,</tspan><tspan x="1450" dy="20">verify, and fix</tspan></text><path d="M1345,969 L1540,969 L1540,993 L1345,993" class="connector" marker-end="url(#arrow-2)"/><text x="977.5" y="1056" text-anchor="middle" class="message-label"><tspan x="977.5" dy="0">Progress and decision requests</tspan></text><path d="M1345,1078 L610,1078" class="connector dashed" marker-end="url(#arrow-2)"/><text x="487.5" y="1144" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Lead updates and current</tspan><tspan x="487.5" dy="20">status</tspan></text><path d="M610,1186 L365,1186" class="connector dashed" marker-end="url(#arrow-2)"/><text x="1467.5" y="1252" text-anchor="middle" class="message-label"><tspan x="1467.5" dy="0">Push work and open a pull</tspan><tspan x="1467.5" dy="20">request</tspan></text><path d="M1345,1294 L1590,1294" class="connector" marker-end="url(#arrow-2)"/><text x="1100" y="1360" text-anchor="middle" class="message-label"><tspan x="1100" dy="0">Checks, reviews, and commit identity</tspan></text><path d="M1590,1382 L610,1382" class="connector dashed" marker-end="url(#arrow-2)"/><text x="487.5" y="1448" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Ready for review when</tspan><tspan x="487.5" dy="20">evidence is complete</tspan></text><path d="M610,1490 L365,1490" class="connector dashed" marker-end="url(#arrow-2)"/><g class="node primary"><rect x="18" y="20" width="204" height="84" rx="10"/><text x="120" y="68" text-anchor="middle" class=""><tspan x="120" dy="0">Volunteer</tspan></text></g><g class="node primary"><rect x="263" y="20" width="204" height="84" rx="10"/><text x="365" y="68" text-anchor="middle" class=""><tspan x="365" dy="0">ai4good build view</tspan></text></g><g class="node primary"><rect x="508" y="20" width="204" height="84" rx="10"/><text x="610" y="68" text-anchor="middle" class=""><tspan x="610" dy="0">Build controller</tspan></text></g><g class="node primary"><rect x="753" y="20" width="204" height="84" rx="10"/><text x="855" y="68" text-anchor="middle" class=""><tspan x="855" dy="0">Project records</tspan></text></g><g class="node primary"><rect x="998" y="20" width="204" height="84" rx="10"/><text x="1100" y="68" text-anchor="middle" class=""><tspan x="1100" dy="0">Cursor agent service</tspan></text></g><g class="node primary"><rect x="1243" y="20" width="204" height="84" rx="10"/><text x="1345" y="68" text-anchor="middle" class=""><tspan x="1345" dy="0">Cursor lead with pstack</tspan></text></g><g class="node primary"><rect x="1488" y="20" width="204" height="84" rx="10"/><text x="1590" y="68" text-anchor="middle" class=""><tspan x="1590" dy="0">GitHub and CI</tspan></text></g></svg><details class="flow-steps"><summary>Read this flow as steps</summary><ol><li><strong>Volunteer to ai4good build view.</strong> Start the selected board item.</li><li><strong>ai4good build view to Build controller.</strong> Request an authorized build.</li><li><strong>Build controller to Project records.</strong> Check readiness, reserve funds, save contract.</li><li><strong>Build controller to ai4good build view.</strong> Return build identifier.</li><li><strong>Build controller to Cursor agent service.</strong> Create lead for the approved repository.</li><li><strong>Cursor agent service to Build controller.</strong> Agent identifier and initial run identifier.</li><li><strong>Build controller to Project records.</strong> Save the provider mapping.</li><li><strong>Cursor agent service to Cursor lead with pstack.</strong> Load the build brief and pinned workflow.</li><li><strong>Cursor lead with pstack to Cursor lead with pstack.</strong> Plan, implement, verify, and fix.</li><li><strong>Cursor lead with pstack to Build controller.</strong> Progress and decision requests.</li><li><strong>Build controller to ai4good build view.</strong> Lead updates and current status.</li><li><strong>Cursor lead with pstack to GitHub and CI.</strong> Push work and open a pull request.</li><li><strong>GitHub and CI to Build controller.</strong> Checks, reviews, and commit identity.</li><li><strong>Build controller to ai4good build view.</strong> Ready for review when evidence is complete.</li></ol></details></div></figure><p>The lead mirrors the current pstack working experience. The developer receives concise progress, findings, and questions. Routine test failures stay within the engineering loop.</p>
+<p>The lead can choose implementation details within the contract. It cannot increase spending, remove acceptance criteria, introduce unsupported infrastructure, or give itself release authority.</p>
+<p>The first implementation uses one Cursor lead per active build. pstack handles its internal workers and reviewers. ai4good does not duplicate pstack&#39;s entire scheduler.</p>
+<p>The conversation briefly proposes a second persistent coordinator inside ai4good. Later exchanges place the pstack lead in Cursor and ask ai4good to mirror it. This document uses that later arrangement. A planning assistant can explain build records, but it does not issue competing engineering instructions.</p>
+<p>The project already has a <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.claude/pstack-models.md" target="_blank" rel="noopener noreferrer">model configuration</a>. The cloud integration must preserve approved provider, model, and effort choices. It must test their availability in the selected environment. A missing model produces a setup failure or an explicit alternative proposal, never a silent substitution.</p>
+</section><section aria-labelledby="8-questions-escalation-and-continuation"><h2 id="8-questions-escalation-and-continuation"><span class="section-number">08</span>Questions, escalation, and continuation</h2><p>A decision gate is a durable record. Chat provides context and discussion around that record.</p>
+<p>Each gate contains the question, affected work, options, recommendation, impact, required authority, contract revision, and blocking status. Its resolution contains the decision, decision-maker, time, rationale, and any contract amendment.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Normal resolver</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Routine engineering</td>
+<td>Cursor lead</td>
+<td>Fix a test, investigate a failure, or adjust code within the approved design.</td>
+</tr>
+<tr>
+<td>Technical tradeoff</td>
+<td>Volunteer</td>
+<td>Select an implementation approach within scope and budget.</td>
+</tr>
+<tr>
+<td>Product or scope change</td>
+<td>Designated product owner, with founder escalation where required</td>
+<td>Change a user journey, remove a requirement, or change a role&#39;s behavior.</td>
+</tr>
+<tr>
+<td>Budget or data authority</td>
+<td>Named NGO owner</td>
+<td>Increase a spending commitment or approve production-data access.</td>
+</tr>
+<tr>
+<td>Platform policy exception</td>
+<td>Platform founder</td>
+<td>Consider a request outside eligibility or platform operating rules.</td>
+</tr>
+<tr>
+<td>Merge or release</td>
+<td>Named authority in the contract</td>
+<td>Authorize the specific checked change or deployment.</td>
+</tr>
+</tbody></table>
+</div><figure class="diagram"><figcaption><span class="figure-number">Figure 3</span> Questions, decisions, and continuation</figcaption><p class="diagram-note">Scroll sideways to see the full diagram.</p><div class="diagram-scroll" tabindex="0" role="region" aria-label="Questions, decisions, and continuation. Scroll horizontally if needed."><svg class="sequence-map" style="min-width:1078px" viewBox="0 0 1225 1341" role="img" aria-labelledby="sequence-3" xmlns="http://www.w3.org/2000/svg"><title id="sequence-3">Ask for a decision and continue the same lead</title><defs><marker id="arrow-3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker><marker id="arrow-start-3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker></defs><line class="lifeline" x1="120" x2="120" y1="104" y2="1341"/><line class="lifeline" x1="365" x2="365" y1="104" y2="1341"/><line class="lifeline" x1="610" x2="610" y1="104" y2="1341"/><line class="lifeline" x1="855" x2="855" y1="104" y2="1341"/><line class="lifeline" x1="1100" x2="1100" y1="104" y2="1341"/><text x="242.5" y="165" text-anchor="middle" class="message-label"><tspan x="242.5" dy="0">Raise a gate with context</tspan><tspan x="242.5" dy="20">and affected work</tspan></text><path d="M120,207 L365,207" class="connector" marker-end="url(#arrow-3)"/><text x="470" y="273" text-anchor="middle" class="message-label"><tspan x="470" dy="0">Persist the gate and</tspan><tspan x="470" dy="20">enforce the</tspan><tspan x="470" dy="20">affected-work block</tspan></text><path d="M365,333 L560,333 L560,357 L365,357" class="connector" marker-end="url(#arrow-3)"/><text x="487.5" y="420" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Present the question and</tspan><tspan x="487.5" dy="20">lead recommendation</tspan></text><path d="M365,462 L610,462" class="connector dashed" marker-end="url(#arrow-3)"/><text x="487.5" y="528" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Add technical context and</tspan><tspan x="487.5" dy="20">escalate</tspan></text><path d="M610,570 L365,570" class="connector" marker-end="url(#arrow-3)"/><text x="610" y="636" text-anchor="middle" class="message-label"><tspan x="610" dy="0">Request the decision within this person's authority</tspan></text><path d="M365,658 L855,658" class="connector dashed" marker-end="url(#arrow-3)"/><text x="610" y="724" text-anchor="middle" class="message-label"><tspan x="610" dy="0">Record an explicit decision</tspan></text><path d="M855,746 L365,746" class="connector" marker-end="url(#arrow-3)"/><text x="470" y="812" text-anchor="middle" class="message-label"><tspan x="470" dy="0">Validate authority and</tspan><tspan x="470" dy="20">amend the contract if</tspan><tspan x="470" dy="20">needed</tspan></text><path d="M365,872 L560,872 L560,896 L365,896" class="connector" marker-end="url(#arrow-3)"/><text x="487.5" y="959" text-anchor="middle" class="message-label"><tspan x="487.5" dy="0">Show the recorded decision</tspan></text><path d="M365,981 L610,981" class="connector dashed" marker-end="url(#arrow-3)"/><text x="732.5" y="1047" text-anchor="middle" class="message-label"><tspan x="732.5" dy="0">Deliver the resolution to the same lead agent</tspan></text><path d="M365,1069 L1100,1069" class="connector" marker-end="url(#arrow-3)"/><text x="610" y="1135" text-anchor="middle" class="message-label"><tspan x="610" dy="0">Start the next run when eligible</tspan></text><path d="M1100,1157 L120,1157" class="connector" marker-end="url(#arrow-3)"/><text x="242.5" y="1223" text-anchor="middle" class="message-label"><tspan x="242.5" dy="0">Acknowledge the decision and</tspan><tspan x="242.5" dy="20">continue</tspan></text><path d="M120,1265 L365,1265" class="connector dashed" marker-end="url(#arrow-3)"/><g class="node primary"><rect x="18" y="20" width="204" height="84" rx="10"/><text x="120" y="68" text-anchor="middle" class=""><tspan x="120" dy="0">Cursor lead</tspan></text></g><g class="node primary"><rect x="263" y="20" width="204" height="84" rx="10"/><text x="365" y="68" text-anchor="middle" class=""><tspan x="365" dy="0">ai4good controller</tspan></text></g><g class="node primary"><rect x="508" y="20" width="204" height="84" rx="10"/><text x="610" y="68" text-anchor="middle" class=""><tspan x="610" dy="0">Volunteer</tspan></text></g><g class="node primary"><rect x="753" y="20" width="204" height="84" rx="10"/><text x="855" y="68" text-anchor="middle" class=""><tspan x="855" dy="0">Founder or NGO authority</tspan></text></g><g class="node primary"><rect x="998" y="20" width="204" height="84" rx="10"/><text x="1100" y="68" text-anchor="middle" class=""><tspan x="1100" dy="0">Cursor agent service</tspan></text></g></svg><details class="flow-steps"><summary>Read this flow as steps</summary><ol><li><strong>Cursor lead to ai4good controller.</strong> Raise a gate with context and affected work.</li><li><strong>ai4good controller to ai4good controller.</strong> Persist the gate and enforce the affected-work block.</li><li><strong>ai4good controller to Volunteer.</strong> Present the question and lead recommendation.</li><li><strong>Volunteer to ai4good controller.</strong> Add technical context and escalate.</li><li><strong>ai4good controller to Founder or NGO authority.</strong> Request the decision within this person's authority.</li><li><strong>Founder or NGO authority to ai4good controller.</strong> Record an explicit decision.</li><li><strong>ai4good controller to ai4good controller.</strong> Validate authority and amend the contract if needed.</li><li><strong>ai4good controller to Volunteer.</strong> Show the recorded decision.</li><li><strong>ai4good controller to Cursor agent service.</strong> Deliver the resolution to the same lead agent.</li><li><strong>Cursor agent service to Cursor lead.</strong> Start the next run when eligible.</li><li><strong>Cursor lead to ai4good controller.</strong> Acknowledge the decision and continue.</li></ol></details></div></figure><p>The lead can continue independent work while a gate remains open. It cannot perform the affected action or finish the build while a required gate remains unresolved.</p>
+<p>If all remaining work depends on the answer, the lead checkpoints and ends its current turn. The controller records that the build waits for a decision. The system does not spend model tokens repeatedly asking whether an answer has arrived.</p>
+<p>The controller queues a decision while the lead has an active run. It delivers the answer after that run ends, or after a controlled cancellation. Cursor allows one active run per agent. <a href="https://prod.cursor.com/docs/cloud-agent/api/endpoints" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents API</a></p>
+<p>The UI distinguishes &quot;decision recorded&quot; from &quot;lead received decision.&quot; A provider outage can delay delivery without losing the decision.</p>
+<p>A free-text discussion does not resolve a gate until an authorized participant confirms a concrete answer. Silence, a timeout, and the assistant&#39;s recommendation never count as approval.</p>
+<p>If a lead session is unavailable, recovery uses the saved contract, decisions, pushed work, and evidence. A replacement session has explicit lineage. The UI does not claim that it retained context which the provider lost.</p>
+</section><section aria-labelledby="9-state-and-durable-records"><h2 id="9-state-and-durable-records"><span class="section-number">09</span>State and durable records</h2><p>Project state, task state, build state, and handoff state describe different things. They must not share one overloaded status field.</p>
+<p>The current project lifecycle has nine states and no paused state. This proposal keeps those states during implementation planning. A project can remain <code>in_progress</code> while one build waits for a decision. See <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-005.5.md" target="_blank" rel="noopener noreferrer">project lifecycle</a>.</p>
+<p>The proposed build states are:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Build state</th>
+<th>Meaning</th>
+<th>Required transition evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Queued</td>
+<td>The controller accepts the contract and reserves funds.</td>
+<td>An authorized start action.</td>
+</tr>
+<tr>
+<td>Starting</td>
+<td>The controller prepares or locates the provider job.</td>
+<td>A durable dispatch record.</td>
+</tr>
+<tr>
+<td>Running</td>
+<td>The lead performs authorized engineering work.</td>
+<td>Observed provider execution.</td>
+</tr>
+<tr>
+<td>Waiting for decision</td>
+<td>No remaining authorized work can continue.</td>
+<td>An unresolved blocking gate and a checkpoint.</td>
+</tr>
+<tr>
+<td>Waiting for funds</td>
+<td>The controller prevents further spending.</td>
+<td>The applicable budget control.</td>
+</tr>
+<tr>
+<td>Verifying</td>
+<td>The workflow checks the implementation.</td>
+<td>A reported stage with referenced test activity.</td>
+</tr>
+<tr>
+<td>Ready for review</td>
+<td>The change satisfies the review-entry conditions.</td>
+<td>Required evidence and the current pull-request commit.</td>
+</tr>
+<tr>
+<td>Merged</td>
+<td>GitHub confirms the authorized merge.</td>
+<td>Merge identity plus the required approval and checks.</td>
+</tr>
+<tr>
+<td>Failed</td>
+<td>An unrecoverable error or retry limit ends this attempt.</td>
+<td>A failure record and preserved work.</td>
+</tr>
+<tr>
+<td>Cancelled</td>
+<td>The controller confirms that execution has stopped.</td>
+<td>Provider cancellation or termination evidence.</td>
+</tr>
+</tbody></table>
+</div><p>A running build can also have open gates. The UI shows those gates separately. This avoids creating a new state for every combination of stage and blocker.</p>
+<p>Cancellation has a requested status before confirmation. A button click alone does not establish that remote workers stopped. A successful agent run likewise does not establish that a task merged or a project completed.</p>
+<p>The proposed handoff states are not started, preparing, ready, transferring, verifying ownership, accepted, and blocked. These states belong to a handoff record. The proposed project-completion rule requires handoff acceptance as well as completed requirements. This changes the existing PRD.</p>
+<p>The following logical records support the flow. Existing tables should be extended where their meaning fits. Each row does not require a separate service.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Record</th>
+<th>Important relationships and contents</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Project</td>
+<td>NGO, volunteer assignment, lifecycle, platform target, and external resource identifiers.</td>
+</tr>
+<tr>
+<td>Artifact revision</td>
+<td>PRD or design content, author, approval state, version, and content digest.</td>
+</tr>
+<tr>
+<td>Board binding</td>
+<td>External task identity, requirement ancestry, dependencies, and authorized pull.</td>
+</tr>
+<tr>
+<td>Build contract</td>
+<td>Immutable approved inputs, policy, budget authorization, and amendments.</td>
+</tr>
+<tr>
+<td>Build</td>
+<td>Contract, requesting volunteer, state, stage, active provider attempt, and timestamps.</td>
+</tr>
+<tr>
+<td>Provider attempt</td>
+<td>Provider, agent identifier, run identifier, predecessor, status, and last received event.</td>
+</tr>
+<tr>
+<td>Worker observation</td>
+<td>Parent build, role, model, provider identity where available, and reported status.</td>
+</tr>
+<tr>
+<td>Decision gate</td>
+<td>Affected work, required authority, answer, contract revision, and delivery state.</td>
+</tr>
+<tr>
+<td>Build event</td>
+<td>Unique source event, build, sequence, event type, time, and permitted payload.</td>
+</tr>
+<tr>
+<td>Evidence</td>
+<td>Criterion, artifact location, test result, reviewer, source revision, and verification time.</td>
+</tr>
+<tr>
+<td>Budget reservation</td>
+<td>Project, spending category, build, reserved amount, and settlement state.</td>
+</tr>
+<tr>
+<td>Usage record</td>
+<td>Provider identifiers, category, requirement attribution, and reported token categories.</td>
+</tr>
+<tr>
+<td>Financial entry</td>
+<td>Provider billing reference, payment or consumption amount, and balanced corrections.</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>Environment, source revision, migration state, live URL, and release evidence.</td>
+</tr>
+<tr>
+<td>Handoff</td>
+<td>Resource checklist, source and destination ownership, repository mapping, and NGO acceptance.</td>
+</tr>
+</tbody></table>
+</div><p>The relationship is project, requirement, development item, build contract, build attempts, then evidence. Every attempt retains its history. A retry does not overwrite the failed attempt.</p>
+</section><section aria-labelledby="10-integration-and-monitoring"><h2 id="10-integration-and-monitoring"><span class="section-number">10</span>Integration and monitoring</h2><h3 id="application-operations">Application operations</h3><p>The browser uses ai4good operations, not arbitrary provider requests. The following names describe responsibilities rather than committed endpoint paths.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Checks and result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Start build</td>
+<td>Validate assignment, readiness, repository, policy, and funds. Return the existing build for a repeated request.</td>
+</tr>
+<tr>
+<td>Read build</td>
+<td>Validate project access. Return current state, public lead updates, gates, and evidence links.</td>
+</tr>
+<tr>
+<td>Send guidance</td>
+<td>Validate build access and scope. Record and queue guidance for the lead.</td>
+</tr>
+<tr>
+<td>Escalate gate</td>
+<td>Preserve the question and volunteer context. Route it to the required authority.</td>
+</tr>
+<tr>
+<td>Resolve gate</td>
+<td>Validate authority and contract revision. Record one answer and queue its delivery.</td>
+</tr>
+<tr>
+<td>Stop build</td>
+<td>Prevent new work, request cancellation, and track remote termination.</td>
+</tr>
+<tr>
+<td>Authorize merge or release</td>
+<td>Validate the concrete revision, evidence, and required human authority.</td>
+</tr>
+<tr>
+<td>Accept handoff</td>
+<td>Verify the resource checklist and record NGO acceptance.</td>
+</tr>
+</tbody></table>
+</div><p>The Cursor adapter uses the documented agent, run, stream, cancellation, model, usage, and artifact operations. Cursor v1 currently has no webhooks. The integration therefore uses its event stream plus status reconciliation. <a href="https://prod.cursor.com/docs/cloud-agent/api/endpoints" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents API</a></p>
+<p>GitHub webhooks supply code and review facts. The task integration supplies Linear facts. The controller authenticates incoming events, rejects cross-project identifiers, and handles duplicate delivery.</p>
+<h3 id="three-observation-sources">Three observation sources</h3><p>The build view combines different evidence without confusing their authority:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Establishes</th>
+<th>Does not establish</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Provider status</td>
+<td>Whether a run starts, runs, ends, or fails.</td>
+<td>Whether the implementation meets the PRD.</td>
+</tr>
+<tr>
+<td>Lead and pstack reports</td>
+<td>Current engineering stage, progress, questions, and worker observations.</td>
+<td>Permission to spend more, merge, or mark requirements complete.</td>
+</tr>
+<tr>
+<td>Independent artifacts and platform checks</td>
+<td>Tested behavior, checked commits, reviews, and deployment results.</td>
+<td>A change in product scope without approval.</td>
+</tr>
+</tbody></table>
+</div><p>Proposed event types include stage changed, worker observed, gate raised, decision delivered, evidence submitted, and pull request found. These are ai4good&#39;s integration events. They are not claims that Cursor emits native pstack events with those names.</p>
+<p>A small reporting bridge supplies missing pstack-specific events. Its credential can report only for the assigned build. It cannot resolve gates, change budgets, mark requirements complete, or publish an application.</p>
+<p>Cursor documents cloud response and subagent hooks. It also documents turns where hooks do not run. Hooks therefore support reporting, but they cannot be the sole authorization or monitoring control. <a href="https://prod.cursor.com/docs/hooks" target="_blank" rel="noopener noreferrer">Cursor hooks</a></p>
+<h3 id="recovery-behavior">Recovery behavior</h3><p>The controller records commands before sending them to a provider. It processes retries through a durable queue. A network timeout after job creation must lead to reconciliation, not an automatic second funded build.</p>
+<p>The adapter must prove duplicate-create handling in the chosen API configuration. An uncertain creation remains pending until the controller finds the job or establishes that creation failed.</p>
+<p>The receiver stores each event once and advances a per-attempt checkpoint. Repeated and late events cannot reopen a completed gate or move a terminal build backward.</p>
+<p>Cursor streams support reconnect checkpoints and finite retention. If the stream has expired, the controller reads terminal state and reports any remaining evidence gap. <a href="https://prod.cursor.com/docs/cloud-agent/api/endpoints" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents API</a></p>
+<p>If status becomes stale, the UI shows the last confirmed time. The controller suspends new spending when it cannot verify the safety of continued execution. It preserves contracts, decisions, and pushed work during recovery.</p>
+</section><section aria-labelledby="11-funding-usage-and-budget-limits"><h2 id="11-funding-usage-and-budget-limits"><span class="section-number">11</span>Funding, usage, and budget limits</h2><p>The NGO funds a project. The budget follows that project rather than a portable personal subscription.</p>
+<p>ai4good distinguishes spending categories within one financial system:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Planning</td>
+<td>Discovery, PRD discussion, design assistance, and related model work.</td>
+</tr>
+<tr>
+<td>Engineering</td>
+<td>The Cursor lead, workers, reviews, verification, and authorized retries.</td>
+</tr>
+<tr>
+<td>Platform operation</td>
+<td>ai4good infrastructure and shared administration, with an explicit funding policy.</td>
+</tr>
+<tr>
+<td>Destination costs</td>
+<td>Lovable credits, hosting, runtime AI, and connected services under the applicable owner.</td>
+</tr>
+</tbody></table>
+</div><p>No fixed planning-to-engineering percentage follows from the conversation. The project owner chooses allocations. A transfer between allocations requires the configured budget authority.</p>
+<p>Cursor service accounts use the team&#39;s usage pool. ai4good must still attribute that pooled consumption to the correct project. Availability of a service account does not establish the commercial terms for this external-volunteer service. <a href="https://prod.cursor.com/docs/account/enterprise/service-accounts" target="_blank" rel="noopener noreferrer">Cursor service accounts</a></p>
+<h3 id="discovery-pilot-free-turns-first-then-paid-dollars">Discovery pilot: free turns first, then paid dollars</h3>
+<p>Status: accepted direction from the follow-up conversation. This section records the intended behavior, not a shipped implementation.</p>
+<p>The pilot uses two units. One free credit covers one completed AI reply. Paid fuel is a USD balance. Free credits have no dollar conversion. Buying fuel preserves access to the remaining free allowance.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Discovery pilot allowances"><table>
+<thead><tr><th>Pilot allowance</th><th>Limit</th></tr></thead>
+<tbody>
+<tr><td>Free turns per project each day</td><td>10</td></tr>
+<tr><td>Free turns per project during the beta</td><td>50</td></tr>
+<tr><td>Initial cohort</td><td>20 NGOs, with one sponsored project each</td></tr>
+<tr><td>Total free beta allowance</td><td>1,000 turns across the cohort</td></tr>
+</tbody></table></div>
+<p>All NGO members share the project's limits. Paid turns do not reduce either free counter. The daily counter resets at 00:00 UTC, following the existing reset time. The UI shows the next reset in local time. Unused daily capacity does not accumulate. The remaining beta allowance persists between visits. Buying fuel, reopening Discovery, or recreating a project does not issue another beta grant.</p>
+<p>The backend selects the funding source before each turn:</p>
+<ol>
+<li>If daily and beta allowances remain, reserve one free turn. The completed reply uses one free credit and costs the NGO zero dollars.</li>
+<li>Otherwise, use the project's paid fuel if it can cover the authorized turn. Label the composer as paid before the NGO submits.</li>
+<li>If neither source is available, preserve the draft. Show the next free reset when applicable and the option to buy fuel.</li>
+</ol>
+<p>The funding source remains fixed for that turn. A free turn never becomes partly paid because it generates more tokens. When the daily allowance resets, eligible turns use it first again, even when paid fuel remains. If the beta allowance is exhausted, a daily reset does not create more free turns.</p>
+<p>Internal model calls and automatic retries belong to the same turn. They do not consume extra free credits. Failed turns release their free reservation. Reading, manual edits, reviews, approvals, and file uploads consume no free turns. Existing exemptions for bounded scope regeneration remain explicit exceptions to the turn charge. An atomic reservation prevents concurrent requests from claiming the same last free turn.</p>
+<p>Free turns use a platform-funded Discovery budget. Paid turns use the project's fuel budget. Provider reconciliation must preserve this separation. A funded project must never pay for its free turns. Exhausting paid fuel must not disable an otherwise eligible free turn.</p>
+<h3 id="paid-discovery-accounting">Paid Discovery accounting</h3>
+<p>The API reports token usage. The backend applies the rates for the model, service configuration, and rate version used by each call. The categories are uncached input, cache reads, cache writes, and output. Different cache-write durations use their applicable rates. The backend normalizes provider fields into non-overlapping categories. For Claude, ordinary input excludes cache reads and writes. <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching#tracking-cache-performance" target="_blank" rel="noopener noreferrer">Claude usage fields</a>.</p>
+<pre><code>AI cost in USD = sum of each call's token-category costs + separately billed tools
+Platform fee in USD = AI cost in USD * the configured fee rate
+Paid debit in USD = AI cost in USD + platform fee in USD</code></pre>
+<p>The current fee remains 15%, locked for the turn and shown separately. It is charged at consumption, not at top-up. Paid fuel appears as dollars, such as "$10.00 remaining". It never appears as an invented number of paid credits. For example, $0.040 of AI usage plus a $0.006 fee debits $0.046. The backend preserves fractions of a cent.</p>
+<p>The backend reserves an authorized paid amount before dispatch. It prices reported usage after each call and posts each consumption once. The turn record links the project, gate, funding source, provider request identifiers, raw usage, rates, fee, and resulting debit. A repeated completion event cannot create another debit. Missing final usage remains pending instead of being treated as zero. The UI shows the resulting turn charge and refreshed balance when usage is available. The backend reconciles these provisional debits with provider billing. It records visible adjustments instead of charging the same consumption twice.</p>
+<p>The Discovery panel shows today's remaining free turns, remaining beta turns, and the paid USD balance for Discovery. It also identifies whether the next turn is free or paid. Other gates' gauges remain outside this panel. Free turn quotas do not convert into paid dollars when a gate closes. Remaining paid allocations follow the gate carryover rule.</p>
+<p>This decision supersedes three earlier Discovery proposals: dollar-valued free credits, the $2 subsidy with 150 free credits, and paid-only routing for funded projects. The canonical PRD now records these Discovery pilot rules in REQ-002 and REQ-004. Implementation and acceptance verification remain open. REQ-006, REQ-009, and REQ-034 now record the paid Discovery metering exception. Gateway attribution remains separate from billing. These changes apply to platform-owned Discovery calls. They do not change the build gateway's accounting rules.</p>
+<h3 id="reservation-and-settlement">Build reservation and settlement</h3><p>Before a build starts, the controller reserves an authorized amount. Concurrent starts use a transaction so they cannot reserve the same available funds.</p>
+<p>The money ledger records provider-billed consumption. Reservations express authority to spend. They are not charges. When billing settles, the controller releases the unused reservation and records any correction with its provider reference.</p>
+<p>Unsettled usage remains reserved after a cancellation or apparent completion. The controller does not immediately make those funds available to another build while final charges remain unknown.</p>
+<p>For engineering builds, the proposal preserves the current distinction between money and attribution. Token records show reported tokens. They do not become final dollar charges through a local token-price calculation. See <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-034.md" target="_blank" rel="noopener noreferrer">requirement attribution</a>. Platform-owned Discovery calls follow the separate accounting rule above.</p>
+<p>Cursor documents usage by agent and run. The pilot must prove how billed cost links to that usage, including workers and retries. <a href="https://prod.cursor.com/docs/cloud-agent/api/endpoints" target="_blank" rel="noopener noreferrer">Cursor Cloud Agents API</a></p>
+<p>The NGO sees settled cost, pending consumption where supported, reservations, and remaining authorized funds as separate values. Missing billing evidence appears as pending or unavailable. It does not appear as a precise invented amount.</p>
+<p>Detailed development-run usage is a proposed addition. The current PRD exposes requirement-level token attribution to the NGO. Any finer public display needs a deliberate requirement change.</p>
+<h3 id="a-budget-field-is-not-a-hard-stop">A budget field is not a hard stop</h3><p>A prompt containing a maximum budget cannot enforce that budget. Neither can a dashboard that polls delayed usage.</p>
+<p>Before using real NGO funds, the integration must establish a provider-enforced spending limit or another verified mechanism with a known worst-case liability. The calculation must cover in-flight requests, reporting delay, cancellation delay, and delegated workers.</p>
+<p>If a strict per-build cap cannot be enforced, the platform cannot promise one. The founder must approve a bounded platform-funded overrun policy, or the provider arrangement must change. The NGO must never receive an automatic charge above its commitment.</p>
+<p>The controller limits concurrent work and stops further dispatch before available authority is exhausted. It confirms that cancellation reaches the entire funded build. A top-up does not clear a policy, revocation, or data-access block.</p>
+<p>The Discovery pilot rules above revise the proposed free allowance, funding order, and per-turn accounting. The platform share and minimum funding remain governed by the PRD. Other fuel rules remain unchanged unless this document identifies a specific follow-up decision.</p>
+<p>Lovable incubation creates a separate funding question. The existing PRD requires the NGO to pay Lovable directly and forbids debiting Lovable costs from fuel. Platform-funded incubation needs an explicit revised policy.</p>
+</section><section aria-labelledby="12-delivered-application-architecture"><h2 id="12-delivered-application-architecture"><span class="section-number">12</span>Delivered application architecture</h2><p>Each NGO application has its own code and backend resources. Its production data does not live in the ai4good coordination database.</p>
+<figure class="diagram"><figcaption><span class="figure-number">Figure 4</span> Application runtime and NGO maintenance</figcaption><p class="diagram-note">Scroll sideways to see the full diagram.</p><div class="diagram-scroll" tabindex="0" role="region" aria-label="Application runtime and NGO maintenance. Scroll horizontally if needed."><svg class="application-map" viewBox="0 0 995 1080" role="img" aria-labelledby="application-title application-desc" xmlns="http://www.w3.org/2000/svg"><title id="application-title">Delivered application and NGO maintenance</title><desc id="application-desc">The interface uses edge functions for business operations. Functions use the application database, authentication, storage, and approved services. NGO staff make changes in Lovable, preview them, and publish.</desc><defs><marker id="arrow-4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker><marker id="arrow-start-4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="#52708c" stroke-width="1.6"/></marker></defs><rect class="boundary delivery-boundary" x="20" y="750" width="915" height="300" rx="16"/><text class="boundary-label" x="42" y="782">NGO-controlled maintenance</text><path d="M475,102 L475,160" class="connector" marker-end="url(#arrow-4)"/><path d="M475,232 L475,295" class="connector" marker-end="url(#arrow-4)"/><path d="M475,367 L475,460" class="connector" marker-end="url(#arrow-4)"/><path d="M450,367 L450,410 L165,410 L165,460" class="connector" marker-end="url(#arrow-4)"/><path d="M500,367 L500,410 L785,410 L785,460" class="connector" marker-end="url(#arrow-4)"/><path d="M350,331 L20,331 L20,641 L40,641" class="connector" marker-end="url(#arrow-4)"/><path d="M475,605 L475,532" class="connector" marker-end="url(#arrow-4)"/><path d="M785,605 L940,605 L940,331 L600,331" class="connector" marker-end="url(#arrow-4)"/><path d="M290,846 L350,846" class="connector" marker-end="url(#arrow-4)"/><path d="M600,846 L660,846" class="connector" marker-end="url(#arrow-4)"/><path d="M785,882 L785,950" class="connector" marker-end="url(#arrow-4)"/><path d="M910,986 L968,986 L968,196 L600,196" class="connector" marker-end="url(#arrow-4)"/><g class="node human"><rect x="350" y="30" width="250" height="72" rx="10"/><text x="475" y="72" text-anchor="middle" class=""><tspan x="475" dy="0">NGO application user</tspan></text></g><g class="node primary"><rect x="350" y="160" width="250" height="72" rx="10"/><text x="475" y="192" text-anchor="middle" class=""><tspan x="475" dy="0">React and TypeScript</tspan><tspan x="475" dy="20">interface</tspan></text></g><g class="node primary"><rect x="350" y="295" width="250" height="72" rx="10"/><text x="475" y="337" text-anchor="middle" class=""><tspan x="475" dy="0">Application edge functions</tspan></text></g><g class="node "><rect x="40" y="460" width="250" height="72" rx="10"/><text x="165" y="502" text-anchor="middle" class=""><tspan x="165" dy="0">Managed authentication</tspan></text></g><g class="node data"><rect x="350" y="460" width="250" height="72" rx="10"/><text x="475" y="492" text-anchor="middle" class=""><tspan x="475" dy="0">Application PostgreSQL</tspan><tspan x="475" dy="20">database</tspan></text></g><g class="node "><rect x="660" y="460" width="250" height="72" rx="10"/><text x="785" y="502" text-anchor="middle" class=""><tspan x="785" dy="0">Managed storage</tspan></text></g><g class="node "><rect x="40" y="605" width="250" height="72" rx="10"/><text x="165" y="647" text-anchor="middle" class=""><tspan x="165" dy="0">Approved external services</tspan></text></g><g class="node "><rect x="350" y="605" width="250" height="72" rx="10"/><text x="475" y="637" text-anchor="middle" class=""><tspan x="475" dy="0">Database row-level</tspan><tspan x="475" dy="20">security</tspan></text></g><g class="node "><rect x="660" y="605" width="250" height="72" rx="10"/><text x="785" y="647" text-anchor="middle" class=""><tspan x="785" dy="0">Server-side secret storage</tspan></text></g><g class="node human"><rect x="40" y="810" width="250" height="72" rx="10"/><text x="165" y="852" text-anchor="middle" class=""><tspan x="165" dy="0">NGO staff</tspan></text></g><g class="node delivery"><rect x="350" y="810" width="250" height="72" rx="10"/><text x="475" y="852" text-anchor="middle" class=""><tspan x="475" dy="0">Lovable chat</tspan></text></g><g class="node delivery"><rect x="660" y="810" width="250" height="72" rx="10"/><text x="785" y="852" text-anchor="middle" class=""><tspan x="785" dy="0">Preview and checks</tspan></text></g><g class="node delivery"><rect x="660" y="950" width="250" height="72" rx="10"/><text x="785" y="992" text-anchor="middle" class=""><tspan x="785" dy="0">Publish approved changes</tspan></text></g></svg></div></figure><p>The UI calls edge functions for application data and business actions. It never queries the database directly. Functions authenticate requests, authorize resource access, validate input, and perform business operations. Database row-level security provides a further control. Secrets stay server-side. Authentication itself uses the supported provider flow. <a href="https://docs.lovable.dev/tips-tricks/security-best-practices" target="_blank" rel="noopener noreferrer">Lovable security model</a></p>
+<p>The application preserves its Lovable-generated project structure and supported build configuration. React and TypeScript do not imply a particular router or server framework. The current ai4good repository already uses TanStack Start.</p>
+<p>The preferred new-project target is Lovable Cloud because the maintenance goal includes backend operation. A connected Supabase project is an explicit alternative with additional ownership duties. These are distinct configurations. Existing Supabase projects cannot be assumed to move into Cloud automatically. <a href="https://docs.lovable.dev/features/cloud" target="_blank" rel="noopener noreferrer">Lovable Cloud</a></p>
+<p>A Vercel and v0 option remains an alternative discussed in the source. v0 documents work on an existing GitHub repository. It would need its own runtime, backend, billing, and handoff contract. This proposal does not add a second delivery implementation or migrate the ai4good platform to Next.js. <a href="https://v0.app/docs/git-import" target="_blank" rel="noopener noreferrer">v0 Git import</a></p>
+<h3 id="the-lovable-compatibility-contract">The Lovable compatibility contract</h3><p>Every generated project receives a versioned compatibility document, proposed as <code>docs/ai4good/LOVABLE_CONTRACT.md</code>. Project instructions require the lead, workers, and reviewers to read it. A corresponding Lovable knowledge entry carries the maintenance constraints after handoff.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Required rule</th>
+<th>Verification</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Frontend</td>
+<td>Preserve the supported project structure, design tokens, and build process.</td>
+<td>Build and exercise the actual screens in a browser.</td>
+</tr>
+<tr>
+<td>Application access</td>
+<td>Route application data and business actions through edge functions.</td>
+<td>Inspect requests and test the function boundary.</td>
+</tr>
+<tr>
+<td>Authorization</td>
+<td>Check identity and resource access on the server. Protect database rows.</td>
+<td>Test anonymous, wrong-user, and wrong-organization requests.</td>
+</tr>
+<tr>
+<td>Secrets</td>
+<td>Keep credentials out of browser bundles, public files, and agent reports.</td>
+<td>Inspect built assets and referenced configuration.</td>
+</tr>
+<tr>
+<td>Backend</td>
+<td>Use functions and libraries compatible with the selected runtime.</td>
+<td>Run the functions in that runtime.</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>Keep schema changes and access policies reproducible.</td>
+<td>Apply migrations to a clean test database and test protected operations.</td>
+</tr>
+<tr>
+<td>Runtime services</td>
+<td>Require only services covered by the approved handoff model.</td>
+<td>Compare actual dependencies against the resource inventory.</td>
+</tr>
+<tr>
+<td>Git connection</td>
+<td>Preserve the approved repository relationship until the planned handoff.</td>
+<td>Verify a code change reaches the connected Lovable project.</td>
+</tr>
+<tr>
+<td>Maintainability</td>
+<td>Keep code and operational instructions understandable to the destination editor.</td>
+<td>Have Lovable make and verify a representative maintenance change.</td>
+</tr>
+</tbody></table>
+</div><p>The default excludes a required custom persistent server, unmanaged queue worker, Redis cluster, Kubernetes deployment, or other service the NGO cannot operate. A development container does not violate this rule. The restriction concerns the delivered runtime.</p>
+<p>A library is not rejected merely because it also supports Node.js. The relevant check is whether its actual runtime dependencies work in the approved function environment.</p>
+<p>If a requirement needs unsupported infrastructure, the lead raises a compatibility gate. The normal response is to redesign or reduce the feature. A different delivery model requires a founder decision and a PRD change. The current MVP declines work that cannot meet conversational-maintenance fit.</p>
+<p>Instructions alone are insufficient. CI and independent review check the contract. Platform access controls protect operations that agent-editable files cannot enforce.</p>
+</section><section aria-labelledby="13-verification-merge-and-deployment"><h2 id="13-verification-merge-and-deployment"><span class="section-number">13</span>Verification, merge, and deployment</h2><p>Verification covers application behavior, the approved design, and destination-platform operation.</p>
+<p>The evidence set includes acceptance results, relevant unit and integration tests, browser checks, security checks, independent review, and the tested commit. UI evidence includes responsive behavior, error states, and keyboard access where applicable.</p>
+<p>A new commit invalidates evidence that depended on the previous revision. The controller rechecks the current pull-request head before accepting review readiness or a merge authorization.</p>
+<p>The current project rule requires both green CI on the exact head and explicit founder authorization to merge. The lead does not steer the board. The product integration must encode any future delegated merge authority explicitly. A build-start action does not grant merge authority. See <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/AGENTS.md" target="_blank" rel="noopener noreferrer">project instructions</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.github/workflows/ci.yml" target="_blank" rel="noopener noreferrer">current CI configuration</a>.</p>
+<p>The release sequence has separate results:</p>
+<ol>
+<li>Required checks and review establish that the proposed code can merge.</li>
+<li>The authorized actor merges the checked revision.</li>
+<li>The controller verifies the merged source in the connected Lovable project.</li>
+<li>The release process applies the required backend changes through a supported path.</li>
+<li>The verifier checks the application against the intended backend environment.</li>
+<li>The release authority publishes the tested application.</li>
+<li>A live check confirms the released behavior and records the deployment.</li>
+</ol>
+<p>Lovable publishes a snapshot. Later source changes require another publish action to reach the live site. Git synchronization therefore cannot be treated as proof of production deployment. <a href="https://docs.lovable.dev/features/publish" target="_blank" rel="noopener noreferrer">Lovable publishing</a></p>
+<p>A merged migration file is also not proof that a database applied it. The integration must verify deployed functions, schema, policies, secrets, and authentication configuration separately. The pilot must establish how externally authored backend changes reach Lovable Cloud without using Lovable as the coding agent.</p>
+<p>Backend changes need a safe release order. If a schema change is destructive, the contract requires the appropriate approval and a tested recovery plan. A source-code rollback does not undo data loss.</p>
+<p>Lovable compatibility checks run at agreed milestones and before handoff. The verifier checks that the project loads, previews, publishes, and remains editable through chat. A local successful build alone cannot establish those properties.</p>
+</section><section aria-labelledby="14-handoff-and-ngo-operation"><h2 id="14-handoff-and-ngo-operation"><span class="section-number">14</span>Handoff and NGO operation</h2><p>The conversation chooses platform-led provisioning followed by transfer to the NGO. Handoff transfers operational control of a running application. Sharing a project link or giving editor access does not complete that transfer.</p>
+<h3 id="repository-continuity-needs-an-explicit-choice">Repository continuity needs an explicit choice</h3><p>Lovable supports project moves between workspaces. Its current GitHub documentation says that such a move disconnects GitHub and that reconnection creates a new repository. Repository transfers between GitHub owners also break synchronization. Repository renames alone now retain synchronization, which corrects an earlier claim in the conversation. <a href="https://docs.lovable.dev/features/workspace" target="_blank" rel="noopener noreferrer">Lovable workspace</a>, <a href="https://docs.lovable.dev/integrations/github" target="_blank" rel="noopener noreferrer">Lovable GitHub integration</a></p>
+<p>Two handoff designs need evaluation before implementation:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Design</th>
+<th>Consequence</th>
+<th>Unproven part</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Move the project from a shared ai4good workspace to the NGO workspace.</td>
+<td>Plan a new GitHub connection and active repository at handoff. Preserve the original repository as build history.</td>
+<td>Full backend transfer, destination connection, retained history, and permissions need an end-to-end test.</td>
+</tr>
+<tr>
+<td>Create a dedicated workspace for one NGO and transfer workspace ownership.</td>
+<td>Avoid a project move as the intended handoff mechanism.</td>
+<td>Confirm billing, Git authorization, backend ownership, and synchronization continuity in this exact arrangement.</td>
+</tr>
+</tbody></table>
+</div><p>Lovable documents workspace ownership transfer, but that fact alone does not prove the second design preserves every integration. <a href="https://docs.lovable.dev/features/workspace" target="_blank" rel="noopener noreferrer">Lovable workspace ownership</a></p>
+<p>The first design most closely follows the final conversation. Its new repository must be a controlled continuation of the same application. ai4good records the old and new repository identities and their effective dates. Previous build evidence continues to reference its original repository.</p>
+<p>The handoff preserves full source history and release evidence separately if the new connection does not carry them. It compares source content before and after reconnection. It does not assume that a new repository retains commit identifiers.</p>
+<p>The second design may reduce handoff work, but it remains a proposal. Neither design changes the existing rule that branches and worktrees need an explicit founder decision before deletion.</p>
+<h3 id="handoff-evidence">Handoff evidence</h3><p>The resource inventory names an owner and a verification result for every required resource.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Evidence required before acceptance</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lovable workspace and project</td>
+<td>The NGO&#39;s named owner can administer the intended project.</td>
+</tr>
+<tr>
+<td>GitHub repository and history</td>
+<td>The active connection works. The NGO has the agreed access. Build history remains available.</td>
+</tr>
+<tr>
+<td>Database and access policies</td>
+<td>The correct data is present. Protected operations enforce the expected access.</td>
+</tr>
+<tr>
+<td>Edge functions</td>
+<td>Deployed functions match the accepted release and use the intended backend.</td>
+</tr>
+<tr>
+<td>Authentication</td>
+<td>NGO administration, login, recovery, and redirect configuration work.</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>File access and upload behavior work under the intended permissions.</td>
+</tr>
+<tr>
+<td>Domain and DNS</td>
+<td>The NGO controls the required domain and the live address resolves correctly.</td>
+</tr>
+<tr>
+<td>Secrets and integrations</td>
+<td>The application uses NGO-authorized credentials and accounts.</td>
+</tr>
+<tr>
+<td>Billing</td>
+<td>The NGO understands and controls ongoing platform and service costs.</td>
+</tr>
+<tr>
+<td>Recovery</td>
+<td>A usable backup and restoration procedure exists for the chosen services.</td>
+</tr>
+<tr>
+<td>Chat maintenance</td>
+<td>NGO staff complete a representative change, preview it, and publish it.</td>
+</tr>
+<tr>
+<td>Former build access</td>
+<td>Platform and volunteer access ends or remains only under an explicit support agreement.</td>
+</tr>
+</tbody></table>
+</div><p>The handoff first freezes the release and records outstanding work. It then transfers resources, verifies them, and obtains NGO acceptance. A failed resource check leaves handoff blocked with a named owner and next action.</p>
+<p>A Lovable workspace move can change collaborator access and reset project access to the destination default. The handoff therefore checks visibility and collaborators again. <a href="https://docs.lovable.dev/features/projects/settings" target="_blank" rel="noopener noreferrer">Lovable project settings</a></p>
+<p>The NGO maintenance test uses a harmless representative change, such as changing a contact label. It also confirms a backend-related change when backend maintenance is part of the promised scope. The NGO completes the test without relying on the volunteer&#39;s personal credentials.</p>
+<p>After acceptance, ordinary operation and chat maintenance use NGO-owned resources. ai4good can retain coordination history and final evidence. It is not on the application&#39;s request path. Any embedded runtime AI uses the NGO&#39;s approved runtime funding arrangement, not a former build credential.</p>
+</section><section aria-labelledby="15-security-privacy-and-operations"><h2 id="15-security-privacy-and-operations"><span class="section-number">15</span>Security, privacy, and operations</h2><p>The platform stores master provider credentials in its trusted backend. It does not place them in browser code, build briefs, public repositories, or developer-accessible execution environments.</p>
+<p>Runtime credentials have the narrowest available scope. A build receives only the project resources it needs. A short-lived credential can still be readable by code in that environment, so expiry alone is not isolation.</p>
+<p>The backend checks organization, project, build, repository, and action authority on every request. Public source code does not make project discussions, decisions, attachments, or billing public.</p>
+<p>The developer sees the engineering lead and detailed evidence. The NGO sees approved product context, requirement progress, its questions, and its spending. The founder sees only the projects and operations within the founder&#39;s administrative authority.</p>
+<p>The current repository permits only limited NGO membership. Additional budget-owner or product-owner roles in this proposal need an explicit membership design. They must not appear as an accidental consequence of shared chat.</p>
+<h3 id="stored-content">Stored content</h3><p>The current PRD prohibits storage of raw build request and response bodies. The proposed lead mirror therefore requires a precise content policy before implementation. It cannot be introduced as an unrestricted copy of every worker transcript.</p>
+<p>The proposed default stores approved project documents, intentional user-facing lead messages, decision discussions, structured progress, and selected verification artifacts. Usage records contain metadata and token counts only. Raw model reasoning, shell payloads, and complete worker transcripts are not default product records.</p>
+<p>This default still extends the current build-content posture and requires a PRD amendment. The amendment must define audience, consent, retention, redaction, and deletion behavior. Sensitive NGO production data remains outside build prompts and fixtures unless an authorized requirement changes that policy.</p>
+<p>Attachments and repository content are task data. They cannot grant permission, resolve a gate, raise a budget, or override the build contract.</p>
+<h3 id="operational-behavior">Operational behavior</h3><p>The controller must recover after process restarts. Pending dispatches, unanswered gates, usage settlement, and handoff steps remain durable. Notification delivery uses a recorded queue and duplicate protection.</p>
+<p>The first operating view tracks queued and active builds, stale provider status, failed decisions, unsettled spending, failed releases, and blocked handoffs. It links each problem to the affected project and responsible person.</p>
+<p>If a volunteer leaves, the controller stops or safely suspends that volunteer&#39;s active builds and removes authorization. The project retains its history and remaining funds under the rematch rules. A successor receives a new authorization with the existing evidence.</p>
+<p>The operational plan needs recovery procedures for provider outages, credential compromise, duplicate dispatch, delayed billing, failed backend deployment, and incomplete handoff. Existing availability and recovery targets remain requirements until the PRD revises them. Cloud build capacity and vendor charges require a new infrastructure budget.</p>
+</section><section aria-labelledby="16-provider-choice-and-unresolved-integration-work"><h2 id="16-provider-choice-and-unresolved-integration-work"><span class="section-number">16</span>Provider choice and unresolved integration work</h2><p>Cursor is the initial engineering provider in the final conversation. Lovable is the initial application destination. A small execution adapter keeps provider identifiers and request formats out of the product&#39;s core records.</p>
+<p>The adapter boundary covers start, observe, deliver guidance, stop, retrieve evidence, and reconcile usage. It does not promise that every provider exposes identical capabilities.</p>
+<p>OpenAI Agents API is a future execution option discussed in the source. Official documentation describes managed Codex sessions, tools, and selectable execution environments. Supporting it would require a separate validated adapter. It does not automatically reproduce the selected pstack model mix. <a href="https://developers.openai.com/api/docs/guides/agents-api/overview" target="_blank" rel="noopener noreferrer">OpenAI Agents API overview</a></p>
+<p>The proposal does not require volunteers to buy a particular local IDE subscription. Personal IDE use can remain optional. NGO-funded engineering enters through ai4good&#39;s controlled build operation. Shared personal logins, pre-authenticated development boxes, and broad provider keys in workspaces are not part of this design.</p>
+<p>Self-hosted workers are a deployment option, not a prerequisite. They do not remove provider-side model processing or establish that all data stays on the worker. A self-hosted option needs its own access, retention, network, and operating-cost review.</p>
+<p>Documentation establishes several building blocks. It does not establish this complete integration. The following tests remain necessary:</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Integration</th>
+<th>Evidence still required</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cursor and the selected pstack version</td>
+<td>A launched cloud lead loads the correct skills and completes the intended workflow.</td>
+</tr>
+<tr>
+<td>Model roles</td>
+<td>Every configured role uses its approved provider, model, and effort. Unsupported roles fail visibly.</td>
+</tr>
+<tr>
+<td>Subagents</td>
+<td>The required delegation works through this API-launched environment, with known isolation and termination behavior.</td>
+</tr>
+<tr>
+<td>Progress mirror</td>
+<td>User-facing lead updates and decision gates arrive reliably without storing unrestricted model or tool content.</td>
+</tr>
+<tr>
+<td>Budget enforcement</td>
+<td>The entire build has a proven liability bound and reconciles to provider billing.</td>
+</tr>
+<tr>
+<td>Cancellation</td>
+<td>Parent and delegated work stop, with remaining usage settled correctly.</td>
+</tr>
+<tr>
+<td>Lovable backend</td>
+<td>An externally authored function and migration reach the intended Cloud backend through a supported release path.</td>
+</tr>
+<tr>
+<td>Lovable handoff</td>
+<td>The chosen transfer design preserves application behavior and establishes NGO control.</td>
+</tr>
+<tr>
+<td>Commercial access</td>
+<td>The provider arrangement covers ai4good&#39;s intended volunteer and NGO service.</td>
+</tr>
+</tbody></table>
+</div><p>No paid cloud build, account transfer, or deployment was performed while preparing this document. Provider checks were documentation checks.</p>
+</section><section aria-labelledby="17-changes-needed-in-the-existing-prd"><h2 id="17-changes-needed-in-the-existing-prd"><span class="section-number">17</span>Changes needed in the existing PRD</h2><p>The current PRD remains the implementation baseline until this proposal is integrated. Section 11 records accepted Discovery funding changes that supersede older design decisions and still need PRD integration. The older architecture notes contain prior design discussions, including superseded fuel mechanisms.</p>
+<p>The checked-out repository supplies an existing foundation. <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/package.json" target="_blank" rel="noopener noreferrer">Package configuration</a> identifies TanStack Start, React, TypeScript, and the Supabase toolchain. <a href="https://github.com/nirdrang/ai4good/tree/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/supabase/functions" target="_blank" rel="noopener noreferrer">Edge functions</a> cover account and organization operations and project reads. <a href="https://github.com/nirdrang/ai4good/tree/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/supabase/migrations" target="_blank" rel="noopener noreferrer">Migrations</a> include accounts, organizations, memberships, projects, audit records, and notification records.</p>
+<p>This inventory is not evidence that the proposed cloud build system is implemented or deployed. The target adds contracts, provider attempts, gates, build supervision, release evidence, and handoff records around that foundation.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Existing requirement or document</th>
+<th>Current position</th>
+<th>Required integration change</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Executive summary, build user story, technical partners</td>
+<td>Claude Code is the volunteer entry point. Anthropic is the fixed model provider.</td>
+<td>Introduce ai4good as the planning and supervision interface, with Cursor and pstack as the initial cloud executor.</td>
+</tr>
+<tr>
+<td>Discovery allowance, fuel, and usage attribution</td>
+<td>The PRD now uses 10 daily and 50 beta free turns per enrolled project, followed by metered paid USD. Implementation is reopened.</td>
+<td>Implement and verify the integrated free-first policy, the agreed Discovery interface, and separation of sponsored costs from NGO fuel.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-004.md" target="_blank" rel="noopener noreferrer">Discovery</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-036.md" target="_blank" rel="noopener noreferrer">project PRD</a></td>
+<td>The volunteer authors the PRD after kickoff. An automated score unlocks decomposition.</td>
+<td>Define shared planning, artifact ownership, design readiness, and the relationship between human decisions and the completeness score.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-005.5.md" target="_blank" rel="noopener noreferrer">Project lifecycle</a></td>
+<td>Nine project states. Operational blockers do not create extra lifecycle states.</td>
+<td>Add separate build and handoff records. Revise the completion transition only after the new handoff rule is approved.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-006.md" target="_blank" rel="noopener noreferrer">Fuel</a>, <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-009.md" target="_blank" rel="noopener noreferrer">gateway</a>, and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-024.md" target="_blank" rel="noopener noreferrer">blockers</a></td>
+<td>The volunteer uses an Anthropic virtual key. A provider-specific monitor controls fuel access.</td>
+<td>Specify pooled Cursor consumption, reservations, settlement, and verified stop behavior. Preserve bounded NGO commitments.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-007.md" target="_blank" rel="noopener noreferrer">Volunteer matching</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-027.md" target="_blank" rel="noopener noreferrer">rematch</a></td>
+<td>One assigned volunteer receives local tool and project access.</td>
+<td>Define cloud supervision authority and the stop-and-reassign behavior for active builds.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-008.md" target="_blank" rel="noopener noreferrer">GitHub integration</a></td>
+<td>The repository remains in the platform organization permanently. No transfer occurs.</td>
+<td>Reconcile that rule with the chosen Lovable handoff design and any new active repository. Preserve prior evidence and history.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-026.md" target="_blank" rel="noopener noreferrer">Task management</a></td>
+<td>Linear holds requirement and development trees. Pull and verified completion control requirement status.</td>
+<td>Add bounded build authorization without creating a competing task-status authority. Define parallel-build ownership.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-025.md" target="_blank" rel="noopener noreferrer">Scope additions</a></td>
+<td>Scope changes follow the existing volunteer and NGO protocol.</td>
+<td>Bind approved changes to contract amendments and revalidate dependent work.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-010.md" target="_blank" rel="noopener noreferrer">Project page</a>, <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-015.md" target="_blank" rel="noopener noreferrer">messages</a>, and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-016.md" target="_blank" rel="noopener noreferrer">notifications</a></td>
+<td>The platform presents project status, questions, and notifications.</td>
+<td>Add lead progress, durable gates, escalation routing, decision delivery, and stale-status behavior.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-021.md" target="_blank" rel="noopener noreferrer">Lovable integration</a></td>
+<td>The NGO creates and funds its workspace. Claude Code drives UI work through Lovable.</td>
+<td>Specify ai4good-led provisioning, direct repository engineering, compatibility checks, and destination ownership. Resolve incubation funding.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-012.md" target="_blank" rel="noopener noreferrer">Project completion</a> and the <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/roadmap.md" target="_blank" rel="noopener noreferrer">roadmap</a></td>
+<td>Formal handoff, a live-URL gate, and a maintenance walkthrough are deferred.</td>
+<td>Bring the necessary handoff checks into scope. Require a running release and demonstrated NGO maintenance before final acceptance.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-028.md" target="_blank" rel="noopener noreferrer">Volunteer skill</a></td>
+<td>The local Claude Code skill is optional and can be disabled.</td>
+<td>Define a mandatory cloud build contract and pinned workflow. Preserve any optional local workflow as a separate policy choice.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-033.md" target="_blank" rel="noopener noreferrer">Project assistant</a></td>
+<td>Only the NGO gets a read-only assistant after kickoff.</td>
+<td>Define shared planning access and a separate volunteer build conversation. State which assistant actions can propose changes or submit authorized requests.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-032.md" target="_blank" rel="noopener noreferrer">Reference files</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-034.md" target="_blank" rel="noopener noreferrer">attribution</a></td>
+<td>Attachments have access rules. Attribution is requirement-level, token-based, and excludes raw build bodies.</td>
+<td>Define build-context export and lead-message retention. Decide internal run-level records while preserving honest requirement-level totals.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-030.md" target="_blank" rel="noopener noreferrer">Operations</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/.taskmaster/docs/requirements/req-031.md" target="_blank" rel="noopener noreferrer">moderation</a></td>
+<td>Controls target the existing gateway and project workflow.</td>
+<td>Cover Cursor credentials, remote execution, event recovery, failed releases, and incomplete ownership transfers.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/AGENTS.md" target="_blank" rel="noopener noreferrer">Project instructions</a> and <a href="https://github.com/nirdrang/ai4good/blob/c46236c270a4d69cd97e14ce3c0ca3a6a537ecb0/CLAUDE.md" target="_blank" rel="noopener noreferrer">shared Claude instructions</a></td>
+<td>Non-trivial UI work must use Lovable MCP.</td>
+<td>Change this rule explicitly when adopting direct Cursor UI construction. Keep both instruction files aligned.</td>
+</tr>
+<tr>
+<td>Non-functional requirements</td>
+<td>Existing cost, capacity, reliability, and recovery assumptions.</td>
+<td>Reassess those assumptions for long-running jobs, event streams, provider charges, and the new handoff process.</td>
+</tr>
+</tbody></table>
+</div><p>The isolated files under <code>requirements/</code> say that they are extracts from the PRD. PRD integration must update the authoritative text and refresh those extracts together. Acceptance specifications and expected-test manifests must then follow the revised requirements.</p>
+</section><section aria-labelledby="18-implementation-sequence-and-acceptance-evidence"><h2 id="18-implementation-sequence-and-acceptance-evidence"><span class="section-number">18</span>Implementation sequence and acceptance evidence</h2><p>The following sequence builds verifiable parts. It is a proposed plan, not a set of completed tasks or a change to the board.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Work</th>
+<th>Exit evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1. Validate the provider path</td>
+<td>Test one approved sample application through Cursor, pstack, Lovable backend deployment, and the proposed ownership transfer.</td>
+<td>A complete record of capabilities, failures, billing attribution, and handoff behavior.</td>
+</tr>
+<tr>
+<td>2. Integrate the requirements</td>
+<td>Resolve the decisions in section 19 and revise the affected PRD text.</td>
+<td>Consistent requirements, authority rules, acceptance specifications, and project instructions.</td>
+</tr>
+<tr>
+<td>3. Add build records</td>
+<td>Implement contracts, artifact versions, reservations, gates, provider attempts, and event history.</td>
+<td>Duplicate starts and unauthorized access cannot create or alter work.</td>
+</tr>
+<tr>
+<td>4. Connect planning to the board</td>
+<td>Add approved revisions and readiness checks around the existing requirement model.</td>
+<td>A selected item resolves to a complete, versioned contract.</td>
+</tr>
+<tr>
+<td>5. Run one cloud build</td>
+<td>Implement the Cursor adapter, background dispatch, progress mirror, and provider reconciliation.</td>
+<td>Work continues after browser closure and survives a controller restart.</td>
+</tr>
+<tr>
+<td>6. Complete the human loop</td>
+<td>Add volunteer questions, escalation, explicit decisions, and delivery to the lead.</td>
+<td>A gate blocks affected work, the correct person resolves it, and the same lead continues.</td>
+</tr>
+<tr>
+<td>7. Enforce verification and release</td>
+<td>Bind tests and review to code, enforce merge authority, and verify backend deployment and publishing.</td>
+<td>A newer commit invalidates old evidence. The accepted live application matches the approved release.</td>
+</tr>
+<tr>
+<td>8. Complete handoff and rematch</td>
+<td>Implement the ownership checklist, maintenance test, offboarding, and abandoned-build recovery.</td>
+<td>NGO operation succeeds without build credentials. A successor can resume authorized unfinished work.</td>
+</tr>
+<tr>
+<td>9. Expand the pilot</td>
+<td>Increase project count and concurrency within tested budgets.</td>
+<td>Billing, isolation, cancellation, and support load remain within approved limits.</td>
+</tr>
+</tbody></table>
+</div><p>The end-to-end acceptance set must include these failure cases:</p>
+<ul>
+<li>A user from another NGO cannot read a private build or resolve its gate.</li>
+<li>Two identical start requests create one funded build.</li>
+<li>Two competing starts cannot reserve the same project funds.</li>
+<li>A provider timeout after creation does not cause a second build.</li>
+<li>A controller restart retains pending decisions and resumes event processing.</li>
+<li>A repeated or late event cannot duplicate a charge or reverse completion.</li>
+<li>A volunteer cannot approve an NGO budget increase without that role.</li>
+<li>A gate answer for an old contract cannot authorize the changed contract.</li>
+<li>A blocked action cannot proceed merely because the agent reports approval.</li>
+<li>A stop request confirms termination of delegated work and settles delayed usage.</li>
+<li>A budget stop prevents further authorized spending under the proven control.</li>
+<li>A passing test on an old commit cannot authorize a newer commit.</li>
+<li>A finished cloud run without merge evidence cannot complete its requirement.</li>
+<li>A successful frontend build cannot conceal a missing migration or function deployment.</li>
+<li>A workspace transfer cannot count as handoff while Git sync or ownership remains broken.</li>
+<li>NGO staff can change, preview, and publish the accepted application without the volunteer&#39;s credentials.</li>
+</ul>
+<p>New acceptance identifiers must use the repository&#39;s existing <code>atTest</code> registration and expected manifests. These proposed checks do not create new acceptance identifiers in this document.</p>
+</section><section aria-labelledby="19-decisions-required-before-production-implementation"><h2 id="19-decisions-required-before-production-implementation"><span class="section-number">19</span>Decisions required before production implementation</h2><p>These are open decisions, not assumed approvals. They do not block review of this architecture document.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Required authority or evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Who supplies Cursor access and which commercial arrangement covers volunteers?</td>
+<td>Founder selection supported by provider confirmation.</td>
+</tr>
+<tr>
+<td>How is each NGO&#39;s maximum financial liability enforced across all workers?</td>
+<td>A tested spending limit or an approved, bounded platform-funded overrun policy.</td>
+</tr>
+<tr>
+<td>How does provider billing reconcile to a project, build, and run?</td>
+<td>A real billing sample that covers parent work, delegation, retries, and cancellation.</td>
+</tr>
+<tr>
+<td>Which Lovable ownership-transfer design becomes standard?</td>
+<td>An end-to-end comparison of workspace move and workspace ownership transfer.</td>
+</tr>
+<tr>
+<td>Must the same GitHub repository survive handoff?</td>
+<td>Explicit ownership and history requirements, reconciled with Lovable&#39;s connection behavior.</td>
+</tr>
+<tr>
+<td>Is Lovable Cloud mandatory for new applications?</td>
+<td>A supported backend release path and a demonstrated NGO maintenance flow.</td>
+</tr>
+<tr>
+<td>Who pays Lovable costs before handoff?</td>
+<td>An explicit change to the current direct-payment rule if ai4good funds incubation.</td>
+</tr>
+<tr>
+<td>Who approves product scope, merges, releases, budget changes, and data access?</td>
+<td>Named roles and assignments. The founder&#39;s current merge rule remains until changed.</td>
+</tr>
+<tr>
+<td>What lead conversation content may ai4good retain and show?</td>
+<td>A precise amendment to the current no-build-bodies policy, with access and retention rules.</td>
+</tr>
+<tr>
+<td>Does ai4good retain the current Linear model?</td>
+<td>Confirmation of requirement-tree authority and the allowed development-tree views.</td>
+</tr>
+<tr>
+<td>Which pstack capabilities and model routes work in API-launched Cursor jobs?</td>
+<td>A tested, pinned configuration with visible handling of unavailable roles.</td>
+</tr>
+<tr>
+<td>Which backend changes can the NGO maintain through chat without technical help?</td>
+<td>Representative frontend, function, schema, and recovery tests on the selected destination.</td>
+</tr>
+</tbody></table>
+</div></section><section aria-labelledby="20-source-coverage"><h2 id="20-source-coverage"><span class="section-number">20</span>Source coverage</h2><p>The <a href="https://chatgpt.com/share/6aa68591-5740-83eb-96a9-99988da7f3c7" target="_blank" rel="noopener noreferrer">shared conversation</a> evolves through several alternatives. This document preserves the final direction and identifies earlier proposals that did not become the target.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable reference table"><table>
+<thead>
+<tr>
+<th>Conversation exchanges</th>
+<th>Subject</th>
+<th>Treatment here</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 through 6</td>
+<td>Hidden credentials, subscriptions, team seats, gateways, and hosted execution.</td>
+<td>Backend-held service access. No shared personal login or provider credential in a workspace.</td>
+</tr>
+<tr>
+<td>7 through 9</td>
+<td>Cloud-funded work, OpenAI alternatives, and multi-agent workflows.</td>
+<td>Cursor first, optional future adapter, and a project budget rather than a volunteer allowance.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Shared planning, board readiness, initiation, monitoring, and planning/build spending.</td>
+<td>Planning revisions, build contracts, asynchronous dispatch, and separate spending categories.</td>
+</tr>
+<tr>
+<td>11 through 12</td>
+<td>Lead mirroring and the location of pstack.</td>
+<td>One Cursor engineering lead, mirrored through ai4good, with pstack in the cloud execution arrangement.</td>
+</tr>
+<tr>
+<td>13 through 14</td>
+<td>Founder intervention, volunteer supervision, NGO authority, and board governance.</td>
+<td>Durable gates, explicit role authority, escalation, and continuation of the same lead.</td>
+</tr>
+<tr>
+<td>15 through 18</td>
+<td>UI construction, alternative destinations, and a complete application runtime.</td>
+<td>Direct repository engineering, edge-function boundaries, and destination-managed operation.</td>
+</tr>
+<tr>
+<td>19 through 21</td>
+<td>Lovable MCP, initial provisioning, and NGO transfer.</td>
+<td>No MCP dependency for routine coding. Platform operations and ownership transfer remain explicit work.</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Compatibility knowledge and verification.</td>
+<td>A versioned compatibility contract with code, runtime, and maintenance checks.</td>
+</tr>
+</tbody></table>
+</div><p>Official documentation links sit beside the provider facts they support. The main corrections to the conversation concern Cursor run continuation, Lovable publication, and GitHub connection behavior during transfer.</p>
+<p>The proposed data records, retry handling, authority checks, and implementation sequence are architectural synthesis. They are not quotations, existing implementation claims, or additional founder rulings.</p>
+</section></article><footer class="document-footer">End of the architecture reference. <a href="#top">Back to top</a></footer></main></div>
+<script>const toggle = document.getElementById('menu-toggle');
+const contents = document.getElementById('contents');
+const links = [...contents.querySelectorAll('a[href^="#"]')];
+const headings = [...document.querySelectorAll('article h2')];
+
+function closeContents(restoreFocus = false) {
+  contents.classList.remove('is-open');
+  toggle.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+  if (restoreFocus) toggle.focus();
+}
+
+toggle.addEventListener('click', () => {
+  const open = toggle.getAttribute('aria-expanded') !== 'true';
+  toggle.setAttribute('aria-expanded', String(open));
+  contents.classList.toggle('is-open', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+});
+links.forEach(link => link.addEventListener('click', () => closeContents()));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') closeContents(true);
+});
+window.matchMedia('(min-width: 801px)').addEventListener('change', event => {
+  if (event.matches) closeContents();
+});
+
+let scheduled = false;
+function updateCurrentSection() {
+  let active = headings[0];
+  for (const heading of headings) {
+    if (heading.getBoundingClientRect().top <= 170) active = heading;
+    else break;
+  }
+  links.forEach(link => {
+    if (link.hash === `#${active.id}`) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+  scheduled = false;
+}
+window.addEventListener('scroll', () => {
+  if (!scheduled) {
+    scheduled = true;
+    requestAnimationFrame(updateCurrentSection);
+  }
+}, { passive: true });
+updateCurrentSection();
+</script></body></html>

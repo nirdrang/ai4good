@@ -1,0 +1,590 @@
+<div id="discovery-credits" aria-label="ai4good discovery with credits per step" data-layout="side" data-explanations="visible">
+  <style>
+    #discovery-credits {
+      --dr-paper: light-dark(#ffffff, #19201c);
+      --dr-soft: light-dark(#f5f8f4, #232d26);
+      --dr-ink: light-dark(#21372c, #e9f1e9);
+      --dr-muted: light-dark(#5d7062, #aebfb1);
+      --dr-line: light-dark(#dce5dc, #3e5041);
+      --dr-green: light-dark(#226b4e, #aedabe);
+      --dr-on-green: light-dark(#ffffff, #183624);
+      --dr-tint: light-dark(#edf5ec, #2b4030);
+      --dr-credit-yellow: light-dark(#d5aa18, #e9c84d);
+      --dr-credit-red: light-dark(#c84743, #ee8984);
+      --dr-credit-red-text: light-dark(#ad302c, #ffb1aa);
+      --dr-amber: light-dark(#795720, #eed19c);
+      --dr-warm: light-dark(#fbf6e9, #3b3425);
+      color: var(--dr-ink); background: var(--dr-paper); border: 1px solid var(--dr-line); border-radius: 13px;
+      font: 14px/1.5 Inter, "Segoe UI", system-ui, sans-serif; overflow-wrap: anywhere;
+    }
+    #discovery-credits * { box-sizing: border-box; }
+    #discovery-credits [hidden] { display: none !important; }
+    #discovery-credits p, #discovery-credits h1, #discovery-credits h2, #discovery-credits h3 { margin: 0; }
+    #discovery-credits h1, #discovery-credits h2, #discovery-credits h3, #discovery-credits strong { font-weight: 500; }
+    #discovery-credits h1 { font-size: 22px; letter-spacing: -.5px; }
+    #discovery-credits h2 { font-size: 18px; letter-spacing: -.2px; }
+    #discovery-credits h3 { font-size: 14px; }
+    #discovery-credits button, #discovery-credits textarea { font: inherit; }
+    #discovery-credits button { cursor: pointer; }
+    #discovery-credits button:disabled { cursor: default; opacity: .55; }
+    #discovery-credits .dr-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    #discovery-credits .dr-between { justify-content: space-between; }
+    #discovery-credits .dr-small { font-size: 12px; }
+    #discovery-credits .dr-muted { color: var(--dr-muted); }
+    #discovery-credits .dr-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--dr-line); border-radius: 8px; padding: 8px 12px; background: var(--dr-paper); color: var(--dr-ink); }
+    #discovery-credits .dr-button:hover:not(:disabled) { border-color: var(--dr-green); background: var(--dr-tint); }
+    #discovery-credits .dr-primary { background: var(--dr-green); color: var(--dr-on-green); border-color: var(--dr-green); }
+    #discovery-credits .dr-primary:hover:not(:disabled) { background: var(--dr-green); color: var(--dr-on-green); filter: brightness(.94); }
+    #discovery-credits .dr-link { border: 0; padding: 3px 0; color: var(--dr-green); background: transparent; font-size: 12px; text-align: left; }
+    #discovery-credits .dr-chrome { padding: 12px 22px; border-bottom: 1px solid var(--dr-line); }
+    #discovery-credits .dr-brand { color: var(--dr-green); font-size: 20px; letter-spacing: -.7px; font-weight: 500; }
+    #discovery-credits .dr-demo { color: var(--dr-muted); font-size: 11px; border: 1px solid var(--dr-line); padding: 3px 7px; border-radius: 5px; }
+    #discovery-credits .dr-project { padding: 18px 23px 15px; }
+    #discovery-credits .dr-project h1 { margin-top: 3px; }
+    #discovery-credits .dr-people { display: flex; gap: 15px; flex-wrap: wrap; }
+    #discovery-credits .dr-person { display: flex; gap: 7px; align-items: center; font-size: 12px; }
+    #discovery-credits .dr-avatar { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--dr-line); background: var(--dr-soft); color: var(--dr-green); font-size: 11px; flex: 0 0 29px; }
+    #discovery-credits .dr-ai-avatar { background: var(--dr-tint); border-color: transparent; }
+    #discovery-credits .dr-stages { display: flex; flex-wrap: wrap; list-style: none; padding: 0 23px 16px; margin: 0; gap: 8px 21px; color: var(--dr-muted); font-size: 12px; }
+    #discovery-credits .dr-stages li { display: flex; align-items: center; gap: 6px; }
+    #discovery-credits .dr-stage-number { width: 21px; height: 21px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--dr-line); border-radius: 50%; font-size: 11px; }
+    #discovery-credits .dr-stages [aria-current="step"] { color: var(--dr-green); }
+    #discovery-credits .dr-stages [aria-current="step"] .dr-stage-number { background: var(--dr-green); border-color: var(--dr-green); color: var(--dr-on-green); }
+    #discovery-credits .dr-stage-done .dr-stage-number { background: var(--dr-tint); color: var(--dr-green); }
+    #discovery-credits .dr-credit-panel { --dr-credit-color: var(--dr-green); --dr-credit-text: var(--dr-green); padding-bottom: 21px; margin-bottom: 20px; border-bottom: 1px solid var(--dr-line); }
+    #discovery-credits .dr-credit-panel[data-usage="yellow"] { --dr-credit-color: var(--dr-credit-yellow); --dr-credit-text: var(--dr-amber); }
+    #discovery-credits .dr-credit-panel[data-usage="red"] { --dr-credit-color: var(--dr-credit-red); --dr-credit-text: var(--dr-credit-red-text); }
+    #discovery-credits .dr-credit-value { color: var(--dr-credit-text); font-size: 28px; letter-spacing: -.7px; font-variant-numeric: tabular-nums; margin: 12px 0 8px; }
+    #discovery-credits .dr-credit-value span { font-size: 12px; letter-spacing: 0; color: var(--dr-muted); }
+    #discovery-credits .dr-gauge { display: flex; width: 100%; height: 7px; border-radius: 5px; background: var(--dr-line); overflow: hidden; }
+    #discovery-credits .dr-gauge-fill { background: var(--dr-credit-color); }
+    #discovery-credits .dr-credit-usage { color: var(--dr-credit-text); font-size: 12px; margin-top: 7px; }
+    #discovery-credits .dr-credit-totals { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; margin: 7px 0 12px; font-size: 11px; color: var(--dr-muted); }
+    #discovery-credits .dr-credit-details { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; margin: 0 0 10px; font-size: 12px; }
+    #discovery-credits .dr-credit-details dt, #discovery-credits .dr-credit-details dd { margin: 0; }
+    #discovery-credits .dr-credit-details dd { text-align: right; font-variant-numeric: tabular-nums; }
+    #discovery-credits .dr-credit-note { font-size: 11px; color: var(--dr-muted); margin-top: 9px; }
+    #discovery-credits .dr-credit-history { margin-top: 12px; font-size: 11px; }
+    #discovery-credits .dr-credit-history ul { padding-left: 17px; margin: 8px 0 0; }
+    #discovery-credits .dr-credit-history li { margin-top: 5px; }
+    #discovery-credits .dr-buy-panel { padding: 12px; margin-top: 12px; background: var(--dr-paper); border: 1px solid var(--dr-line); border-radius: 8px; }
+    #discovery-credits .dr-buy-panel p { margin: 7px 0; font-size: 11px; color: var(--dr-muted); }
+    #discovery-credits .dr-buy-panel .dr-options { margin: 10px 0; }
+    #discovery-credits .dr-transfer { padding: 13px; background: var(--dr-tint); border-radius: 8px; margin-top: 15px; }
+    #discovery-credits .dr-transfer p { margin-top: 6px; font-size: 12px; }
+    #discovery-credits .dr-credit-warning { color: var(--dr-amber); }
+    #discovery-credits .dr-layout { border-top: 1px solid var(--dr-line); display: grid; grid-template-columns: minmax(0, 1fr) 280px; }
+    #discovery-credits .dr-conversation { min-width: 0; padding: 21px 23px; }
+    #discovery-credits .dr-sidebar { min-width: 0; padding: 21px 19px; border-left: 1px solid var(--dr-line); background: var(--dr-soft); border-bottom-right-radius: 13px; }
+    #discovery-credits .dr-view-head { margin-bottom: 17px; }
+    #discovery-credits .dr-view-head p { margin-top: 4px; }
+    #discovery-credits .dr-history { font-size: 12px; margin-bottom: 15px; }
+    #discovery-credits summary { cursor: pointer; color: var(--dr-muted); }
+    #discovery-credits .dr-transcript { margin-top: 10px; }
+    #discovery-credits .dr-message { margin: 13px 0 17px; }
+    #discovery-credits .dr-message-ngo { margin-left: 25px; background: var(--dr-soft); border: 1px solid var(--dr-line); border-radius: 10px 10px 3px 10px; padding: 11px 13px; }
+    #discovery-credits .dr-author { color: var(--dr-muted); font-size: 11px; margin-bottom: 5px; }
+    #discovery-credits .dr-answer-line { margin: 7px 0; font-size: 12px; }
+    #discovery-credits .dr-answer-line p { margin-top: 2px; }
+    #discovery-credits .dr-superseded { color: var(--dr-amber); font-size: 11px; }
+    #discovery-credits .dr-round-head { margin: 16px 0 12px; }
+    #discovery-credits .dr-round-head p { margin-top: 8px; font-size: 13px; }
+    #discovery-credits .dr-round-label { color: var(--dr-green); font-size: 12px; }
+    #discovery-credits .dr-notice { border-left: 2px solid var(--dr-amber); background: var(--dr-warm); color: var(--dr-amber); padding: 10px 12px; border-radius: 0 7px 7px 0; margin-bottom: 14px; font-size: 12px; }
+    #discovery-credits .dr-question { margin: 12px 0; padding: 14px; border: 1px solid var(--dr-line); border-radius: 10px; min-width: 0; }
+    #discovery-credits .dr-question-title { display: flex; align-items: flex-start; gap: 8px; }
+    #discovery-credits .dr-question-id { color: var(--dr-green); background: var(--dr-tint); border-radius: 5px; padding: 2px 6px; font-size: 11px; flex: 0 0 auto; }
+    #discovery-credits .dr-question-title h3 { padding-top: 1px; }
+    #discovery-credits .dr-context { color: var(--dr-muted); font-size: 12px; margin: 7px 0 0; }
+    #discovery-credits .dr-recommendation { margin: 9px 0 10px; color: var(--dr-green); font-size: 12px; }
+    #discovery-credits .dr-recommendation strong { display: inline; }
+    #discovery-credits .dr-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    #discovery-credits .dr-option { border: 1px solid var(--dr-line); border-radius: 7px; background: var(--dr-paper); color: var(--dr-ink); text-align: left; padding: 9px 10px; font-size: 12px; }
+    #discovery-credits .dr-option:hover { border-color: var(--dr-green); }
+    #discovery-credits .dr-option[aria-pressed="true"] { border-color: var(--dr-green); background: var(--dr-tint); color: var(--dr-green); }
+    #discovery-credits .dr-answer-tools { margin-top: 8px; display: flex; gap: 15px; flex-wrap: wrap; }
+    #discovery-credits .dr-answer-tools button[aria-pressed="true"] { color: var(--dr-amber); text-decoration: underline; text-underline-offset: 3px; }
+    #discovery-credits .dr-custom-answer { margin-top: 9px; }
+    #discovery-credits .dr-custom-answer label { display: block; margin-bottom: 4px; font-size: 12px; color: var(--dr-muted); }
+    #discovery-credits textarea { width: 100%; border: 1px solid var(--dr-line); border-radius: 6px; background: var(--dr-paper); color: var(--dr-ink); font: inherit; padding: 9px; resize: vertical; display: block; }
+    #discovery-credits .dr-clarification { font-size: 12px; padding: 8px 10px; color: var(--dr-amber); background: var(--dr-warm); border-radius: 6px; margin: 9px 0; }
+    #discovery-credits .dr-round-actions { margin-top: 16px; }
+    #discovery-credits .dr-demo-note { color: var(--dr-muted); font-size: 11px; margin-top: 9px; }
+    #discovery-credits .dr-status { min-height: 18px; margin-top: 9px; font-size: 11px; color: var(--dr-muted); }
+    #discovery-credits .dr-tag { display: inline-flex; border-radius: 5px; background: var(--dr-tint); color: var(--dr-green); padding: 3px 6px; font-size: 11px; }
+    #discovery-credits .dr-sidebar-head p { margin-top: 5px; }
+    #discovery-credits .dr-known { border-top: 1px solid var(--dr-line); border-bottom: 1px solid var(--dr-line); padding: 12px 0; margin: 15px 0 8px; font-size: 12px; }
+    #discovery-credits .dr-known p { margin-top: 8px; }
+    #discovery-credits .dr-decision { border-bottom: 1px solid var(--dr-line); padding: 12px 0; }
+    #discovery-credits .dr-decision h3 { font-size: 12px; }
+    #discovery-credits .dr-decision-status { font-size: 11px; color: var(--dr-muted); margin: 4px 0; }
+    #discovery-credits .dr-decision p { font-size: 12px; }
+    #discovery-credits .dr-decision[data-status="settled"] .dr-decision-status { color: var(--dr-green); }
+    #discovery-credits .dr-decision[data-status="open"] .dr-decision-status, #discovery-credits .dr-decision[data-status="recheck"] .dr-decision-status { color: var(--dr-amber); }
+    #discovery-credits .dr-wide-button { width: 100%; margin-top: 17px; }
+    #discovery-credits .dr-gate { margin-top: 8px; color: var(--dr-muted); font-size: 11px; }
+    #discovery-credits .dr-review-intro { margin: 14px 0 18px; }
+    #discovery-credits .dr-review-item { padding: 13px 0; border-bottom: 1px solid var(--dr-line); }
+    #discovery-credits .dr-review-item p { margin-top: 6px; font-size: 13px; }
+    #discovery-credits .dr-review-item .dr-question-id { margin-right: 7px; }
+    #discovery-credits .dr-ready { padding: 22px; background: var(--dr-tint); border: 1px solid var(--dr-line); border-radius: 10px; margin: 20px 0; }
+    #discovery-credits .dr-ready p { margin-top: 9px; }
+    #discovery-credits .dr-ready button { margin-top: 17px; }
+    #discovery-credits .dr-footer { border-top: 1px solid var(--dr-line); padding: 12px 22px; color: var(--dr-muted); font-size: 11px; }
+    #discovery-credits[data-layout="below"] .dr-layout { grid-template-columns: minmax(0, 1fr); }
+    #discovery-credits[data-layout="below"] .dr-sidebar { border-left: 0; border-top: 1px solid var(--dr-line); }
+    #discovery-credits[data-explanations="compact"] .dr-context { display: none; }
+    @media (max-width: 760px) {
+      #discovery-credits .dr-layout { grid-template-columns: minmax(0, 1fr); }
+      #discovery-credits .dr-sidebar { border-left: 0; border-top: 1px solid var(--dr-line); }
+      #discovery-credits .dr-project { gap: 14px; }
+    }
+    @media (max-width: 450px) {
+      #discovery-credits .dr-project, #discovery-credits .dr-chrome, #discovery-credits .dr-conversation, #discovery-credits .dr-sidebar { padding-left: 15px; padding-right: 15px; }
+      #discovery-credits .dr-chrome-context { display: none; }
+      #discovery-credits .dr-stages { padding-left: 15px; padding-right: 15px; gap: 8px 13px; }
+      #discovery-credits .dr-message-ngo { margin-left: 10px; }
+      #discovery-credits .dr-question { padding: 12px; }
+      #discovery-credits .dr-options { grid-template-columns: minmax(0, 1fr); }
+      #discovery-credits textarea { font-size: 16px; }
+    }
+    @media (pointer: coarse) { #discovery-credits button { min-height: 44px; } }
+  </style>
+
+  <header class="dr-chrome dr-row dr-between"><div class="dr-row"><span class="dr-brand">ai4good</span><span class="dr-small dr-muted dr-chrome-context">/ Project workspace</span></div><span class="dr-demo">Interactive mockup</span></header>
+  <section class="dr-project dr-row dr-between" aria-label="Project and two participants">
+    <div><p class="dr-small dr-muted">Harbor Community Kitchen · Sample project</p><h1>Volunteer scheduling</h1></div>
+    <div class="dr-people"><div class="dr-person"><span class="dr-avatar">NGO</span><span>You<br><span class="dr-muted">NGO representative</span></span></div><div class="dr-person"><span class="dr-avatar dr-ai-avatar">AI</span><span>AI assistant<br><span class="dr-muted">Discovery</span></span></div></div>
+  </section>
+  <ol class="dr-stages" id="dr-stages" aria-label="Project stages"></ol>
+  <div class="dr-layout">
+    <main class="dr-conversation">
+      <div class="dr-view-head"><h2 id="dr-view-title">Let's shape the first version</h2><p class="dr-small dr-muted" id="dr-view-subtitle">Your decisions guide the next questions.</p></div>
+      <section id="dr-chat" aria-label="Conversation between the NGO and AI">
+        <details class="dr-history" id="dr-history" hidden><summary id="dr-history-title">Earlier conversation</summary><div class="dr-transcript" id="dr-history-content"></div></details>
+        <div id="dr-last-answer"></div>
+        <p class="dr-notice" id="dr-change-notice" hidden></p>
+        <div id="dr-question-view">
+          <div class="dr-round-head"><div class="dr-row"><span class="dr-avatar dr-ai-avatar">AI</span><span class="dr-small">AI assistant</span><span class="dr-round-label" id="dr-round-label">Round 1</span></div><p id="dr-round-intro"></p></div>
+          <div id="dr-questions"></div>
+          <div class="dr-round-actions dr-row dr-between"><span class="dr-small dr-muted" id="dr-draft-count"></span><div class="dr-row"><button class="dr-button" id="dr-cancel-edit" type="button" hidden>Cancel change</button><button class="dr-button dr-primary" id="dr-send" type="button" disabled>Send round</button></div></div>
+          <p class="dr-credit-note" id="dr-round-cost"></p>
+          <p class="dr-demo-note">Scripted branches. Written answers stay open for clarification.</p>
+        </div>
+        <div class="dr-ready" id="dr-ready" hidden><h2>We have answered the open questions.</h2><p class="dr-small">Review the decisions together before confirming the discovery brief.</p><button class="dr-button dr-primary" id="dr-review-ready" type="button">Review the brief</button></div>
+      </section>
+      <section id="dr-review" aria-label="Review the discovery brief" hidden>
+        <button class="dr-link" id="dr-back" type="button">← Back to conversation</button>
+        <div class="dr-review-intro"><span class="dr-tag" id="dr-review-version">Draft 1</span><p class="dr-small dr-muted" style="margin-top:8px">Confirm what we agreed. You can change an answer and revisit the decisions that depend on it.</p></div>
+        <p class="dr-notice" id="dr-review-blocker" hidden></p>
+        <div id="dr-review-items"></div>
+        <div class="dr-transfer" id="dr-transfer-preview" aria-label="Credits after this gate"></div>
+        <div class="dr-round-actions dr-row dr-between"><span class="dr-small dr-muted">Review and confirmation use no credits.</span><button class="dr-button dr-primary" id="dr-confirm" type="button" disabled>Confirm gate and carry credits</button></div>
+      </section>
+      <section id="dr-confirmed" aria-label="Confirmed discovery brief" hidden><div class="dr-ready"><span class="dr-tag">Confirmed by the NGO</span><h2 style="margin-top:12px">Discovery is complete. Credits move with you.</h2><p id="dr-confirmed-version"></p><p id="dr-transfer-receipt" class="dr-small"></p><div class="dr-row"><button class="dr-button dr-primary" id="dr-view-prd" type="button">View PRD credits</button><button class="dr-button" id="dr-revisit" type="button">Review or revise decisions</button></div></div><p class="dr-demo-note">Demo confirmation only. Nothing has been submitted.</p></section>
+      <p class="dr-status" id="dr-status" role="status" aria-live="polite"></p>
+    </main>
+    <aside class="dr-sidebar" aria-label="Decisions and open questions">
+      <section class="dr-credit-panel" id="dr-credit-panel" aria-label="Credits for the current gate">
+        <div class="dr-row dr-between"><h2 id="dr-credit-title">Discovery credits</h2><span class="dr-tag" id="dr-credit-phase">Current</span></div>
+        <div class="dr-credit-value" id="dr-credit-remaining"></div>
+        <div id="dr-credit-gauge"></div>
+        <p class="dr-credit-usage" id="dr-credit-usage" aria-live="polite"></p>
+        <div class="dr-credit-totals"><span id="dr-credit-used"></span><span id="dr-credit-total"></span></div>
+        <dl class="dr-credit-details"><dt>Free remaining</dt><dd id="dr-credit-free"></dd><dt>Purchased remaining</dt><dd id="dr-credit-paid"></dd></dl>
+        <p class="dr-credit-note" id="dr-credit-carry"></p>
+        <p class="dr-credit-note" id="dr-credit-rule"></p>
+        <button class="dr-button dr-wide-button" id="dr-buy" type="button">Buy more credits</button>
+        <section class="dr-buy-panel" id="dr-buy-panel" aria-label="Simulate buying credits" hidden>
+          <h3 id="dr-buy-title">Add credits to Discovery</h3><p>Demo purchase. No payment. Pack sizes are examples.</p>
+          <div class="dr-options"><button class="dr-option" id="dr-pack-20" type="button" aria-pressed="true">20 credits</button><button class="dr-option" id="dr-pack-50" type="button" aria-pressed="false">50 credits</button></div>
+          <div class="dr-row"><button class="dr-button dr-primary" id="dr-buy-confirm" type="button">Add demo credits</button><button class="dr-link" id="dr-buy-cancel" type="button">Cancel</button></div>
+        </section>
+        <details class="dr-credit-history"><summary>Credit history</summary><ul id="dr-credit-history"></ul></details>
+        <p class="dr-demo-note">Sample balances · Free credits are used first.</p>
+      </section>
+      <div class="dr-sidebar-head"><div class="dr-row dr-between"><h2>Discovery brief</h2><span class="dr-tag" id="dr-brief-state">In progress</span></div><p class="dr-small dr-muted" id="dr-brief-progress">Decisions, questions and dependencies</p></div>
+      <details class="dr-known"><summary>Already known from intake</summary><p>80 volunteers, three food collection sites and two coordinators.</p><p>Scheduling uses a spreadsheet and WhatsApp. Finding replacements takes about four hours a week.</p><p>The NGO uses volunteer names, contact details and availability.</p></details>
+      <div id="dr-decisions"></div>
+      <button class="dr-button dr-wide-button" id="dr-review-draft" type="button">Review draft brief</button><p class="dr-gate" id="dr-gate"></p>
+    </aside>
+  </div>
+  <footer class="dr-footer">NGO + AI only · Sample balances and purchases · No payments or project records change.</footer>
+
+  <script>
+    (() => {
+      const root = document.getElementById('discovery-credits');
+      const el = (id) => root.querySelector('#' + id);
+      const element = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      };
+      const button = (text, className, action) => {
+        const node = element('button', className, text); node.type = 'button'; node.addEventListener('click', action); return node;
+      };
+      const option = (id, label, answer) => ({ id, label, answer });
+      const state = { answers: {}, drafts: {}, history: [], round: 1, revision: 0, view: 'chat', editing: null, notice: '', confirmed: false, version: 1 };
+      const design = { layout: 'side', explanations: 'visible' };
+      const roundCost = 3;
+      const credits = {
+        selected: 'discovery', buying: false, pack: 20, transfer: null,
+        steps: [['intake', 'Intake', 10], ['discovery', 'Discovery', 20], ['prd', 'PRD', 30], ['design', 'Design', 20], ['build', 'Build', 50], ['handoff', 'Handoff', 10]].map(([id, title, freeGrant], index) => ({
+          id, title, freeGrant, purchased: 0, receivedFree: id === 'discovery' ? 4 : 0, receivedPaid: 0,
+          usedFree: index < 2 ? 6 : 0, usedPaid: 0, sentFree: id === 'intake' ? 4 : 0, sentPaid: 0,
+          phase: index === 0 ? 'complete' : index === 1 ? 'active' : 'locked'
+        })),
+        history: [
+          { step: 'intake', text: '10 free credits granted. 6 used during intake.' },
+          { step: 'intake', text: 'Intake gate confirmed. 4 unused free credits moved to Discovery.' },
+          { step: 'discovery', text: '20 free credits granted, plus 4 carried from Intake.' },
+          { step: 'discovery', text: '6 credits used to prepare discovery.' }
+        ]
+      };
+      const creditStep = (id) => credits.steps.find((step) => step.id === id);
+      const freeLeft = (step) => step.freeGrant + step.receivedFree - step.usedFree - step.sentFree;
+      const paidLeft = (step) => step.purchased + step.receivedPaid - step.usedPaid - step.sentPaid;
+      const balance = (step) => freeLeft(step) + paidLeft(step);
+      const funded = (step) => step.freeGrant + step.purchased + step.receivedFree + step.receivedPaid;
+      const usedPercent = (step) => Math.min(100, (step.usedFree + step.usedPaid) / Math.max(1, funded(step)) * 100);
+      const usageBand = (percent) => percent < 80 ? 'green' : percent <= 95 ? 'yellow' : 'red';
+      const roundBalance = () => balance(creditStep('discovery')) + (state.confirmed && credits.transfer ? credits.transfer.free + credits.transfer.paid : 0);
+      const canBuy = (step) => step.phase === 'active' || step.id === 'discovery' && Boolean(state.editing);
+      function gauge(step) {
+        const bar = element('div', 'dr-gauge'); const locked = step.phase === 'locked';
+        bar.setAttribute('role', 'meter'); bar.setAttribute('aria-label', step.title + ' credits used');
+        bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', String(Math.max(1, funded(step))));
+        bar.setAttribute('aria-valuenow', String(locked ? 0 : step.usedFree + step.usedPaid));
+        bar.setAttribute('aria-valuetext', locked ? step.freeGrant + ' free credits planned, unavailable until the previous gate closes.' : Number(usedPercent(step).toFixed(1)) + '% used. ' + balance(step) + ' credits remaining.');
+        const fill = element('span', 'dr-gauge-fill');
+        fill.style.width = (locked ? 0 : usedPercent(step)) + '%';
+        bar.append(fill); return bar;
+      }
+      function selectCredits(id) { credits.selected = id; credits.buying = false; renderCredits(); }
+      function renderCredits() {
+        el('dr-stages').replaceChildren(...credits.steps.map((step, index) => {
+          const li = element('li', step.phase === 'complete' ? 'dr-stage-done' : '');
+          if (step.phase === 'active') li.setAttribute('aria-current', 'step');
+          li.append(element('span', 'dr-stage-number', step.phase === 'complete' ? '✓' : String(index + 1)), document.createTextNode(step.title));
+          return li;
+        }));
+        const step = creditStep(credits.selected); const index = credits.steps.indexOf(step); const locked = step.phase === 'locked';
+        const percent = usedPercent(step); const band = usageBand(percent);
+        el('dr-credit-panel').dataset.usage = band;
+        el('dr-credit-usage').textContent = Number(percent.toFixed(1)) + '% used · ' + (percent >= 100 ? 'No credits left' : band === 'red' ? 'Almost out of credits' : band === 'yellow' ? 'Low credits' : 'Credits available');
+        el('dr-credit-title').textContent = step.title + ' credits';
+        el('dr-credit-phase').textContent = locked ? 'Upcoming' : step.phase === 'complete' ? 'Gate complete' : 'Current';
+        el('dr-credit-remaining').replaceChildren(document.createTextNode(String(locked ? 0 : balance(step)) + ' '), element('span', '', 'credits available'));
+        el('dr-credit-gauge').replaceChildren(gauge(step));
+        el('dr-credit-used').textContent = (step.usedFree + step.usedPaid) + ' used';
+        el('dr-credit-total').textContent = locked ? step.freeGrant + ' free planned' : funded(step) + ' total received';
+        el('dr-credit-free').textContent = locked ? '0' : String(freeLeft(step));
+        el('dr-credit-paid').textContent = locked ? '0' : String(paidLeft(step));
+        const received = step.receivedFree + step.receivedPaid;
+        el('dr-credit-carry').textContent = received ? received + ' carried from ' + credits.steps[index - 1].title + ' · ' + step.receivedFree + ' free + ' + step.receivedPaid + ' purchased.' : 'No credits carried in yet.';
+        el('dr-credit-carry').hidden = index === 0;
+        el('dr-credit-rule').textContent = locked ? 'The ' + credits.steps[index - 1].title + ' gate unlocks this allowance and adds any unused credits.' : step.phase === 'complete' ? (step.sentFree + step.sentPaid) + ' unused credits moved to ' + credits.steps[index + 1].title + ' after this gate closed.' : index < credits.steps.length - 1 ? balance(step) + ' unused credits will move to ' + credits.steps[index + 1].title + ' when this gate closes.' : 'Credits remain available through handoff.';
+        if (step.id === 'discovery' && state.editing && state.confirmed) el('dr-credit-rule').textContent = 'Sending the revision reopens Discovery and returns its carried credits from PRD. PRD work has not started in this demo.';
+        el('dr-buy').disabled = !canBuy(step); el('dr-buy').hidden = credits.buying;
+        el('dr-buy-panel').hidden = !credits.buying; el('dr-buy-title').textContent = 'Add credits to ' + step.title;
+        [20, 50].forEach((size) => el('dr-pack-' + size).setAttribute('aria-pressed', String(credits.pack === size)));
+        el('dr-credit-history').replaceChildren(...credits.history.filter((entry) => entry.step === step.id).map((entry) => element('li', '', entry.text)));
+        if (!el('dr-credit-history').children.length) el('dr-credit-history').append(element('li', '', 'No credits used in this step.'));
+        const discovery = creditStep('discovery'); const carryFree = freeLeft(discovery); const carryPaid = paidLeft(discovery);
+        const preview = el('dr-transfer-preview'); preview.hidden = state.confirmed;
+        preview.replaceChildren(element('h3', '', 'Credits after the Discovery gate'), element('p', '', (carryFree + carryPaid) + ' unused credits will move to PRD: ' + carryFree + ' free + ' + carryPaid + ' purchased.'), element('p', 'dr-muted', 'PRD will have ' + (funded(creditStep('prd')) + carryFree + carryPaid) + ' credits, including its ' + creditStep('prd').freeGrant + ' free allowance.'));
+        if (!complete() || state.editing) preview.append(element('p', 'dr-muted', 'Preview only. Credits move after the NGO resolves open questions and confirms the gate.'));
+        if (credits.transfer) el('dr-transfer-receipt').textContent = (credits.transfer.free + credits.transfer.paid) + ' credits moved to PRD: ' + credits.transfer.free + ' free + ' + credits.transfer.paid + ' purchased. PRD now has ' + balance(creditStep('prd')) + ' credits available.';
+      }
+      function carryCredits() {
+        if (credits.transfer) return;
+        const source = creditStep('discovery'); const target = creditStep('prd');
+        const free = freeLeft(source); const paid = paidLeft(source);
+        source.sentFree += free; source.sentPaid += paid; target.receivedFree += free; target.receivedPaid += paid;
+        source.phase = 'complete'; target.phase = 'active'; credits.transfer = { free, paid }; credits.selected = 'prd'; credits.buying = false;
+        credits.history.push({ step: 'discovery', text: 'NGO confirmed the gate. ' + (free + paid) + ' unused credits moved to PRD.' }, { step: 'prd', text: '30 free credits unlocked. Received ' + free + ' free and ' + paid + ' purchased credits from Discovery.' });
+      }
+      function reopenCredits() {
+        const transfer = credits.transfer; if (!transfer) return;
+        const source = creditStep('discovery'); const target = creditStep('prd');
+        source.sentFree -= transfer.free; source.sentPaid -= transfer.paid; target.receivedFree -= transfer.free; target.receivedPaid -= transfer.paid;
+        source.phase = 'active'; target.phase = 'locked'; credits.transfer = null; credits.selected = 'discovery'; credits.buying = false;
+        credits.history.push({ step: 'discovery', text: 'Discovery reopened before PRD work started. ' + (transfer.free + transfer.paid) + ' carried credits returned.' }, { step: 'prd', text: 'Discovery reopened. Its carried credits returned and this step is locked again.' });
+      }
+      function spendRoundCredits() {
+        const step = creditStep('discovery'); const free = Math.min(roundCost, freeLeft(step));
+        step.usedFree += free; step.usedPaid += roundCost - free;
+        credits.history.push({ step: 'discovery', text: roundCost + ' credits used for AI round ' + state.round + ': ' + free + ' free and ' + (roundCost - free) + ' purchased.' });
+      }
+      const definitions = [
+        { id: 'priority', number: 1, title: 'Main priority', dependencies: [] },
+        { id: 'booking', number: 2, title: 'Who books shifts', dependencies: [] },
+        { id: 'owner', number: 3, title: 'Maintenance owner', dependencies: [] },
+        { id: 'measure', number: 4, title: 'Success measure', dependencies: ['priority'] },
+        { id: 'rules', number: 5, title: 'Booking rules', dependencies: ['booking'] },
+        { id: 'training', number: 6, title: 'Training approval', dependencies: ['booking', 'rules'], conditional: true }
+      ];
+      const definition = (id) => definitions.find((item) => item.id === id);
+      const settled = (id) => state.answers[id]?.status === 'settled';
+      const choice = (id) => settled(id) ? state.answers[id].choice : null;
+      const activeDefinitions = () => definitions.filter((item) => !item.conditional || (choice('booking') === 'self' && choice('rules') === 'trained'));
+      const frontier = () => activeDefinitions().filter((item) => !settled(item.id) && item.dependencies.every(settled));
+      const complete = () => activeDefinitions().every((item) => settled(item.id));
+      const currentQuestions = () => state.editing ? [definition(state.editing)] : frontier();
+      function question(id) {
+        if (id === 'priority') return {
+          text: 'What should improve first?', context: 'Your intake describes four hours of coordination each week.',
+          recommendation: 'Start with coordination time. You already have a baseline to compare.',
+          options: [option('time', 'Less coordination time', 'Reduce the time coordinators spend filling shifts.'), option('coverage', 'Fewer unfilled shifts', 'Make sure volunteer shifts are filled before they start.')]
+        };
+        if (id === 'booking') return {
+          text: 'Who should book volunteers into shifts?', context: 'This decision determines access and booking rules.',
+          recommendation: 'Start with coordinator booking. It keeps the first version smaller.',
+          options: [option('coordinators', 'Coordinators book shifts', 'The two coordinators book volunteers into shifts.'), option('self', 'Volunteers book themselves', 'Volunteers use the tool to book their own shifts.')]
+        };
+        if (id === 'owner') return {
+          text: 'Who will maintain the tool after handoff?', context: 'Choose who manages access and routine changes through guided chat.',
+          recommendation: 'Give ownership to the coordinators who already manage the process.',
+          options: [option('coordinators', 'Our two coordinators', 'The two NGO coordinators own access and routine updates through guided chat.'), option('operations', 'Our operations lead', 'The NGO operations lead owns access and routine updates through guided chat.')]
+        };
+        if (id === 'measure' && choice('priority') === 'coverage') return {
+          text: 'What proportion of shifts should be filled two days ahead?', context: 'You chose fewer unfilled shifts. We need a target that the NGO can check.',
+          recommendation: 'Try 90% for the first month, then compare it with current results.',
+          options: [option('ninety', '90% of shifts', 'Target: 90% of shifts filled two days ahead during the first month.'), option('ninetyfive', '95% of shifts', 'Target: 95% of shifts filled two days ahead during the first month.')]
+        };
+        if (id === 'measure') return {
+          text: 'What weekly scheduling time would count as success?', context: 'You chose less coordination time. Your current baseline is four hours.',
+          recommendation: 'Aim for two hours in the first month, then review the result.',
+          options: [option('two', 'Two hours a week', 'Target: reduce weekly scheduling from four hours to two during the first month.'), option('one', 'One hour a week', 'Target: reduce weekly scheduling from four hours to one during the first month.')]
+        };
+        if (id === 'rules' && choice('booking') === 'self') return {
+          text: 'Can every volunteer book every type of shift?', context: 'You chose self-booking. We should check the assumption that all volunteers are eligible for all roles.',
+          recommendation: 'Keep any training restrictions your NGO uses today.',
+          options: [option('trained', 'Some shifts need training', 'Volunteers can book trained roles only after the NGO confirms their training.'), option('open', 'Every shift is open to everyone', 'All volunteers can book all shift types. The NGO has no role-specific training restrictions.')]
+        };
+        if (id === 'rules') return {
+          text: 'Can either coordinator manage all three sites?', context: 'You chose coordinator booking. This determines their access to schedules and volunteer details.',
+          recommendation: 'Give both coordinators access to all sites if they cover for each other.',
+          options: [option('shared', 'Both manage all sites', 'Both coordinators can manage schedules and volunteer details at all three sites.'), option('assigned', 'Each manages assigned sites', 'Each coordinator can manage schedules and volunteer details only at assigned sites.')]
+        };
+        return {
+          text: 'Who confirms that a volunteer has the required training?', context: 'You said some shifts need training. The tool needs a clear source for that decision.',
+          recommendation: 'Let NGO coordinators confirm training before a volunteer can book those roles.',
+          options: [option('coordinators', 'NGO coordinators confirm', 'NGO coordinators confirm training before volunteers can book a trained role.'), option('lead', 'A named training lead confirms', 'The NGO training lead confirms training before volunteers can book a trained role.')]
+        };
+      }
+      function descendants(id) {
+        const affected = new Set([id]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          definitions.forEach((item) => {
+            if (!affected.has(item.id) && item.dependencies.some((parent) => affected.has(parent))) { affected.add(item.id); changed = true; }
+          });
+        }
+        affected.delete(id);
+        return [...affected];
+      }
+      function draftReady(id) {
+        const draft = state.drafts[id];
+        return Boolean(draft && (draft.choice === 'unsure' || draft.choice === 'custom' && draft.text.trim() || question(id).options.some((item) => item.id === draft.choice)));
+      }
+      function renderDraftControls() {
+        const questions = currentQuestions();
+        const count = questions.filter((item) => draftReady(item.id)).length;
+        el('dr-draft-count').textContent = count + ' of ' + questions.length + ' answers prepared';
+        el('dr-send').disabled = count !== questions.length || questions.length === 0 || roundBalance() < roundCost;
+        el('dr-send').textContent = state.editing ? 'Send revised answer' : 'Send round';
+        el('dr-round-cost').textContent = roundBalance() < roundCost ? 'This AI round needs 3 credits. Buy more to continue. Your prepared answers stay here.' : 'Demo cost: 3 credits for the next AI round. Reviewing and confirming are free.';
+        el('dr-round-cost').classList.toggle('dr-credit-warning', roundBalance() < roundCost);
+      }
+      function chooseAnswer(id, value) {
+        state.drafts[id] = { choice: value, text: state.drafts[id]?.text || '' };
+        const box = el('dr-q-' + id);
+        box.querySelectorAll('[data-answer]').forEach((control) => control.setAttribute('aria-pressed', String(control.dataset.answer === value)));
+        box.querySelector('.dr-custom-answer').hidden = value !== 'custom';
+        renderDraftControls();
+        if (value === 'custom') box.querySelector('textarea').focus();
+      }
+      function renderQuestion(item) {
+        const spec = question(item.id);
+        const record = state.answers[item.id];
+        const draft = state.drafts[item.id];
+        const box = element('section', 'dr-question'); box.id = 'dr-q-' + item.id; box.setAttribute('aria-label', 'Question ' + item.number + ': ' + item.title);
+        const heading = element('div', 'dr-question-title'); heading.append(element('span', 'dr-question-id', 'Q' + item.number), element('h3', '', spec.text)); box.append(heading);
+        box.append(element('p', 'dr-context', spec.context));
+        if (record?.status === 'open' && !state.editing) {
+          box.append(element('p', 'dr-clarification', record.choice === 'custom' ? 'You wrote: ' + record.text + ' Choose the closest option to guide this demo, or keep the question open.' : 'This decision is still open. You can use the recommendation, choose another answer, or leave it open.'));
+        }
+        if (record?.status === 'recheck' && !state.editing) box.append(element('p', 'dr-clarification', 'An earlier decision changed. Please answer this question again.'));
+        box.append(element('p', 'dr-recommendation', 'AI recommendation: ' + spec.recommendation));
+        const options = element('div', 'dr-options');
+        spec.options.forEach((itemOption) => {
+          const control = button(itemOption.label, 'dr-option', () => chooseAnswer(item.id, itemOption.id));
+          control.dataset.answer = itemOption.id; control.setAttribute('aria-pressed', String(draft?.choice === itemOption.id)); options.append(control);
+        });
+        box.append(options);
+        const tools = element('div', 'dr-answer-tools');
+        [['custom', 'Write my own answer'], ['unsure', "I'm not sure yet"]].forEach(([value, label]) => {
+          const control = button(label, 'dr-link', () => chooseAnswer(item.id, value));
+          control.dataset.answer = value; control.setAttribute('aria-pressed', String(draft?.choice === value)); tools.append(control);
+        });
+        box.append(tools);
+        const custom = element('div', 'dr-custom-answer'); custom.hidden = draft?.choice !== 'custom';
+        const label = element('label', '', 'Your answer to Q' + item.number); label.htmlFor = 'dr-answer-' + item.id;
+        const input = element('textarea'); input.id = label.htmlFor; input.rows = 2; input.value = draft?.text || '';
+        input.addEventListener('input', () => { state.drafts[item.id] = { choice: 'custom', text: input.value }; renderDraftControls(); });
+        custom.append(label, input); box.append(custom);
+        return box;
+      }
+      function transcriptEntry(entry) {
+        const wrapper = element('div', 'dr-message dr-message-ngo');
+        wrapper.append(element('div', 'dr-author', entry.kind === 'revision' ? 'YOU · NGO · REVISED ANSWER' : 'YOU · NGO · ROUND ' + entry.round));
+        entry.answers.forEach((record) => {
+          const line = element('div', 'dr-answer-line');
+          line.append(element('strong', '', 'Q' + definition(record.id).number + ' · ' + record.question), element('p', '', record.text));
+          const current = state.answers[record.id];
+          if (!current || current.revision !== record.revision || current.status === 'recheck') line.append(element('span', 'dr-superseded', 'Earlier answer. This decision was reopened.'));
+          wrapper.append(line);
+        });
+        return wrapper;
+      }
+      function renderConversation() {
+        const intake = element('div', 'dr-message dr-message-ngo');
+        intake.append(element('div', 'dr-author', 'YOU · NGO · FROM INTAKE'), element('p', '', 'We coordinate 80 volunteers at three sites. Two coordinators spend four hours a week filling shifts using a spreadsheet and WhatsApp. We use volunteer names, contact details and availability.'));
+        const last = state.history[state.history.length - 1];
+        el('dr-last-answer').replaceChildren(last ? transcriptEntry(last) : intake);
+        el('dr-history').hidden = !last;
+        if (last) {
+          el('dr-history-title').textContent = 'Earlier conversation · intake' + (state.history.length > 1 ? ' and ' + (state.history.length - 1) + ' previous ' + (state.history.length === 2 ? 'submission' : 'submissions') : '');
+          el('dr-history-content').replaceChildren(intake, ...state.history.slice(0, -1).map(transcriptEntry));
+        }
+        const questions = currentQuestions();
+        el('dr-question-view').hidden = complete() && !state.editing;
+        el('dr-ready').hidden = !complete() || Boolean(state.editing);
+        el('dr-change-notice').hidden = !state.notice;
+        el('dr-change-notice').textContent = state.notice;
+        el('dr-round-label').textContent = state.editing ? 'Revisit Q' + definition(state.editing).number : 'Round ' + state.round;
+        el('dr-round-intro').textContent = state.editing ? 'Change this decision. We will revisit any answers that depend on it.' : state.round === 1 ? 'Let\'s make these three decisions first. I will use your answers to choose the next questions.' : questions.some((item) => state.answers[item.id]?.status === 'open') ? 'Some decisions remain open. We can clarify them while moving forward with the answers you have settled.' : 'Your answers have opened these follow-up questions. Here is what we need to decide next.';
+        el('dr-questions').replaceChildren(...questions.map(renderQuestion));
+        el('dr-cancel-edit').hidden = !state.editing;
+        renderDraftControls();
+      }
+      function decisionStatus(item) {
+        if (settled(item.id)) return 'Answered by the NGO';
+        const waiting = item.dependencies.filter((id) => !settled(id));
+        if (waiting.length) return 'Waiting for ' + waiting.map((id) => 'Q' + definition(id).number).join(' and ');
+        if (state.answers[item.id]?.status === 'recheck') return 'Reopened after an earlier change';
+        if (state.answers[item.id]?.status === 'open') return 'Needs clarification';
+        return 'Ready to discuss';
+      }
+      function renderDecisions() {
+        const active = activeDefinitions();
+        const count = active.filter((item) => settled(item.id)).length;
+        const unresolved = active.length - count;
+        el('dr-brief-state').textContent = state.confirmed ? 'Confirmed' : complete() ? 'NGO review' : 'In progress';
+        el('dr-brief-progress').textContent = count + ' decisions answered · ' + unresolved + ' open';
+        el('dr-gate').textContent = state.editing ? 'Send or cancel your revision before confirming.' : state.confirmed ? 'Version ' + state.version + ' confirmed by the NGO.' : complete() ? 'Ready for your final review.' : 'Confirmation waits until open questions are resolved.';
+        el('dr-decisions').replaceChildren(...active.map((item) => {
+          const record = state.answers[item.id];
+          const group = element('section', 'dr-decision'); group.dataset.status = record?.status || 'pending';
+          group.append(element('h3', '', 'Q' + item.number + ' · ' + item.title), element('div', 'dr-decision-status', decisionStatus(item)));
+          if (record) {
+            group.append(element('p', '', record.status === 'recheck' ? 'Previous answer needs review.' : record.text));
+            if (record.status === 'settled') group.append(button('Change answer', 'dr-link', () => startEdit(item.id)));
+          }
+          return group;
+        }));
+        el('dr-review-draft').textContent = state.confirmed ? 'Review confirmed brief' : complete() ? 'Review the brief' : 'Review draft brief';
+        el('dr-review-draft').disabled = state.view === 'review';
+      }
+      function renderReview() {
+        const active = activeDefinitions();
+        const open = active.filter((item) => !settled(item.id));
+        el('dr-review-version').textContent = (state.confirmed ? 'Confirmed version ' : 'Draft ') + state.version;
+        el('dr-review-blocker').hidden = open.length === 0 && !state.editing;
+        el('dr-review-blocker').textContent = state.editing ? 'You have an unsent revision. Return to the conversation to send or cancel it before confirming.' : 'Still open: ' + open.map((item) => 'Q' + item.number + ' · ' + item.title).join('; ') + '. Return to the conversation to resolve them.';
+        el('dr-review-items').replaceChildren(...active.map((item) => {
+          const group = element('section', 'dr-review-item'); const heading = element('div', 'dr-row dr-between');
+          heading.append(element('h3', '', 'Q' + item.number + ' · ' + item.title));
+          if (settled(item.id)) heading.append(button('Change ' + item.title.toLowerCase(), 'dr-link', () => startEdit(item.id)));
+          group.append(heading, element('p', '', state.answers[item.id]?.status === 'settled' ? state.answers[item.id].text : decisionStatus(item)));
+          return group;
+        }));
+        el('dr-confirm').disabled = !complete() || Boolean(state.editing);
+        el('dr-confirm').hidden = state.confirmed;
+      }
+      function render() {
+        root.dataset.layout = design.layout; root.dataset.explanations = design.explanations;
+        el('dr-chat').hidden = state.view !== 'chat'; el('dr-review').hidden = state.view !== 'review'; el('dr-confirmed').hidden = state.view !== 'confirmed';
+        el('dr-view-title').textContent = state.view === 'review' ? 'Review the discovery brief' : state.view === 'confirmed' ? 'Discovery confirmed' : state.editing ? 'Revisit an earlier decision' : 'Let\'s shape the first version';
+        el('dr-view-subtitle').textContent = state.view === 'review' ? 'Your answers and the decisions that still need attention.' : state.view === 'confirmed' ? 'The NGO has confirmed a shared understanding.' : 'Your decisions guide the next questions.';
+        renderConversation(); renderDecisions(); renderReview();
+        renderCredits();
+      }
+      function submitRound() {
+        const questions = currentQuestions();
+        if (!questions.length || !questions.every((item) => draftReady(item.id)) || roundBalance() < roundCost) return;
+        const editedId = state.editing;
+        if (state.confirmed) { reopenCredits(); state.confirmed = false; state.version += 1; }
+        spendRoundCredits();
+        if (editedId) {
+          const invalidated = descendants(editedId);
+          invalidated.forEach((id) => {
+            if (state.answers[id]) state.answers[id] = { ...state.answers[id], choice: null, status: 'recheck' };
+            delete state.drafts[id];
+          });
+          state.notice = invalidated.length ? definition(editedId).title + ' changed. Dependent decisions need another check. Your other answers stay in place.' : definition(editedId).title + ' changed. Your other answers stay in place.';
+        } else state.notice = '';
+        const answers = questions.map((item) => {
+          const spec = question(item.id); const draft = state.drafts[item.id]; const selected = spec.options.find((candidate) => candidate.id === draft.choice);
+          const previousText = state.answers[item.id]?.choice === 'custom' ? state.answers[item.id].text : '';
+          const record = { id: item.id, question: spec.text, choice: draft.choice, text: selected ? selected.answer : draft.choice === 'unsure' ? 'The NGO has not decided yet.' : draft.text.trim(), status: selected ? 'settled' : 'open', revision: ++state.revision };
+          if (previousText && selected) record.text += ' NGO context: ' + previousText;
+          state.answers[item.id] = record; delete state.drafts[item.id]; return { ...record };
+        });
+        state.history.push({ kind: editedId ? 'revision' : 'round', round: state.round, answers });
+        state.round += 1; state.editing = null; state.view = 'chat'; el('dr-history').open = false;
+        render();
+        const open = activeDefinitions().filter((item) => !settled(item.id)).length;
+        el('dr-status').textContent = complete() ? 'All current decisions are answered. The NGO can now review the brief.' : 'Round received. ' + open + (open === 1 ? ' decision remains open.' : ' decisions remain open, including dependent questions.');
+      }
+      function startEdit(id) {
+        const current = state.answers[id]; if (!current || current.status !== 'settled') return;
+        state.editing = id; state.view = 'chat'; state.drafts[id] = { choice: current.choice, text: '' };
+        credits.selected = 'discovery'; credits.buying = false;
+        const affected = descendants(id).filter((key) => state.answers[key]);
+        state.notice = affected.length ? 'Changing this answer will reopen: ' + affected.map((key) => definition(key).title.toLowerCase()).join(', ') + '.' : 'Your revised answer will replace the current decision. The conversation keeps the earlier answer.';
+        render(); el('dr-status').textContent = 'Revising Q' + definition(id).number + '. Changes take effect when you send the revised answer.';
+      }
+      function openReview() { state.view = 'review'; render(); el('dr-status').textContent = state.editing ? 'Your unsent revision needs attention before confirmation.' : complete() ? 'Review the decisions before confirming the brief.' : 'This draft still has unresolved questions.'; }
+      el('dr-send').addEventListener('click', submitRound);
+      el('dr-cancel-edit').addEventListener('click', () => { delete state.drafts[state.editing]; state.editing = null; state.notice = ''; render(); el('dr-status').textContent = 'Change cancelled. Existing decisions are unchanged.'; });
+      el('dr-review-draft').addEventListener('click', openReview); el('dr-review-ready').addEventListener('click', openReview); el('dr-revisit').addEventListener('click', openReview);
+      el('dr-back').addEventListener('click', () => { state.view = 'chat'; render(); });
+      el('dr-confirm').addEventListener('click', () => {
+        if (!complete() || state.editing || state.confirmed) return;
+        state.confirmed = true; state.view = 'confirmed'; el('dr-confirmed-version').textContent = 'You confirmed discovery brief version ' + state.version + '.';
+        carryCredits();
+        render(); el('dr-status').textContent = 'Demo confirmation recorded. No project records changed.';
+      });
+      el('dr-view-prd').addEventListener('click', () => { selectCredits('prd'); el('dr-status').textContent = 'PRD credits include the unused credits from Discovery.'; });
+      el('dr-buy').addEventListener('click', () => { if (!canBuy(creditStep(credits.selected))) return; credits.buying = true; renderCredits(); });
+      el('dr-buy-cancel').addEventListener('click', () => { credits.buying = false; renderCredits(); });
+      [20, 50].forEach((size) => el('dr-pack-' + size).addEventListener('click', () => { credits.pack = size; renderCredits(); }));
+      el('dr-buy-confirm').addEventListener('click', () => {
+        const step = creditStep(credits.selected); if (!credits.buying || !canBuy(step)) return;
+        step.purchased += credits.pack; credits.buying = false;
+        credits.history.push({ step: step.id, text: credits.pack + ' purchased credits added in a demo purchase.' });
+        renderCredits(); renderDraftControls(); el('dr-status').textContent = 'Added ' + credits.pack + ' demo credits to ' + step.title + '. No payment was made.';
+      });
+      render();
+      if (globalThis.Tweak) {
+        const tweak = new Tweak({ container: root, onChange: render });
+        tweak.addSelect(design, 'layout', { label: 'Brief position', options: [{ label: 'Beside the conversation', value: 'side' }, { label: 'Below the conversation', value: 'below' }] });
+        tweak.addSelect(design, 'explanations', { label: 'Question context', options: [{ label: 'Show why we ask', value: 'visible' }, { label: 'Compact questions', value: 'compact' }] });
+      }
+    })();
+  </script>
+</div>

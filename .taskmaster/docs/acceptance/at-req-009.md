@@ -1,5 +1,7 @@
 # AT-REQ-009 — LLM Gateway: Virtual Keys, Caps & Inline Fuel Metering
 
+> **[d92 Discovery boundary]:** platform-owned paid Discovery prices response usage into a separate provisional money entry, then reconciles to provider billing. Free Discovery uses the platform budget and never debits NGO fuel. The token log keeps no money fields. Replaying attribution rows cannot charge fuel. Gateway and assistant accounting remain unchanged. Discovery settlement, free-first routing, and source isolation are verified by AT-004.04/05/48; this suite retains its other contracts.
+
 Source: requirements/req-009.md (prd-mvp.md REQ-009). Dependencies: REQ-006, REQ-024, REQ-034, REQ-012/027/007 (key-termination hooks). Only provider surface: the model API through the gateway.
 
 **Boundary note:** REQ-009 owns the gateway (auth, binding, injection, proxying, privacy), key lifecycle, the provider-workspace money path, and the fuel-threshold monitor. Money bookkeeping is owned by REQ-006; the attribution log's schema and writers by REQ-034; repo-side seeding of the marker and env hygiene by REQ-008; deactivation triggers by REQ-007/012/027 — `[cross:]` here.

@@ -2,7 +2,7 @@
 
 ### Open Questions
 
-**Resolved / superseded (trail only):** Q1+Q8: moot — volunteer AI access is platform-managed, attributed per volunteer, and instantly revocable, with no external-provisioning dependency (REQ-009). Q2: resolved; no product impact. Q5: the v1 reward is completion credit plus the "Shipped first tool" badge only (REQ-014); NGO tips at completion → v1.5; honoraria revisited only if Goal 2 underperforms. Q6: Discovery is free within per-NGO daily credits (10/day unverified, 30/day verified); funding from draft is allowed; funded Discovery is dollar-metered (REQ-002/004/006); the `kyc_verified` allowance lift → v1.5.
+**Resolved / superseded (trail only):** Q1+Q8: moot — volunteer AI access is platform-managed, attributed per volunteer, and instantly revocable, with no external-provisioning dependency (REQ-009). Q2: resolved; no product impact. Q5: the v1 reward is completion credit plus the "Shipped first tool" badge only (REQ-014); NGO tips at completion → v1.5; honoraria revisited only if Goal 2 underperforms. Q6: the beta uses 10 free turns per enrolled project daily and 50 across the beta, across 20 NGOs with one sponsored project each. Free turns precede paid USD fuel, including on funded projects (REQ-002/004/006). Vetting does not increase the grant.
 
 **Still open:**
 

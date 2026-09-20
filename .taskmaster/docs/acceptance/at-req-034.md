@@ -1,5 +1,7 @@
 # AT-REQ-034 — Requirement-Level Attribution (telemetry, never gating)
 
+> **[d92 Discovery boundary]:** platform-owned paid Discovery prices response usage into a separate provisional money entry, then reconciles to provider billing. Free Discovery uses the platform budget and never debits NGO fuel. The token log keeps no money fields. Replaying attribution rows cannot charge fuel. Gateway and assistant accounting remain unchanged. Discovery settlement, free-first routing, and source isolation are verified by AT-004.04/05/48; this suite retains its other contracts.
+
 > **[d82 AMENDED — two-tree model + requirement-level granularity, 2026-07-19]:** this suite now tests attribution at the PM-TREE REQUIREMENT level (REQ-026): bindings target pulled requirement items, never dev-tree items; burn and baselines are per-requirement; the recorded granularity IS the NGO-displayed granularity. Task-level assertions were retargeted; the per-volunteer-per-task coordinator detail was retired with the granularity.
 
 Source: requirements/req-034.md (prd-mvp.md REQ-034, incl. d77 layered-Skill ceiling). Dependencies: REQ-004, REQ-006, REQ-009, REQ-013, REQ-026, REQ-028, REQ-033.
@@ -22,11 +24,11 @@ Source: requirements/req-034.md (prd-mvp.md REQ-034, incl. d77 layered-Skill cei
 ## C. Two meters, never mixed
 
 - **AT-034.08 (P0)** — Given seeded ATTRIBUTION-LOG rows while both provider snapshots — Anthropic billed cost AND usage reporting — are held constant (controlled fixtures), When the fuel meter renders, Then it is UNCHANGED — fuel is never derived from attribution-log rows or per-request attribution token math (the PRD-required pricing of the provider's own usage REPORT at official rates, REQ-006/009, is a different, permitted path); the positive mapping — provider truth moves the meter — is owned by the fuel suites [cross: AT-010.14/AT-006.48]; the Lovable credit status likewise does not move on attribution-row writes, its positive mapping owned by AT-021; and the attribution views display tokens with NO money figure anywhere. [cx] [cx r2: "never from token math" scoped to attribution rows — REQ-009's provisional gauge prices the provider report; positive mappings delegated to their owning P0 tests]
-- **AT-034.09 (P0)** — Given reconciliation, When it runs, Then it compares same-unit only: row token totals against the provider's usage reporting, and the money ledger against billed cost + Stripe — and NO cross-conversion path (a price table applied to attribution rows) exists (absence probe). [cross: AT-030.07 owns money-side conforming]
+- **AT-034.09 (P0)** — Given reconciliation, token rows reconcile with provider usage and money records with billed cost and Stripe. Only the platform-owned paid Discovery billing handler may price its response usage, under REQ-004/006. Gateway attribution rows cannot create charges. The token log keeps no money fields. [d92]
 
 ## D. Both billable surfaces & reconciliation of categories
 
-- **AT-034.10 (P0)** — Given the direct surface, When a funded Discovery turn and an assistant turn complete, Then their rows carry the project and the first-class categories (Discovery; NGO assistant) — NGO-facing consumption is counted on the project and NEVER folded into build burn (the categories stay distinct from requirement/bucket attribution). [cross: AT-033.04]
+- **AT-034.10 (P0)** — Given free Discovery, paid Discovery, and assistant replies, their usage rows retain project and category. Discovery rows retain turn, provider request, and funding mode. Sponsored usage remains outside the NGO money ledger and outside build burn. [d92]
 - **AT-034.11 (P0)** — Given a fixture set of rows across pulled requirements, taskless buckets, and direct categories on one project, When totals are computed, Then the sum of all attributed lines equals the project's total token usage — every metered request carries project + category, and the categories reconcile to the total.
 
 ## D2. Pull-interval validity [d82v]

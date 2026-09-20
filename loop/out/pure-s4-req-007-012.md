@@ -42,6 +42,8 @@ A platform-controlled LLM gateway sits in the request path; hosting is open (**O
 
 **Enforcement placement:** rules that must hold live only on surfaces the platform controls and the volunteer cannot edit — the **gateway** (key confinement, the project-binding tripwire, governance-prompt injection) and the **provider-side controls** (per-workspace rate limits, provider key status, and the coarse spend fuse — all enforced by the provider). Files in the repo and third-party permission settings are never trusted to enforce anything.
 
+**Discovery boundary:** platform-owned Discovery uses the free-first routing and request settlement in REQ-004/006. Sponsored calls use the platform budget even when the project's paid key is inactive. Paid Discovery debits reconcile against its project workspace. Gateway request telemetry remains attribution-only; this exception adds no token-based gateway charge or gateway money gate.
+
 **Threat posture:** the project-binding marker detects misuse; it does not prevent it (the marker is copyable). The real bounds are the provider-executed stop (never more than the funded provider budget plus a bounded stopping distance), the workspace's rate limits (never faster than allowed), attribution of every request, and instant revocation. Volunteers are told at onboarding that usage is attributed and reviewed.
 
 - One key per (volunteer, project), shown once, minted at kickoff, never logged.

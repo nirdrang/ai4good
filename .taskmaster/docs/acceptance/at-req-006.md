@@ -1,5 +1,7 @@
 # AT-REQ-006 — Stripe Fuel Top-Up & Ledger
 
+> **[d92 Discovery boundary]:** platform-owned paid Discovery prices response usage into a separate provisional money entry, then reconciles to provider billing. Free Discovery uses the platform budget and never debits NGO fuel. The token log keeps no money fields. Replaying attribution rows cannot charge fuel. Gateway and assistant accounting remain unchanged. Discovery settlement, free-first routing, and source isolation are verified by AT-004.04/05/48; this suite retains its other contracts.
+
 Source: requirements/req-006.md (prd-mvp.md REQ-006 + Promise §3/§7/§9). Dependencies: REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.
 
 **Boundary note:** REQ-006 owns money-in (Stripe), the ledger and its balances, the platform-share recognition rule, the acknowledgment cadence and content gates (per AT-REQ-001's boundary, identity capture on acknowledgments is owned by REQ-001), unused-fuel credit rules, and chargebacks. State transitions the money triggers are owned by REQ-005.5; provider-side spend enforcement and thresholds mechanics by REQ-009; Discovery money routing by REQ-004; attribution telemetry by REQ-034 — all appear here only as `[cross:]` firings.
