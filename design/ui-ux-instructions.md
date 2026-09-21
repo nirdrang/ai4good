@@ -158,6 +158,13 @@ contract rather than to classes, structure, or button text.
 - Global patterns to define once: empty states, error states, loading skeletons, toast,
   degraded-service banner (see §13).
 
+**Process bar, clarified 2026-09-21:** the shared project workspace owns the compact view of the process Kanban.
+It shows Intake, Discovery, PRD, Design, Build, and Handoff, with the current stage identified.
+It can appear above a stage screen, including Discovery, without becoming part of that screen's scope.
+The bar displays workflow state. Gate actions retain their existing authorization and approval rules.
+Assess the bar separately. A Discovery screen does not need to contain the other stages or publishing screens.
+These process labels do not add lifecycle states.
+
 ## 7. Reusable components (design once in Batch 0, reuse verbatim)
 
 1. **Lifecycle status badge** — one chip per project state; exactly **9 states** (§9). There is

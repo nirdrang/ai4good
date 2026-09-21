@@ -14,6 +14,12 @@ Use [the Discovery interface contract](../discovery-ui-contract.md) as the desig
 Use [the preserved conversation prototype](../references/discovery-conversation.html) for layout and interaction history.
 Its former credit arithmetic and standalone palette are superseded.
 
+**Scope clarification, 2026-09-21:** revise the Discovery screen for Discovery only.
+The stage bar belongs to the shared project workspace and represents a compact process Kanban.
+Keep that boundary visible in the design composition and assess the shared bar separately.
+Do not add other stage screens or publishing into Discovery to satisfy the broader design item.
+The scope review and funding checks below cover Discovery's adjacent entry and exit points, not other stages within this screen.
+
 Revise `design/screens/discovery-chat.html` through the existing design workflow.
 Update screen 6 and the Discovery gauge rules in `design/ui-ux-instructions.md`.
 Use the app font and `src/styles.css` variables for both themes.

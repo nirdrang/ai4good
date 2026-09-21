@@ -25,7 +25,10 @@ Keep fractional cents. Settle once, keep missing usage pending, and reconcile wi
 Free calls use the platform budget and never reduce NGO fuel.
 
 The Discovery interface follows the [agreed contract](../../../design/discovery-ui-contract.md).
-It shows only the current gate gauge, free counters, paid USD balance, and next reply mode.
+The Discovery screen owns only Discovery content and actions.
+The stage bar belongs to the shared project workspace and shows a compact process Kanban.
+Assess that shared bar separately. Other stages and publishing do not become Discovery requirements because their labels appear above it.
+The Discovery screen shows only its gate gauge, free counters, paid USD balance, and next reply mode.
 Use green below 80% consumed, yellow through 95%, and red above 95%.
 Inherit the application font and theme from `src/styles.css`.
 The NGO confirms the current brief before Discovery completes.

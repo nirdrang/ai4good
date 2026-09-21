@@ -11,17 +11,37 @@ Sources: [Discovery requirement](../.taskmaster/docs/requirements/req-004.md),
 The saved [conversation prototype](references/discovery-conversation.html) records the agreed layout.
 Its old credit arithmetic and standalone colors are superseded by this contract.
 
+## Scope boundary
+
+Clarified by the founder on 2026-09-21: the Discovery screen deals only with Discovery.
+The stage bar is a separate shared component, a compact view of the process Kanban.
+This document calls that component the **process bar**.
+
+| Owner | Responsibility |
+| --- | --- |
+| Discovery screen | NGO and AI conversation, questions, answers, Discovery brief, Discovery usage, and NGO confirmation. |
+| Shared project workspace | Process bar showing Intake, Discovery, PRD, Design, Build, and Handoff, with the current stage identified. |
+
+The process bar can remain above Discovery in the composed page. Its placement does not make it part of the Discovery screen.
+The shared workflow supplies the current stage. The process bar displays that state; it does not approve or advance a gate.
+Discovery records its own confirmation through the existing authorized workflow.
+
+Assess Discovery completeness against Discovery requirements only.
+Intake, PRD, Design, Build, Handoff, and publishing retain their own screens and requirements.
+AI4DEV-9 (Discovery screen design) groups several screens; its broader scope does not belong inside the Discovery page.
+Assess the shared process bar separately from those screens.
+
 ## Workspace layout
 
 - The header shows the project, NGO, Discovery stage, and save state.
-- A compact stage strip provides context: Intake, Discovery, PRD, Design, Build, and Handoff.
+- The shared project workspace can display its process bar above the Discovery screen.
 - The main column holds the NGO and AI conversation, current questions, answers, and composer.
 - A side panel shows the live Discovery brief, confirmed facts, open questions, and review action.
 - The current gate has one usage gauge. Other gates have no gauges in this workspace.
 - On narrow screens, the brief opens in a labeled panel without losing the current answer.
 
-The stage strip represents workflow context. It does not introduce new values into the existing project lifecycle table.
-Do not imply that later platform stages are implemented merely because they appear in this strip.
+The shared process bar does not introduce new values into the existing project lifecycle table.
+Its labels do not imply that later platform stages are implemented.
 
 ## Questions and answers
 
