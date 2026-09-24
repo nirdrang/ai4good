@@ -154,39 +154,19 @@ Item text: <the child's description, verbatim>
 Acceptance tests: <paths under tests/at/suites/ for this child>
 
 ## The ask
-Run this item in poteto-mode, end to end, and open one pull request from this branch.
-If the brief has Units, design once for the whole subtree, then build and verify the units
-in order, one commit group per unit, each unit green before the next starts. The pull
-request body names each unit by its short label in words, never by its id.
-Ground it with /how in critique mode first: explorers, explainer, then the critics, on
-every item.
-In the design arena, give every runner a distinct structural direction, so the candidates
-do not converge on one design. The runner lanes are the sheet's four; add none.
-Tool-heavy work that needs an executor goes to the mechanical agent with exact instructions:
-the rebase into ordered commits, driving the verify skill on the real surface, and the closing
-commands. You decide and you judge the evidence; it types; you check each result once.
-The acceptance suite is not lane work. Run its commands yourself as background shell commands
-that write their output to a file, and read back only the exit code and the green and red
-counts. A lane costs about eighty thousand tokens whatever it runs; a background command costs
-a few hundred. Verify once per unit boundary and once on the merge head, and not in between
-unless code changed. Run the integration tier twice only where a procedure waits on real
-elapsed time.
-Every delegated lane writes its full report to a file under the item folder and replies
-with five lines and the path. Read the file only when the summary names a deviation, a
-blocker, or a red.
-A unit goes to the hardest-tasks lane only when the writer must still design something. A
-unit that applies a fixed contract goes to the feature lane. Say which in the decision trail.
+Run this item in poteto-mode and open one pull request from this branch. One pull request is
+a project rule; it overrides the playbook's preference for narrow pull requests.
+If the brief has Units, design once for the whole subtree, then build the units in order, one
+commit group per unit.
 At every unit boundary, after the unit's commit is on the branch and the resume note is
-rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose (founder
-2026-09-13: "I want you to update this gate to use the askuserquestion tool"). One question
-whose options are continue or compact, with what the unit landed, its commit, and the
-remaining context budget in the question text; a second question for any decision the next
-unit needs from the founder. The founder's answer starts the next unit.
-The comment audit before review runs on the mechanical model with the comment-sicko prompt,
-never on your own model.
-Do not name any other item's id in the pull request title or body.
-The pull request body carries Why, Scope, Tradeoffs, Blast Radius, and Verification.
-Then close the item as the Closing section says. You close it, nobody else.
+rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose. Ask one
+question, continue or compact, and put in its text what the unit landed, its commit, and the
+remaining context budget. Ask a second question for any decision the next unit needs from the
+founder. The founder's answer starts the next unit.
+In the design arena, give every runner a distinct structural direction.
+In the pull request title and body, name no item id except this branch's own, and name each
+unit by its short label in words.
+Then close the item as the Closing section says.
 
 ## Closing (the git part is yours, the board is not)
 1. Wait for CI to be green on the exact head of the pull request, and for the founder to
@@ -200,17 +180,6 @@ Then close the item as the Closing section says. You close it, nobody else.
 4. Invoke `/controller done <item>`. That skill does the board steering. Do not do it
    yourself.
 
-## Mechanics never spend your calls
-Fable calls are scarce. Tool-heavy work without judgment, the station 7 rebase, the merge
-and cleanup commands, goes to the `mechanical` agent (sonnet, inherits the worktree,
-executes exact instructions, rules on nothing). Write the exact plan, let it run, check the
-result with one read. Do not use a fork for this: a fork runs on your own model.
-The acceptance suite's commands are not mechanical work. A background shell command runs them
-for a few hundred tokens where a lane spends about eighty thousand; on the notifications item
-ten verification lanes cost 746k tokens to execute about thirty minutes of commands.
-A writer that dies after finishing its work is recovered by running the pin and committing
-the finished tree, not by rerunning the writer.
-
 ## The evidence bar
 - The verify suite for the acceptance tests above passes on the final head, run as background
   shell commands. Name each check, its exit code, its counts and its timestamp in the
@@ -222,6 +191,21 @@ the finished tree, not by rerunning the writer.
 - One database, the stack `supabase/config.toml` describes, local and cloud alike. Start it
   with `bun run db:start`; every integration run resets it.
 - codex needs `codex login --device-auth` once per fresh VM. The session banner says when.
+- The `mechanical` agent takes tool-heavy work that needs no judgment: the rebase into
+  ordered commits, the verify-ai4good drive, and the merge commands. Give it exact
+  instructions and check its result once. Spawn it with no `model` parameter; its definition
+  owns the model. Do not use a fork for this, because a fork runs on your own model.
+- Run the acceptance suite yourself, never in a lane:
+  `bun run at:verify <req> --tier integration --expect` as background shell commands that
+  write to a file. Read back only the exit code and the green and red counts. CI runs only
+  the loop tier. A lane costs about eighty thousand tokens whatever it runs; ten verification
+  lanes once cost 746k tokens for thirty minutes of commands.
+- The verify skill for this project is `verify-ai4good`, not the built-in verify.
+- Spawn the comment audit with `subagent_type: "pstack:comment-sicko", model: "sonnet"`. It
+  is the one helper you spawn with a model parameter, because its definition pins none and
+  would otherwise run on your model.
+- A writer that dies after finishing its work is recovered by running the pin and committing
+  the finished tree, not by rerunning the writer.
 ```
 
 Fill every field from the board and the repository. A field you cannot fill means the item is
@@ -245,7 +229,8 @@ No timers, no wake-ups, no budgets. Silence is normal.
 Two actors share one session, so the seam is explicit (founder 2026-08-29: "Lead closes but
 linear steering is the controller work"). The brief's Closing section gives the lead the git
 part only: CI green on the exact head AND the founder's "merge", then `gh pr merge --squash`,
-leave and remove the worktree, delete the remote branch. Its last step is to invoke
+then leave the worktree with `ExitWorktree(action: "keep")`. It deletes nothing. Its last
+step is to invoke
 `/controller done <id>`. The gate is pstack's own verify and interrogate, CI, and the founder.
 There is no second local run of the suite.
 
@@ -291,6 +276,6 @@ founder files items. Nothing is filed automatically.
 - Never rule on the item's content or answer a question addressed to the founder.
 - Never check out an item branch in the main worktree. Move the session with `EnterWorktree`
   instead, and only for the hand-off to the mechanic.
-- Never merge without CI green on the exact head and the local suite green.
+- Never merge without CI green on the exact head and the founder's "merge".
 - Never name another item's id in a pull request title or body.
 - Never pass `model` when you spawn a local helper. The definition owns the pin.

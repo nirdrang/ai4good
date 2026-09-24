@@ -24,6 +24,10 @@ swarm workers: grok:grok-4.6@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
 interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh, opencode:opencode-go/deepseek-v4.1-flash@max
 
+Routing note for the hardest-tasks row. Send a unit there only when the writer must still
+design something. A unit that applies a fixed contract goes to the feature row. The lead says
+which in the decision trail.
+
 ## Changes made by eval, and how to undo each one
 
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
