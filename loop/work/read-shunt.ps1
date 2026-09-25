@@ -92,7 +92,8 @@ You hold no Agent tool. Find the part you need first (Grep for the symbol, with 
 then read that region in ONE call: Read(file_path, offset: N, limit: M), with M just large
 enough to cover it. Do not step through the file in small pages.
 
-If your task needs the whole file, say so in your report and stop.
+If your task needs the whole file, read it in as few ranged calls as possible, each under
+$cap characters.
 "@)
         exit 2
     }
@@ -111,8 +112,8 @@ Do one of these:
    the exact lines back. Write the question as a fact to locate ("where does the candidate
    check the own name in the scan"), never as a purpose ("what matters for the review").
 
-3. You must see the whole file: ask the founder to lift the cap for this session
-   (READ_SHUNT=off). Ask; do not assume.
+3. You need the whole file: read it in as few ranged calls as possible, each under
+   $cap characters, and send them in the same message.
 
 If you need other files too, send those reads in the same message: they then cost one step.
 "@)
