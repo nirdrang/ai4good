@@ -1,5 +1,31 @@
 # AGENTS.md
 
+## Codex adaptation
+
+This file adapts the current project `CLAUDE.md` for Codex. Keep the shared rules aligned
+when either file changes. The runtime guidance below changes tool use, not workflow authority.
+
+- Read `.claude/pstack-models.md` at session start and before dispatching a configured pstack
+  role. This is the shared project model sheet. The `@` include in Claude is an explicit file
+  read in Codex. Preserve the configured providers, models, and efforts.
+- Invoke installed pstack skills by name, for example `pstack:poteto-mode`. Read the installed
+  `skills/poteto-mode/references/codex-tools.md` and `provider-dispatch.md` before dispatch.
+  Use the tools actually available in this session. Release finished children with
+  `interrupt_agent` when that is the available lifecycle tool.
+- Project commands such as `/controller` and `/setup-pstack-project` refer to the matching
+  `.claude/skills/<command>/SKILL.md`. Read that file fresh when the command is requested.
+  These files are shared procedures; their presence does not register Codex slash commands.
+- Claude's `Skill` action means read and follow the named skill in Codex. Claude's
+  `EnterWorktree` and `ExitWorktree` require a supported session worktree operation.
+  A shell directory change does not move the Codex session. If the required operation is
+  unavailable, report the missing capability before the hand-off. Do not claim the session
+  moved or substitute a different workflow without the founder's decision.
+- Claude hooks do not run merely because these instructions mention them. Do not fabricate
+  stamps or hook output. The parked reply header stays parked in Codex too.
+- Configure project models through `.claude/skills/setup-pstack-project/SKILL.md`.
+  Preserve its guards and confirmation steps. If its expected integration differs from the
+  installed plugin, report the difference before writing model settings.
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
@@ -60,57 +86,87 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
-## 5. Linear Way-of-Work: PM-Tree Task Context (adopted d83)
+## 5. Way of work: the controller and poteto-mode (workflow v2; founder rulings 2026-08-29 and 2026-09-01)
 
-**Full spec: `loop/out/wow-claude-driven-linear.md` (v4.7). One task lifecycle exists — this one. TaskMaster is retired (decision-20); never use taskmaster tools for the buildout.**
+**One lifecycle, two verbs.** `/controller <id>` picks up one board item, a leaf or a parent
+with its open children as units (founder ruling 2026-09-03: "parent and children for a beefy
+run"): it creates the branch
+and the worktree under `.claude/worktrees/`, writes the brief, moves this session into the
+worktree, and stops. The founder then types
+`/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session. The
+lead runs the pstack stations from the installed plugin, opens the pull request, and merges.
+`/controller done <id>` steers the board afterwards. **Invoke `/controller` fresh at every item
+start; never run it from memory of a prior reading** (founder ruling 2026-08-11, kept). The v1
+relay (the `/work` skill and its phase files, the conductor and its agents, the drill harness,
+the database slot pool, and the scripts that served them) is parked under `loop/parked/v1/`.
+Its README says what moved and why. Nothing there is live. The reply header (TURN line, HOOK
+block) is parked with the stamp hook (founder 2026-08-29: "park the header"); its full text stays
+in `loop/parked/v1/.claude/skills/work/SKILL.md`, section "The standing rules", and returns with
+the stamp.
 
-- **Work brackets ONE PM-tree requirement item** (Linear team `AI4GOOD-PM`): `/pm-next` pulls it (assign + In Progress + pull-record comment + attribution binding + dev-tree materialization from `loop/decomp/req-0NN.md`); `/pm-done` closes it (evidence gate: the requirement's full AT suite green at integration tier + founder attestation). These verbs are the ONLY status authorities on the PM tree. Within a pulled requirement, individual dev-tree LEAVES are worked with the leaf-tier verbs `/dev-start` (begin a leaf) and `/dev-end` (complete it) — ergonomic packaging only, never authorities: they create no binding and never touch the PM item (d88).
-- **Dev items** (team `AI4GOOD-DEV`) are working space: manage them with plain Linear MCP calls as the work demands; leaves close via the GitHub integration on merge; no ceremony, no binding.
-- **Attribution:** every message carries the stamp (`wave / project / bucket`) from the current binding. Unbound or off-task work is `exploration` or `unattributed` — honest buckets, never blocked, never faked.
-- **Unattributed-streak escalation (MUST-FOLLOW):** the stamp hook counts consecutive unattributed messages per worktree (`streak="N"`) and from the 5th appends an `ATTRIBUTION ALERT`. When the alert is present, the agent MUST open its very next reply by putting the binding question to the user — `/pm-next` to pull a requirement, `/bind AI4PM-NN` to adopt an existing pull, or `/bind exploration` for untracked work — BEFORE delivering the answer. If the user declines or does not answer, do the work anyway (attribution never blocks) and re-raise only when the streak crosses the next multiple of 10 (15, 25, …), so the reminder escalates without nagging every message. Never simulate, suppress, or reset the counter — only a real binding resets it.
-- **Blocked** is a label + comment on the PM item, never a status change. `/override` can never reach In Progress or Done.
-- **Doc changes** run through `/doc-sync fold` (one direction: git → Linear; sync-stamps; meaning never changes in Linear). PRD text is edited ONLY in `loop/out/pure-s*.md`; `prd-mvp.md` and the isolates are build products.
-- **Suggestive posture:** the agent proposes at ripeness signals (tests green → "open the PR?"; merged → "ready for `/pm-done`?"; closed → "`/pm-next`?"; drift → "bind?") — once per signal, never auto-executing an authority verb.
-- **Commits** cite the PM item (and the dev leaf where one applies); the design session uses `design-batch-N: AI4PM-nnn …`.
+Three rules bind every session in this folder, before any skill is invoked:
 
-**Anti-patterns:**
-- Hand-editing PM-tree status in the Linear UI (reconcile detects and the founder corrects — don't create the work).
-- Closing a requirement with open dev leaves — an open leaf is a named `/pm-done` gate failure.
-- Working bound to a finished item (stale binding) — rebind at every pull; trust the session banner.
-- Batching syncs after multiple doc changes — every change bundle ends with its own `/doc-sync`.
-- Editing `prd-mvp.md`, an isolate, or Linear item text directly to change meaning.
-- **Doing dev-board work with no branch and no pull request, then hand-correcting the board afterwards** — see foundation work below.
+- **Attribution is derived from the branch, never declared (MUST-FOLLOW).** cwd → git worktree →
+  branch → exactly one item id → walk `parent` upward for the chain. The held item is a
+  cross-check that can never override the branch. Attribution degrades, never blocks — the one
+  thing it blocks is closing a requirement.
+- **A session works where it was launched**, on one branch, for the whole item. It never moves
+  itself between folders. ONE exception (founder ruling 2026-08-29: "i want to run the
+  controller it finshed with the brief and them i run the pstack poteto mode on that
+  session"): `/controller` moves its session into the item's worktree with `EnterWorktree`
+  for the hand-off to poteto-mode, and back out with `ExitWorktree` for the gate.
+- **No branch or worktree is deleted without a founder decision (MUST-FOLLOW; founder
+  2026-09-06: "Make it stick in Claude.md that a founder decision is required for branch and
+  worktree deletions").** This covers local branches, remote branches, and worktrees, after a
+  merge as much as before one. The founder keeps merged branches to reflect on later. A
+  merged branch or a stale worktree is reported, never removed, until the founder says
+  "delete" for that branch or worktree by name.
+- **The merge closes an item; there is no second way to close work.** In a parent run the
+  merge closes the parent, and `/controller done` closes each built child from that merge
+  commit, because a pull request never names a child id. Machinery changed
+  mid-item rides along in that item's branch; independent work is filed, not built; requirements
+  close only through the evidence gate. Commits cite the item they belong to. **The lead
+  (poteto-mode) does git and the pull request only. It never touches the board.** Board
+  steering is `/controller done` (founder 2026-08-29: "Lead closes but linear steering is
+  the controller work"). **The lead merges only when BOTH hold: CI is green on the exact
+  head, and the founder said "merge". Never on one alone** (founder 2026-08-31).
+- **Every unit boundary in a parent run is a gate the founder answers through the
+  `AskUserQuestion` tool, never through prose** (founder 2026-09-13: "I want you to update
+  this gate to use the askuserquestion tool"). The brief template in the controller skill
+  carries the question's shape.
 
-**Foundation work (W0 bring-up: the harness, staging, CI, the work skill, at-config) — added 2026-07-28 after it went wrong:**
+**Acceptance tests.** The AT ids in `.taskmaster/docs/acceptance/`, the `at:check` bijection,
+and the `--expect` manifests under `tests/at/expected/` stay. A new acceptance id registers
+through `atTest`, even when its body is a thin vitest over a shipped module or the one stack. A
+test with no id lives under `tests/at/harness/` beside the shipped-module selftests. The harness
+takes no new machinery: no new sentinels, faults, vendor stand-ins, fixture worlds, or
+capabilities.
 
-These are dev-board items and they are NOT product requirements: no `/pm-next`, no `/pm-done`, no evidence gate. They still close the way every dev item closes — **on a merged pull request**. Therefore:
-
-- **Branch, then pull request, then merge. Never commit foundation work straight to `main`.** Committing direct to `main` means the item never closes itself and someone has to hand-correct the board later; if it is genuinely unavoidable, say so out loud and move the item by hand in the same breath.
-- **Break a long-running foundation item into sub-items before starting**, each closing on its own evidence. A single item that stays open across many slices reports almost nothing about where the work actually is.
-- **`/dev-start` does not cover these yet** — it assumes a leaf underneath a currently-bound PM requirement, and foundation work sits under no requirement at all. Until that is fixed, open one by hand: branch, move to In Progress, comment what the slice is.
-- **Bind it as `bringup`, never as `exploration`** — `/bind bringup AI4DEV-NN`, pointing at the SUB-item being worked, not the long-lived parent. Foundation work is planned and approved, so it gets its own honest bucket; `exploration` means genuinely untracked poking around. The four buckets are `task` (a pulled PM requirement, set by `/pm-next` only), `bringup`, `exploration`, `unattributed`. Never reach for a looser bucket than the work deserves, and never fake a requirement binding to make infrastructure look like product progress.
-
----|---|
-| Start of work on a task or subtask | `set_task_status id=N status=in_progress` |
-| Mid-implementation, something non-obvious learned | `update_subtask id=N prompt="<one-line note>"` |
-| Stuck on an external dependency or unclear scope | `set_task_status id=N status=blocked` + `update_subtask` note describing the blocker |
-| Implementation done, tests not yet run | `update_subtask id=N prompt="implementation complete; testing next"` |
-| Tests pass + AC verified | `set_task_status id=N status=done` |
-| Every commit | Prefix the message with `task-N:` (or `task-N.M:` for a subtask) so it threads into the task's history |
-
-**End of every session:** run `mcp__taskmaster-ai__get_tasks status=in_progress` and confirm each one matches reality. Flip anything stale. If nothing is `in_progress`, you weren't working — that's fine, but make it visible.
-
-**Anti-patterns:**
-- Coding without naming the task — drift, no audit trail, no rollback target.
-- Batching status flips at end of day — looks like a suspicious burst rather than steady progress.
-- Marking `done` because "basically there" — `done` means AC met AND tests pass AND change is on `main`.
-- Hand-editing `.taskmaster/tasks/tasks.json` — always go through MCP (`set_task_status` / `update_subtask` / `expand_task`) or `task-master` CLI.
-- Letting "implementation" and "testing" collapse into one silent flip — if a task didn't get a `update_subtask` note between `in_progress` and `done`, the testing phase is invisible.
-
-This applies whether the work is 10 lines or 10 files: every edit traces back to a known TaskMaster id, and every meaningful state change lands in TaskMaster within the same work session.
+**The database.** One stack per machine, the one `supabase/config.toml` describes, started with
+`bun run db:start`. Every integration run (`bun run at:verify <req> --tier integration
+--expect`) resets it and replays the migrations. There is no slot pool and no `AT_DB_SLOT`.
 
 ---
-## Communication: simple English, never shorthand (founder instruction, 2026-07-20)
+## Communication: simple English, never shorthand (founder instruction, stated repeatedly — 2026-07-16, 2026-07-18 and 2026-07-28)
+
+**Use ASD-STE100 Simplified Technical English for everything written for a person (founder 2026-08-09).** This
+is the aerospace controlled-language standard, and it applies to everything written for a
+person: replies, reports, plans, board items, commit and pull-request bodies, and the process
+files. What it means in practice:
+- **One word, one meaning. One meaning, one word.** Choose a term and keep it for the life of
+  the document. Do not reach for a synonym to avoid repetition — in a controlled language,
+  repetition is the feature.
+- **Short sentences.** Twenty words maximum in a procedure, twenty-five in a description. One
+  instruction per sentence.
+- **Active voice, present tense**, with the actor named: "the conductor spawns the runner", not
+  "the runner is spawned".
+- **No noun clusters longer than three words**, and no jargon, idiom, or metaphor where a plain
+  word exists.
+- **Say the condition first**, then the action: "If the gate is empty, report it as empty."
+- Keep paragraphs to about six sentences.
+
+This tightens the rules below; it never loosens them. Where full compliance would make a
+technical fact wrong or unsayable, keep the fact and say plainly that you did.
 
 When reporting to or planning with the founder, write in plain sentences. Do not lean on
 invented labels or compressed codes — "P3", "W1", "T4", "d82", "r2 fold" mean nothing on
@@ -120,13 +176,82 @@ their own. Rules:
   Linear into a PM tree and a dev tree" — not just "d82".
 - Requirement and decision numbers are fine as references, but always next to a plain
   description, never instead of one.
+- **Print every item id as `id (very short title)`, never bare
+  (founder instruction 2026-08-01: *"always have in wrapped in () a very short
+  text title for an item so no more AIPM-12 or AIDEV-14 without a quick text recall for me"*).**
+  Write `AI4DEV-19 (H3 sentinels)`, never `AI4DEV-19` alone.
+  - **Very short means a RECALL HINT, not the real title:** two to five words. Linear titles
+    are often a whole sentence; shorten them, never paste them. `AI4DEV-35 (short titles in
+    parens)`, not `AI4DEV-35 (Every item id printed to the founder carries a very short title
+    in parentheses)`.
+  - **STRIP INTERNAL CODES — the label must say what the thing IS** (founder 2026-08-03: *"I
+    can't understand the H5 or its equiv means nothing to me. Human title near the dev label
+    should be more informative."*). Many board titles
+    lead with a code — `H5 — `, `REQ-0NN — `, `Batch 3 — `. Truncating from the front keeps the
+    code and throws away the meaning, which is the exact opposite of the point. Drop the code
+    and describe the thing:
+    - `AI4DEV-21 (fake Stripe, GitHub, Anthropic)` — not `(H5 vendor stand-ins)`
+    - `AI4DEV-20 (judging AI output meaning)` — not `(H4 semantic-oracle)`
+    - `AI4DEV-22 (first requirement green end to end)` — not `(H7 proving ground)`
+    A label a stranger could not act on is not a label; it is the id twice.
+  - Applies everywhere an id reaches the founder: replies, status reports, board listings,
+    suggestions of what to work on next, prose in commit and PR bodies, and the WORKING-ON
+    disclaimer — where the stamp hook formats `id (label)` from a cached short label, because
+    the hook runs before every prompt and must never call Linear.
+  - If the label is genuinely unknown, look it up; a bare id is acceptable only when the lookup
+    itself failed, and then say so.
+- **NEVER NAME ANOTHER ITEM'S ID IN A PULL REQUEST TITLE OR BODY (MUST-FOLLOW).** The id itself
+  is the trigger, not the verb beside it. Linear links a pull request to every id in its text,
+  and **the link alone moves that item** — a finished item was dragged back to In Progress
+  twenty-four minutes after its own merge had correctly closed it, by a body that said
+  *"ref AI4DEV-43"*. A closing verb (**close / fix / resolve / complete / implement** and their
+  inflections) additionally *closes* the item — louder, but the same defect. A careful
+  post-mortem once closed the item it learned from **mid-work**, because the sentence read
+  *"the instruction that fixed AI4DEV-31's chain"*. The hazard punishes good writing: the more
+  thorough the explanation, the more items it cites, and the item most likely to be cited is the
+  one someone is actively working.
+  - **There is NO safe reference word.** `ref`, `references`, `part of`, `related to`,
+    `contributes to` and `towards` all link the item and all move it.
+  - Name other items **in words**: *"the item that landed the relay"*, *"the requirement above
+    this one"*. TWO exceptions only: the branch's own item — that link is what closes it — and,
+    since the batching mode (founder 2026-08-11), **a batch partner's closes-line**: one line of
+    the exact shape `Closes AI4DEV-nn`, alone on its line, at most one per pull request,
+    declared in the merge ruling. That line closes the partner on merge deliberately; it is the
+    integration used on purpose, once, and the guard verifies its shape.
+  - CI enforces this on every pull request: **any** id the branch does not own fails the build,
+    except the one sanctioned closes-line above.
+    The rule is written here because the guard should never be the first place you learn it.
 - A status update should read like an explanation to a smart teammate who has NOT been
   following the internal naming — because that is exactly the situation.
 - Lists of steps get described by what the step does, not by its stage code.
 
+### Writing about what the founder said (MUST-FOLLOW)
+
+A provenance audit of these files found polished paraphrases presented as quotations and dates
+with no message behind them. Every one looked like evidence.
+
+- **Quote exactly, or do not use quote marks.** Typos, missing words and all. Tidying someone's
+  words and then presenting them as a quotation is fabrication at small scale.
+- **Cite a date only where a message exists on that day**, in the founder's local time.
+  Transcripts are UTC and the founder is UTC+3, so a 21:00 UTC message belongs to the next day.
+- **Never convert "the founder asked" into "the founder ruled."** A question that prompted a good
+  rule is provenance for the question, not for the rule.
+- **A rule that LOOSENS the process needs a real, explicit founder ruling.** Tightening may be
+  proposed; loosening may never be inferred. (This rule worked the first time it was tested: a
+  draft deleted the reflection step with nothing behind it, review restored it, and the founder
+  then ruled it out explicitly — *"Reflection should be out"*, 2026-08-06.)
+
+---
+## pstack model sheet
+
+Read `.claude/pstack-models.md` explicitly; it is the shared project model configuration.
+
+Change it with `/setup-pstack-project`, never with the plugin's `/setup-pstack` alone.
+
 ---
 ## Project-Specific Guidelines
 
+- **Astra fixture design, founder request 2026-09-21:** Astra can edit the interactive mock in `design/astra/` directly. Keep it separate from Claude Design exports in `design/screens/`. Save future Claude revisions under `design/claude-review/`. See `design/README.md`. This exception covers fixture design only.
 - **Use the Lovable MCP for non-trivial UI work.** For UI changes beyond simple tweaks, drive them through the Lovable MCP — Lovable is the bot operating its own MCP and has more intimate, UI/UX-optimized capabilities. Reserve direct edits for simple UI changes.
 - **UI never touches the DB directly.** UI code must always go through an edge function — never call the database directly from UI code.
 
