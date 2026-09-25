@@ -1,0 +1,1 @@
+one assignment for the whole run: A=grok  B=ds41

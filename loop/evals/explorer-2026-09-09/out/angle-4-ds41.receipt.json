@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "opencode",
+  "model": "opencode-go/deepseek-flash",
+  "effort": "max",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\angle-4-prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\out\\angle-4-ds41.md",
+  "startedAt": "2026-09-10T14:42:22.917Z",
+  "completedAt": "2026-09-10T14:45:56.178Z",
+  "elapsedMs": 213261,
+  "executable": "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+      "models",
+      "opencode-go",
+      "--verbose"
+    ],
+    "status": "passed",
+    "evidence": "model opencode-go/deepseek-flash lists variant max"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+    "run",
+    "--pure",
+    "--format",
+    "json",
+    "--model",
+    "opencode-go/deepseek-flash",
+    "--variant",
+    "max",
+    "--agent",
+    "pstack-read-only",
+    "--dir",
+    "C:\\Users\\nirdr\\Downloads\\ai4good"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "opencode-go/deepseek-flash",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "ses_f743ae27dffe9Pd2OMs4oM6Fwd",
+  "usage": {
+    "inputTokens": 136583,
+    "cachedInputTokens": 2881920,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 9775,
+    "reasoningTokens": 12549,
+    "totalTokens": 3040827
+  },
+  "costUsd": 0.04252761,
+  "error": null
+}

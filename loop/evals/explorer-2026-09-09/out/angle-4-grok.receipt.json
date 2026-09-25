@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "grok",
+  "model": "grok-4.6",
+  "effort": "xhigh",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\angle-4-prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\out\\angle-4-grok.md",
+  "startedAt": "2026-09-09T15:44:48.389Z",
+  "completedAt": "2026-09-09T15:51:04.700Z",
+  "elapsedMs": 376311,
+  "executable": "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+      "models"
+    ],
+    "status": "passed",
+    "evidence": "authenticated; model grok-4.6 available"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\.grok\\bin\\grok.exe",
+    "--prompt-file",
+    "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\angle-4-prompt.md",
+    "--model",
+    "grok-4.6",
+    "--reasoning-effort",
+    "xhigh",
+    "--permission-mode",
+    "plan",
+    "--sandbox",
+    "read-only",
+    "--tools",
+    "read_file,grep,list_dir,run_terminal_cmd",
+    "--disallowed-tools",
+    "Agent,search_tool,use_tool",
+    "--output-format",
+    "streaming-messages-json",
+    "--cwd",
+    "C:\\Users\\nirdr\\Downloads\\ai4good",
+    "--no-subagents",
+    "--disable-web-search",
+    "--verbatim"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "grok-4.6-build",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "01a086d7-e557-7430-a293-1fe47dc2d918",
+  "usage": {
+    "inputTokens": 129785,
+    "cachedInputTokens": 920192,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 19428
+  },
+  "costUsd": 0.14215978,
+  "error": null
+}
