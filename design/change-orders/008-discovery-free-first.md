@@ -1,6 +1,6 @@
 # Change order 008 — Discovery free turns, paid USD, and agreed interface
 
-Date: 2026-09-20. Decision: d92. Status: READY FOR DESIGN; not emitted or implemented.
+Date: 2026-09-20. Decision: d92. Status: ASTRA FIXTURE READY FOR REVIEW; founder approval is pending.
 
 AI4DEV-9 (Discovery screen design) owns the design revision.
 AI4DEV-158 (Discovery interface wiring) owns the implementation.
@@ -16,11 +16,15 @@ Its former credit arithmetic and standalone palette are superseded.
 
 **Scope clarification, 2026-09-21:** revise the Discovery screen for Discovery only.
 The stage bar belongs to the shared project workspace and represents a compact process Kanban.
+Its order is Intake, Discovery, Volunteer match, PRD, Design, Build, and Handoff.
+After Discovery confirmation, Find a volunteer opens publication review. Volunteer consent and funding kickoff precede PRD work.
 Keep that boundary visible in the design composition and assess the shared bar separately.
 Do not add other stage screens or publishing into Discovery to satisfy the broader design item.
 The scope review and funding checks below cover Discovery's adjacent entry and exit points, not other stages within this screen.
 
-Revise `design/screens/discovery-chat.html` through the existing design workflow.
+Revise the interactive fixture in `design/astra/`, as authorized on 2026-09-21.
+Keep `design/screens/discovery-chat.html` as the unchanged Claude Design reference.
+Save later Claude revisions under `design/claude-review/`.
 Update screen 6 and the Discovery gauge rules in `design/ui-ux-instructions.md`.
 Use the app font and `src/styles.css` variables for both themes.
 Keep NGO and AI roles, dependent questions, the live brief, one gate gauge, and NGO confirmation.
@@ -30,11 +34,14 @@ Check the scope review screen for explicit confirmation of the current brief rev
 Check the ordinary funding entry point for free-first return behavior after purchase.
 Do not create a separate Discovery wallet, checkout, or 30-turn vetted grant.
 
-## Delivery constraint
+## Current delivery route
 
-The current session has no Claude Design or Lovable MCP capability.
-This order is ready for the design workflow. No generated screen or product implementation is claimed.
-The agreed conversation prototype is a preserved reference, not a new canonical screen emission.
+The founder authorized Astra to edit fixture designs directly. See [the design source rules](../README.md).
+Review the Discovery route at `http://127.0.0.1:4310/#discovery`.
+This fixture uses scripted replies and simulated money. It does not implement the production interface.
+The earlier conversation prototype remains a preserved reference. Its old funding logic does not apply.
+Record the founder's explicit approval of Discovery separately from the other screens in this design item.
+The [revision 4 review](../astra/discovery-review.md) records the NGO and AI chat, completion guidance, matching step, checks, and remaining production work.
 
 ## Changed requirement text
 
@@ -70,6 +77,8 @@ A conversational agent, on Claude Opus, turns intake into a scoped spec over 5�
 
 - Discovery elicits enough from a non-technical NGO to produce a valid technical scope. Only the NGO and AI participate in this chat. The conversation persists and resumes with its question, answer, brief, and funding state intact.
 - **Question progression:** reuse intake facts. Ask the next unresolved question and explain why it matters. Independent questions may share a round. Dependent questions wait for prerequisite answers. Offer suggested answers, a custom answer, and an explicit uncertainty option. The agent records uncertainty instead of inventing an answer. Answers update the visible Discovery brief. If an answer changes, mark affected dependent answers for review.
+- **Discovery completion:** show the percentage and count of agreed required topics, the remaining topics, and a visible Finish Discovery action. Progress measures resolved topics, not messages, tokens, fuel, or elapsed time. Use a stable topic checklist; conditional follow-up questions belong to their topic. The agent works only on unresolved required topics and stops asking when they are resolved. Optional detail does not prolong Discovery. If a required fact stays unknown, explain the blocker instead of repeating questions or inventing certainty. Finish Discovery opens the current brief for NGO review. Enable it only when required topics are resolved, the scope is valid, and no review hold remains. It requires no available turns or paid fuel. A changed answer reopens affected topics and updates progress. The shared process bar remains separate.
+- **After Discovery:** the shared project step becomes Volunteer match. The Find a volunteer action opens publication review (REQ-005). Existing vetting and human review requirements remain. ai4good coordinates the match, and the volunteer must consent. PRD work starts after consent and funding kickoff (REQ-005.5, REQ-036). Matching does not add a lifecycle state or extend the Discovery chat.
 - **NGO confirmation:** valid scope output opens a review. The NGO confirms the current brief before Discovery completes (REQ-005.5). Record the approver, brief revision, and timestamp. The AI cannot approve for the NGO. Edits invalidate approval of an older revision. Reading, manual edits, reviews, and approval consume no free turns or paid AI usage.
 - It reads Discovery-visible reference files, may request more mid-conversation, and may cite them; it never receives files not marked Discovery-visible (REQ-032).
 - **Structured scope output:** a summary; user stories with nested acceptance criteria; a suggested stack; a complexity tier (small/medium/large — never dollars); risk flags; a data-sensitivity tier; a maintainability-fit verdict; zero to three normalized cause labels; a Lovable recommendation with rationale; and the Lovable-vs-Claude-Code build split — which parts are built in Lovable and which are coded through Claude Code. v1 always emits both parts (every match requires an Anthropic fuel kickoff) (→ RM-15).

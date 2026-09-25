@@ -34,6 +34,26 @@ Inherit the application font and theme from `src/styles.css`.
 The NGO confirms the current brief before Discovery completes.
 Available paid allocation carries forward after approval; unsettled reservations remain reserved.
 
+## Discovery completion
+
+Show the percentage, agreed topic count, remaining topics, and a visible **Finish Discovery** action.
+Use a stable checklist. Conditional questions belong to their topic and do not change the denominator.
+Progress counts agreed required topics. Messages, fuel consumption, and uncertain answers do not increase it.
+The agent asks only for unresolved required topics and stops when the required topics are agreed.
+Optional detail must not prolong Discovery. If a required fact stays unknown, explain the blocker without repeating the same question.
+
+Enable **Finish Discovery** when the required topics and valid scope are ready, with no review hold.
+The action opens the current brief for NGO review. Only explicit NGO confirmation finishes Discovery.
+Review and confirmation need no free turns or paid fuel. Editing an answer reopens the affected topics and clears approval.
+Keep this progress display separate from the usage gauge and shared process bar.
+
+After NGO confirmation, the shared process bar moves to **Volunteer match**, before PRD.
+**Find a volunteer** opens publication review. Human review, volunteer consent, and funding kickoff still precede PRD work.
+Matching does not extend the completed Discovery chat or add a lifecycle state.
+
+Astra revision 4 demonstrates this behavior. [The design review](../../../design/astra/discovery-review.md) records the fixture checks and pending founder approval.
+Production enforcement and acceptance evidence remain pending.
+
 ## Sources and acceptance
 
 - [Discovery requirement](../../../.taskmaster/docs/requirements/req-004.md).

@@ -1,5 +1,11 @@
 # ai4good — UI/UX Instructions for the Screen-Design Pass (v2)
 
+> **PRD workspace update, 2026-09-21:** Follow [the PRD contract](prd-ui-contract.md) for shared chat, topic progress, focused chat, actor turns, USD usage, and inline state-change recommendations. The flow includes PRD materialize before Design. These private authoring phases preserve the public PM projection and project lifecycle states.
+
+> **Design workspace update, 2026-09-21:** The founder accepted the Astra Design screen after PRD materialization.
+> Follow [the Design contract](design-ui-contract.md) for screen badges, actor turns, NGO handoff, and sign-off into Build.
+> This private participant workspace supplements the public project page. The NGO never receives development board access.
+
 > **Source of truth:** `.taskmaster/docs/prd-mvp.md` (v1 build spec, pure requirements).
 > **Written 2026-07-16; updated 2026-07-18** to the d74–d81 decisions: founder-decided triage
 > (no auto-publish), break-glass = audited visibility switch, assistant window = first kickoff →
@@ -159,11 +165,13 @@ contract rather than to classes, structure, or button text.
   degraded-service banner (see §13).
 
 **Process bar, clarified 2026-09-21:** the shared project workspace owns the compact view of the process Kanban.
-It shows Intake, Discovery, PRD, Design, Build, and Handoff, with the current stage identified.
+It shows Intake, Discovery, Volunteer match, PRD, PRD materialize, Design, Build, and Handoff, with the current stage identified.
 It can appear above a stage screen, including Discovery, without becoming part of that screen's scope.
 The bar displays workflow state. Gate actions retain their existing authorization and approval rules.
 Assess the bar separately. A Discovery screen does not need to contain the other stages or publishing screens.
 These process labels do not add lifecycle states.
+After Discovery confirmation, highlight Volunteer match and offer Find a volunteer through the existing publication review flow.
+Human review, volunteer consent, and funding kickoff precede PRD work. Discovery remains complete while matching proceeds.
 
 ## 7. Reusable components (design once in Batch 0, reuse verbatim)
 
@@ -190,8 +198,9 @@ These process labels do not add lifecycle states.
    (d82, REQ-026): requirement-level items deduced from the scope doc, seeded at kickoff
    (including the "Author the project PRD" bootstrap item, REQ-036), with status per item,
    current work highlighted, and percent complete = done top-priority requirements / all
-   top-priority requirements. The volunteer's fine-grained **dev tree is never rendered on any
-   platform surface** — not to the NGO, not to the public. Read-only for the NGO; **status is
+   top-priority requirements. The volunteer's fine-grained dev tree never appears to the NGO or public.
+   The developer can view UI items created by Design sign-off in the private Build workspace.
+   The PM panel remains read-only for the NGO; **status is
    never editable by anyone in the UI** (In Progress comes only from the volunteer's explicit
    pull; Done only from verified completion — the requirement's linked dev work merged and its
    acceptance evidenced). Includes the requirement-anchored NGO comment affordance (REQ-015, d86).

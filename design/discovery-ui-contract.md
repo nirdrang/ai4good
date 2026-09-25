@@ -20,16 +20,26 @@ This document calls that component the **process bar**.
 | Owner | Responsibility |
 | --- | --- |
 | Discovery screen | NGO and AI conversation, questions, answers, Discovery brief, Discovery usage, and NGO confirmation. |
-| Shared project workspace | Process bar showing Intake, Discovery, PRD, Design, Build, and Handoff, with the current stage identified. |
+| Shared project workspace | Process bar showing Intake, Discovery, Volunteer match, PRD, Design, Build, and Handoff, with the current stage identified. |
 
 The process bar can remain above Discovery in the composed page. Its placement does not make it part of the Discovery screen.
 The shared workflow supplies the current stage. The process bar displays that state; it does not approve or advance a gate.
 Discovery records its own confirmation through the existing authorized workflow.
 
 Assess Discovery completeness against Discovery requirements only.
-Intake, PRD, Design, Build, Handoff, and publishing retain their own screens and requirements.
+Intake, Volunteer match, PRD, Design, Build, Handoff, and publishing retain their own screens and requirements.
 AI4DEV-9 (Discovery screen design) groups several screens; its broader scope does not belong inside the Discovery page.
 Assess the shared process bar separately from those screens.
+
+## After Discovery: volunteer matching
+
+After the NGO confirms Discovery, the process bar highlights **Volunteer match**, before PRD.
+The finished screen offers **Find a volunteer**. This action opens the existing publication review screen.
+Vetting and human publication review remain required. After approval, ai4good coordinates a volunteer match.
+The volunteer must consent, and the NGO must fund kickoff before PRD work begins.
+The matching step covers preparation, publication review, finding a volunteer, consent, and funding readiness.
+These are existing workflow actions and lifecycle states. The label adds no lifecycle state and grants no approval.
+The completed Discovery chat stays complete while matching proceeds.
 
 ## Workspace layout
 
@@ -56,8 +66,36 @@ Round navigation and manual answer editing do not consume AI turns.
 One submission followed by one completed AI reply counts as one turn, including a reply addressing several independent questions.
 
 This follows the dependency-first questioning discussed from
-[Matt Pocock's grill-me skill](https://github.com/mattpocock/skills/tree/main/grill-me).
+[Matt Pocock's grill-me skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md).
 Use the questioning method without adopting an adversarial tone toward the NGO.
+
+## Completion guidance and Finish Discovery
+
+The Discovery agent must work toward completion. It must not keep an open-ended interview running.
+Show a Discovery progress panel above the conversation. It contains the agreed topic count, percentage, remaining topics, and **Finish Discovery**.
+This panel belongs to Discovery. It is separate from the shared process bar and the Discovery usage gauge.
+
+Progress equals agreed required topics divided by required topics. It does not measure messages, tokens, fuel, time, or AI confidence.
+Use a stable checklist. Conditional follow-up questions belong to their existing topic and keep that topic open until resolved.
+In the volunteer fixture, six topics cover priority, booking, maintenance, success measure, booking rules, and information handled.
+If trained roles require an approval owner, booking rules remain open until that owner is agreed. The denominator stays six.
+
+The agent selects the next unresolved required topic. Each reply must help resolve that topic or explain its blocker.
+Reusing intake facts and grouping independent questions can reduce the number of turns.
+Optional detail must not delay completion. Unknown facts stay visible; the agent must not invent certainty or repeat the same question indefinitely.
+
+When required topics are agreed, the AI states that Discovery is ready for review and stops asking questions.
+The interface replaces the composer with a finish invitation. Completion must stop further automatic model calls and charges.
+The **Finish Discovery** action remains visible throughout. Disable it while required answers, draft validity, or a review hold prevent finishing.
+Explain the remaining work beside it. Usage limits do not block review or finishing.
+
+**Finish Discovery** opens the current brief. The NGO reviews it, supplies the existing acknowledgments, and selects **Confirm and finish Discovery**.
+That action records the revision, actor, and time. It carries available paid funds once under the existing funding rules.
+The interface then says **Discovery finished**. AI readiness and 100% topic coverage do not constitute NGO approval.
+If the NGO changes an answer, reopen affected topics, lower progress where needed, and invalidate the previous approval.
+
+Required checks include incomplete, uncertain, conditional follow-up, ready, confirmed, and edited-after-confirmation states.
+Verify that the last answer stops questioning, finishing is free, and repeated completion cannot charge or transfer funds twice.
 
 ## Funding panel
 

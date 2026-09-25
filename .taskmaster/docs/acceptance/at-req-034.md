@@ -1,5 +1,7 @@
 # AT-REQ-034 — Requirement-Level Attribution (telemetry, never gating)
 
+> **[d93 PRD boundary]:** platform-owned PRD calls use OpenRouter and settle provider-reported generation cost once in the money ledger. Preserve the platform fee and pending reservations. Attribution retains tokens only. The Claude Code build gateway and assistant retain their existing accounting. PRD settlement and effort are verified by AT-036.05/07.
+
 > **[d92 Discovery boundary]:** platform-owned paid Discovery prices response usage into a separate provisional money entry, then reconciles to provider billing. Free Discovery uses the platform budget and never debits NGO fuel. The token log keeps no money fields. Replaying attribution rows cannot charge fuel. Gateway and assistant accounting remain unchanged. Discovery settlement, free-first routing, and source isolation are verified by AT-004.04/05/48; this suite retains its other contracts.
 
 > **[d82 AMENDED — two-tree model + requirement-level granularity, 2026-07-19]:** this suite now tests attribution at the PM-TREE REQUIREMENT level (REQ-026): bindings target pulled requirement items, never dev-tree items; burn and baselines are per-requirement; the recorded granularity IS the NGO-displayed granularity. Task-level assertions were retargeted; the per-volunteer-per-task coordinator detail was retired with the granularity.

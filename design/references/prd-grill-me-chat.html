@@ -1,0 +1,1081 @@
+<style>
+  #prd-materialize-flow {
+    --rec-bg: light-dark(#fff, #181d23);
+    --rec-soft: light-dark(#f7f9fa, #222a32);
+    --rec-ink: light-dark(#25323b, #e8edf1);
+    --rec-muted: light-dark(#627079, #b1bdc5);
+    --rec-line: light-dark(#e1e7eb, #39434d);
+    --rec-accent: light-dark(#146950, #8bdbc0);
+    --rec-accent-soft: light-dark(#edf8f3, #203d35);
+    --rec-accent-text: light-dark(#fff, #143128);
+    --rec-ai: light-dark(#6850ad, #c7b4fa);
+    --rec-ai-soft: light-dark(#f4f0fb, #302a40);
+    --rec-dev: light-dark(#335d8b, #a9c9f2);
+    --rec-dev-soft: light-dark(#eef4fc, #25374b);
+    --rec-ngo: light-dark(#86571b, #f0c488);
+    --rec-ngo-soft: light-dark(#fff5e5, #423624);
+    --rec-usage-green: light-dark(#178052, #7bd5a7);
+    --rec-usage-yellow: light-dark(#c7a800, #e7cd45);
+    --rec-usage-red: light-dark(#cf4141, #ff9090);
+    width: 100%; color: var(--rec-ink); background: transparent;
+    font: 14px/1.5 "Segoe UI", Arial, sans-serif;
+  }
+  #prd-materialize-flow * { box-sizing: border-box; }
+  #prd-materialize-flow [hidden] { display: none !important; }
+  #prd-materialize-flow p, #prd-materialize-flow h2, #prd-materialize-flow h3 { margin: 0; }
+  #prd-materialize-flow button, #prd-materialize-flow select, #prd-materialize-flow textarea { font: inherit; }
+  #prd-materialize-flow button { cursor: pointer; }
+  #prd-materialize-flow .rec-preview { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; padding: 0 0 12px; color: var(--rec-muted); font-size: 12px; }
+  #prd-materialize-flow .rec-preview select { flex: 1; min-width: 0; max-width: 100%; border: 1px solid var(--rec-line); border-radius: 8px; background: var(--rec-bg); color: var(--rec-ink); padding: 8px; font-size: 12px; }
+  #prd-materialize-flow .rec-example-control { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; }
+  #prd-materialize-flow .rec-example-control:first-child { flex: 2; }
+  #prd-materialize-flow .rec-window { border: 1px solid var(--rec-line); border-radius: 14px; background: var(--rec-bg); }
+  #prd-materialize-flow .rec-header { padding: 17px 22px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--rec-line); }
+  #prd-materialize-flow .rec-heading { display: flex; align-items: center; gap: 9px; }
+  #prd-materialize-flow .rec-brand { width: 27px; height: 27px; border-radius: 7px; display: grid; place-items: center; background: var(--rec-accent-soft); color: var(--rec-accent); font-size: 12px; font-weight: 500; }
+  #prd-materialize-flow h2 { font-size: 15px; font-weight: 500; }
+  #prd-materialize-flow .rec-project { color: var(--rec-muted); font-size: 12px; }
+  #prd-materialize-flow .rec-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+  #prd-materialize-flow .rec-budget { min-width: 215px; }
+  #prd-materialize-flow .rec-balance-label { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-size: 11px; color: var(--rec-muted); }
+  #prd-materialize-flow .rec-balance-value { font-size: 13px; font-weight: 500; color: var(--rec-ink); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  #prd-materialize-flow .rec-balance-track { height: 6px; margin-top: 6px; background: var(--rec-line); border-radius: 3px; overflow: hidden; }
+  #prd-materialize-flow .rec-balance-fill { height: 100%; width: 12.592%; background: var(--rec-usage-green); }
+  #prd-materialize-flow [data-usage-band="yellow"] .rec-balance-fill { background: var(--rec-usage-yellow); }
+  #prd-materialize-flow [data-usage-band="red"] .rec-balance-fill { background: var(--rec-usage-red); }
+  #prd-materialize-flow .rec-usage-label { margin-top: 4px; color: var(--rec-muted); font-size: 11px; }
+  #prd-materialize-flow .rec-spend { margin-top: 5px; color: var(--rec-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  #prd-materialize-flow .rec-cost-receipt { border-top: 1px solid var(--rec-line); margin-top: 12px; padding-top: 8px; font-size: 11px; color: var(--rec-muted); }
+  #prd-materialize-flow .rec-cost-receipt summary { cursor: pointer; min-height: 24px; }
+  #prd-materialize-flow .rec-cost-receipt dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 14px; margin: 8px 0 0; }
+  #prd-materialize-flow .rec-cost-receipt dt, #prd-materialize-flow .rec-cost-receipt dd { margin: 0; }
+  #prd-materialize-flow .rec-cost-receipt dd { text-align: right; font-variant-numeric: tabular-nums; color: var(--rec-ink); }
+  #prd-materialize-flow .rec-cost-receipt .rec-cost-total { color: var(--rec-ink); font-weight: 500; }
+  #prd-materialize-flow .rec-stages { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 11px 22px; border-bottom: 1px solid var(--rec-line); font-size: 12px; }
+  #prd-materialize-flow .rec-stage { color: var(--rec-muted); }
+  #prd-materialize-flow .rec-stage[aria-current="step"] { color: var(--rec-ink); font-weight: 500; }
+  #prd-materialize-flow .rec-stage-number { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--rec-soft); margin-right: 5px; }
+  #prd-materialize-flow .rec-stage[aria-current="step"] .rec-stage-number { color: var(--rec-accent-text); background: var(--rec-accent); }
+  #prd-materialize-flow .rec-stage-divider { color: var(--rec-muted); }
+  #prd-materialize-flow .rec-completion { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rec-line); }
+  #prd-materialize-flow .rec-completion p { font-size: 12px; color: var(--rec-muted); }
+  #prd-materialize-flow .rec-completion .rec-button { max-width: 100%; margin-top: 10px; }
+  #prd-materialize-flow .rec-button.rec-close-button { color: var(--rec-accent-text); background: var(--rec-dev); border-color: transparent; }
+  #prd-materialize-flow .rec-button.rec-close-button:hover { background: var(--rec-dev); filter: brightness(.95); }
+  #prd-materialize-flow .rec-button.rec-close-button:disabled { color: var(--rec-muted); background: var(--rec-bg); border-color: var(--rec-line); cursor: default; filter: none; }
+  #prd-materialize-flow .rec-completion .rec-close-note { font-size: 11px; margin-top: 8px; }
+  #prd-materialize-flow .rec-workspace { display: grid; grid-template-columns: minmax(0, 1fr) var(--rec-document-width, 350px); }
+  #prd-materialize-flow .rec-chat-pane { min-width: 0; padding-bottom: 22px; }
+  #prd-materialize-flow .rec-chat-heading { padding: 18px 22px 0; }
+  #prd-materialize-flow .rec-prd { min-width: 0; border-left: 1px solid var(--rec-line); background: var(--rec-soft); }
+  #prd-materialize-flow .rec-prd-header { padding: 18px 20px 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid var(--rec-line); }
+  #prd-materialize-flow .rec-prd-header h2 { font-size: 15px; }
+  #prd-materialize-flow .rec-prd-header p { font-size: 11px; color: var(--rec-muted); margin-top: 3px; }
+  #prd-materialize-flow .rec-prd-heading { padding: 18px 20px 0; }
+  #prd-materialize-flow .rec-prd-heading h3 { font-size: 17px; font-weight: 500; }
+  #prd-materialize-flow .rec-prd-heading p { font-size: 11px; color: var(--rec-muted); margin-top: 4px; }
+  #prd-materialize-flow .rec-prd-document { padding: 0 20px 20px; }
+  #prd-materialize-flow .rec-prd-section { padding: 18px 0 15px; border-bottom: 1px solid var(--rec-line); }
+  #prd-materialize-flow .rec-prd-section:last-child { border-bottom: 0; }
+  #prd-materialize-flow .rec-prd-section-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  #prd-materialize-flow .rec-prd-section h3 { font-size: 13px; font-weight: 500; }
+  #prd-materialize-flow .rec-prd-state { font-size: 11px; color: var(--rec-muted); background: var(--rec-bg); border: 1px solid var(--rec-line); border-radius: 5px; padding: 1px 6px; }
+  #prd-materialize-flow .rec-prd-section p { font-size: 12px; margin-top: 8px; line-height: 1.6; overflow-wrap: anywhere; }
+  #prd-materialize-flow .rec-prd-section ul { padding-left: 18px; margin: 8px 0 0; font-size: 12px; }
+  #prd-materialize-flow .rec-prd-section li { margin-top: 3px; }
+  #prd-materialize-flow .rec-prd-source { display: inline-flex; align-items: center; gap: 5px; border: 0; padding: 3px 6px; border-radius: 5px; color: var(--rec-person); background: var(--rec-person-soft); font-size: 11px; margin-top: 9px; text-align: left; }
+  #prd-materialize-flow .rec-prd-source:hover { text-decoration: underline; }
+  #prd-materialize-flow .rec-prd-update { margin-left: 5px; color: var(--rec-muted); font-size: 11px; }
+  #prd-materialize-flow .rec-prd-footer { margin: 0 20px 20px; padding-top: 12px; border-top: 1px solid var(--rec-line); font-size: 11px; color: var(--rec-muted); }
+  #prd-materialize-flow[data-panel="closed"] .rec-prd { display: none; }
+  #prd-materialize-flow[data-panel="closed"] .rec-workspace, #prd-materialize-flow[data-layout="document"] .rec-workspace { grid-template-columns: minmax(0, 1fr); }
+  #prd-materialize-flow[data-layout="document"] .rec-chat-pane { display: none; }
+  #prd-materialize-flow[data-layout="document"] .rec-prd { border-left: 0; }
+  #prd-materialize-flow[data-layout="document"] .rec-prd-document, #prd-materialize-flow[data-layout="document"] .rec-prd-heading { max-width: 780px; margin-inline: auto; }
+  #prd-materialize-flow .rec-ownership { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; margin: 18px 22px 20px; font-size: 12px; }
+  #prd-materialize-flow .rec-owner { padding: 5px 10px; border-radius: 7px; color: var(--rec-dev); background: var(--rec-dev-soft); font-weight: 500; }
+  #prd-materialize-flow .rec-owner[data-person="ngo"] { color: var(--rec-ngo); background: var(--rec-ngo-soft); }
+  #prd-materialize-flow [data-person="ai"] { --rec-person: var(--rec-ai); --rec-person-soft: var(--rec-ai-soft); }
+  #prd-materialize-flow [data-person="dev"] { --rec-person: var(--rec-dev); --rec-person-soft: var(--rec-dev-soft); }
+  #prd-materialize-flow [data-person="ngo"] { --rec-person: var(--rec-ngo); --rec-person-soft: var(--rec-ngo-soft); }
+  #prd-materialize-flow .rec-reader { color: var(--rec-person); background: var(--rec-person-soft); padding: 5px 10px; border-radius: 7px; }
+  #prd-materialize-flow .rec-composer { margin: 22px 22px 0 62px; padding: 13px; border: 1px solid var(--rec-line); border-left: 3px solid var(--rec-person); border-radius: 0 10px 10px 0; background: var(--rec-bg); }
+  #prd-materialize-flow .rec-composer-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; font-size: 12px; }
+  #prd-materialize-flow .rec-composer-heading label { color: var(--rec-person); font-weight: 500; }
+  #prd-materialize-flow .rec-composer-heading span { color: var(--rec-muted); font-size: 11px; }
+  #prd-materialize-flow .rec-composer textarea { display: block; width: 100%; min-height: 90px; padding: 10px; border: 1px solid var(--rec-line); border-radius: 7px; resize: vertical; background: var(--rec-soft); color: var(--rec-ink); font-size: 13px; }
+  #prd-materialize-flow .rec-composer textarea::placeholder { color: var(--rec-muted); }
+  #prd-materialize-flow .rec-composer-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  #prd-materialize-flow .rec-effort-control { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+  #prd-materialize-flow .rec-effort-control select { min-height: 38px; border: 1px solid var(--rec-line); border-radius: 7px; padding: 7px 26px 7px 9px; background: var(--rec-bg); color: var(--rec-ink); font-size: 12px; }
+  #prd-materialize-flow .rec-button.rec-send { background: var(--rec-person); color: var(--rec-accent-text); border-color: transparent; }
+  #prd-materialize-flow .rec-button.rec-send:hover { background: var(--rec-person); filter: brightness(.95); }
+  #prd-materialize-flow .rec-button.rec-send:disabled { background: var(--rec-soft); border-color: var(--rec-line); color: var(--rec-muted); cursor: default; filter: none; }
+  #prd-materialize-flow .rec-composer-note { margin-top: 8px; color: var(--rec-muted); font-size: 11px; }
+  #prd-materialize-flow .rec-request-effort { font-size: 11px; color: var(--rec-person); }
+  #prd-materialize-flow .rec-effort-used { font-size: 11px; color: var(--rec-ai); }
+  #prd-materialize-flow .rec-bookmark-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 22px 20px; }
+  #prd-materialize-flow .rec-bookmark-label { font-size: 11px; color: var(--rec-muted); margin-right: 3px; }
+  #prd-materialize-flow .rec-bookmark { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--rec-person); border-radius: 7px; background: var(--rec-person-soft); color: var(--rec-person); padding: 7px 10px; font-size: 12px; font-weight: 500; }
+  #prd-materialize-flow .rec-bookmark:disabled { opacity: .5; cursor: default; }
+  #prd-materialize-flow .rec-history { margin: 0 22px 18px; }
+  #prd-materialize-flow .rec-history > summary { cursor: pointer; font-size: 12px; color: var(--rec-muted); margin-bottom: 12px; }
+  #prd-materialize-flow .rec-history .rec-transcript { padding: 0; }
+  #prd-materialize-flow .rec-transcript { display: grid; gap: 18px; margin: 0; padding: 0 22px; list-style: none; }
+  #prd-materialize-flow .rec-message { display: flex; gap: 10px; min-width: 0; scroll-margin-block: 30px; }
+  #prd-materialize-flow .rec-avatar { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; font-size: 11px; font-weight: 500; }
+  #prd-materialize-flow .rec-avatar-ai { background: var(--rec-ai-soft); color: var(--rec-ai); }
+  #prd-materialize-flow .rec-avatar-dev { background: var(--rec-dev-soft); color: var(--rec-dev); }
+  #prd-materialize-flow .rec-avatar-ngo { background: var(--rec-ngo-soft); color: var(--rec-ngo); }
+  #prd-materialize-flow .rec-message-main { flex: 1; min-width: 0; border-left: 3px solid var(--rec-person); padding: 11px 13px 13px; background: var(--rec-person-soft); border-radius: 0 10px 10px 0; }
+  #prd-materialize-flow .rec-message-meta { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+  #prd-materialize-flow .rec-message-name { font-size: 12px; font-weight: 500; color: var(--rec-person); }
+  #prd-materialize-flow .rec-turn-marker { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--rec-person); color: var(--rec-person); background: var(--rec-bg); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+  #prd-materialize-flow .rec-message[data-bookmarked="true"] .rec-message-main { box-shadow: 0 0 0 2px var(--rec-person); }
+  #prd-materialize-flow .rec-message-text { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #prd-materialize-flow .rec-prd-changes { margin-top: 10px; color: var(--rec-ai); font-size: 11px; }
+  #prd-materialize-flow .rec-round { margin-top: 14px; }
+  #prd-materialize-flow .rec-round-title { color: var(--rec-ai); font-size: 12px; font-weight: 500; }
+  #prd-materialize-flow .rec-round-questions { list-style: none; padding: 0; margin: 10px 0 0; }
+  #prd-materialize-flow .rec-round-question + .rec-round-question { border-top: 1px solid var(--rec-line); margin-top: 12px; padding-top: 12px; }
+  #prd-materialize-flow .rec-question-title { margin: 0 0 4px; font-size: 13px; font-weight: 500; }
+  #prd-materialize-flow .rec-question-why { color: var(--rec-muted); font-size: 12px; }
+  #prd-materialize-flow .rec-question-suggestion { margin-top: 6px; font-size: 12px; }
+  #prd-materialize-flow .rec-dependencies { border-top: 1px solid var(--rec-line); padding-top: 10px; margin-top: 14px; font-size: 12px; }
+  #prd-materialize-flow .rec-dependencies > summary { cursor: pointer; color: var(--rec-ink); font-weight: 500; }
+  #prd-materialize-flow .rec-dependencies ul { list-style: none; margin: 10px 0 0; padding: 0; }
+  #prd-materialize-flow .rec-dependency { border-left: 2px solid var(--rec-person); padding-left: 9px; margin-top: 10px; }
+  #prd-materialize-flow .rec-dependency-title { color: var(--rec-person); font-weight: 500; }
+  #prd-materialize-flow .rec-dependency p { color: var(--rec-muted); margin-top: 2px; }
+  #prd-materialize-flow .rec-dependency-note { margin-top: 10px; color: var(--rec-muted); font-size: 11px; }
+  #prd-materialize-flow .rec-message-main > .rec-advice { margin: 12px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid var(--rec-line); border-radius: 0; background: transparent; }
+  #prd-materialize-flow .rec-event { list-style: none; margin-left: 40px; padding: 3px 0; color: var(--rec-muted); font-size: 11px; }
+  #prd-materialize-flow .rec-event[data-next-owner] { padding: 8px 10px; border-left: 3px solid var(--rec-person); background: var(--rec-person-soft); color: var(--rec-person); border-radius: 0 7px 7px 0; }
+  #prd-materialize-flow .rec-event[data-next-owner="dev"] { --rec-person: var(--rec-dev); --rec-person-soft: var(--rec-dev-soft); }
+  #prd-materialize-flow .rec-event[data-next-owner="ngo"] { --rec-person: var(--rec-ngo); --rec-person-soft: var(--rec-ngo-soft); }
+  #prd-materialize-flow .rec-advice { margin: 18px 22px 20px 62px; border: 1px solid var(--rec-line); border-top: 3px solid var(--rec-ai); padding: 16px; border-radius: 10px; background: var(--rec-bg); }
+  #prd-materialize-flow .rec-kicker { font-size: 11px; color: var(--rec-ai); margin-bottom: 5px; }
+  #prd-materialize-flow h3 { font-size: 17px; font-weight: 500; }
+  #prd-materialize-flow .rec-reason { font-size: 13px; margin-top: 7px; }
+  #prd-materialize-flow .rec-unlocks { font-size: 12px; color: var(--rec-muted); margin-top: 10px; }
+  #prd-materialize-flow .rec-brief { margin-top: 14px; border-top: 1px solid var(--rec-line); padding-top: 12px; font-size: 12px; }
+  #prd-materialize-flow .rec-brief summary { cursor: pointer; color: var(--rec-ink); }
+  #prd-materialize-flow .rec-brief p { color: var(--rec-muted); margin-top: 8px; }
+  #prd-materialize-flow .rec-brief ul { padding-left: 18px; margin: 8px 0 0; }
+  #prd-materialize-flow .rec-brief li { margin-top: 4px; }
+  #prd-materialize-flow .rec-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  #prd-materialize-flow .rec-button { border: 1px solid var(--rec-line); background: var(--rec-bg); color: var(--rec-ink); border-radius: 8px; padding: 9px 12px; font-size: 12px; font-weight: 500; }
+  #prd-materialize-flow .rec-button:hover { background: var(--rec-soft); }
+  #prd-materialize-flow .rec-primary { background: var(--rec-accent); color: var(--rec-accent-text); border-color: transparent; }
+  #prd-materialize-flow .rec-primary:hover { background: var(--rec-accent); filter: brightness(.95); }
+  #prd-materialize-flow .rec-approval-note { font-size: 11px; color: var(--rec-muted); margin-top: 10px; }
+  #prd-materialize-flow .rec-jump-status { font-size: 11px; color: var(--rec-muted); margin: 12px 22px 0; }
+  #prd-materialize-flow .rec-footer { color: var(--rec-muted); font-size: 11px; padding: 12px 22px; border-top: 1px solid var(--rec-line); }
+  #prd-materialize-flow .rec-materialize { position: relative; margin: 18px 22px 0 62px; padding: 11px 13px 13px; border-left: 3px solid var(--rec-ai); border-radius: 0 10px 10px 0; background: var(--rec-ai-soft); }
+  #prd-materialize-flow .rec-materialize > .rec-avatar { position: absolute; left: -43px; top: 0; }
+  #prd-materialize-flow .rec-materialize .rec-message-name { margin-bottom: 10px; }
+  #prd-materialize-flow .rec-materialize h3 { font-size: 16px; }
+  #prd-materialize-flow .rec-materialize p { font-size: 12px; margin-top: 7px; color: var(--rec-muted); }
+  #prd-materialize-flow .rec-material-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  #prd-materialize-flow .rec-material-example { font-size: 11px; color: var(--rec-muted); }
+  #prd-materialize-flow .rec-material-steps { padding: 0; margin: 16px 0 0; list-style: none; }
+  #prd-materialize-flow .rec-material-step { border-top: 1px solid var(--rec-line); padding: 11px 0; }
+  #prd-materialize-flow .rec-material-step summary { display: list-item; list-style-position: inside; cursor: pointer; font-size: 12px; }
+  #prd-materialize-flow .rec-material-step-name { min-width: 0; }
+  #prd-materialize-flow .rec-material-step-state { float: right; margin-left: 10px; color: var(--rec-muted); font-size: 11px; white-space: nowrap; }
+  #prd-materialize-flow .rec-material-step[data-state="done"] .rec-material-step-state { color: var(--rec-accent); }
+  #prd-materialize-flow .rec-material-step[data-state="running"] .rec-material-step-state { color: var(--rec-ai); }
+  #prd-materialize-flow .rec-material-step[data-state="paused"] .rec-material-step-state { color: var(--rec-ngo); }
+  #prd-materialize-flow .rec-material-output { padding: 10px 0 2px; }
+  #prd-materialize-flow .rec-material-output ul { margin: 5px 0; padding-left: 18px; font-size: 12px; }
+  #prd-materialize-flow .rec-material-output li { margin-top: 6px; }
+  #prd-materialize-flow .rec-material-output code { font-family: Consolas, monospace; font-size: 11px; overflow-wrap: anywhere; color: var(--rec-ink); }
+  #prd-materialize-flow .rec-material-output table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  #prd-materialize-flow .rec-material-output th, #prd-materialize-flow .rec-material-output td { padding: 7px 4px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rec-line); overflow-wrap: anywhere; }
+  #prd-materialize-flow .rec-material-output th { font-weight: 500; }
+  #prd-materialize-flow .rec-material-output th:last-child { width: 86px; overflow-wrap: normal; }
+  #prd-materialize-flow .rec-material-output td:last-child { white-space: nowrap; }
+  #prd-materialize-flow .rec-material-pending { color: var(--rec-muted); }
+  #prd-materialize-flow .rec-material-final { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--rec-line); }
+  #prd-materialize-flow .rec-materialize[data-status="complete"] .rec-material-final { color: var(--rec-accent); }
+  #prd-materialize-flow[data-emphasis="quiet"] .rec-advice { border-top: 1px solid var(--rec-line); }
+  @media (max-width: 780px) {
+    #prd-materialize-flow .rec-preview { align-items: stretch; }
+    #prd-materialize-flow .rec-example-control { flex-basis: 100%; }
+    #prd-materialize-flow .rec-example-control:first-child { flex-basis: 100%; }
+    #prd-materialize-flow .rec-workspace { grid-template-columns: minmax(0, 1fr); }
+    #prd-materialize-flow .rec-prd { order: 1; border-left: 0; border-top: 1px solid var(--rec-line); }
+  }
+  @media (max-width: 450px) {
+    #prd-materialize-flow .rec-preview { align-items: stretch; }
+    #prd-materialize-flow .rec-preview label { flex-basis: 100%; }
+    #prd-materialize-flow .rec-example-control { flex-wrap: wrap; gap: 4px; }
+    #prd-materialize-flow .rec-header { padding: 14px; }
+    #prd-materialize-flow .rec-header-actions { width: 100%; justify-content: space-between; margin-top: 6px; gap: 8px; }
+    #prd-materialize-flow .rec-budget { min-width: 0; flex: 1; }
+    #prd-materialize-flow .rec-balance-label { gap: 8px; }
+    #prd-materialize-flow .rec-stages { padding-inline: 14px; gap: 6px; }
+    #prd-materialize-flow .rec-ownership { margin-left: 14px; margin-right: 14px; }
+    #prd-materialize-flow .rec-chat-heading { padding-inline: 14px; }
+    #prd-materialize-flow .rec-composer { margin-left: 14px; margin-right: 14px; }
+    #prd-materialize-flow .rec-composer textarea { font-size: 16px; }
+    #prd-materialize-flow .rec-materialize { margin-left: 54px; margin-right: 14px; padding: 12px; }
+    #prd-materialize-flow .rec-bookmark-bar, #prd-materialize-flow .rec-history, #prd-materialize-flow .rec-jump-status { margin-left: 14px; margin-right: 14px; }
+    #prd-materialize-flow .rec-transcript { padding: 0 14px; }
+    #prd-materialize-flow .rec-advice { margin-left: 14px; margin-right: 14px; }
+    #prd-materialize-flow .rec-footer { padding-left: 14px; padding-right: 14px; }
+    #prd-materialize-flow .rec-button, #prd-materialize-flow .rec-bookmark, #prd-materialize-flow select { min-height: 44px; }
+  }
+  @media (pointer: coarse) { #prd-materialize-flow .rec-button, #prd-materialize-flow .rec-bookmark, #prd-materialize-flow select, #prd-materialize-flow .rec-cost-receipt summary { min-height: 44px; } #prd-materialize-flow .rec-composer textarea { font-size: 16px; } #prd-materialize-flow .rec-material-step summary { padding-block: 12px; } }
+  @media (pointer: coarse) { #prd-materialize-flow .rec-dependencies > summary, #prd-materialize-flow .rec-history > summary, #prd-materialize-flow .rec-brief > summary { min-height: 44px; padding-block: 11px; } }
+</style>
+<div id="prd-materialize-flow" aria-label="Shared PRD workspace with a dollar balance and OpenRouter response costs" data-panel="open" data-layout="split" data-stage="prd">
+  <div class="rec-preview"><div class="rec-example-control"><label for="rec-scenario">Conversation example</label><select id="rec-scenario"><option value="continue" selected>Dev · Questions we can resolve now</option><option value="blocked">Dev · AI recommends NGO handoff</option><option value="ngo">NGO · First questions after handoff</option><option value="ngo-followup">NGO · Answers unlock the next questions</option><option value="return">NGO · AI recommends returning to Dev</option><option value="ready">Dev · AI recommends closing the PRD</option><option value="review">Dev · AI is reviewing completion</option><option value="retry">Materialization needs a retry</option></select></div><div class="rec-example-control"><label for="rec-usage-example">Usage example</label><select id="rec-usage-example"><option value="current">Current spending</option><option value="79.99">79.99% spent</option><option value="80">80% spent</option><option value="95">95% spent</option><option value="95.01">95.01% spent</option><option value="100">100% spent</option></select></div></div>
+  <section class="rec-window" aria-label="Project workspace">
+    <header class="rec-header">
+      <div class="rec-heading"><span class="rec-brand" aria-hidden="true">a4</span><div><h2 id="rec-workspace-title">PRD workspace</h2><span class="rec-project">Community Table · Volunteer coordination</span></div></div>
+      <div class="rec-header-actions">
+        <div class="rec-budget" id="rec-budget" data-usage-band="green"><div class="rec-balance-label"><span id="rec-balance-label">AI usage · USD</span><span>Example</span></div><div class="rec-balance-value" id="rec-balance-value" role="status" aria-live="polite" aria-atomic="true">$17.4816 left</div><div class="rec-balance-track" id="rec-balance-meter" role="meter" aria-label="AI budget consumed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12.592" aria-valuetext="12.592 percent spent; green"><div class="rec-balance-fill" id="rec-balance-fill"></div></div><p class="rec-spend" id="rec-spend">$2.5184 used of $20.00</p><p class="rec-usage-label" id="rec-usage-label">12.592% spent · Green</p></div>
+        <button type="button" class="rec-button" id="rec-toggle-prd" aria-expanded="true" aria-controls="rec-prd">Hide PRD</button>
+      </div>
+    </header>
+    <nav class="rec-stages" aria-label="Project stage"><span class="rec-stage"><span class="rec-stage-number" aria-hidden="true">✓</span>Matched</span><span class="rec-stage-divider" aria-hidden="true">›</span><span class="rec-stage" id="rec-stage-prd" aria-current="step"><span class="rec-stage-number" aria-hidden="true">1</span><span id="rec-stage-prd-label">PRD</span></span><span class="rec-stage-divider" aria-hidden="true">›</span><span class="rec-stage" id="rec-stage-materialize"><span class="rec-stage-number" aria-hidden="true">2</span>PRD materialize</span><span class="rec-stage-divider" aria-hidden="true">›</span><span class="rec-stage" id="rec-stage-design"><span class="rec-stage-number" aria-hidden="true">3</span>Design</span></nav>
+    <div class="rec-workspace"><section class="rec-chat-pane" aria-label="Shared project conversation">
+    <h2 class="rec-chat-heading">Shared conversation</h2>
+    <div class="rec-ownership" role="status" aria-live="polite"><span class="rec-owner" id="rec-owner" data-person="dev">Alex · Developer · Active</span><span class="rec-reader" id="rec-reader">Maya · NGO · Read only</span></div>
+    <nav class="rec-bookmark-bar" aria-label="Actor bookmarks"><span class="rec-bookmark-label">Jump to last turn</span><button type="button" class="rec-bookmark" data-person="dev" id="rec-bookmark-dev"><i data-lucide="bookmark" aria-hidden="true"></i>Dev bookmark</button><button type="button" class="rec-bookmark" data-person="ngo" id="rec-bookmark-ngo"><i data-lucide="bookmark" aria-hidden="true"></i>NGO bookmark</button></nav>
+    <details class="rec-history" id="rec-history"><summary id="rec-history-label">Conversation history</summary><ol class="rec-transcript" id="rec-earlier" aria-label="Earlier conversation"></ol></details>
+    <ol class="rec-transcript" id="rec-transcript" aria-label="Recent context"></ol>
+    <section class="rec-materialize" id="rec-materialize" data-person="ai" aria-label="AI reply: PRD materialization" hidden><span class="rec-avatar rec-avatar-ai" aria-hidden="true">AI</span><div class="rec-message-name">AI assistant · OpenRouter</div><div class="rec-material-heading"><h3 id="rec-material-title">Materialize PRD v1.0</h3><span class="rec-material-example">Example run · Services not connected</span></div><p id="rec-material-status" role="status" aria-live="polite"></p><ol class="rec-material-steps" id="rec-material-steps"></ol><p id="rec-material-cost"></p><p class="rec-material-final" id="rec-material-final"></p></section>
+    <p class="rec-jump-status" id="rec-jump-status" role="status" aria-live="polite" hidden></p>
+    <div id="rec-advice-home" hidden><section class="rec-advice" id="rec-advice" aria-label="AI recommendation">
+      <h3 id="rec-title">Hand over to Maya</h3>
+      <p class="rec-reason" id="rec-reason"></p>
+      <p class="rec-unlocks" id="rec-unlocks"></p>
+      <details class="rec-brief" id="rec-brief"><summary id="rec-brief-title">Review the handoff brief</summary><p id="rec-brief-context"></p><ul id="rec-questions"></ul></details>
+      <div class="rec-actions"><button type="button" class="rec-button rec-primary" id="rec-accept">Hand over to Maya</button></div>
+      <p class="rec-approval-note" id="rec-approval-note">Alex stays active until he accepts the handoff.</p>
+    </section></div>
+    <section class="rec-composer" id="rec-composer" data-person="dev" aria-label="Request to AI"><div class="rec-composer-heading"><label for="rec-request" id="rec-request-label">Alex · Developer · Your request to AI</label><span>Example chat</span></div><textarea id="rec-request" rows="3" maxlength="2000" placeholder="Ask a question or request a PRD change…" aria-describedby="rec-composer-note"></textarea><div class="rec-composer-actions"><label class="rec-effort-control" for="rec-request-effort">Effort<select id="rec-request-effort"><option value="low">Low</option><option value="med" selected>Med</option><option value="high">High</option><option value="xhigh">Xhigh</option><option value="max">Max</option></select></label><button type="button" class="rec-button rec-send" id="rec-send">Send to AI</button></div><p class="rec-composer-note" id="rec-composer-note" role="status" aria-live="polite">Effort applies to this request. No live model calls in this example.</p></section>
+    <div id="rec-completion-home" hidden><div class="rec-completion" id="rec-completion"><p id="rec-completion-status" aria-live="polite"></p><button type="button" class="rec-button rec-close-button" id="rec-close-prd" aria-describedby="rec-completion-status rec-close-note">Close PRD and materialize</button><p class="rec-close-note" id="rec-close-note">Next: prepare the Linear PM board, acceptance tests, and developer work. Then continue to Design.</p></div></div>
+    </section>
+    <aside class="rec-prd" id="rec-prd" aria-label="Current PRD">
+      <div class="rec-prd-header"><div><h2 id="rec-prd-title">PRD draft</h2><p id="rec-prd-subtitle">AI organizes Discovery and chat decisions here.</p></div><button type="button" class="rec-button" id="rec-expand-prd" aria-pressed="false">Expand</button></div>
+      <div class="rec-prd-heading"><h3>Volunteer coordination</h3><p id="rec-prd-status" aria-live="polite"></p></div>
+      <div class="rec-prd-document" id="rec-prd-document"></div>
+      <p class="rec-prd-footer" id="rec-prd-footer">Sections collect decisions from the shared conversation. Open questions guide what AI asks next.</p>
+    </aside></div>
+    <footer class="rec-footer">AI · Purple &nbsp; Dev · Blue &nbsp; NGO · Amber<br>Bookmarks locate each person's last turn. Only the active person can reply.</footer>
+  </section>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('prd-materialize-flow');
+  const get = id => root.querySelector('#rec-' + id);
+  const names = { dev: 'Alex', ngo: 'Maya', ai: 'AI assistant' };
+  const roles = { dev: 'Developer', ngo: 'NGO' };
+  const initials = { dev: 'AL', ngo: 'MA', ai: 'AI' };
+  const rounds = {
+    dev: {
+      title: 'Resolve now · Devices and hosting',
+      questions: [
+        { title: 'Which devices must the first release support?', why: 'The signup and shift tasks are agreed. Device support does not depend on approval rules.', suggestion: 'Mobile and desktop browsers, with no separate native app.' },
+        { title: 'Should the first release use the existing hosting and email service?', why: 'The existing services are recorded in this thread. This choice is independent of the NGO process rules.', suggestion: 'Reuse them, with compatibility checks before confirming deployment.' }
+      ],
+      waitingTitle: 'Waiting for Maya · 2 decisions',
+      waiting: [
+        { actor: 'ngo', title: 'Who can approve volunteers?', effect: 'Approval permissions wait for this answer.' },
+        { actor: 'ngo', title: 'Who can override a cancellation?', effect: 'Cancellation behavior waits for the role and conditions.' }
+      ],
+      note: 'We can finish the two questions above before a handoff.'
+    },
+    ngo: {
+      title: 'Resolve now · Approval and cancellations',
+      questions: [
+        { title: 'Who is allowed to approve a volunteer?', why: 'Alex needs the approved role before defining permissions.', suggestion: 'Keep approval with the lead coordinator, if that matches your policy.' },
+        { title: 'Who can override a cancellation, and under what conditions?', why: 'This determines which exceptions the application must support.', suggestion: 'The lead coordinator after checking coverage, if that matches your policy.' }
+      ],
+      waitingTitle: 'Questions that depend on these answers',
+      waiting: [
+        { actor: 'ngo', title: 'Can approval authority be delegated?', effect: 'First confirm who holds that authority.' },
+        { actor: 'ngo', title: 'Who receives a vacancy notification?', effect: 'First confirm the cancellation process.' },
+        { actor: 'dev', title: 'Permissions and notification delivery', effect: 'Alex can decide these after the NGO rules are confirmed.' }
+      ],
+      note: 'Your answers determine the next round. Alex remains read only.'
+    },
+    ngoFollowup: {
+      title: 'Resolve now · Delegation and notifications',
+      questions: [
+        { title: 'Can the lead coordinator delegate approval?', why: 'You confirmed the lead coordinator as the approval owner.', suggestion: 'Keep approval with that role for the first release.' },
+        { title: 'Who should hear about a vacant shift?', why: 'You confirmed when the lead coordinator may override a cancellation.', suggestion: 'Email the coordinator when a shift becomes vacant.' }
+      ],
+      waitingTitle: 'After your answers · Alex',
+      waiting: [
+        { actor: 'dev', title: 'Approval permissions', effect: 'Needs your answer about delegation.' },
+        { actor: 'dev', title: 'Delivery and failed notifications', effect: 'Needs the notification trigger and recipient.' }
+      ],
+      note: 'We can finish these NGO decisions together before returning to Alex.'
+    },
+    delivery: {
+      title: 'Resolve now · Notification delivery',
+      questions: [
+        { title: 'How should we deliver the vacancy notification?', why: 'Maya confirmed the trigger and recipient. The existing services are available.', suggestion: 'Use the existing email service.' },
+        { title: 'What should happen if delivery fails?', why: 'The recipient is known. We can now define the failure behavior.', suggestion: 'Retry twice, then show the delivery failure to the coordinator.' }
+      ],
+      waitingTitle: 'Before AI can recommend closing',
+      waiting: [{ actor: 'dev', title: 'Review the resulting implementation requirements', effect: 'Check the screens and data flow against the confirmed NGO rules.' }],
+      note: 'AI will check the finished PRD against the Discovery scope.'
+    }
+  };
+  const examples = {
+    ready: {
+      owner: 'dev', action: 'ready',
+      earlier: [
+        { person: 'ngo', key: 'scope', text: 'Volunteers should sign up and choose weekly shifts. Coordinators manage those shifts. Keep donations and reporting for a later release.' },
+        { person: 'ngo', key: 'rules', text: 'Only the lead coordinator may approve volunteers. The lead coordinator can override a cancellation after checking coverage. Email the coordinator when a shift becomes vacant.' },
+        { person: 'event', text: 'Maya handed back to Alex. NGO decisions are recorded.' }
+      ],
+      messages: [
+        { person: 'dev', key: 'technical', text: 'Mobile and desktop browsers are in scope. Use our existing hosting and email service. Retry failed emails twice and show delivery failures to coordinators. I have checked the screens, data flow, and deployment plan. The PRD is ready.' },
+        { person: 'ai', prdChanges: ['Implementation'], text: 'I checked this PRD against the Discovery scope. Signup, shifts, NGO rules, and implementation constraints are covered. No required decisions remain open. I recommend closing the PRD and materializing the work package.' }
+      ]
+    },
+    blocked: {
+      owner: 'dev', target: 'ngo', action: 'handoff',
+      earlier: [
+        { person: 'ngo', key: 'scope', text: 'Volunteers should sign up and choose weekly shifts. Coordinators manage those shifts. Keep donations and reporting for a later release.' },
+        { person: 'event', text: 'Maya handed back to Alex.' }
+      ],
+      messages: [
+        { person: 'dev', key: 'technical', text: 'We have defined the screens, data flow, and deployment. I cannot confirm who may approve volunteers or override a cancellation. Maya owns those decisions.' },
+        { person: 'ai', recommendation: 'handoff', text: "The remaining approval and cancellation requirements depend on your NGO's rules. I recommend handing over to Maya to confirm those rules and the notification recipients together." }
+      ],
+      title: 'Hand over to Maya',
+      reason: 'You have covered the technical questions available now. Maya can confirm the operational rules that block the next requirements.',
+      unlocks: 'Her answers will let us define approval permissions and cancellation behavior.',
+      context: 'Agreed: volunteer signup and weekly shifts. Technical outline recorded. Approval and cancellation rules remain open.',
+      questions: ['Who can approve volunteers?', 'Who can override a cancellation, and under what conditions?'],
+      accept: 'Hand over to Maya',
+      incoming: 'Maya, Alex has finished the technical questions available now. These two process decisions can be answered together.',
+      incomingRound: rounds.ngo
+    },
+    continue: {
+      owner: 'dev', action: 'continue',
+      earlier: [
+        { person: 'ngo', key: 'scope', text: 'Volunteers should sign up and choose weekly shifts. Coordinators manage those shifts. Donations and reporting can wait. I still need to confirm approval and cancellation rules.' },
+        { person: 'event', text: 'Maya handed back to Alex.' }
+      ],
+      messages: [
+        { person: 'dev', key: 'technical', text: 'Maya needs to confirm the approval rules. I can still define the supported devices and deployment constraints. Those decisions do not depend on her answer.' },
+        { person: 'ai', round: rounds.dev, text: "These two decisions are independent of Maya's approval rules. We can resolve them now." }
+      ]
+    },
+    return: {
+      owner: 'ngo', target: 'dev', action: 'handoff',
+      earlier: [
+        { person: 'ngo', key: 'scope', text: 'Volunteers should sign up and choose weekly shifts. Coordinators manage those shifts. Keep donations and reporting for a later release.' },
+        { person: 'event', text: 'Maya handed back to Alex.' },
+        { person: 'dev', key: 'technical', text: 'The technical outline is ready. Maya, please confirm the approval rules, cancellation exceptions, and who gets notified.' },
+        { person: 'event', text: 'Alex handed over to Maya.' }
+      ],
+      messages: [
+        { person: 'ngo', key: 'rules', text: 'Only the lead coordinator may approve volunteers. The lead coordinator can override a cancellation after checking coverage. Email the coordinator when a shift becomes vacant. Alex needs to choose email delivery and retries.' },
+        { person: 'ai', recommendation: 'handoff', prdChanges: ['Volunteer approval', 'Cancellations'], text: "Your process is clear enough to continue. I recommend handing back to Alex. The remaining delivery and retry decisions depend on his implementation plan." }
+      ],
+      title: 'Hand back to Alex',
+      reason: 'The NGO rules are recorded. Alex can now decide how to implement notifications without asking you to make technical choices.',
+      unlocks: 'Your answers will let Alex define notification delivery and failure handling.',
+      context: 'Maya confirmed the process and exceptions. The return brief includes her answers, updated PRD sections, and the next technical decision.',
+      questions: ['How will notifications be delivered?', 'What happens if a notification cannot be delivered?'],
+      accept: 'Hand back to Alex',
+      incoming: "Alex, Maya's process decisions are in the PRD. They unlock these implementation questions.",
+      incomingRound: rounds.delivery
+    }
+  };
+  const scopeHistory = [
+    { person: 'event', toOwner: 'dev', text: 'Discovery brief imported. Alex is active. Maya can read this shared thread.' },
+    { person: 'ai', text: 'I started the PRD draft from the Discovery brief for volunteer coordination. As we answer questions here, I will update its sections. Alex, what can we establish before we ask Maya for details?' },
+    { person: 'dev', requestedEffort: 'med', text: 'I have read the brief. I can outline the technical work, but Maya needs to confirm which volunteer tasks belong in the first release.' },
+    { person: 'ai', text: 'I will keep the first-release boundary open. Are you planning a separate mobile application or a browser application?' },
+    { person: 'dev', text: 'A browser application is the starting point. We can choose the supported devices once the main tasks are clear.' },
+    { person: 'ai', text: 'That gives us a starting point without deciding the device requirements yet. Are there existing services we should consider?' },
+    { person: 'dev', text: 'The organization already has hosting and an email service. I need to check whether they fit this project.' },
+    { person: 'ai', text: 'I have recorded those as options, not confirmed constraints. Can we define the user journey from the brief alone?' },
+    { person: 'dev', text: 'Only at a high level. I do not want to assume whether registration, shifts, donations, or reporting matter most to Maya.' },
+    { person: 'ai', recommendation: 'handoff', text: 'Maya can confirm the priorities and exclusions. I recommend handing over to her with those questions together.' },
+    { person: 'dev', text: 'Hand over to Maya. Please confirm the first release and keep the technical questions for me.' },
+    { person: 'event', toOwner: 'ngo', text: 'Alex handed over to Maya. NGO active. Developer read only.' },
+    { person: 'ai', text: 'Maya, Alex has started the technical outline. Which part of volunteer coordination should this first release cover?' },
+    { person: 'ngo', requestedEffort: 'high', text: 'Start with volunteer signup and weekly shifts. Coordinators need a clear way to manage those shifts.' },
+    { person: 'ai', text: 'Should donations be part of this release, or should we keep this work focused on volunteer coordination?' },
+    { person: 'ngo', text: 'Keep donations outside this release. It is separate work and should not delay volunteer coordination.' },
+    { person: 'ai', text: 'What about reporting? I want to record the exclusions before we expand the requirements.' },
+    { person: 'ngo', key: 'scope', text: 'Volunteers should sign up and choose weekly shifts. Coordinators manage those shifts. Keep donations and reporting for a later release. I still need to confirm approval and cancellation rules.' },
+    { person: 'ai', prdChanges: ['First release', 'Outside the first release'], text: 'I have put that scope and both exclusions in the PRD. Is the main purpose still to reduce the coordination work around signup and shifts?' },
+    { person: 'ngo', text: 'Yes. Keep that purpose clear. We should not turn this into a complete system for every NGO activity.' },
+    { person: 'ai', prdChanges: ['Purpose'], text: 'Next, we need approval and cancellation rules. Who can approve a new volunteer?' },
+    { person: 'ngo', text: 'I need to check the exact authority with our lead coordinator. Please leave that decision open for now.' },
+    { person: 'ai', text: 'I will leave it open. Can you confirm who can override a cancellation, or does that need the same check?' },
+    { person: 'ngo', text: 'That needs the same check. Collect both questions so I can answer them together after speaking with the lead.' },
+    { person: 'ai', text: 'Both questions are grouped. Alex can still work on supported devices and deployment without assuming either rule.' },
+    { person: 'ngo', text: 'Yes. He should continue with those decisions while I check our process.' },
+    { person: 'ai', recommendation: 'handoff', text: 'I recommend returning the turn to Alex. The scope is confirmed, and his remaining independent decisions can move forward.' },
+    { person: 'ngo', text: 'Hand back to Alex. I will return with the approval and cancellation answers.' },
+    { person: 'event', toOwner: 'dev', text: 'Maya handed back to Alex. Developer active. NGO read only.' }
+  ];
+  const technicalHistory = [
+    { person: 'dev', requestedEffort: 'high', text: 'Support mobile and desktop browsers. A separate native application is outside this first release.' },
+    { person: 'ai', text: 'I have recorded browser support. Can the existing hosting handle the planned application?' },
+    { person: 'dev', text: 'Yes. I checked it. Use the existing hosting, and keep the email service as our delivery option.' },
+    { person: 'ai', text: 'That settles the deployment baseline. We can outline screens and data flow while keeping approval permissions open.' },
+    { person: 'dev', text: 'I have outlined signup, shift selection, and coordinator screens. The data flow supports those tasks without assuming who may approve a volunteer.' },
+    { person: 'ai', text: 'The remaining approval and cancellation paths need NGO authority. Is there another technical decision we can settle independently?' },
+    { person: 'dev', text: 'No. Notification behavior also depends on when Maya expects a message and who receives it. We should collect that with the other process questions.' },
+    { person: 'ai', text: 'I have grouped approval authority, cancellation exceptions, and notification recipients. The technical outline is recorded for Maya.' }
+  ];
+  const rulesHistory = [
+    { person: 'dev', text: 'Hand over to Maya with those process questions and the technical outline.' },
+    { person: 'event', toOwner: 'ngo', text: 'Alex handed over to Maya. NGO active. Developer read only.' }
+  ];
+  const ngoReviewHistory = [
+    { person: 'ngo', text: 'No delegation in this release. Email the coordinator when a shift becomes vacant.' },
+    { person: 'ai', text: 'Should that notification follow every cancellation, or only a cancellation that leaves a shift vacant?' },
+    { person: 'ngo', text: 'Only when a shift becomes vacant.' },
+    { person: 'ai', text: 'If coverage has not been checked, may the lead coordinator still override the cancellation?' },
+    { person: 'ngo', text: 'No. The lead coordinator must check coverage first.' },
+    { person: 'ai', text: 'Do donations and reporting remain outside this first release?' },
+    { person: 'ngo', text: 'Yes. Keep both outside this release.' },
+    { person: 'ai', text: 'The process questions are covered together. Please confirm the summary before we return the delivery and retry decisions to Alex.' }
+  ];
+  const deliveryHistory = [
+    { person: 'ngo', text: 'Hand back to Alex. The NGO rules are confirmed, and the delivery details are his decision.' },
+    { person: 'event', toOwner: 'dev', text: 'Maya handed back to Alex. Developer active. NGO read only.' },
+    { person: 'ai', text: 'Alex, Maya confirmed the rules in one pass. How should we deliver the vacant-shift email and handle a failed delivery?' },
+    { person: 'dev', requestedEffort: 'xhigh', text: 'Use our existing email service. Retry a failed email twice, then show the failure to the coordinator.' },
+    { person: 'ai', text: 'I will record a maximum of two retries. Should a failure remain visible after the final attempt?' },
+    { person: 'dev', text: 'Yes. A coordinator must see that delivery failed. We cannot treat an attempted email as a successful notification.' },
+    { person: 'ai', text: 'The PRD now separates the notification trigger from delivery and failure behavior. Have you checked the screens and data flow against Maya\'s rules?' },
+    { person: 'dev', text: 'Yes. The screens and data flow reflect the approval role, cancellation condition, and notification recipient. I also reviewed deployment.' },
+    { person: 'ai', text: 'Before I assess completion, please confirm the browser support, services, and retry behavior in one final technical summary.' }
+  ];
+  examples.continue.earlier = scopeHistory;
+  examples.blocked.earlier = [...scopeHistory, ...examples.continue.messages, ...technicalHistory];
+  examples.ngo = { owner: 'ngo', action: 'continue', earlier: [...examples.blocked.earlier, ...examples.blocked.messages, ...rulesHistory], messages: [
+    { person: 'ai', round: rounds.ngo, text: examples.blocked.incoming }
+  ] };
+  examples['ngo-followup'] = { owner: 'ngo', action: 'continue', earlier: [...examples.ngo.earlier, ...examples.ngo.messages], messages: [
+    { person: 'ngo', key: 'rules-partial', requestedEffort: 'high', text: 'Only the lead coordinator approves volunteers. The lead coordinator can override a cancellation after checking coverage.' },
+    { person: 'ai', round: rounds.ngoFollowup, prdChanges: ['Volunteer approval', 'Cancellations'], text: 'That settles the responsible role and the cancellation condition. Your answers unlock the next two questions. We can finish these together before returning to Alex.' }
+  ] };
+  examples.return.earlier = [...examples['ngo-followup'].earlier, ...examples['ngo-followup'].messages, ...ngoReviewHistory];
+  examples.ready.earlier = [...examples.return.earlier, ...examples.return.messages, ...deliveryHistory];
+  examples.retry = examples.ready;
+  examples.review = { ...examples.ready, action: 'review', messages: [examples.ready.messages[0], { person: 'ai', text: 'All six sections have confirmed answers. I still need to check for gaps and conflicting requirements before recommending that you close the PRD.' }] };
+  const requirements = [
+    { id: 'REQ-001', title: 'Volunteer signup and shifts', dependsOn: [], tests: ['AT-001.01', 'AT-001.02'] },
+    { id: 'REQ-002', title: 'Volunteer approval', dependsOn: ['REQ-001'], tests: ['AT-002.01', 'AT-002.02'] },
+    { id: 'REQ-003', title: 'Cancellations and notifications', dependsOn: ['REQ-001', 'REQ-002'], tests: ['AT-003.01', 'AT-003.02', 'AT-003.03', 'AT-003.04'] }
+  ];
+  const acceptanceCases = [
+    { id: 'AT-001.01', title: 'Volunteer registration', text: 'Given a new volunteer, when they register, then the system creates their volunteer account.' },
+    { id: 'AT-001.02', title: 'Weekly shift selection', text: 'Given a registered volunteer, when they choose an available weekly shift, then the system records their selection.' },
+    { id: 'AT-002.01', title: 'Lead coordinator approval', text: 'Given a lead coordinator, when they approve a volunteer, then the system records the approval.' },
+    { id: 'AT-002.02', title: 'Approval permission', text: 'Given another role, when they attempt to approve a volunteer, then the system refuses the action.' },
+    { id: 'AT-003.01', title: 'Cancellation override', text: 'Given a lead coordinator who has checked coverage, when they override a cancellation, then the system records the override.' },
+    { id: 'AT-003.02', title: 'Vacant shift email', text: 'Given a shift that becomes vacant, when the system processes the vacancy, then it emails the coordinator.' },
+    { id: 'AT-003.03', title: 'Email delivery retries', text: 'Given a failed email delivery, when the system retries it, then it makes no more than two retries.' },
+    { id: 'AT-003.04', title: 'Visible delivery failure', text: 'Given failed email delivery after retries, when the coordinator views notifications, then the delivery failure is visible.' }
+  ];
+  const workSlices = [
+    { title: 'Volunteer registration', tests: ['AT-001.01'] },
+    { title: 'Weekly shift selection', tests: ['AT-001.02'] },
+    { title: 'Approval permissions', tests: ['AT-002.01', 'AT-002.02'] },
+    { title: 'Cancellation override', tests: ['AT-003.01'] },
+    { title: 'Notification delivery and failures', tests: ['AT-003.02', 'AT-003.03', 'AT-003.04'] }
+  ];
+  const materialSteps = [
+    { key: 'requirements', title: 'PRD version and requirements', cost: 0.0084, detail: 'Lock PRD v1.0 and derive requirement files with their source decisions.' },
+    { key: 'acceptance', title: 'Acceptance tests', cost: 0.0286, detail: 'Create Given/When/Then criteria, stable test IDs, suite entries, and expected manifests.' },
+    { key: 'decomposition', title: 'Developer work plan and coverage', cost: 0.0192, detail: 'Create work slices, verification commands, and dependency order. Map every test to one slice.' },
+    { key: 'linear', title: 'Linear PM board', cost: 0, detail: 'Create or update requirement items, blocking relations, and links to the source files.' },
+    { key: 'workflow', title: 'Developer workflow', cost: 0.0116, detail: 'Prepare item briefs, worktree instructions, acceptance checks, and merge evidence rules.' },
+    { key: 'verification', title: 'Package consistency', cost: 0, detail: 'Check coverage, dependencies, source versions, and Linear references before Design.' }
+  ];
+  const material = { status: 'idle', completed: 0, issue: '', interrupted: false, effort: 'med', timer: null, inspect: false };
+  let example = examples.ready;
+  let owner = example.owner;
+  let stage = 'prd';
+  let openCount = 0;
+  let draftCount = 0;
+  let lastTurns = {};
+  let sourceTurns = {};
+  const requestDrafts = { dev: { text: '', effort: 'med' }, ngo: { text: '', effort: 'med' } };
+  let requestSequence = 0;
+  const effortNames = { low: 'Low', med: 'Med', high: 'High', xhigh: 'Xhigh', max: 'Max' };
+  const budgetMicros = 20000000;
+  let priorSpendMicros = 2500000;
+  let historySpendMicros = 0;
+  let balanceMicros = budgetMicros - priorSpendMicros;
+  const charges = new Map();
+  const design = { emphasis: 'accent', documentWidth: 350, showDependencies: true };
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    return node;
+  }
+  function dollars(micros) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(micros / 1000000);
+  }
+  function recordResponse(response) {
+    if (charges.has(response.id)) return charges.get(response.id);
+    const cost = response.usage?.cost;
+    if (typeof cost !== 'number' || !Number.isFinite(cost) || cost < 0) return null;
+    const costMicros = Math.round(cost * 1000000);
+    const charge = { before: balanceMicros, cost: costMicros, after: balanceMicros - costMicros, effort: response.effort };
+    charges.set(response.id, charge);
+    balanceMicros = charge.after;
+    renderBalance();
+    return charge;
+  }
+  function renderBalance() {
+    const spentMicros = budgetMicros - balanceMicros;
+    const usedPercent = spentMicros / budgetMicros * 100;
+    const band = spentMicros * 100 < budgetMicros * 80 ? 'green' : spentMicros * 100 <= budgetMicros * 95 ? 'yellow' : 'red';
+    const percentLabel = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(usedPercent);
+    get('budget').dataset.usageBand = band;
+    get('balance-value').textContent = dollars(balanceMicros) + ' left';
+    get('balance-meter').setAttribute('aria-valuenow', String(usedPercent));
+    get('balance-meter').setAttribute('aria-valuetext', percentLabel + ' percent spent; ' + band + '; ' + dollars(balanceMicros) + ' remaining');
+    get('balance-fill').style.width = Math.min(100, Math.max(0, usedPercent)) + '%';
+    get('spend').textContent = dollars(spentMicros) + ' used of $20.00';
+    get('usage-label').textContent = percentLabel + '% spent · ' + band[0].toUpperCase() + band.slice(1);
+    renderComposer();
+  }
+  function applyUsageExample() {
+    const value = get('usage-example').value;
+    const responseSpend = [...charges.values()].reduce((sum, charge) => sum + charge.cost, 0);
+    priorSpendMicros = value === 'current' ? 2500000 - historySpendMicros : Math.round(budgetMicros * Number(value) / 100) - responseSpend;
+    let remaining = budgetMicros - priorSpendMicros;
+    for (const charge of charges.values()) {
+      charge.before = remaining;
+      charge.after = remaining - charge.cost;
+      remaining = charge.after;
+    }
+    balanceMicros = remaining;
+    renderBalance();
+    root.querySelectorAll('.rec-cost-receipt').forEach(previous => {
+      const replacement = costReceipt({ id: previous.dataset.responseId });
+      replacement.open = previous.open;
+      previous.replaceWith(replacement);
+    });
+    renderCompletion();
+  }
+  function renderComposer() {
+    const draft = requestDrafts[owner];
+    get('composer').hidden = stage !== 'prd';
+    get('composer').dataset.person = owner;
+    get('request-label').textContent = names[owner] + ' · ' + roles[owner] + ' · Your request to AI';
+    if (get('request').value !== draft.text) get('request').value = draft.text;
+    get('request-effort').value = draft.effort;
+    get('request').placeholder = example.messages.at(-1)?.round ? 'Answer the questions above, or add a clarification…' : 'Ask a question or request a PRD change…';
+    get('send').disabled = stage !== 'prd' || !draft.text.trim() || balanceMicros <= 0;
+    get('composer-note').textContent = balanceMicros <= 0 ? 'No paid balance remains. Add funds before sending a request.' : 'Effort applies to this request. No live model calls in this example.';
+  }
+  function costReceipt(response) {
+    const charge = charges.get(response.id);
+    const receipt = element('details', 'rec-cost-receipt', '');
+    receipt.dataset.responseId = response.id;
+    receipt.appendChild(element('summary', '', charge ? 'OpenRouter · ' + dollars(charge.cost) + ' deducted' : 'OpenRouter · Cost pending'));
+    if (!charge) {
+      receipt.appendChild(element('p', '', 'Waiting for the final cost from OpenRouter.'));
+      return receipt;
+    }
+    const amounts = element('dl', '', '');
+    if (charge.effort) {
+      amounts.appendChild(element('dt', '', 'Effort used'));
+      amounts.appendChild(element('dd', '', effortNames[charge.effort]));
+    }
+    for (const [label, amount] of [['Balance before', dollars(charge.before)], ['OpenRouter cost', '−' + dollars(charge.cost)], ['Balance after', dollars(charge.after)]]) {
+      const className = label === 'Balance after' ? 'rec-cost-total' : '';
+      amounts.appendChild(element('dt', className, label));
+      amounts.appendChild(element('dd', className, amount));
+    }
+    receipt.appendChild(amounts);
+    return receipt;
+  }
+  function materialOutput(index) {
+    const output = element('div', 'rec-material-output', '');
+    function lines(values) {
+      const list = element('ul', '', '');
+      values.forEach(value => list.appendChild(element('li', '', value)));
+      output.appendChild(list);
+    }
+    function table(headers, rows) {
+      const tableNode = element('table', '', '');
+      const head = element('thead', '', '');
+      const heading = element('tr', '', '');
+      headers.forEach(text => { const cell = element('th', '', text); cell.scope = 'col'; heading.appendChild(cell); });
+      head.appendChild(heading);
+      tableNode.appendChild(head);
+      const body = element('tbody', '', '');
+      rows.forEach(values => { const row = element('tr', '', ''); values.forEach(text => row.appendChild(element('td', '', text))); body.appendChild(row); });
+      tableNode.appendChild(body);
+      output.appendChild(tableNode);
+    }
+    if (index === 0) {
+      output.appendChild(element('p', '', 'PRD v1.0 is the fixed source. Every requirement keeps its conversation sources and declared dependencies.'));
+      lines(requirements.map(item => item.id + ' (' + item.title.toLowerCase() + ')'));
+      output.appendChild(element('code', '', '.taskmaster/docs/requirements/req-001.md through req-003.md'));
+    } else if (index === 1) {
+      output.appendChild(element('p', '', 'Acceptance criteria, test registration entries, and expected-ID manifests. Tests have not run.'));
+      table(['Acceptance test', 'Execution'], acceptanceCases.map(test => [test.id + ' (' + test.title.toLowerCase() + '). ' + test.text, 'Not run']));
+      lines(['Specifications in .taskmaster/docs/acceptance/.', 'Suite entries register each test ID through atTest.', 'Expected manifests in tests/at/expected/. Implementation must make these tests pass.']);
+    } else if (index === 2) {
+      const mapped = workSlices.flatMap(slice => slice.tests);
+      const complete = acceptanceCases.every(test => mapped.filter(id => id === test.id).length === 1) && mapped.length === acceptanceCases.length;
+      output.appendChild(element('p', '', complete ? 'All 8 acceptance tests map to exactly one of the 5 work slices.' : 'Coverage needs repair before this package can proceed.'));
+      table(['Developer work slice', 'Acceptance tests'], workSlices.map(slice => [slice.title, String(slice.tests.length)]));
+      lines(['Each decomposition manifest includes a done contract, dependencies, and verification commands.', 'Prepare developer work from these manifests when its requirement is picked up.']);
+      output.appendChild(element('code', '', 'loop/decomp/req-001.md through req-003.md'));
+    } else if (index === 3) {
+      output.appendChild(element('p', '', 'PM board preview. Requirement entries already seeded at kickoff are updated; missing entries are created.'));
+      table(['PM requirement', 'State'], requirements.map(item => [item.title, 'Backlog']));
+      lines(['Approval follows volunteer registration. Cancellations and notifications follow signup and approval.', 'Each PM item links to its PRD section, acceptance criteria, and decomposition manifest.', 'The NGO reads the PM projection. Developer work remains separate.']);
+    } else if (index === 4) {
+      lines(['Start an item with /controller to prepare its branch, worktree, and brief.', 'Use pstack:poteto-mode to implement the brief, verify it, and open a pull request.', 'Register acceptance tests with atTest; check coverage with at:check; verify with the expected test manifest.', 'Merge requires green CI on the final commit and explicit developer approval.', 'After merge, /controller done updates the board from evidence. Requirements close only when acceptance is evidenced.', 'Preserve the project instructions and configured models.']);
+      output.appendChild(element('p', '', 'Prepared outputs: item brief templates, verification commands, design input, and completion rules.'));
+    } else {
+      const ordered = new Set();
+      for (let pass = 0; pass < requirements.length; pass++) requirements.forEach(item => { if (item.dependsOn.every(id => ordered.has(id))) ordered.add(item.id); });
+      lines(['All 3 requirements link to PRD v1.0 and the PM board.', 'All 8 acceptance tests have one owning work slice.', ordered.size === requirements.length ? 'Dependency order is valid. No circular dependencies.' : 'Dependency order needs repair.', 'The package is ready for Design. PM requirements remain Backlog; acceptance tests remain Not run.']);
+    }
+    return output;
+  }
+  function renderMaterialization() {
+    get('materialize').hidden = stage === 'prd' || (stage === 'design' && !material.inspect);
+    get('materialize').dataset.status = material.status;
+    get('material-title').textContent = material.status === 'complete' ? 'PRD v1.0 materialized' : 'Materialize PRD v1.0';
+    get('material-status').textContent = material.status === 'complete' ? 'The PM board, acceptance tests, and developer workflow are ready for review.' : material.status === 'paused' ? material.issue : 'Preparing ' + (material.completed + 1) + ' of ' + materialSteps.length + '. Alex keeps the turn.';
+    const expanded = new Set([...get('material-steps').querySelectorAll('details[open]')].map(node => node.dataset.step));
+    get('material-steps').replaceChildren();
+    materialSteps.forEach((step, index) => {
+      const state = index < material.completed ? 'done' : index === material.completed ? material.status : 'waiting';
+      const row = element('li', 'rec-material-step', '');
+      row.dataset.state = state;
+      const detail = element('details', '', '');
+      detail.dataset.step = step.key;
+      detail.open = expanded.has(step.key);
+      const summary = element('summary', '', '');
+      summary.appendChild(element('span', 'rec-material-step-name', (index + 1) + '. ' + step.title));
+      summary.appendChild(element('span', 'rec-material-step-state', state === 'done' ? 'Ready' : state === 'running' ? 'Preparing' : state === 'paused' ? 'Paused' : 'Waiting'));
+      detail.appendChild(summary);
+      detail.appendChild(state === 'done' ? materialOutput(index) : element('p', 'rec-material-pending', step.detail));
+      row.appendChild(detail);
+      get('material-steps').appendChild(row);
+    });
+    const runCharges = [...charges.entries()].filter(([id]) => id.startsWith('example-materialize-')).map(([, charge]) => charge);
+    get('material-cost').textContent = runCharges.length ? 'OpenRouter · ' + runCharges.length + ' model calls · ' + dollars(runCharges.reduce((sum, charge) => sum + charge.cost, 0)) + ' deducted' : 'Model costs appear as OpenRouter reports them.';
+    get('material-final').textContent = material.status === 'complete' ? 'Materialization is complete. Product acceptance tests have not run.' : material.status === 'paused' ? 'Completed outputs are retained. Resume starts from the unfinished step.' : 'Design opens after this package is complete.';
+    renderCompletion();
+    renderComposer();
+  }
+  function runMaterialization() {
+    if (stage !== 'materialize' || owner !== 'dev' || material.status === 'running' || material.status === 'complete') return;
+    material.status = 'running';
+    material.issue = '';
+    renderMaterialization();
+    function advance() {
+      if (stage !== 'materialize' || material.status !== 'running') return;
+      const step = materialSteps[material.completed];
+      if (step.key === 'linear' && get('scenario').value === 'retry' && !material.interrupted) {
+        material.interrupted = true;
+        material.status = 'paused';
+        material.issue = 'Example interruption: Linear did not confirm the sync. Saved requirements and tests are retained.';
+        renderMaterialization();
+        return;
+      }
+      if (step.cost && balanceMicros <= 0) {
+        material.status = 'paused';
+        material.issue = 'No paid balance remains. Add funds before the next model call.';
+        renderMaterialization();
+        return;
+      }
+      if (step.cost) recordResponse({ id: 'example-materialize-' + step.key, usage: { cost: step.cost }, effort: material.effort });
+      material.completed++;
+      if (material.completed === materialSteps.length) material.status = 'complete';
+      renderMaterialization();
+      if (material.status === 'running') material.timer = setTimeout(advance, 550);
+    }
+    material.timer = setTimeout(advance, 550);
+  }
+  function renderOwner() {
+    const reader = owner === 'dev' ? 'ngo' : 'dev';
+    root.dataset.owner = owner;
+    get('owner').dataset.person = owner;
+    get('owner').textContent = names[owner] + ' · ' + roles[owner] + ' · Active';
+    get('reader').dataset.person = reader;
+    get('reader').textContent = names[reader] + ' · ' + roles[reader] + ' · Read only';
+    renderCompletion();
+    renderComposer();
+  }
+  function canClosePrd() {
+    const latest = example.messages.at(-1);
+    return stage === 'prd' && owner === 'dev' && latest?.person === 'ai' && latest.recommendation === 'complete' && openCount + draftCount === 0;
+  }
+  function renderCompletion() {
+    const closed = stage === 'design';
+    const latestAi = [...get('transcript').querySelectorAll('.rec-message[data-person="ai"] .rec-message-main')].at(-1);
+    const parent = stage === 'materialize' ? get('materialize') : latestAi;
+    if (parent) parent.appendChild(get('completion'));
+    get('completion').hidden = owner !== 'dev' || (stage === 'prd' && !canClosePrd());
+    const button = get('close-prd');
+    button.hidden = owner !== 'dev' || (stage === 'prd' && !canClosePrd());
+    button.classList.toggle('rec-close-button', !closed);
+    button.textContent = 'Close PRD and materialize';
+    button.disabled = !canClosePrd();
+    button.removeAttribute('aria-expanded');
+    get('close-note').textContent = 'Next: prepare the Linear PM board, acceptance tests, and developer work. Then continue to Design.';
+    if (closed) {
+      button.textContent = material.inspect ? 'Hide materialized package' : 'View materialized package';
+      button.disabled = false;
+      button.setAttribute('aria-expanded', String(material.inspect));
+      get('completion-status').textContent = 'Closed by Alex · Version 1.0';
+      get('close-note').textContent = 'Design uses this PRD and its materialized work package.';
+    } else if (stage === 'materialize') {
+      button.textContent = material.status === 'complete' ? 'Continue to design' : material.status === 'paused' ? 'Resume materialization' : 'Materializing…';
+      button.disabled = owner !== 'dev' || material.status === 'running' || material.status === 'idle' || (material.status === 'paused' && materialSteps[material.completed].cost > 0 && balanceMicros <= 0);
+      get('completion-status').textContent = material.status === 'complete' ? 'Alex, the work package is ready. Continue when you are ready to design.' : material.status === 'paused' ? 'Alex, resume from the unfinished step.' : 'I am preparing the work package. Your next step will appear here.';
+      get('close-note').textContent = material.status === 'complete' ? 'Design starts with PRD v1.0 and its linked requirements and acceptance tests.' : 'PRD v1.0 stays fixed while I prepare the work package.';
+    } else if (owner !== 'dev') {
+      get('completion-status').textContent = 'Alex can close the PRD after the conversation returns to him.';
+    } else if (openCount + draftCount > 0) {
+      const pending = [];
+      if (openCount) pending.push(openCount + (openCount === 1 ? ' open decision' : ' open decisions'));
+      if (draftCount) pending.push(draftCount + (draftCount === 1 ? ' draft section' : ' draft sections'));
+      get('completion-status').textContent = 'Finish ' + pending.join(' and ') + ' before closing the PRD.';
+    } else {
+      get('completion-status').textContent = 'Alex, you can accept this recommendation and start materialization.';
+    }
+  }
+  function renderStage() {
+    const closed = stage === 'design';
+    const frozen = stage !== 'prd';
+    root.dataset.stage = stage;
+    get('materialize').hidden = stage === 'prd' || (closed && !material.inspect);
+    renderComposer();
+    get('workspace-title').textContent = closed ? 'Design workspace' : frozen ? 'PRD materialize' : 'PRD workspace';
+    get('prd-title').textContent = frozen ? 'Closed PRD' : 'PRD draft';
+    get('prd-subtitle').textContent = frozen ? 'Version 1.0 · Read only' : 'AI organizes Discovery and chat decisions here.';
+    get('stage-prd-label').textContent = frozen ? 'PRD closed' : 'PRD';
+    for (const name of ['prd', 'materialize', 'design']) get('stage-' + name).removeAttribute('aria-current');
+    get('stage-' + stage).setAttribute('aria-current', 'step');
+    get('prd-footer').textContent = frozen ? 'This closed version is the source for materialization and Design. Conversation sources remain available.' : 'Sections collect decisions from the shared conversation. Open questions guide what AI asks next.';
+  }
+  function drawThread() {
+    get('completion-home').appendChild(get('completion'));
+    get('advice-home').appendChild(get('advice'));
+    const messages = [...example.earlier, ...example.messages];
+    const historyMessages = example.earlier.filter(message => message.person !== 'event').length;
+    const historyHandoffs = example.earlier.filter(message => message.toOwner).length - 1;
+    get('history-label').textContent = 'Earlier in this thread · ' + historyMessages + ' messages · ' + historyHandoffs + ' handoffs';
+    lastTurns = {};
+    sourceTurns = {};
+    messages.forEach((message, index) => {
+      if (message.person === 'dev' || message.person === 'ngo') lastTurns[message.person] = index;
+      if (message.key) sourceTurns[message.key] = index;
+    });
+    get('earlier').replaceChildren();
+    get('transcript').replaceChildren();
+    messages.forEach((message, index) => {
+      const row = element('li', message.person === 'event' ? 'rec-event' : 'rec-message', '');
+      row.id = 'rec-turn-' + index;
+      row.dataset.person = message.person;
+      if (message.toOwner) row.dataset.nextOwner = message.toOwner;
+      if (message.recommendation) row.dataset.recommendation = message.recommendation;
+      if (message.key) row.dataset.source = message.key;
+      if (message.person === 'event') {
+        row.textContent = message.text;
+      } else {
+        row.appendChild(element('span', 'rec-avatar rec-avatar-' + message.person, initials[message.person]));
+        const main = element('div', 'rec-message-main', '');
+        const meta = element('div', 'rec-message-meta', '');
+        meta.appendChild(element('div', 'rec-message-name', names[message.person] + (roles[message.person] ? ' · ' + roles[message.person] : ' · OpenRouter')));
+        if (message.requestedEffort) meta.appendChild(element('span', 'rec-request-effort', effortNames[message.requestedEffort] + ' effort requested'));
+        if (message.response?.effort) meta.appendChild(element('span', 'rec-effort-used', effortNames[message.response.effort] + ' effort'));
+        if (message.response?.sample) meta.appendChild(element('span', 'rec-effort-used', 'Example reply'));
+        if (lastTurns[message.person] === index) {
+          const marker = element('span', 'rec-turn-marker', '');
+          marker.dataset.bookmarkFor = message.person;
+          const icon = document.createElement('i');
+          icon.dataset.lucide = 'bookmark';
+          icon.setAttribute('aria-hidden', 'true');
+          marker.appendChild(icon);
+          marker.appendChild(element('span', '', (message.person === 'dev' ? 'Dev' : 'NGO') + ' · Last turn'));
+          meta.appendChild(marker);
+        }
+        main.appendChild(meta);
+        if (message.recommendation && message.recommendation !== 'continue') {
+          const labels = { complete: 'AI recommendation · PRD complete', handoff: 'AI recommendation · Handoff', review: 'AI review · Completion not confirmed' };
+          main.appendChild(element('div', 'rec-kicker', labels[message.recommendation]));
+        }
+        main.appendChild(element('p', 'rec-message-text', message.text));
+        if (message.prdChanges) main.appendChild(element('div', 'rec-prd-changes', 'PRD updated · ' + message.prdChanges.join(' · ')));
+        if (message.round) main.appendChild(renderRound(message.round));
+        if (index === messages.length - 1 && message.recommendation === 'handoff') main.appendChild(get('advice'));
+        if (message.response) main.appendChild(costReceipt(message.response));
+        row.appendChild(main);
+      }
+      get(index < example.earlier.length ? 'earlier' : 'transcript').appendChild(row);
+    });
+    for (const actor of ['dev', 'ngo']) {
+      const button = get('bookmark-' + actor);
+      button.disabled = lastTurns[actor] === undefined;
+      button.setAttribute('aria-controls', 'rec-turn-' + lastTurns[actor]);
+      button.setAttribute('aria-label', 'Go to ' + names[actor] + "'s last message");
+    }
+    if (globalThis.lucide) globalThis.lucide.createIcons({ attrs: { width: 14, height: 14 } });
+  }
+  function renderRound(round) {
+    const section = element('section', 'rec-round', '');
+    section.setAttribute('aria-label', round.title);
+    section.appendChild(element('div', 'rec-round-title', round.title));
+    const questions = element('ol', 'rec-round-questions', '');
+    round.questions.forEach((question, index) => {
+      const item = element('li', 'rec-round-question', '');
+      item.appendChild(element('h4', 'rec-question-title', (index + 1) + '. ' + question.title));
+      item.appendChild(element('p', 'rec-question-why', 'Why now: ' + question.why));
+      item.appendChild(element('div', 'rec-question-suggestion', 'Suggested answer: ' + question.suggestion));
+      questions.appendChild(item);
+    });
+    section.appendChild(questions);
+    const dependencies = element('details', 'rec-dependencies', '');
+    dependencies.open = design.showDependencies;
+    dependencies.appendChild(element('summary', '', round.waitingTitle));
+    const waiting = element('ul', '', '');
+    round.waiting.forEach(decision => {
+      const item = element('li', 'rec-dependency', '');
+      item.dataset.person = decision.actor;
+      item.appendChild(element('div', 'rec-dependency-title', names[decision.actor] + ' · ' + decision.title));
+      item.appendChild(element('p', '', decision.effect));
+      waiting.appendChild(item);
+    });
+    dependencies.appendChild(waiting);
+    dependencies.appendChild(element('p', 'rec-dependency-note', round.note));
+    section.appendChild(dependencies);
+    return section;
+  }
+  function jumpToLastTurn(actor) {
+    jumpToTurn(lastTurns[actor], names[actor] + "'s last message is highlighted.");
+  }
+  function jumpToTurn(index, announcement) {
+    const target = root.querySelector('#rec-turn-' + index);
+    if (!target) return;
+    setDocumentLayout(root.dataset.panel === 'open', false);
+    const history = target.closest('details');
+    if (history) history.open = true;
+    root.querySelectorAll('[data-bookmarked]').forEach(node => node.removeAttribute('data-bookmarked'));
+    target.dataset.bookmarked = 'true';
+    get('jump-status').hidden = false;
+    get('jump-status').textContent = announcement;
+    requestAnimationFrame(() => {
+      if (target.isConnected) target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
+    });
+  }
+  function setDocumentLayout(open, expanded) {
+    root.dataset.panel = open ? 'open' : 'closed';
+    root.dataset.layout = expanded ? 'document' : 'split';
+    get('toggle-prd').textContent = open ? 'Hide PRD' : 'Show PRD';
+    get('toggle-prd').setAttribute('aria-expanded', String(open));
+    get('expand-prd').textContent = expanded ? 'Back to chat' : 'Expand';
+    get('expand-prd').setAttribute('aria-pressed', String(expanded));
+  }
+  function drawPrd() {
+    const scenario = get('scenario').value;
+    const ready = scenario === 'ready' || scenario === 'retry' || scenario === 'review';
+    const rulesKnown = scenario === 'return' || ready;
+    const partialRules = scenario === 'ngo-followup';
+    const independentWork = scenario === 'continue';
+    const sections = [
+      { title: 'Purpose', state: 'Confirmed', text: 'Manage volunteer signup and weekly shifts.', source: 'scope' },
+      { title: 'First release', state: 'Confirmed', bullets: ['Volunteers register.', 'Volunteers choose weekly shifts.', 'Coordinators manage shifts.'], source: 'scope' },
+      { title: 'Volunteer approval', state: rulesKnown ? 'Confirmed' : partialRules ? 'Draft' : 'Open', text: rulesKnown ? 'Only the lead coordinator may approve volunteers.' : partialRules ? 'The lead coordinator approves volunteers. Whether they can delegate remains open.' : 'Who can approve a new volunteer?', source: rulesKnown ? 'rules' : partialRules ? 'rules-partial' : independentWork ? 'scope' : 'technical', updated: scenario === 'return' || partialRules },
+      { title: 'Cancellations', state: rulesKnown ? 'Confirmed' : partialRules ? 'Draft' : 'Open', text: rulesKnown ? 'The lead coordinator can override a cancellation after checking coverage. Email the coordinator when a shift becomes vacant.' : partialRules ? 'The lead coordinator can override a cancellation after checking coverage. The vacancy notification still needs a recipient.' : 'Who can override a cancellation, and under what conditions?', source: rulesKnown ? 'rules' : partialRules ? 'rules-partial' : independentWork ? 'scope' : 'technical', updated: scenario === 'return' || partialRules },
+      { title: 'Implementation', state: ready ? 'Confirmed' : rulesKnown || independentWork ? 'Open' : 'Draft', text: ready ? 'Support mobile and desktop browsers. Use existing hosting and email services. Retry failed emails twice and show failures to coordinators. Screens, data flow, and deployment reviewed by Alex.' : rulesKnown ? 'Alex needs to choose email delivery and retry behavior.' : independentWork ? 'Supported devices and deployment constraints still need a decision from Alex.' : 'Alex has outlined the screens, data flow, and deployment. The approval and cancellation rules remain open.', source: ready ? 'technical' : rulesKnown ? 'rules' : 'technical' },
+      { title: 'Outside the first release', state: 'Confirmed', text: 'Donations and reporting.', source: 'scope' }
+    ];
+    const document = get('prd-document');
+    document.replaceChildren();
+    sections.forEach(section => {
+      const article = element('section', 'rec-prd-section', '');
+      article.dataset.requirement = section.title;
+      article.dataset.state = section.state;
+      const heading = element('div', 'rec-prd-section-head', '');
+      heading.appendChild(element('h3', '', section.title));
+      heading.appendChild(element('span', 'rec-prd-state', section.state));
+      article.appendChild(heading);
+      if (section.text) article.appendChild(element('p', '', section.text));
+      if (section.bullets) {
+        const list = element('ul', '', '');
+        section.bullets.forEach(text => list.appendChild(element('li', '', text)));
+        article.appendChild(list);
+      }
+      const sourceIndex = sourceTurns[section.source];
+      const actor = root.querySelector('#rec-turn-' + sourceIndex).dataset.person;
+      const source = element('button', 'rec-prd-source', names[actor] + ' · View in chat');
+      source.type = 'button';
+      source.dataset.person = actor;
+      source.dataset.source = section.source;
+      source.setAttribute('aria-label', 'Show conversation source for ' + section.title.toLowerCase());
+      source.addEventListener('click', () => jumpToTurn(sourceIndex, 'The source for ' + section.title.toLowerCase() + ' is highlighted.'));
+      article.appendChild(source);
+      if (section.updated) article.appendChild(element('span', 'rec-prd-update', 'Updated'));
+      document.appendChild(article);
+    });
+    openCount = sections.filter(section => section.state === 'Open').length;
+    draftCount = sections.filter(section => section.state === 'Draft').length;
+    get('prd-status').textContent = ready ? '6 confirmed sections · No open decisions' : partialRules ? 'NGO answers recorded · Follow-up decisions remain' : openCount + (openCount === 1 ? ' open decision' : ' open decisions') + (rulesKnown ? ' · NGO rules updated' : ' · Reflects the current chat');
+  }
+  function selectExample() {
+    clearTimeout(material.timer);
+    material.status = 'idle';
+    material.completed = 0;
+    material.issue = '';
+    material.interrupted = false;
+    material.inspect = false;
+    get('material-steps').replaceChildren();
+    const key = get('scenario').value;
+    const selected = examples[key];
+    const lastRequest = [...selected.messages].reverse().find(message => message.person === 'dev' || message.person === 'ngo');
+    const response = { id: 'example-' + key + '-reply', usage: { cost: 0.0184 }, effort: lastRequest?.requestedEffort || 'med' };
+    let historyEffort = 'med';
+    const historicalCosts = [0.0042, 0.0068, 0.0081, 0.0096];
+    const earlier = selected.earlier.map((message, index) => {
+      if (message.toOwner) historyEffort = 'med';
+      if (message.person === 'dev' || message.person === 'ngo') historyEffort = message.requestedEffort || 'med';
+      return message.person === 'ai' ? { ...message, response: { id: 'example-history-' + key + '-' + index, usage: { cost: historicalCosts[index % historicalCosts.length] }, effort: historyEffort } } : message;
+    });
+    example = { ...selected, earlier, messages: selected.messages.map(message => message.person === 'ai' ? { ...message, response, recommendation: selected.action === 'ready' ? 'complete' : selected.action } : message) };
+    charges.clear();
+    historySpendMicros = earlier.reduce((sum, message) => sum + Math.round((message.response?.usage.cost || 0) * 1000000), 0);
+    priorSpendMicros = 2500000 - historySpendMicros;
+    balanceMicros = budgetMicros - priorSpendMicros;
+    earlier.forEach(message => { if (message.response) recordResponse(message.response); });
+    recordResponse(response);
+    owner = example.owner;
+    stage = 'prd';
+    root.dataset.decision = example.action;
+    renderStage();
+    drawThread();
+    drawPrd();
+    applyUsageExample();
+    get('history').open = false;
+    get('jump-status').hidden = true;
+    renderOwner();
+    get('advice').hidden = example.action !== 'handoff';
+    get('accept').disabled = example.action !== 'handoff';
+    if (get('advice').hidden) return;
+    for (const name of ['title', 'reason', 'unlocks']) get(name).textContent = example[name];
+    get('brief-title').textContent = 'Review the handoff brief';
+    get('brief-context').textContent = example.context;
+    get('questions').replaceChildren(...example.questions.map(question => element('li', '', question)));
+    get('brief').open = false;
+    get('accept').textContent = example.accept;
+    get('approval-note').textContent = names[owner] + ' stays active until ' + (owner === 'dev' ? 'he' : 'she') + ' accepts the handoff.';
+  }
+  function closePrd() {
+    if (owner !== 'dev') return;
+    if (stage === 'design') {
+      material.inspect = !material.inspect;
+      setDocumentLayout(true, false);
+      renderMaterialization();
+      return;
+    }
+    if (stage === 'materialize') {
+      if (material.status === 'complete') startDesign();
+      else if (material.status === 'paused') runMaterialization();
+      return;
+    }
+    if (!canClosePrd()) return;
+    stage = 'materialize';
+    example = { ...example, messages: [...example.messages, { person: 'event', text: 'Alex closed PRD v1.0 and started PRD materialize.' }] };
+    drawThread();
+    get('history').open = false;
+    get('advice').hidden = true;
+    get('jump-status').hidden = true;
+    setDocumentLayout(true, false);
+    renderStage();
+    renderOwner();
+    runMaterialization();
+    get('materialize').scrollIntoView({ behavior: 'auto', block: 'nearest' });
+  }
+  function startDesign() {
+    if (stage !== 'materialize' || material.status !== 'complete' || owner !== 'dev') return;
+    stage = 'design';
+    const response = balanceMicros > 0 ? { id: 'example-design-reply', usage: { cost: 0.0146 }, effort: 'med' } : null;
+    if (response) recordResponse(response);
+    example = { ...example, messages: [...example.messages,
+      { person: 'event', text: 'Alex continued to Design after the work package was ready.' },
+      response ? { person: 'ai', response, text: "Design starts from PRD v1.0, its PM requirements, and acceptance tests. I will map the volunteer journey against those criteria. Maya's rules remain linked." } : { person: 'event', text: 'No paid balance remains. AI will continue after funding.' }
+    ] };
+    drawThread();
+    get('history').open = false;
+    get('advice').hidden = true;
+    get('jump-status').hidden = true;
+    setDocumentLayout(true, false);
+    renderStage();
+    renderOwner();
+    get('bookmark-dev').focus({ preventScroll: true });
+  }
+  function acceptHandoff() {
+    if (stage !== 'prd' || get('advice').hidden || example.messages.at(-1)?.recommendation !== 'handoff' || !example.target || example.target === owner) return;
+    get('advice').hidden = true;
+    const outgoing = owner;
+    owner = example.target;
+    const response = balanceMicros > 0 ? { id: 'example-' + get('scenario').value + '-followup', usage: { cost: 0.0116 }, effort: 'med' } : null;
+    if (response) recordResponse(response);
+    example = { ...example, messages: [...example.messages,
+      { person: 'event', toOwner: owner, text: names[outgoing] + ' handed over to ' + names[owner] + '. Only ' + names[owner] + ' can send requests now.' },
+      response ? { person: 'ai', response, round: example.incomingRound, text: example.incoming } : { person: 'event', text: 'No paid balance remains. AI will continue after funding.' }
+    ] };
+    drawThread();
+    renderOwner();
+    get('request').focus({ preventScroll: true });
+  }
+  function sendRequest(event) {
+    event.preventDefault();
+    const draft = requestDrafts[owner];
+    const text = draft.text.trim();
+    if (stage !== 'prd' || !text || balanceMicros <= 0) return;
+    const response = { id: 'example-request-' + (++requestSequence), usage: { cost: 0.0116 }, effort: draft.effort, sample: true };
+    example = { ...example, messages: [...example.messages,
+      { person: owner, text, requestedEffort: draft.effort },
+      { person: 'ai', response, recommendation: 'review', text: 'I need to check this request against the current PRD before recommending the next step. I have not confirmed completion for this request.' }
+    ] };
+    draft.text = '';
+    get('advice').hidden = true;
+    recordResponse(response);
+    drawThread();
+    renderOwner();
+    get('request').focus({ preventScroll: true });
+  }
+  get('scenario').addEventListener('change', selectExample);
+  get('usage-example').addEventListener('change', applyUsageExample);
+  get('request').addEventListener('input', () => { requestDrafts[owner].text = get('request').value; renderComposer(); });
+  get('request-effort').addEventListener('change', () => { requestDrafts[owner].effort = get('request-effort').value; });
+  get('send').addEventListener('click', sendRequest);
+  get('close-prd').addEventListener('click', closePrd);
+  get('toggle-prd').addEventListener('click', () => setDocumentLayout(root.dataset.panel !== 'open', false));
+  get('expand-prd').addEventListener('click', () => setDocumentLayout(true, root.dataset.layout !== 'document'));
+  get('bookmark-dev').addEventListener('click', () => jumpToLastTurn('dev'));
+  get('bookmark-ngo').addEventListener('click', () => jumpToLastTurn('ngo'));
+  get('accept').addEventListener('click', acceptHandoff);
+  selectExample();
+  if (globalThis.Tweak) {
+    const tweak = new globalThis.Tweak({ container: root, onChange: () => { root.dataset.emphasis = design.emphasis; root.style.setProperty('--rec-document-width', design.documentWidth + 'px'); root.querySelectorAll('.rec-dependencies').forEach(node => { node.open = design.showDependencies; }); } });
+    tweak.addSelect(design, 'emphasis', { label: 'Recommendation emphasis', options: [{ label: 'Accent edge', value: 'accent' }, { label: 'Quiet border', value: 'quiet' }] });
+    tweak.addSlider(design, 'documentWidth', { label: 'PRD panel width', min: 300, max: 400, step: 10, unit: 'px' });
+    tweak.addToggle(design, 'showDependencies', { label: 'Show questions waiting on other answers' });
+  }
+})();
+</script>

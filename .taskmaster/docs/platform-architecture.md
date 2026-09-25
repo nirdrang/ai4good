@@ -48,6 +48,10 @@ Two provider constraints affect the design immediately:
 
 The proposed build system fits within the existing marketplace. It retains NGO vetting, Discovery, human publication review, volunteer matching, and project funding.
 
+The shared process bar shows Intake, Discovery, Volunteer match, PRD, Design, Build, and Handoff.
+After Discovery confirmation, Volunteer match becomes current. Publication review, volunteer consent, and funding kickoff precede PRD work.
+The process bar displays the existing workflow and does not create additional lifecycle states.
+
 | Phase                    | Main actor                                                      | Result                                                                                         |
 | ------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Intake and Discovery     | NGO representative with the planning assistant                  | A scoped need, data-handling constraints, and a maintainability assessment.                    |
