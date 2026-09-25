@@ -163,6 +163,12 @@ rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose
 question, continue or compact, and put in its text what the unit landed, its commit, and the
 remaining context budget. Ask a second question for any decision the next unit needs from the
 founder. The founder's answer starts the next unit.
+Send lookups that do not depend on each other together in one message. Each message is one
+step, and each step re-reads the whole conversation.
+Send a question whose answer is a fact or a short list to a subagent: where something is,
+which files use something, what a value is. Write it as facts to locate, and ask for
+`file:line` references with the key lines verbatim. Read the exact lines yourself before you
+edit them.
 In the design arena, give every runner a distinct structural direction.
 In the pull request title and body, name no item id except this branch's own, and name each
 unit by its short label in words.
