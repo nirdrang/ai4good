@@ -73,3 +73,9 @@ supabase/.branches/
 # Local edge-function secrets loaded by supabase start. Never committed.
 supabase/functions/.env
 
+
+# Local working folders kept outside the record (founder cleanup 2026-09-25): a registered
+# Codex worktree, the working copy of the pstack fork, and session scratch.
+/worktrees/
+/plugins/
+/tmp/

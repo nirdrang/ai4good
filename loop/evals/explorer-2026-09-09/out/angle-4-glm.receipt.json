@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "parent": "claude",
+  "provider": "opencode",
+  "model": "opencode-go/glm-5.3-flash",
+  "effort": "max",
+  "mode": "read-only",
+  "cwd": "C:\\Users\\nirdr\\Downloads\\ai4good",
+  "promptPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\angle-4-prompt.md",
+  "outputPath": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\evals\\explorer-2026-09-09\\out\\angle-4-glm.md",
+  "startedAt": "2026-09-10T13:36:29.312Z",
+  "completedAt": "2026-09-10T13:41:45.155Z",
+  "elapsedMs": 315843,
+  "executable": "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+  "preflight": {
+    "argv": [
+      "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+      "models",
+      "opencode-go",
+      "--verbose"
+    ],
+    "status": "passed",
+    "evidence": "model opencode-go/glm-5.3-flash lists variant max"
+  },
+  "argv": [
+    "C:\\Users\\nirdr\\AppData\\Roaming\\npm\\opencode.cmd",
+    "run",
+    "--pure",
+    "--format",
+    "json",
+    "--model",
+    "opencode-go/glm-5.3-flash",
+    "--variant",
+    "max",
+    "--agent",
+    "pstack-read-only",
+    "--dir",
+    "C:\\Users\\nirdr\\Downloads\\ai4good"
+  ],
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "reportedModel": "opencode-go/glm-5.3-flash",
+  "modelVerified": true,
+  "modelEvidence": "provider-report",
+  "sessionId": "ses_f7477350affe4JHCgbSkyCYh2F",
+  "usage": {
+    "inputTokens": 179208,
+    "cachedInputTokens": 1469888,
+    "cacheCreationInputTokens": 0,
+    "outputTokens": 23739,
+    "reasoningTokens": 123,
+    "totalTokens": 1672958
+  },
+  "costUsd": 0.08290884,
+  "error": null
+}

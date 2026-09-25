@@ -1,0 +1,1 @@
+one assignment for the whole run: A=glm  B=grok

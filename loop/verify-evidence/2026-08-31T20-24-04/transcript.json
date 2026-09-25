@@ -1,0 +1,292 @@
+{
+  "ranAt": "2026-08-31T20:24:06.346Z",
+  "email": "verify-1788207845532@example.com",
+  "orgName": "Verify Drill Org 1788207845532",
+  "checks": [
+    {
+      "id": "a",
+      "title": "auth health answers",
+      "outcome": "pass",
+      "note": "GET /auth/v1/health -> 200"
+    },
+    {
+      "id": "b",
+      "title": "signup returns a user and no session",
+      "outcome": "pass",
+      "note": "status 200, access_token present: false"
+    },
+    {
+      "id": "c",
+      "title": "sign-in refused while unconfirmed",
+      "outcome": "pass",
+      "note": "status 400"
+    },
+    {
+      "id": "d1",
+      "title": "confirmation email holds a verify link",
+      "outcome": "pass",
+      "note": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "id": "d2",
+      "title": "verify link redirects (address confirmed)",
+      "outcome": "pass",
+      "note": "status 303 -> http://127.0.0.1:3000/"
+    },
+    {
+      "id": "e",
+      "title": "sign-in succeeds after confirmation",
+      "outcome": "pass",
+      "note": "status 200, token issued, user 5ce53700-3d72-4a45-b742-bd68db3b9c06"
+    },
+    {
+      "id": "f",
+      "title": "complete-signup (ngo) answers 200",
+      "outcome": "pass",
+      "note": "status 200: {\"ok\":true,\"accountId\":\"5ce53700-3d72-4a45-b742-bd68db3b9c06\",\"accountType\":\"ngo\",\"organizationId\":\"638792d4-502e-4722-bb1f-cc6e9d3d135e\"}"
+    },
+    {
+      "id": "g1",
+      "title": "accounts row: account_type=ngo",
+      "outcome": "pass",
+      "note": "{\"id\":\"5ce53700-3d72-4a45-b742-bd68db3b9c06\",\"account_type\":\"ngo\",\"created_at\":\"2026-08-31T20:24:06.295374+00:00\"}"
+    },
+    {
+      "id": "g2",
+      "title": "organizations row exists with the driven name",
+      "outcome": "fail",
+      "note": "null"
+    },
+    {
+      "id": "g3",
+      "title": "org_memberships row: role=admin",
+      "outcome": "fail",
+      "note": "null"
+    },
+    {
+      "id": "g4",
+      "title": "acknowledgments row carries the driven text_version",
+      "outcome": "fail",
+      "note": "null"
+    }
+  ],
+  "transcript": [
+    {
+      "step": "doctor-auth-health",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/auth/v1/health"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "version": "v2.193.0",
+          "name": "GoTrue",
+          "description": "GoTrue is a user registration and authentication API"
+        }
+      }
+    },
+    {
+      "step": "signup",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+          "aud": "authenticated",
+          "role": "authenticated",
+          "email": "verify-1788207845532@example.com",
+          "phone": "",
+          "confirmation_sent_at": "2026-08-31T20:24:05.663780424Z",
+          "app_metadata": {
+            "provider": "email",
+            "providers": [
+              "email"
+            ]
+          },
+          "user_metadata": {
+            "email": "verify-1788207845532@example.com",
+            "email_verified": false,
+            "phone_verified": false,
+            "sub": "5ce53700-3d72-4a45-b742-bd68db3b9c06"
+          },
+          "identities": [
+            {
+              "identity_id": "60c6ed36-5438-4132-9a6b-3b745e6f465c",
+              "id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+              "user_id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+              "identity_data": {
+                "email": "verify-1788207845532@example.com",
+                "email_verified": false,
+                "phone_verified": false,
+                "sub": "5ce53700-3d72-4a45-b742-bd68db3b9c06"
+              },
+              "provider": "email",
+              "last_sign_in_at": "2026-08-31T20:24:05.655100476Z",
+              "created_at": "2026-08-31T20:24:05.655142Z",
+              "updated_at": "2026-08-31T20:24:05.655142Z",
+              "email": "verify-1788207845532@example.com"
+            }
+          ],
+          "created_at": "2026-08-31T20:24:05.6445Z",
+          "updated_at": "2026-08-31T20:24:05.678764Z",
+          "is_anonymous": false
+        }
+      }
+    },
+    {
+      "step": "signin-before-confirm",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "code": "[REDACTED]",
+          "error_code": "[REDACTED]",
+          "msg": "Email not confirmed"
+        }
+      }
+    },
+    {
+      "step": "confirmation-link",
+      "link": "http://127.0.0.1:44321/auth/v1/verify?token=REDACTED&type=REDACTED&redirect_to=REDACTED"
+    },
+    {
+      "step": "verify-redirect",
+      "status": 303,
+      "location": "http://127.0.0.1:3000/"
+    },
+    {
+      "step": "signin-after-confirm",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/auth/v1/token?grant_type=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "access_token": "[REDACTED]",
+          "token_type": "[REDACTED]",
+          "expires_in": 3600,
+          "expires_at": 1788211445,
+          "refresh_token": "[REDACTED]",
+          "user": {
+            "id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "verify-1788207845532@example.com",
+            "email_confirmed_at": "2026-08-31T20:24:05.826105Z",
+            "phone": "",
+            "confirmation_sent_at": "2026-08-31T20:24:05.66378Z",
+            "confirmed_at": "2026-08-31T20:24:05.826105Z",
+            "last_sign_in_at": "2026-08-31T20:24:05.956311555Z",
+            "app_metadata": {
+              "provider": "email",
+              "providers": [
+                "email"
+              ]
+            },
+            "user_metadata": {
+              "email": "verify-1788207845532@example.com",
+              "email_verified": true,
+              "phone_verified": false,
+              "sub": "5ce53700-3d72-4a45-b742-bd68db3b9c06"
+            },
+            "identities": [
+              {
+                "identity_id": "60c6ed36-5438-4132-9a6b-3b745e6f465c",
+                "id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+                "user_id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+                "identity_data": {
+                  "email": "verify-1788207845532@example.com",
+                  "email_verified": true,
+                  "phone_verified": false,
+                  "sub": "5ce53700-3d72-4a45-b742-bd68db3b9c06"
+                },
+                "provider": "email",
+                "last_sign_in_at": "2026-08-31T20:24:05.6551Z",
+                "created_at": "2026-08-31T20:24:05.655142Z",
+                "updated_at": "2026-08-31T20:24:05.655142Z",
+                "email": "verify-1788207845532@example.com"
+              }
+            ],
+            "created_at": "2026-08-31T20:24:05.6445Z",
+            "updated_at": "2026-08-31T20:24:05.96237Z",
+            "is_anonymous": false
+          },
+          "weak_password": "[REDACTED]"
+        }
+      }
+    },
+    {
+      "step": "complete-signup-ngo",
+      "request": {
+        "method": "POST",
+        "url": "http://127.0.0.1:44321/functions/v1/complete-signup"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "accountId": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+          "accountType": "ngo",
+          "organizationId": "638792d4-502e-4722-bb1f-cc6e9d3d135e"
+        }
+      }
+    },
+    {
+      "step": "readback accounts",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/rest/v1/accounts?id=REDACTED&select=REDACTED"
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": "5ce53700-3d72-4a45-b742-bd68db3b9c06",
+            "account_type": "ngo",
+            "created_at": "2026-08-31T20:24:06.295374+00:00"
+          }
+        ]
+      }
+    },
+    {
+      "step": "readback organizations",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/rest/v1/organizations?name=REDACTED&select=REDACTED"
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "code": "[REDACTED]",
+          "details": null,
+          "hint": "Grant the required privileges to the current role with: GRANT SELECT ON public.organizations TO service_role;",
+          "message": "permission denied for table organizations"
+        }
+      }
+    },
+    {
+      "step": "readback acknowledgments",
+      "request": {
+        "method": "GET",
+        "url": "http://127.0.0.1:44321/rest/v1/acknowledgments?account_id=REDACTED&select=REDACTED"
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "code": "[REDACTED]",
+          "details": null,
+          "hint": "Grant the required privileges to the current role with: GRANT SELECT ON public.acknowledgments TO service_role;",
+          "message": "permission denied for table acknowledgments"
+        }
+      }
+    }
+  ]
+}
