@@ -1,38 +1,35 @@
-# read-shunt.ps1 - refuse an UNBOUNDED read of a large file in the main session.
+# read-shunt.ps1 - refuse one very large read in the main session, and steer toward one well-aimed read.
 #
-# WHY THIS EXISTS. Content the lead reads is billed twice. Once when it arrives, and again on
-# every following turn until a compaction clears it, at the cache-read rate. So a large read
-# costs about its own size plus a tenth of its size per turn it survives; one that lives a
-# hundred turns costs roughly ten times what it appears to cost.
+# WHY THIS EXISTS. Content the lead reads stays in its context and is paid for again on every later
+# step. Each extra call is also a full re-read of the whole conversation. So the aim is the fewest
+# calls that bring in only what is needed: one targeted read beats both one huge read and many small
+# pages.
 #
-# Measured on AI4DEV-56 (admin operations): 24 reads came back over 350 lines and put about
-# 198,000 tokens into the lead. Four of them were design candidates a judge lane had already
-# scored, 58,000 tokens, read at turn 134 of about 280 and resident for the rest of the build.
-# The tree's own delegation rule already said to read a lane's file only when its summary names
-# a deviation. It was broken three times in that one item. A rule broken three times is a hook.
+# WHAT CHANGED FROM THE LINE-BASED VERSION. It measured lines and let any read with `limit` of 350 or
+# less through, and its refusal suggested pages of 120 lines. On the scope run the lead answered it by
+# paging: the brief took four calls, one design candidate two calls of about 26k characters each. A
+# page count is not a size. This version measures the characters the read would return, and its
+# refusal names one read of the needed region, never a page size to repeat.
 #
-# WHAT IT DOES NOT DO. It never blocks a bounded read. Passing `limit` is the behaviour this is
-# trying to produce, so a read that already pages is always allowed. It never blocks a subagent,
-# because `agent_id` is present only inside one, and the read lane that answers this refusal is
-# a subagent - without that exemption the remedy would block itself.
+# WHAT IT DOES NOT DO. It keeps no state: each read is judged alone. It never blocks a subagent unless
+# its type is listed in READ_SHUNT_GATE_AGENTS, because the read lane that answers this refusal is a
+# subagent. It never blocks images, PDFs or notebooks.
 #
-# THE ESCAPE IS AN ENVIRONMENT VARIABLE, not a flag in the prompt. READ_SHUNT=off disables it,
-# READ_SHUNT_MIN_LINES moves the threshold. A founder can turn it off for a session; the agent
-# cannot turn it off mid-turn to get past a refusal it just received.
+# THE ESCAPE IS AN ENVIRONMENT VARIABLE. READ_SHUNT=off disables it; READ_SHUNT_MAX_CHARS moves the
+# cap (default 30000). The agent cannot lift it mid-turn.
 #
 # Contract: PreToolUse, matcher Read. Exit 0 allows; exit 2 blocks and sends stderr to the agent.
-# Never throws - a guard that crashes must fail OPEN, because breaking every read in every
-# session is far worse than the spend it prevents.
+# Never throws: a guard that crashes fails OPEN.
 
 $ErrorActionPreference = 'SilentlyContinue'
 
 try {
     if ($env:READ_SHUNT -eq 'off') { exit 0 }
 
-    $threshold = 350
-    if ($env:READ_SHUNT_MIN_LINES) {
+    $cap = 30000
+    if ($env:READ_SHUNT_MAX_CHARS) {
         $parsed = 0
-        if ([int]::TryParse($env:READ_SHUNT_MIN_LINES, [ref]$parsed) -and $parsed -gt 0) { $threshold = $parsed }
+        if ([int]::TryParse($env:READ_SHUNT_MAX_CHARS, [ref]$parsed) -and $parsed -gt 0) { $cap = $parsed }
     }
 
     $raw = [Console]::In.ReadToEnd()
@@ -40,125 +37,86 @@ try {
     $j = $null
     try { $j = ConvertFrom-Json $raw } catch { exit 0 }
 
-    # A subagent is doing the reading. By default never block one, for two reasons that are not
-    # the same reason. First, the read lane that answers this refusal is itself a subagent, so
-    # exempting it is what makes the remedy possible at all. Second, a lane's context dies when
-    # the lane ends, so a large read there costs roughly its size times the lane's own turns, not
-    # the session's - the residency multiplier that justifies this guard is much smaller.
-    #
-    # That defence does not cover every lane. A reviewer told to read a whole diff has no remedy
-    # and is doing its job; a lane that pulls a big source file for context it barely uses is the
-    # same waste as the lead doing it. So the exemption is a LIST, not a law. Name agent types in
-    # READ_SHUNT_GATE_AGENTS to gate them too. Default empty, which keeps every lane exempt.
-    #
-    # Gating a lane is riskier than gating the lead. A lane that cannot get what it needs may fail
-    # or answer badly, and a premium lane run costs far more than the read it was refused. The
-    # pstack lane agents also hold no Agent tool, so their only remedy is paging, and the refusal
-    # text says so.
     $agentType = [string]$j.agent_type
     if ($j.agent_id) {
         $gated = @()
         if ($env:READ_SHUNT_GATE_AGENTS) {
             $gated = @($env:READ_SHUNT_GATE_AGENTS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         }
-        if (-not $agentType) { exit 0 }                 # cannot tell which lane: allow
-        if ($gated -notcontains $agentType) { exit 0 }  # not named for gating: allow
+        if (-not $agentType) { exit 0 }
+        if ($gated -notcontains $agentType) { exit 0 }
     }
 
     $path = [string]$j.tool_input.file_path
     if (-not $path) { exit 0 }
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { exit 0 }
-
-    # Line counts mean nothing for these; Read renders them rather than returning text.
     $ext = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
     if ($ext -in '.png','.jpg','.jpeg','.gif','.webp','.bmp','.svg','.pdf','.ipynb') { exit 0 }
 
-    # A bounded read is the behaviour we want. Allow any read that asks for no more than the
-    # threshold, whatever the file's size.
-    $limit = $j.tool_input.limit
-    if ($null -ne $limit) {
-        $n = 0
-        if ([int]::TryParse([string]$limit, [ref]$n) -and $n -le $threshold) { exit 0 }
-    }
+    # The window the read would return: Read starts at line 1 and returns up to 2000 lines by default.
+    $offset = 1
+    $limit = 2000
+    $o = 0; $l = 0
+    if ($null -ne $j.tool_input.offset -and [int]::TryParse([string]$j.tool_input.offset, [ref]$o) -and $o -gt 0) { $offset = $o }
+    if ($null -ne $j.tool_input.limit -and [int]::TryParse([string]$j.tool_input.limit, [ref]$l) -and $l -gt 0) { $limit = $l }
 
-    # Count only as far as the decision needs. A 40,000-line file costs the same check as a 400.
-    $lines = 0
+    # Count only as far as the decision needs.
+    $chars = 0
+    $line = 0
+    $fileLines = 0
     $reader = $null
     try {
         $reader = [System.IO.File]::OpenText($path)
-        while ($lines -le $threshold -and $null -ne $reader.ReadLine()) { $lines++ }
+        while ($null -ne ($text = $reader.ReadLine())) {
+            $line++
+            if ($line -ge $offset -and $line -lt $offset + $limit) {
+                $chars += $text.Length + 1
+                if ($chars -gt $cap) { break }
+            }
+            if ($line -ge $offset + $limit) { break }
+        }
+        $fileLines = $line
     } finally {
         if ($reader) { $reader.Close() }
     }
-    if ($lines -le $threshold) { exit 0 }
+    if ($chars -le $cap) { exit 0 }
 
     $name = Split-Path $path -Leaf
+    $window = if ($null -ne $j.tool_input.limit -or $offset -gt 1) { "lines $offset to $($offset + $limit - 1)" } else { 'the whole file' }
 
-    # A gated lane holds no Agent tool, so telling it to delegate would be telling it to do
-    # something it cannot do. Paging is the only remedy it has.
     if ($agentType) {
-        $laneMsg = @"
-BLOCKED: unbounded read of a large file. $name is over $threshold lines.
+        [Console]::Error.Write(@"
+BLOCKED: this read of $name ($window) would return over $cap characters.
 
-  path      : $path
-  lane      : $agentType
-  threshold : $threshold lines (READ_SHUNT_MIN_LINES)
+You hold no Agent tool. Find the part you need first (Grep for the symbol, with line numbers),
+then read that region in ONE call: Read(file_path, offset: N, limit: M), with M just large
+enough to cover it. Do not step through the file in small pages.
 
-You hold no Agent tool, so page the file instead:
-
-    Read(file_path, offset: N, limit: 120)
-
-Pass limit WITH offset. Offset alone is not paging - it reads on to the 2000-line cap. Grep the
-file first to find the line you want, then read a window around it.
-
-If this file must be read whole for your task to be correct, say so in your report and stop.
-Do not work around this by reading it in many large windows.
-"@
-        [Console]::Error.Write($laneMsg)
+If your task needs the whole file, say so in your report and stop.
+"@)
         exit 2
     }
 
-    $msg = @"
-BLOCKED: unbounded read of a large file. $name is over $threshold lines.
+    [Console]::Error.Write(@"
+BLOCKED: this read of $name ($window) would return over $cap characters (READ_SHUNT_MAX_CHARS).
 
-  path      : $path
-  threshold : $threshold lines (READ_SHUNT_MIN_LINES)
+Every call re-reads the whole conversation, so get what you need in as few calls as possible.
+Do one of these:
 
-This file would sit in your context for every remaining turn of this session, and be re-billed
-on each one. Do one of these instead.
+1. You know which part you need: find it with Grep (line numbers), then read that region in ONE
+   call, Read(file_path, offset: N, limit: M), with M just large enough to cover it, up to
+   $cap characters. Do not step through the file in small pages.
 
-1. If you know what you are looking for, send a read lane and keep the lines, not a summary:
+2. You need an answer, not the text: send a read lane with one precise question and ask for
+   the exact lines back. Write the question as a fact to locate ("where does the candidate
+   check the own name in the scan"), never as a purpose ("what matters for the review").
 
-     Agent(subagent_type: "mechanical", model: "sonnet", prompt: @"
-       You are a read lane. You extract lines. You judge nothing and you summarise nothing.
-       FILE: $path
-       AIM: <the one question the lines must answer - see below>
-       Return the exact line ranges that bear on the aim, quoted VERBATIM, each block preceded
-       by `--- lines N-M ---`. At most 80 lines. Then one line beginning `SKIPPED:` naming what
-       you did not return and why. No preamble, no summary, no opinion. If nothing in the file
-       bears on the aim, reply NOTHING.
-     ")
+3. You must see the whole file: ask the founder to lift the cap for this session
+   (READ_SHUNT=off). Ask; do not assume.
 
-   The block above is a scaffold. Everything in it stays fixed except AIM, which you write
-   fresh from what you need right now. The aim is the whole difference: it is what turns a
-   2,660-line file into 7 lines, and "read this file" is just the unbounded read in disguise.
-
-   Write the aim as a fact to locate, never as a purpose to serve. NAME THE THING, NOT THE
-   PURPOSE. "Where does this candidate specify the own-name check in the scan" has one answer
-   the lane can point at. "What matters for reviewing the transfer path" asks the lane to
-   judge relevance, which is your job, and you will not be able to tell what it dropped.
-
-   Ask for verbatim lines when you will act on the exact text. Ask for bullets only when you
-   need a fact you will not quote.
-
-2. If you already know roughly where to look, page it: Read(file_path, offset: N, limit: 120).
-   Pass limit WITH offset. Offset alone is not paging - it reads to the 2000-line cap.
-
-3. If you genuinely must see the whole file, the founder can lift this for the session with
-   READ_SHUNT=off. Ask; do not assume.
-"@
-    [Console]::Error.Write($msg)
+If you need other files too, send those reads in the same message: they then cost one step.
+"@)
     exit 2
 } catch {
-    exit 0   # fail OPEN, always
+    exit 0
 }
