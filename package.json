@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "design:astra": "vite --config design/astra/vite.config.ts --configLoader native",
+    "design:astra:build": "vite build --config design/astra/vite.config.ts --configLoader native",
+    "design:astra:check": "tsc --project design/astra/tsconfig.json",
+    "design:astra:preview": "vite preview --config design/astra/vite.config.ts --configLoader native",
+    "design:astra:export": "node design/astra/export.mjs",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
