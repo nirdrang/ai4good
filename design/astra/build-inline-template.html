@@ -1,0 +1,36 @@
+<style>
+#ag-project-hierarchy { --shell-bg: light-dark(#ffffff, #101a28); --shell-line: light-dark(#e1e8e9, #2e3c4b); --shell-muted: light-dark(#65747f, #a3b1c1); --shell-text: light-dark(#1c2a34, #e5edf3); --shell-soft: light-dark(#f6f8f8, #172332); --shell-green: light-dark(#076b51, #85deba); --shell-green-bg: light-dark(#edf7f1, #18372e); background: var(--shell-bg); color: var(--shell-text); border: 1px solid var(--shell-line); border-radius: 9px; overflow: clip; width: 100%; min-width: 0; font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+#ag-project-hierarchy * { box-sizing: border-box; }
+#ag-project-hierarchy .ag-shell-top { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--shell-line); font-size: 12px; }
+#ag-project-hierarchy .ag-brand { color: var(--shell-green); font-size: 20px; font-weight: 500; letter-spacing: -.06em; }
+#ag-project-hierarchy .ag-org { color: var(--shell-muted); border-left: 1px solid var(--shell-line); padding-left: 14px; }
+#ag-project-hierarchy .ag-person { margin-left: auto; border-radius: 50%; background: var(--shell-green-bg); color: var(--shell-green); width: 29px; height: 29px; display: grid; place-items: center; font-size: 11px; }
+#ag-project-hierarchy .ag-shell-body { display: grid; grid-template-columns: 146px minmax(0, 1fr); }
+#ag-project-hierarchy .ag-sidebar { padding: 24px 12px; border-right: 1px solid var(--shell-line); color: var(--shell-muted); font-size: 12px; }
+#ag-project-hierarchy .ag-nav-label { display: block; font-size: 11px; margin: 0 10px 11px; }
+#ag-project-hierarchy .ag-nav-item { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 5px; margin-bottom: 4px; }
+#ag-project-hierarchy .ag-nav-item.current { color: var(--shell-green); background: var(--shell-green-bg); }
+#ag-project-hierarchy .ag-sidebar hr { border: 0; border-top: 1px solid var(--shell-line); margin: 20px 0; }
+#ag-project-hierarchy .ag-sidebar svg { width: 15px; height: 15px; }
+#ag-project-hierarchy-main { padding: 22px; min-width: 0; }
+@media (max-width: 760px) { #ag-project-hierarchy .ag-shell-body { grid-template-columns: minmax(0, 1fr); } #ag-project-hierarchy .ag-sidebar { display: none; } }
+@media (max-width: 430px) { #ag-project-hierarchy-main { padding: 15px 11px; } #ag-project-hierarchy .ag-shell-top { padding: 12px; gap: 10px; } #ag-project-hierarchy .ag-org { padding-left: 10px; font-size: 11px; } }
+/* BUILD_STYLES */
+</style>
+<div id="ag-project-hierarchy" aria-label="Project build mock">
+  <header class="ag-shell-top"><span class="ag-brand">ai4good</span><span class="ag-org">Harbor Community Kitchen</span><span class="ag-person">ST</span></header>
+  <div class="ag-shell-body">
+    <aside class="ag-sidebar" aria-label="Application navigation">
+      <span class="ag-nav-label">WORKSPACE</span>
+      <span class="ag-nav-item"><i data-lucide="layout-dashboard" aria-hidden="true"></i>Overview</span>
+      <span class="ag-nav-item"><i data-lucide="folder" aria-hidden="true"></i>My projects</span>
+      <hr>
+      <span class="ag-nav-label">VOLUNTEER</span>
+      <span class="ag-nav-item"><i data-lucide="panels-top-left" aria-hidden="true"></i>Design</span>
+      <span class="ag-nav-item current"><i data-lucide="git-branch" aria-hidden="true"></i>Project build</span>
+      <span class="ag-nav-item"><i data-lucide="fuel" aria-hidden="true"></i>Project fuel</span>
+    </aside>
+    <main id="ag-project-hierarchy-main"></main>
+  </div>
+</div>
+<script>/* BUILD_SCRIPT */</script>

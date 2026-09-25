@@ -1,0 +1,2009 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Design Review</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Design Review" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Design Review&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;style&gt;
+  #design-review {
+    --dr-bg: light-dark(#ffffff, #181d23); --dr-soft: light-dark(#f7f9fa, #222a32);
+    --dr-ink: light-dark(#25323b, #e8edf1); --dr-muted: light-dark(#627079, #b1bdc5);
+    --dr-line: light-dark(#e1e7eb, #39434d); --dr-accent: light-dark(#146950, #8bdbc0);
+    --dr-accent-soft: light-dark(#edf8f3, #203d35); --dr-accent-text: light-dark(#fff, #143128);
+    --dr-ai: light-dark(#6850ad, #c7b4fa); --dr-ai-soft: light-dark(#f4f0fb, #302a40);
+    --dr-dev: light-dark(#335d8b, #a9c9f2); --dr-dev-soft: light-dark(#eef4fc, #25374b);
+    --dr-ngo: light-dark(#86571b, #f0c488); --dr-ngo-soft: light-dark(#fff5e5, #423624);
+    --dr-green: light-dark(#178052, #7bd5a7); --dr-yellow: light-dark(#b89c00, #e7cd45);
+    --dr-status-yellow:light-dark(#efd65b, #e7cd45); --dr-status-amber:light-dark(#d78524, #eda74f);
+    --dr-red: light-dark(#bf3030, #ff9090);
+    width:100%; color:var(--dr-ink); font:14px/1.5 &quot;Segoe UI&quot;, Arial, sans-serif;
+  }
+  #design-review[data-owner=&quot;dev&quot;] { --dr-turn:var(--dr-dev); --dr-turn-soft:var(--dr-dev-soft); --dr-turn-text:light-dark(#fff, #182d44); }
+  #design-review[data-owner=&quot;ngo&quot;] { --dr-turn:var(--dr-ngo); --dr-turn-soft:var(--dr-ngo-soft); --dr-turn-text:light-dark(#fff, #39250f); }
+  #design-review * { box-sizing:border-box; }
+  #design-review [hidden] { display:none !important; }
+  #design-review h2, #design-review h3, #design-review p { margin:0; }
+  #design-review button, #design-review select, #design-review textarea { font:inherit; }
+  #design-review button { cursor:pointer; }
+  #design-review button:disabled { opacity:.5; cursor:default; }
+  #design-review button, #design-review select, #design-review textarea { max-width:100%; }
+  #design-review .dr-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  #design-review .dr-between { justify-content:space-between; }
+  #design-review .dr-small { font-size:12px; }
+  #design-review .dr-muted { color:var(--dr-muted); }
+  #design-review .dr-demo { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:0 0 12px; font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-demo label { display:flex; align-items:center; gap:8px; }
+  #design-review select { border:1px solid var(--dr-line); border-radius:7px; padding:6px 8px; color:var(--dr-ink); background:var(--dr-bg); }
+  #design-review .dr-window { background:var(--dr-bg); border:1px solid var(--dr-line); border-radius:12px; }
+  #design-review .dr-header { padding:18px 22px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; align-items:center; }
+  #design-review .dr-brand { width:31px; height:31px; display:grid; place-items:center; border-radius:8px; color:var(--dr-accent); background:var(--dr-accent-soft); font-weight:500; }
+  #design-review h2 { font-size:17px; font-weight:500; }
+  #design-review h3 { font-size:14px; font-weight:500; }
+  #design-review .dr-budget { min-width:210px; }
+  #design-review .dr-budget strong { font-weight:500; font-variant-numeric:tabular-nums; }
+  #design-review .dr-meter { height:5px; margin-top:6px; background:var(--dr-line); border-radius:4px; overflow:hidden; }
+  #design-review .dr-meter span { display:block; height:100%; background:var(--dr-green); }
+  #design-review [data-band=&quot;yellow&quot;] .dr-meter span { background:var(--dr-yellow); }
+  #design-review [data-band=&quot;red&quot;] .dr-meter span { background:var(--dr-red); }
+  #design-review .dr-stages { padding:11px 22px; border-block:1px solid var(--dr-line); display:flex; gap:9px 17px; flex-wrap:wrap; font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-stages span, #design-review .dr-stages button { display:flex; align-items:center; gap:6px; }
+  #design-review .dr-stages button { border:0; padding:0; background:transparent; color:inherit; font:inherit; }
+  #design-review .dr-stages [aria-current] { color:var(--dr-accent); font-weight:500; }
+  #design-review .dr-step { width:21px; height:21px; border-radius:50%; background:var(--dr-soft); display:inline-grid; place-items:center; font-style:normal; }
+  #design-review .dr-stages [aria-current] .dr-step { background:var(--dr-accent); color:var(--dr-accent-text); }
+  #design-review .dr-source { padding:11px 22px; font-size:12px; border-bottom:1px solid var(--dr-line); color:var(--dr-muted); }
+  #design-review .dr-source summary { cursor:pointer; color:var(--dr-ink); }
+  #design-review .dr-source p { margin-top:8px; max-width:750px; }
+  #design-review .dr-workspace { display:grid; grid-template-columns:minmax(0, 1.38fr) minmax(310px, 1fr); }
+  #design-review .dr-canvas { min-width:0; padding:20px; background:var(--dr-soft); border-right:1px solid var(--dr-line); border-radius:0 0 0 12px; }
+  #design-review .dr-chat { min-width:0; padding:20px; display:flex; flex-direction:column; }
+  #design-review[data-layout=&quot;chat-first&quot;] .dr-workspace { grid-template-columns:minmax(310px,1fr) minmax(0,1.38fr); }
+  #design-review[data-layout=&quot;chat-first&quot;] .dr-canvas { grid-column:2; grid-row:1; border-left:1px solid var(--dr-line); border-right:0; border-radius:0 0 12px 0; }
+  #design-review[data-layout=&quot;chat-first&quot;] .dr-chat { grid-column:1; grid-row:1; }
+  #design-review[data-expanded=&quot;true&quot;] .dr-workspace { grid-template-columns:minmax(0,1fr); }
+  #design-review[data-expanded=&quot;true&quot;] .dr-canvas { grid-column:1; border:0; border-radius:0 0 12px 12px; }
+  #design-review[data-expanded=&quot;true&quot;] .dr-chat { display:none; }
+  #design-review .dr-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:7px 11px; border:1px solid var(--dr-line); border-radius:7px; background:var(--dr-bg); color:var(--dr-ink); font-size:12px; min-height:34px; }
+  #design-review .dr-button:hover:not(:disabled) { background:var(--dr-soft); }
+  #design-review .dr-primary { background:var(--dr-accent); border-color:transparent; color:var(--dr-accent-text); }
+  #design-review .dr-primary:hover:not(:disabled) { background:var(--dr-accent); filter:brightness(.96); }
+  #design-review .dr-turn-control { color:var(--dr-turn); border-color:var(--dr-turn); background:var(--dr-turn-soft); }
+  #design-review .dr-turn-control:hover:not(:disabled) { background:var(--dr-turn-soft); }
+  #design-review .dr-primary.dr-turn-control, #design-review .dr-primary.dr-turn-control:hover:not(:disabled) { background:var(--dr-turn); border-color:transparent; color:var(--dr-turn-text); }
+  #design-review .dr-turn-control:disabled { background:var(--dr-soft); border-color:var(--dr-line); color:var(--dr-muted); opacity:1; }
+  #design-review .dr-send-icon { width:36px; height:36px; padding:0; border-radius:50%; flex:0 0 36px; }
+  #design-review .dr-send-icon i { font-style:normal; font-size:23px; line-height:1; }
+  #design-review .dr-quiet { border-color:transparent; background:transparent; }
+  #design-review .dr-button[aria-pressed=&quot;true&quot;] { background:var(--dr-ink); color:var(--dr-bg); border-color:var(--dr-ink); }
+  #design-review .dr-tabs { display:flex; gap:7px; margin:14px 0; flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scrollbar-width:thin; padding:3px 1px 8px; }
+  #design-review .dr-screen-tab { text-align:left; flex:0 0 185px; min-width:185px; padding:10px; display:block; background:var(--dr-bg); scroll-snap-align:start; }
+  #design-review .dr-screen-tab[aria-pressed=&quot;true&quot;] { color:var(--dr-ink); background:var(--dr-bg); border-color:var(--dr-ink); }
+  #design-review .dr-screen-tab-head { display:flex; gap:7px; align-items:center; }
+  #design-review .dr-screen-tab small { display:block; margin:4px 0 0 25px; font-size:11px; }
+  #design-review .dr-status-icon { width:18px; height:18px; flex:0 0 18px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#fff; border:1px solid var(--dr-muted); color:var(--dr-ink); }
+  #design-review .dr-status-icon i { font-style:normal; font-size:12px; line-height:1; }
+  #design-review .dr-status-icon svg { width:12px; height:12px; }
+  #design-review .dr-status-icon[data-status=&quot;in-progress&quot;] { background:var(--dr-status-yellow); border-color:transparent; color:#4a3b00; }
+  #design-review .dr-status-icon[data-status=&quot;signed-off&quot;] { background:var(--dr-green); border-color:transparent; color:light-dark(#fff, #123b2b); }
+  #design-review .dr-status-icon[data-status=&quot;waiting-ngo&quot;] { background:var(--dr-status-amber); border-color:transparent; color:#382000; }
+  #design-review .dr-status-legend { display:flex; flex-wrap:wrap; gap:7px 13px; color:var(--dr-muted); font-size:11px; }
+  #design-review .dr-status-label { display:inline-flex; align-items:center; gap:6px; }
+  #design-review .dr-carousel-nav { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:12px 0; }
+  #design-review .dr-carousel-nav button { flex:0 0 auto; }
+  #design-review .dr-carousel-nav i { font-style:normal; }
+  #design-review .dr-carousel-position { font-size:12px; text-align:center; font-variant-numeric:tabular-nums; }
+  #design-review .dr-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:9px; margin:14px 0; }
+  #design-review .dr-chip { display:inline-flex; padding:3px 7px; border-radius:5px; font-size:11px; background:var(--dr-bg); border:1px solid var(--dr-line); }
+  #design-review .dr-question-chip { color:var(--dr-ngo); background:var(--dr-ngo-soft); border-color:transparent; }
+  #design-review .dr-frame { background:var(--dr-bg); border:1px solid var(--dr-line); border-radius:10px; margin-inline:auto; width:100%; container-type:inline-size; }
+  #design-review[data-device=&quot;mobile&quot;] .dr-frame { max-width:330px; }
+  #design-review .dr-preview { min-width:0; }
+  #design-review .dr-slide-name { border:0; background:transparent; padding:0; color:var(--dr-ink); text-align:left; font-size:14px; font-weight:500; }
+  #design-review .dr-frame-chrome { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:12px 14px; border-bottom:1px solid var(--dr-line); font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-frame-heading { display:grid; gap:7px; }
+  #design-review .dr-frame-chrome select { font-size:12px; }
+  #design-review .dr-screen-review { padding:14px; border-top:1px solid var(--dr-line); }
+  #design-review .dr-screen-review .dr-requirement { padding-top:0; }
+  #design-review .dr-chat-footer { margin-top:auto; padding-top:16px; }
+  #design-review .dr-chat-footer .dr-action-context { padding-top:12px; border-top:1px solid var(--dr-line); font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-chat-footer .dr-row { margin-top:10px; }
+  #design-review .dr-review-hint { margin-top:6px; font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-portal { padding:23px 21px; min-height:375px; }
+  #design-review .dr-portal-brand { display:flex; justify-content:space-between; gap:8px; font-size:12px; margin-bottom:25px; color:var(--dr-accent); }
+  #design-review .dr-portal h3 { font-size:22px; line-height:1.25; margin-bottom:7px; letter-spacing:-.4px; }
+  #design-review .dr-portal p { font-size:12px; }
+  #design-review .dr-filters { margin:18px 0; }
+  #design-review .dr-shift { display:flex; align-items:center; gap:12px; padding:16px 0; border-top:1px solid var(--dr-line); }
+  #design-review .dr-date { width:41px; flex:0 0 41px; text-align:center; background:var(--dr-soft); border-radius:6px; padding:7px 2px; font-size:11px; }
+  #design-review .dr-date strong { display:block; font-size:19px; font-weight:500; }
+  #design-review .dr-shift-info { flex:1; min-width:0; }
+  #design-review .dr-shift-title { font-size:13px; font-weight:500; }
+  #design-review .dr-shift-meta { font-size:11px; color:var(--dr-muted); margin-top:4px; }
+  #design-review .dr-availability { font-size:11px; color:var(--dr-accent); display:inline-flex; gap:6px; align-items:center; margin-top:5px; }
+  #design-review .dr-pin { border:0; width:23px; height:23px; border-radius:50%; display:inline-grid; place-items:center; padding:0; background:var(--dr-ngo); color:var(--dr-bg); font-size:11px; }
+  #design-review .dr-hotspot { border-bottom:1px dashed var(--dr-ngo); padding-bottom:2px; }
+  #design-review .dr-portal-detail { margin:20px 0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px 18px; font-size:12px; }
+  #design-review .dr-portal-detail dt { color:var(--dr-muted); }
+  #design-review .dr-portal-detail dd { margin:0; }
+  #design-review .dr-next-shift { margin-top:20px; padding:17px; border:1px solid var(--dr-line); border-radius:8px; }
+  #design-review .dr-empty { padding:28px 0; }
+  #design-review .dr-requirement { padding:12px 0 14px; font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-requirement strong { font-weight:500; color:var(--dr-ink); }
+  #design-review .dr-materialized { margin-top:14px; padding:12px; border-radius:7px; background:var(--dr-accent-soft); color:var(--dr-accent); font-size:12px; }
+  #design-review .dr-materialized .dr-row { margin-top:8px; }
+  #design-review .dr-build { padding:22px; }
+  #design-review .dr-board { list-style:none; padding:0; margin:20px 0 0; }
+  #design-review .dr-board-item { padding:18px 0; border-top:1px solid var(--dr-line); }
+  #design-review .dr-board-item p { margin-top:8px; font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-board-item .dr-row:last-child { margin-top:14px; }
+  #design-review .dr-work-status { display:inline-flex; align-items:center; gap:6px; color:var(--dr-dev); background:var(--dr-dev-soft); padding:3px 7px; border-radius:5px; font-size:12px; }
+  #design-review .dr-work-status i { font-style:normal; }
+  #design-review [data-person=&quot;dev&quot;] { --dr-person:var(--dr-dev); --dr-person-soft:var(--dr-dev-soft); }
+  #design-review [data-person=&quot;ngo&quot;] { --dr-person:var(--dr-ngo); --dr-person-soft:var(--dr-ngo-soft); }
+  #design-review [data-person=&quot;ai&quot;] { --dr-person:var(--dr-ai); --dr-person-soft:var(--dr-ai-soft); }
+  #design-review .dr-actors { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:14px 0 13px; }
+  #design-review .dr-actor { background:var(--dr-person-soft); color:var(--dr-person); padding:9px 8px; border-radius:7px; font-size:11px; }
+  #design-review .dr-actor strong { font-size:12px; font-weight:500; display:block; }
+  #design-review .dr-actor span { display:block; margin-top:3px; }
+  #design-review .dr-owner { color:var(--dr-person); font-size:12px; padding-bottom:13px; border-bottom:1px solid var(--dr-line); }
+  #design-review .dr-bookmarks { gap:6px; margin-top:12px; }
+  #design-review .dr-bookmark { color:var(--dr-person); background:var(--dr-person-soft); border-color:transparent; font-size:11px; min-height:29px; padding:5px 8px; }
+  #design-review .dr-conversation-caption { margin-top:10px; font-size:11px; color:var(--dr-muted); }
+  #design-review .dr-conversation-scroll { height:510px; min-height:0; overflow-y:auto; overscroll-behavior-y:contain; scrollbar-width:thin; padding:0 5px 0 3px; margin:6px 0 14px; }
+  #design-review .dr-transcript { display:grid; gap:13px; list-style:none; padding:0; margin:16px 0; }
+  #design-review .dr-message { min-width:0; padding:10px 12px; border-left:3px solid var(--dr-person); background:var(--dr-person-soft); border-radius:0 7px 7px 0; scroll-margin-top:18px; }
+  #design-review .dr-message[data-highlight=&quot;true&quot;] { outline:2px solid var(--dr-person); outline-offset:2px; }
+  #design-review .dr-message-name { color:var(--dr-person); font-size:11px; font-weight:500; margin-bottom:5px; }
+  #design-review .dr-message p { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+  #design-review .dr-event { font-size:11px; color:var(--dr-muted); padding-block:2px; }
+  #design-review .dr-message-anchor { display:inline-block; margin-top:7px; padding:0; border:0; background:transparent; color:var(--dr-person); font-size:11px; text-decoration:underline; text-align:left; }
+  #design-review .dr-panel { border:1px solid var(--dr-line); border-radius:9px; padding:14px; margin:16px 0; background:var(--dr-bg); }
+  #design-review #dr-handoff-draft { border-color:var(--dr-dev); }
+  #design-review #dr-handoff-draft .dr-eyebrow { color:var(--dr-dev); }
+  #design-review .dr-panel p { font-size:12px; margin-top:7px; }
+  #design-review .dr-panel .dr-row { margin-top:12px; }
+  #design-review .dr-eyebrow { font-size:11px; color:var(--dr-ai); margin-bottom:6px; }
+  #design-review .dr-label { display:block; font-size:12px; margin:12px 0 6px; }
+  #design-review textarea { display:block; width:100%; min-height:80px; resize:vertical; border:1px solid var(--dr-line); border-radius:7px; padding:10px; background:var(--dr-bg); color:var(--dr-ink); font-size:13px; }
+  #design-review textarea:disabled { background:var(--dr-soft); }
+  #design-review .dr-options { display:grid; gap:7px; margin-top:12px; }
+  #design-review .dr-options button { text-align:left; justify-content:flex-start; }
+  #design-review .dr-composer { border-top:1px solid var(--dr-line); padding-top:13px; }
+  #design-review .dr-composer .dr-row { margin-top:10px; }
+  #design-review .dr-composer[data-active=&quot;true&quot;] { border-top-color:var(--dr-turn); }
+  #design-review .dr-composer[data-active=&quot;true&quot;] #dr-compose-label { color:var(--dr-turn); }
+  #design-review .dr-composer[data-active=&quot;true&quot;] textarea { border-color:var(--dr-turn); }
+  #design-review .dr-composer[data-active=&quot;true&quot;] select { color:var(--dr-turn); border-color:var(--dr-turn); background:var(--dr-turn-soft); }
+  #design-review .dr-readonly { margin-top:12px; font-size:12px; color:var(--dr-muted); }
+  #design-review .dr-readonly button { margin-top:9px; }
+  #design-review .dr-error { color:var(--dr-red); font-size:12px; margin-top:7px; }
+  #design-review .dr-footnote { margin-top:10px; color:var(--dr-muted); font-size:11px; }
+  #design-review[data-density=&quot;compact&quot;] .dr-shift { padding-block:11px; }
+  #design-review[data-density=&quot;compact&quot;] .dr-portal { padding-block:17px; }
+  @container(max-width:370px) {
+    #design-review .dr-shift { display:grid; grid-template-columns:41px minmax(0,1fr); align-items:start; }
+    #design-review .dr-shift &gt; .dr-button { grid-column:2; justify-self:start; margin-left:0; }
+    #design-review .dr-availability { flex-wrap:wrap; }
+    #design-review .dr-portal-detail { grid-template-columns:minmax(0,1fr); gap:3px; }
+    #design-review .dr-portal-detail dd { margin-bottom:10px; }
+  }
+  @media(max-width:780px) {
+    #design-review .dr-workspace, #design-review[data-layout=&quot;chat-first&quot;] .dr-workspace { grid-template-columns:minmax(0,1fr); }
+    #design-review .dr-canvas, #design-review[data-layout=&quot;chat-first&quot;] .dr-canvas { grid-column:1; grid-row:1; border:0; border-bottom:1px solid var(--dr-line); border-radius:0; }
+    #design-review .dr-chat, #design-review[data-layout=&quot;chat-first&quot;] .dr-chat { grid-column:1; grid-row:2; }
+  }
+  @media(max-width:460px) {
+    #design-review .dr-header, #design-review .dr-stages, #design-review .dr-source { padding-inline:14px; }
+    #design-review .dr-canvas, #design-review .dr-chat, #design-review .dr-build { padding:14px; }
+    #design-review .dr-budget { width:100%; min-width:0; }
+    #design-review .dr-screen-tab { flex-basis:175px; min-width:175px; padding:8px; }
+    #design-review .dr-portal { padding:18px 13px; }
+    #design-review .dr-shift { flex-wrap:wrap; gap:9px; }
+    #design-review .dr-portal h3 { font-size:21px; }
+    #design-review .dr-demo label { flex-wrap:wrap; }
+    #design-review textarea { font-size:16px; }
+  }
+  @media(pointer:coarse) { #design-review .dr-button, #design-review select, #design-review .dr-stages button { min-height:44px; } #design-review .dr-pin, #design-review .dr-send-icon { width:44px; height:44px; } #design-review .dr-send-icon { flex-basis:44px; } }
+&lt;/style&gt;
+&lt;div id=&quot;design-review&quot; data-layout=&quot;canvas-first&quot; data-device=&quot;desktop&quot; data-owner=&quot;dev&quot; data-viewer=&quot;dev&quot; data-expanded=&quot;false&quot; aria-label=&quot;Design review workspace&quot;&gt;
+  &lt;div class=&quot;dr-demo&quot;&gt;&lt;span&gt;Interactive design proposal&lt;/span&gt;&lt;label for=&quot;dr-example&quot;&gt;Example &lt;select id=&quot;dr-example&quot; aria-label=&quot;Load an example conversation&quot;&gt;&lt;option value=&quot;review&quot;&gt;1. Developer review&lt;/option&gt;&lt;option value=&quot;ngo&quot;&gt;2. NGO conversation&lt;/option&gt;&lt;option value=&quot;returned&quot;&gt;3. Back with developer&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label for=&quot;dr-viewer&quot;&gt;Preview as &lt;select id=&quot;dr-viewer&quot;&gt;&lt;option value=&quot;dev&quot;&gt;Alex · Developer&lt;/option&gt;&lt;option value=&quot;ngo&quot;&gt;Maya · NGO&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;
+  &lt;div class=&quot;dr-window&quot;&gt;
+    &lt;header class=&quot;dr-header&quot;&gt;
+      &lt;div class=&quot;dr-row&quot;&gt;&lt;span class=&quot;dr-brand&quot;&gt;a4&lt;/span&gt;&lt;div&gt;&lt;h2 id=&quot;dr-workspace-title&quot;&gt;Design workspace&lt;/h2&gt;&lt;p class=&quot;dr-small dr-muted&quot;&gt;Riverbend · Volunteer scheduling&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;dr-budget&quot; id=&quot;dr-budget&quot; data-band=&quot;green&quot;&gt;&lt;div class=&quot;dr-row dr-between dr-small&quot;&gt;&lt;span class=&quot;dr-muted&quot;&gt;Design fuel&lt;/span&gt;&lt;strong id=&quot;dr-balance&quot;&gt;$17.4670 available&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;dr-meter&quot; id=&quot;dr-meter&quot; role=&quot;meter&quot; aria-label=&quot;Design allocation spent&quot; aria-valuemin=&quot;0&quot; aria-valuemax=&quot;100&quot; aria-valuenow=&quot;12.665&quot;&gt;&lt;span id=&quot;dr-meter-fill&quot; style=&quot;width:12.665%&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;p class=&quot;dr-small dr-muted&quot; id=&quot;dr-spent&quot;&gt;$2.5330 of $20.00 spent&lt;/p&gt;&lt;/div&gt;
+    &lt;/header&gt;
+    &lt;nav class=&quot;dr-stages&quot; aria-label=&quot;Project workflow&quot;&gt;&lt;span&gt;&lt;i class=&quot;dr-step&quot;&gt;✓&lt;/i&gt;Matched&lt;/span&gt;&lt;span&gt;&lt;i class=&quot;dr-step&quot;&gt;✓&lt;/i&gt;PRD&lt;/span&gt;&lt;span&gt;&lt;i class=&quot;dr-step&quot;&gt;✓&lt;/i&gt;PRD materialize&lt;/span&gt;&lt;button type=&quot;button&quot; id=&quot;dr-design-stage&quot; aria-current=&quot;step&quot; aria-controls=&quot;dr-design-view&quot;&gt;&lt;i class=&quot;dr-step&quot;&gt;3&lt;/i&gt;Design&lt;/button&gt;&lt;button type=&quot;button&quot; id=&quot;dr-build-stage&quot; aria-controls=&quot;dr-build-view&quot;&gt;&lt;i class=&quot;dr-step&quot;&gt;4&lt;/i&gt;Build&lt;/button&gt;&lt;/nav&gt;
+    &lt;details class=&quot;dr-source&quot;&gt;&lt;summary&gt;PRD v1.0 materialized · Design starts from the agreed requirements&lt;/summary&gt;&lt;p&gt;The PM requirements, acceptance tests, and screen list are prepared. The carousel contains every screen in that list. Each screen links to its requirement. Acceptance tests have not run.&lt;/p&gt;&lt;/details&gt;
+    &lt;div class=&quot;dr-workspace&quot; id=&quot;dr-design-view&quot;&gt;
+      &lt;section class=&quot;dr-canvas&quot; aria-label=&quot;Screens from PRD materialization&quot;&gt;
+        &lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;h2&gt;Screen mockups&lt;/h2&gt;&lt;button class=&quot;dr-button dr-quiet&quot; id=&quot;dr-expand&quot; type=&quot;button&quot;&gt;Expand preview&lt;/button&gt;&lt;/div&gt;
+        &lt;p class=&quot;dr-small dr-muted&quot; id=&quot;dr-inventory&quot;&gt;All 3 screens from PRD materialization&lt;/p&gt;
+        &lt;div class=&quot;dr-carousel-nav&quot;&gt;&lt;button class=&quot;dr-button&quot; id=&quot;dr-previous&quot; type=&quot;button&quot; aria-label=&quot;Previous screen&quot; aria-controls=&quot;dr-screens&quot;&gt;&lt;i data-lucide=&quot;chevron-left&quot; aria-hidden=&quot;true&quot;&gt;‹&lt;/i&gt; Previous&lt;/button&gt;&lt;span class=&quot;dr-carousel-position&quot; id=&quot;dr-position&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;Screen 1 of 3&lt;/span&gt;&lt;button class=&quot;dr-button&quot; id=&quot;dr-next&quot; type=&quot;button&quot; aria-label=&quot;Next screen&quot; aria-controls=&quot;dr-screens&quot;&gt;Next &lt;i data-lucide=&quot;chevron-right&quot; aria-hidden=&quot;true&quot;&gt;›&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-tabs&quot; id=&quot;dr-screens&quot; role=&quot;group&quot; aria-roledescription=&quot;carousel&quot; aria-label=&quot;Choose a screen&quot;&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-status-legend&quot; id=&quot;dr-status-legend&quot; aria-label=&quot;Screen status colors&quot;&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-toolbar&quot;&gt;&lt;span class=&quot;dr-small dr-muted&quot;&gt;Preview size&lt;/span&gt;&lt;div class=&quot;dr-row&quot; aria-label=&quot;Preview device&quot;&gt;&lt;button class=&quot;dr-button&quot; type=&quot;button&quot; data-device=&quot;desktop&quot; aria-pressed=&quot;true&quot;&gt;Desktop&lt;/button&gt;&lt;button class=&quot;dr-button&quot; type=&quot;button&quot; data-device=&quot;mobile&quot; aria-pressed=&quot;false&quot;&gt;Mobile&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-preview&quot; id=&quot;dr-preview&quot; role=&quot;region&quot; aria-label=&quot;Selected screen mockup&quot;&gt;&lt;/div&gt;
+      &lt;/section&gt;
+      &lt;section class=&quot;dr-chat&quot; aria-label=&quot;Design conversation&quot;&gt;
+        &lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;h2&gt;Design conversation&lt;/h2&gt;&lt;span class=&quot;dr-small dr-muted&quot;&gt;Shared with Maya&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-actors&quot;&gt;&lt;div class=&quot;dr-actor&quot; data-person=&quot;dev&quot;&gt;&lt;strong&gt;Alex · Dev&lt;/strong&gt;&lt;span id=&quot;dr-dev-state&quot;&gt;Active&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;dr-actor&quot; data-person=&quot;ai&quot;&gt;&lt;strong&gt;AI assistant&lt;/strong&gt;&lt;span&gt;Design partner&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;dr-actor&quot; data-person=&quot;ngo&quot;&gt;&lt;strong&gt;Maya · NGO&lt;/strong&gt;&lt;span id=&quot;dr-ngo-state&quot;&gt;Read only&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;p class=&quot;dr-owner&quot; id=&quot;dr-owner&quot; data-person=&quot;dev&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;Alex and AI lead this review. Maya can read along.&lt;/p&gt;
+        &lt;div class=&quot;dr-row dr-bookmarks&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;dr-button dr-bookmark&quot; data-person=&quot;dev&quot; id=&quot;dr-bookmark-dev&quot;&gt;Alex&#x27;s last turn&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;dr-button dr-bookmark&quot; data-person=&quot;ngo&quot; id=&quot;dr-bookmark-ngo&quot;&gt;Maya&#x27;s last turn&lt;/button&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-row dr-between dr-conversation-caption&quot;&gt;&lt;span id=&quot;dr-message-count&quot;&gt;Conversation history&lt;/span&gt;&lt;button class=&quot;dr-button dr-quiet&quot; type=&quot;button&quot; id=&quot;dr-latest&quot;&gt;Latest ↓&lt;/button&gt;&lt;/div&gt;
+        &lt;div class=&quot;dr-conversation-scroll&quot; id=&quot;dr-transcript&quot; role=&quot;region&quot; aria-label=&quot;Conversation history&quot;&gt;&lt;ol class=&quot;dr-transcript&quot; id=&quot;dr-messages&quot; aria-label=&quot;Messages between Alex, Maya, and AI&quot;&gt;&lt;/ol&gt;
+        &lt;section class=&quot;dr-panel&quot; id=&quot;dr-question-panel&quot; hidden&gt;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;span class=&quot;dr-chip dr-question-chip&quot; id=&quot;dr-question-state&quot;&gt;Waiting for Maya&lt;/span&gt;&lt;button class=&quot;dr-button dr-quiet&quot; id=&quot;dr-anchor&quot; type=&quot;button&quot;&gt;View attached screen&lt;/button&gt;&lt;/div&gt;&lt;h3 id=&quot;dr-question-heading&quot; style=&quot;margin-top:10px&quot;&gt;Question from Alex&lt;/h3&gt;&lt;p id=&quot;dr-live-question&quot;&gt;&lt;/p&gt;&lt;p class=&quot;dr-muted&quot; id=&quot;dr-live-context&quot;&gt;&lt;/p&gt;&lt;p class=&quot;dr-muted&quot; id=&quot;dr-reply-help&quot; hidden&gt;Quick replies · Choose an answer, or add context in the conversation.&lt;/p&gt;&lt;div class=&quot;dr-options&quot; id=&quot;dr-answer-options&quot;&gt;&lt;/div&gt;&lt;/section&gt;
+        &lt;/div&gt;
+        &lt;section class=&quot;dr-panel&quot; id=&quot;dr-handoff-draft&quot; hidden&gt;&lt;div class=&quot;dr-eyebrow&quot;&gt;Draft · Not sent&lt;/div&gt;&lt;h3 id=&quot;dr-handoff-title&quot;&gt;Question for Maya · NGO&lt;/h3&gt;&lt;label class=&quot;dr-label&quot; for=&quot;dr-question&quot;&gt;Your question&lt;/label&gt;&lt;textarea id=&quot;dr-question&quot; rows=&quot;7&quot;&gt;&lt;/textarea&gt;&lt;p class=&quot;dr-muted&quot; id=&quot;dr-handoff-context&quot;&gt;&lt;/p&gt;&lt;p&gt;When you send, Maya gets the turn and the attached mockup. You can read until she hands back.&lt;/p&gt;&lt;/section&gt;
+        &lt;form class=&quot;dr-composer&quot; id=&quot;dr-composer&quot;&gt;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;label class=&quot;dr-small&quot; for=&quot;dr-message&quot; id=&quot;dr-compose-label&quot;&gt;Message AI as Alex&lt;/label&gt;&lt;label class=&quot;dr-small&quot;&gt;Effort &lt;select id=&quot;dr-effort&quot;&gt;&lt;option value=&quot;low&quot;&gt;Low&lt;/option&gt;&lt;option value=&quot;med&quot; selected&gt;Med&lt;/option&gt;&lt;option value=&quot;high&quot;&gt;High&lt;/option&gt;&lt;option value=&quot;xhigh&quot;&gt;Xhigh&lt;/option&gt;&lt;option value=&quot;max&quot;&gt;Max&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;&lt;label class=&quot;dr-label&quot; id=&quot;dr-compose-context&quot; for=&quot;dr-message&quot;&gt;About Find a shift · v1&lt;/label&gt;&lt;textarea id=&quot;dr-message&quot; rows=&quot;2&quot; placeholder=&quot;Discuss this mockup or add a review note...&quot;&gt;&lt;/textarea&gt;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;span class=&quot;dr-small dr-muted&quot; id=&quot;dr-cost-note&quot;&gt;Example AI replies · USD usage&lt;/span&gt;&lt;button class=&quot;dr-button dr-primary dr-send-icon&quot; type=&quot;submit&quot; id=&quot;dr-send&quot; aria-label=&quot;Send message&quot; data-tooltip=&quot;Send message&quot;&gt;&lt;i data-lucide=&quot;arrow-up&quot; aria-hidden=&quot;true&quot;&gt;↑&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;dr-error&quot; id=&quot;dr-error&quot; role=&quot;alert&quot; hidden&gt;&lt;/p&gt;&lt;/form&gt;
+        &lt;div class=&quot;dr-readonly&quot; id=&quot;dr-readonly&quot; hidden&gt;&lt;p id=&quot;dr-readonly-text&quot;&gt;&lt;/p&gt;&lt;button class=&quot;dr-button&quot; id=&quot;dr-view-active&quot; type=&quot;button&quot;&gt;View Maya&#x27;s screen&lt;/button&gt;&lt;/div&gt;
+        &lt;footer class=&quot;dr-chat-footer&quot; id=&quot;dr-screen-actions&quot; aria-label=&quot;Actions for the selected screen&quot;&gt;&lt;p class=&quot;dr-action-context&quot; id=&quot;dr-action-context&quot;&gt;Find a shift · v1&lt;/p&gt;&lt;p class=&quot;dr-review-hint&quot; id=&quot;dr-review-hint&quot;&gt;Sign-off creates a UI item on the developer board.&lt;/p&gt;&lt;div class=&quot;dr-row dr-between&quot; id=&quot;dr-review-actions&quot;&gt;&lt;button class=&quot;dr-button dr-turn-control&quot; id=&quot;dr-ask&quot; type=&quot;button&quot;&gt;Ask NGO&lt;/button&gt;&lt;button class=&quot;dr-button dr-primary dr-turn-control&quot; id=&quot;dr-review&quot; type=&quot;button&quot;&gt;Sign off screen&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;dr-row dr-between&quot; id=&quot;dr-draft-actions&quot; hidden&gt;&lt;button class=&quot;dr-button&quot; id=&quot;dr-cancel&quot; type=&quot;button&quot;&gt;Cancel&lt;/button&gt;&lt;button class=&quot;dr-button dr-primary&quot; id=&quot;dr-handoff&quot; type=&quot;button&quot;&gt;Send question &amp;amp; hand over&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;dr-row&quot; id=&quot;dr-handoff-actions&quot; hidden&gt;&lt;button class=&quot;dr-button dr-primary&quot; id=&quot;dr-return&quot; type=&quot;button&quot; hidden&gt;Hand back to Alex&lt;/button&gt;&lt;button class=&quot;dr-button&quot; id=&quot;dr-resume&quot; type=&quot;button&quot; hidden&gt;Send back to Maya&lt;/button&gt;&lt;button class=&quot;dr-button dr-primary&quot; id=&quot;dr-apply&quot; type=&quot;button&quot; hidden&gt;Apply NGO guidance&lt;/button&gt;&lt;/div&gt;&lt;/footer&gt;
+      &lt;/section&gt;
+    &lt;/div&gt;
+    &lt;section class=&quot;dr-build&quot; id=&quot;dr-build-view&quot; aria-label=&quot;Build workspace&quot; hidden&gt;
+      &lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;div&gt;&lt;h2&gt;Developer board&lt;/h2&gt;&lt;p class=&quot;dr-small dr-muted&quot;&gt;UI items from signed-off screens&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;dr-button&quot; id=&quot;dr-back-design&quot; type=&quot;button&quot;&gt;Back to Design&lt;/button&gt;&lt;/div&gt;
+      &lt;p class=&quot;dr-small dr-muted&quot; id=&quot;dr-build-summary&quot; style=&quot;margin-top:14px&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&lt;/p&gt;
+      &lt;p class=&quot;dr-small dr-muted dr-empty&quot; id=&quot;dr-build-empty&quot;&gt;Sign off a screen in Design to create its UI item here.&lt;/p&gt;
+      &lt;ul class=&quot;dr-board&quot; id=&quot;dr-board&quot; aria-label=&quot;UI work items&quot;&gt;&lt;/ul&gt;
+    &lt;/section&gt;
+  &lt;/div&gt;
+  &lt;p class=&quot;dr-footnote&quot;&gt;Sample screens, conversation, board items, and costs. Actions in this proposal do not contact anyone or change project data.&lt;/p&gt;
+&lt;/div&gt;
+&lt;script&gt;
+(() =&gt; {
+  const root = document.getElementById(&#x27;design-review&#x27;);
+  const el = id =&gt; root.querySelector(&#x27;#dr-&#x27; + id);
+  [&#x27;send&#x27;,&#x27;handoff&#x27;,&#x27;apply&#x27;,&#x27;return&#x27;,&#x27;resume&#x27;].forEach(id =&gt; el(id).classList.add(&#x27;dr-turn-control&#x27;));
+  const names = { dev:&#x27;Alex · Developer&#x27;, ngo:&#x27;Maya · NGO&#x27;, ai:&#x27;AI assistant&#x27; };
+  const screens = [
+    { id:&#x27;find&#x27;, title:&#x27;Find a shift&#x27;, requirement:&#x27;Volunteers can find shifts with available places.&#x27;, question:&#x27;Should we show exact places left, or just whether a shift is available?&#x27;, context:&#x27;The available-places label on each shift. Phone bookings can change the number.&#x27;, options:[&#x27;Show availability only&#x27;, &#x27;Show exact places&#x27;], followup:&#x27;Should full shifts stay visible with a Full label?&#x27;, followOptions:[&#x27;Keep full shifts visible&#x27;, &#x27;Hide full shifts&#x27;], version:1, reviewed:0, guidance:null },
+    { id:&#x27;details&#x27;, title:&#x27;Shift details&#x27;, requirement:&#x27;Volunteers can read shift details and confirm a place.&#x27;, question:&#x27;Which button label will your volunteers understand more easily?&#x27;, context:&#x27;The main action at the bottom of Shift details.&#x27;, options:[&#x27;Join this shift&#x27;, &#x27;Book my place&#x27;], followup:&#x27;Should the confirmation repeat the time and meeting place?&#x27;, followOptions:[&#x27;Repeat time and place&#x27;, &#x27;Show a short confirmation&#x27;], version:1, reviewed:0, guidance:null },
+    { id:&#x27;yours&#x27;, title:&#x27;Your shifts&#x27;, requirement:&#x27;Volunteers can see their booked shifts and meeting details.&#x27;, question:&#x27;Should this screen show upcoming shifts only, or also past shifts?&#x27;, context:&#x27;The list of shifts a volunteer has already joined.&#x27;, options:[&#x27;Upcoming shifts only&#x27;, &#x27;Include past shifts&#x27;], followup:&#x27;Should the meeting place appear on each shift?&#x27;, followOptions:[&#x27;Show the meeting place&#x27;, &#x27;Open details to see it&#x27;], version:1, reviewed:0, guidance:null }
+  ];
+  screens.forEach((s,i) =&gt; { s.revisions = { 1:null }; s.started = i === 0; s.boardItem = null; });
+  const statuses = {
+    &#x27;not-started&#x27;:{label:&#x27;Not started&#x27;,icon:null,fallback:&#x27;&#x27;},
+    &#x27;in-progress&#x27;:{label:&#x27;In progress&#x27;,icon:&#x27;clock&#x27;,fallback:&#x27;…&#x27;},
+    &#x27;signed-off&#x27;:{label:&#x27;Signed off&#x27;,icon:&#x27;check&#x27;,fallback:&#x27;✓&#x27;},
+    &#x27;waiting-ngo&#x27;:{label:&#x27;Waiting for NGO&#x27;,icon:&#x27;message-circle&#x27;,fallback:&#x27;?&#x27;}
+  };
+  const state = { viewer:&#x27;dev&#x27;, owner:&#x27;dev&#x27;, screen:&#x27;find&#x27;, version:1, draft:null, handoff:null, stage:&#x27;design&#x27;, expanded:false, device:&#x27;desktop&#x27;, effort:&#x27;med&#x27;, draftText:{dev:&#x27;&#x27;,ngo:&#x27;&#x27;}, used:2.533, messages:[], nextId:0, highlighted:null, joined:false, filter:&#x27;all&#x27;, followLatest:true };
+  const design = { layout:&#x27;canvas-first&#x27;, density:&#x27;comfortable&#x27; };
+  const screen = () =&gt; screens.find(s =&gt; s.id === state.screen);
+  const escape = value =&gt; String(value).replace(/[&amp;&lt;&gt;&quot;&#x27;]/g, ch =&gt; ({&#x27;&amp;&#x27;:&#x27;&amp;amp;&#x27;,&#x27;&lt;&#x27;:&#x27;&amp;lt;&#x27;,&#x27;&gt;&#x27;:&#x27;&amp;gt;&#x27;,&#x27;&quot;&#x27;:&#x27;&amp;quot;&#x27;,&quot;&#x27;&quot;:&#x27;&amp;#39;&#x27;}[ch]));
+  const active = () =&gt; state.viewer === state.owner;
+  const devActive = () =&gt; active() &amp;&amp; state.owner === &#x27;dev&#x27;;
+  const questionOpen = () =&gt; state.handoff &amp;&amp; !state.handoff.applied;
+  function screenStatus(s) {
+    const h=state.handoff;
+    if(questionOpen()&amp;&amp;h.screen===s.id&amp;&amp;(state.owner===&#x27;ngo&#x27;||h.answer===null||h.follow===null))return &#x27;waiting-ngo&#x27;;
+    if(s.reviewed===s.version)return &#x27;signed-off&#x27;;
+    return s.started?&#x27;in-progress&#x27;:&#x27;not-started&#x27;;
+  }
+  function statusIcon(status) {
+    const item=statuses[status];
+    return &#x27;&lt;span class=&quot;dr-status-icon&quot; data-status=&quot;&#x27;+status+&#x27;&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+(item.icon?&#x27;&lt;i data-lucide=&quot;&#x27;+item.icon+&#x27;&quot;&gt;&#x27;+item.fallback+&#x27;&lt;/i&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/span&gt;&#x27;;
+  }
+  el(&#x27;status-legend&#x27;).innerHTML=Object.entries(statuses).map(([id,item])=&gt;&#x27;&lt;span class=&quot;dr-status-label&quot;&gt;&#x27;+statusIcon(id)+item.label+&#x27;&lt;/span&gt;&#x27;).join(&#x27;&#x27;);
+  function add(person, text, anchor, charge = false) {
+    const cost = charge ? .0146 : 0;
+    if (cost) state.used = Math.round((state.used + cost) * 10000) / 10000;
+    state.messages.push({id:&#x27;dr-turn-&#x27; + (++state.nextId), person, text, anchor, cost, effort:state.effort});
+    state.followLatest=true;
+  }
+  const exampleConversation = {
+    review:[
+      [&#x27;ngo&#x27;, `From our PRD discussion: most volunteers check shifts on their phone, often on the way to work. They need the date, time, and meeting place before they can decide.
+
+Please keep the language familiar. Some people book by phone through our coordinator, and they may hear about a shift before they see it online. The screen should help them recognize the same shift.`],
+      [&#x27;event&#x27;, &#x27;PRD v1.0 materialized. Maya handed back to Alex for design review.&#x27;],
+      [&#x27;dev&#x27;, `Let’s start with Find a shift. I want the whole list to be useful without opening every card. Put the day and date first, followed by the activity, time, and meeting place.
+
+Keep the first version focused on browsing. The volunteer opens Shift details before joining, and Your shifts holds the booking afterwards. Those are three separate screens from the PRD.`],
+      [&#x27;ai&#x27;, `The mockups follow that sequence. Find a shift shows the date, activity, time, place, and availability. Shift details explains what to bring and provides the join action. Your shifts confirms what the volunteer booked.
+
+One design decision is still open: the first mockup says “3 places left.” The PRD requires an availability indication, but it does not say whether the public count includes phone bookings.`],
+      [&#x27;dev&#x27;, `The layout is clear. Keep the date block compact and give the activity name more space on phones. I also want full shifts to remain understandable when someone follows an old link.
+
+Before we approve the availability wording, can we establish what the coordinator actually updates? An exact number would be useful only if the volunteer can trust it.`],
+      [&#x27;ai&#x27;, `We cannot settle that from the PRD alone. If phone bookings arrive before the coordinator updates the list, “3 places left” could promise more than the NGO can offer.
+
+Use Ask NGO below to draft a question for Maya. I will attach Find a shift v1 and the availability label. You can edit the question before sending it. Sending hands the conversation to Maya; she can answer and discuss follow-up questions before returning it to you.`]
+    ],
+    ngo:[
+      [&#x27;dev&#x27;, `Maya, the mockup shows “3 places left” next to each shift. Do phone bookings appear in that number straight away, or does the coordinator update them later?
+
+Would “Available” and “Full” be more accurate for volunteers? Please also tell us whether a full shift should stay visible, so people can recognize a shift they heard about earlier.`],
+      [&#x27;event&#x27;, &#x27;Alex sent the question and handed the turn to Maya. Find a shift v1 stays attached.&#x27;],
+      [&#x27;ai&#x27;, `Maya, Alex needs your guidance on the availability label. The attached screen is the version he reviewed, so you can refer to the same wording.
+
+First, tell me what happens when someone books by phone. Does the coordinator enter that booking immediately, or can the online count remain unchanged for a while?`],
+      [&#x27;ngo&#x27;, `It can remain unchanged for a while. On busy mornings the coordinator writes phone bookings on a paper list, then enters them between deliveries. The online number could still show three places when two have already been taken.
+
+Our volunteers understand “Available” better. I do not want someone to arrange transport because they think a specific number of places is guaranteed.`],
+      [&#x27;ai&#x27;, `That supports using “Available” and “Full” instead of exact numbers. It describes the shift’s availability without making the count look live.
+
+There is a related choice about full shifts. Keeping them visible would help people recognize an old link or a shift mentioned by a friend. Hiding them would shorten the list. How do your volunteers use that information?`],
+      [&#x27;ngo&#x27;, `People often forward shift information in family groups. If a shift disappears, they may assume the link is broken or call the coordinator to ask where it went.
+
+I lean towards keeping full shifts visible, but I want the label to be clear. We should not encourage someone to turn up without a booking or suggest that joining a waiting list is possible.`],
+      [&#x27;ai&#x27;, `We can keep the shift in the list with a clear “Full” label and retain the time and place. This design does not need to introduce a waiting list.
+
+Please confirm the choice below. You can add more context in the conversation, and you keep the turn until you select Hand back to Alex.`]
+    ],
+    returned:[
+      [&#x27;ngo&#x27;, `Keep full shifts visible. Show “Full” where “Available” normally appears, and keep the same date, activity, and meeting place.
+
+That will let a volunteer recognize the shift without reading a new layout. We are not introducing a waiting list in this version. If a place becomes available later, the coordinator can make the shift available again.`],
+      [&#x27;ai&#x27;, `I have recorded two decisions for Alex: use “Available” and “Full” instead of exact place counts, and keep full shifts in the list.
+
+The date, activity, time, and meeting place stay as they are. This guidance applies to Find a shift; it does not sign off the other screens. You can add another note or hand back now.`],
+      [&#x27;ngo&#x27;, `That captures it. Please also keep the availability wording consistent when someone opens Shift details. I am handing back so Alex can review the next mockup.
+
+If another question comes up about how the coordinator handles bookings, please ask me again rather than adding a new booking process.`],
+      [&#x27;event&#x27;, &#x27;Maya handed the conversation back to Alex. Her answers remain attached to Find a shift v1.&#x27;],
+      [&#x27;ai&#x27;, `Alex, Maya confirmed that phone bookings can make an exact count stale. Her guidance is to show “Available” or “Full” and keep full shifts visible.
+
+Apply NGO guidance below to create v2. The current mockup remains v1 until you apply the change. You can compare both versions, review the result, and sign off this screen when you are satisfied.`],
+      [&#x27;dev&#x27;, `That resolves the main concern. Keep the existing layout and replace only the availability wording. I will check that full shifts remain easy to recognize after the update.
+
+After reviewing v2, I can sign off Find a shift and start its UI item in Build. Shift details and Your shifts can stay in design while we resolve their remaining questions.`],
+      [&#x27;ai&#x27;, `The next action is Apply NGO guidance. It creates the revised mockup for your review; it does not approve it automatically.
+
+After that, Sign off screen creates the developer board item for the version you reviewed. You can start that item in Build while the other screens remain open.`]
+    ]
+  };
+  function loadExample(moment) {
+    screens.forEach((s,i)=&gt;{s.version=1;s.reviewed=0;s.guidance=null;s.revisions={1:null};s.started=i===0;s.boardItem=null;});
+    Object.assign(state,{viewer:moment===&#x27;ngo&#x27;?&#x27;ngo&#x27;:&#x27;dev&#x27;,owner:moment===&#x27;ngo&#x27;?&#x27;ngo&#x27;:&#x27;dev&#x27;,screen:&#x27;find&#x27;,version:1,draft:null,handoff:null,stage:&#x27;design&#x27;,expanded:false,draftText:{dev:&#x27;&#x27;,ngo:&#x27;&#x27;},used:2.533,messages:[],nextId:0,highlighted:null,joined:false,filter:&#x27;all&#x27;,followLatest:true});
+    const anchor={screen:&#x27;find&#x27;,version:1};
+    const turns=[...exampleConversation.review,...(moment!==&#x27;review&#x27;?exampleConversation.ngo:[]),...(moment===&#x27;returned&#x27;?exampleConversation.returned:[])];
+    turns.forEach(([person,text])=&gt;add(person,text,person===&#x27;event&#x27;?undefined:anchor,person===&#x27;ai&#x27;));
+    if(moment!==&#x27;review&#x27;)state.handoff={...anchor,question:exampleConversation.ngo[0][1],answer:0,follow:moment===&#x27;returned&#x27;?0:null,applied:false};
+    el(&#x27;error&#x27;).hidden=true;
+    render();
+    requestAnimationFrame(()=&gt;{el(&#x27;transcript&#x27;).scrollTop=el(&#x27;transcript&#x27;).scrollHeight;});
+  }
+
+  let carouselBehavior=&#x27;auto&#x27;;
+  function selectScreen(id, version) { state.screen=id; state.version=version || screen().version; if(devActive()&amp;&amp;version===undefined)screen().started=true; carouselBehavior=matchMedia(&#x27;(prefers-reduced-motion: reduce)&#x27;).matches?&#x27;auto&#x27;:&#x27;smooth&#x27;; render(); }
+  function attach() { return {screen:state.screen,version:state.version}; }
+  function portalMarkup(s,version) {
+    const g=s.revisions[version];
+    const portalHeader=&#x27;&lt;div class=&quot;dr-portal-brand&quot;&gt;&lt;strong&gt;Riverbend&lt;/strong&gt;&lt;span&gt;Sam · Volunteer&lt;/span&gt;&lt;/div&gt;&#x27;;
+    let markup=portalHeader;
+    if (s.id===&#x27;find&#x27;) {
+      const availability=g &amp;&amp; g.answer===0;
+      markup+=&#x27;&lt;h3&gt;Find your next shift&lt;/h3&gt;&lt;p class=&quot;dr-muted&quot;&gt;A few hours can help feed our community.&lt;/p&gt;&lt;div class=&quot;dr-row dr-filters&quot;&gt;&lt;button class=&quot;dr-button&quot; type=&quot;button&quot; data-filter=&quot;all&quot; aria-pressed=&quot;&#x27;+(state.filter===&#x27;all&#x27;)+&#x27;&quot;&gt;All shifts&lt;/button&gt;&lt;button class=&quot;dr-button&quot; type=&quot;button&quot; data-filter=&quot;packing&quot; aria-pressed=&quot;&#x27;+(state.filter===&#x27;packing&#x27;)+&#x27;&quot;&gt;Packing&lt;/button&gt;&lt;/div&gt;&#x27;;
+      const rows=[[&#x27;22&#x27;,&#x27;Tue&#x27;,&#x27;Pack food boxes&#x27;,&#x27;9:00–12:00 · Community kitchen&#x27;,&#x27;3 places left&#x27;,&#x27;Available&#x27;,&#x27;packing&#x27;],[&#x27;24&#x27;,&#x27;Thu&#x27;,&#x27;Sort fresh produce&#x27;,&#x27;10:00–12:00 · Community kitchen&#x27;,&#x27;5 places left&#x27;,&#x27;Available&#x27;,&#x27;produce&#x27;],[&#x27;25&#x27;,&#x27;Fri&#x27;,&#x27;Prepare deliveries&#x27;,&#x27;8:30–11:00 · Collection point&#x27;,&#x27;No places left&#x27;,&#x27;Full&#x27;,&#x27;deliveries&#x27;]];
+      rows.forEach((r,i)=&gt;{
+        if(state.filter===&#x27;packing&#x27;&amp;&amp;r[6]!==&#x27;packing&#x27;)return;
+        if(g&amp;&amp;g.follow===1&amp;&amp;i===2)return;
+        const pin=i===0?&#x27;&lt;button class=&quot;dr-pin&quot; type=&quot;button&quot; data-pin aria-label=&quot;Question 1 about availability&quot;&gt;1&lt;/button&gt;&#x27;:&#x27;&#x27;;
+        markup+=&#x27;&lt;div class=&quot;dr-shift&quot;&gt;&lt;div class=&quot;dr-date&quot;&gt;&#x27;+r[1]+&#x27;&lt;strong&gt;&#x27;+r[0]+&#x27;&lt;/strong&gt;Sep&lt;/div&gt;&lt;div class=&quot;dr-shift-info&quot;&gt;&lt;div class=&quot;dr-shift-title&quot;&gt;&#x27;+r[2]+&#x27;&lt;/div&gt;&lt;div class=&quot;dr-shift-meta&quot;&gt;&#x27;+r[3]+&#x27;&lt;/div&gt;&lt;div class=&quot;dr-availability&quot;&gt;&lt;span class=&quot;&#x27;+(i===0?&#x27;dr-hotspot&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+(availability?r[5]:r[4])+&#x27;&lt;/span&gt;&#x27;+pin+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;+(i===0?&#x27;&lt;button class=&quot;dr-button&quot; type=&quot;button&quot; data-open-details&gt;View shift&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+      });
+    } else if(s.id===&#x27;details&#x27;) {
+      markup+=&#x27;&lt;button class=&quot;dr-button dr-quiet&quot; type=&quot;button&quot; data-open-find&gt;‹ All shifts&lt;/button&gt;&lt;h3 style=&quot;margin-top:18px&quot;&gt;Pack food boxes&lt;/h3&gt;&lt;p class=&quot;dr-muted&quot;&gt;Help prepare food boxes for local families.&lt;/p&gt;&lt;dl class=&quot;dr-portal-detail&quot;&gt;&lt;dt&gt;When&lt;/dt&gt;&lt;dd&gt;Tuesday, 22 September · 9:00–12:00&lt;/dd&gt;&lt;dt&gt;Where&lt;/dt&gt;&lt;dd&gt;Community kitchen · Side entrance&lt;/dd&gt;&lt;dt&gt;What to bring&lt;/dt&gt;&lt;dd&gt;Comfortable shoes and a water bottle&lt;/dd&gt;&lt;/dl&gt;&lt;p class=&quot;dr-muted&quot; style=&quot;margin-bottom:20px&quot;&gt;We will show this shift in Your shifts after you join.&lt;/p&gt;&lt;div class=&quot;dr-row&quot;&gt;&lt;button class=&quot;dr-button dr-primary&quot; type=&quot;button&quot; data-join&gt;&#x27;+(g&amp;&amp;g.answer===1?&#x27;Book my place&#x27;:&#x27;Join this shift&#x27;)+&#x27;&lt;/button&gt;&lt;button class=&quot;dr-pin&quot; type=&quot;button&quot; data-pin aria-label=&quot;Question about the join button&quot;&gt;1&lt;/button&gt;&lt;/div&gt;&#x27;;
+    } else {
+      markup+=&#x27;&lt;h3&gt;Your shifts&lt;/h3&gt;&lt;p class=&quot;dr-muted&quot;&gt;Your next chance to help.&lt;/p&gt;&lt;div class=&quot;dr-next-shift&quot;&gt;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;span class=&quot;dr-chip&quot;&gt;&#x27;+(state.joined?&#x27;Place confirmed&#x27;:&#x27;Booked&#x27;)+&#x27;&lt;/span&gt;&lt;button class=&quot;dr-pin&quot; type=&quot;button&quot; data-pin aria-label=&quot;Question about the shift list&quot;&gt;1&lt;/button&gt;&lt;/div&gt;&lt;h3 style=&quot;font-size:17px;margin-top:15px&quot;&gt;Pack food boxes&lt;/h3&gt;&lt;p&gt;Tuesday, 22 September · 9:00–12:00&lt;/p&gt;&#x27;+(!g||g.follow===0?&#x27;&lt;p class=&quot;dr-muted&quot; style=&quot;margin-top:6px&quot;&gt;Community kitchen · Side entrance&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;button class=&quot;dr-button&quot; style=&quot;margin-top:15px&quot; type=&quot;button&quot; data-open-details&gt;View details&lt;/button&gt;&lt;/div&gt;&#x27;+(g&amp;&amp;g.answer===1?&#x27;&lt;div class=&quot;dr-shift&quot;&gt;&lt;div class=&quot;dr-shift-info&quot;&gt;&lt;span class=&quot;dr-muted dr-small&quot;&gt;Past shift&lt;/span&gt;&lt;div class=&quot;dr-shift-title&quot;&gt;Sort fresh produce&lt;/div&gt;&lt;div class=&quot;dr-shift-meta&quot;&gt;Thursday, 17 September · Completed&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&#x27;:&#x27;&#x27;);
+    }
+    return markup;
+  }
+  function alignCarousel(behavior=&#x27;auto&#x27;) {
+    if(state.stage!==&#x27;design&#x27;)return;
+    const strip=el(&#x27;screens&#x27;), selected=strip.querySelector(&#x27;[aria-pressed=&quot;true&quot;]&#x27;);
+    strip.scrollTo({left:strip.scrollLeft+selected.getBoundingClientRect().left-strip.getBoundingClientRect().left-(strip.clientWidth-selected.offsetWidth)/2,behavior});
+  }
+  function renderPortal() {
+    const preview=el(&#x27;preview&#x27;), s=screen(), i=screens.indexOf(s), version=state.version, status=screenStatus(s);
+      const id=name=&gt;&#x27; id=&quot;dr-&#x27;+name+&#x27;&quot;&#x27;;
+      const versions=Array.from({length:s.version},(_,n)=&gt;&#x27;&lt;option value=&quot;&#x27;+(n+1)+&#x27;&quot;&#x27;+(n+1===version?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;v&#x27;+(n+1)+(n+1===s.version?&#x27; · Current&#x27;:&#x27; · Earlier&#x27;)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;);
+      const receipt=&#x27;&lt;div class=&quot;dr-materialized&quot;&#x27;+id(&#x27;materialized&#x27;)+(s.boardItem?&#x27;&#x27;:&#x27; hidden&#x27;)+&#x27;&gt;&lt;p&#x27;+id(&#x27;materialized-text&#x27;)+&#x27; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;UI item on developer board · &#x27;+s.title+&#x27;&lt;/p&gt;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;span&#x27;+id(&#x27;materialized-version&#x27;)+&#x27;&gt;&#x27;+(s.boardItem?&#x27;Signed-off v&#x27;+s.boardItem.version+&#x27; · &#x27;+(s.boardItem.started?&#x27;Work in progress&#x27;:&#x27;Ready to work in Build&#x27;):&#x27;&#x27;)+&#x27;&lt;/span&gt;&lt;button class=&quot;dr-button dr-turn-control&quot;&#x27;+id(&#x27;view-build&#x27;)+&#x27; data-open-build type=&quot;button&quot;&gt;View in Build &lt;i data-lucide=&quot;arrow-right&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&#x27;;
+      preview.innerHTML=&#x27;&lt;article class=&quot;dr-frame&quot; data-mockup=&quot;&#x27;+s.id+&#x27;&quot; data-status=&quot;&#x27;+status+&#x27;&quot; role=&quot;group&quot; aria-label=&quot;&#x27;+s.title+&#x27; mockup&quot;&gt;&#x27;+
+        &#x27;&lt;div class=&quot;dr-frame-chrome&quot;&gt;&lt;div class=&quot;dr-frame-heading&quot;&gt;&lt;button class=&quot;dr-slide-name&quot; type=&quot;button&quot; data-select-screen=&quot;&#x27;+s.id+&#x27;&quot;&gt;&#x27;+(i+1)+&#x27;. &#x27;+s.title+&#x27;&lt;/button&gt;&lt;span class=&quot;dr-status-label&quot;&#x27;+id(&#x27;screen-status&#x27;)+&#x27; data-status=&quot;&#x27;+status+&#x27;&quot;&gt;&#x27;+statusIcon(status)+statuses[status].label+(version&lt;s.version?&#x27; · Earlier version&#x27;:&#x27;&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;select&#x27;+id(&#x27;version&#x27;)+&#x27; data-screen-version=&quot;&#x27;+s.id+&#x27;&quot; aria-label=&quot;&#x27;+s.title+&#x27; mockup version&quot;&gt;&#x27;+versions+&#x27;&lt;/select&gt;&lt;/div&gt;&#x27;+
+        &#x27;&lt;div class=&quot;dr-portal&quot;&#x27;+id(&#x27;portal&#x27;)+&#x27;&gt;&#x27;+portalMarkup(s,version)+&#x27;&lt;/div&gt;&#x27;+
+        &#x27;&lt;div class=&quot;dr-screen-review&quot;&gt;&lt;p class=&quot;dr-requirement&quot;&#x27;+id(&#x27;requirement&#x27;)+&#x27;&gt;&lt;strong&gt;From PRD v1.0&lt;/strong&gt;&lt;br&gt;&#x27;+escape(s.requirement)+&#x27;&lt;/p&gt;&#x27;+receipt+&#x27;&lt;/div&gt;&lt;/article&gt;&#x27;;
+    preview.querySelectorAll(&#x27;[data-select-screen]&#x27;).forEach(b=&gt;b.onclick=()=&gt;selectScreen(b.dataset.selectScreen));
+    preview.querySelectorAll(&#x27;[data-screen-version]&#x27;).forEach(b=&gt;b.onchange=()=&gt;selectScreen(b.dataset.screenVersion,Number(b.value)));
+    preview.querySelectorAll(&#x27;[data-open-build]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{state.stage=&#x27;build&#x27;;render();});
+    preview.querySelectorAll(&#x27;[data-open-details]&#x27;).forEach(b=&gt;b.onclick=()=&gt;selectScreen(&#x27;details&#x27;));
+    preview.querySelectorAll(&#x27;[data-open-find]&#x27;).forEach(b=&gt;b.onclick=()=&gt;selectScreen(&#x27;find&#x27;));
+    preview.querySelectorAll(&#x27;[data-join]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{state.joined=true;selectScreen(&#x27;yours&#x27;);});
+    preview.querySelectorAll(&#x27;[data-filter]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{state.filter=b.dataset.filter;render();});
+    preview.querySelectorAll(&#x27;[data-pin]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{
+      const source=b.closest(&#x27;[data-mockup]&#x27;).dataset.mockup;
+      if(source!==state.screen)selectScreen(source);
+      if(questionOpen()) { state.expanded=false; render(); el(&#x27;question-panel&#x27;).scrollIntoView({block:&#x27;nearest&#x27;}); }
+      else if(devActive()) prepareQuestion();
+      else { state.expanded=false; render(); el(&#x27;owner&#x27;).scrollIntoView({block:&#x27;nearest&#x27;}); }
+    });
+  }
+
+  function messageMarkup(m) {
+    if(m.person===&#x27;event&#x27;)return &#x27;&lt;li class=&quot;dr-event&quot; id=&quot;&#x27;+m.id+&#x27;&quot;&gt;&#x27;+escape(m.text)+&#x27;&lt;/li&gt;&#x27;;
+    const anchor=m.anchor?&#x27;&lt;button class=&quot;dr-message-anchor&quot; type=&quot;button&quot; data-anchor=&quot;&#x27;+m.anchor.screen+&#x27;&quot; data-version=&quot;&#x27;+m.anchor.version+&#x27;&quot;&gt;&#x27;+escape(screens.find(s=&gt;s.id===m.anchor.screen).title)+&#x27; · v&#x27;+m.anchor.version+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;;
+    const cost=m.cost?&#x27;&lt;div class=&quot;dr-small dr-muted&quot; style=&quot;margin-top:7px&quot;&gt;&#x27;+escape(m.effort[0].toUpperCase()+m.effort.slice(1))+&#x27; · Example cost $&#x27;+m.cost.toFixed(4)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;;
+    return &#x27;&lt;li class=&quot;dr-message&quot; id=&quot;&#x27;+m.id+&#x27;&quot; data-person=&quot;&#x27;+m.person+&#x27;&quot; data-highlight=&quot;&#x27;+(state.highlighted===m.id)+&#x27;&quot;&gt;&lt;div class=&quot;dr-message-name&quot;&gt;&#x27;+names[m.person]+&#x27;&lt;/div&gt;&lt;p&gt;&#x27;+escape(m.text)+&#x27;&lt;/p&gt;&#x27;+anchor+cost+&#x27;&lt;/li&gt;&#x27;;
+  }
+  function renderMessages() {
+    const transcript=el(&#x27;transcript&#x27;), previousTop=transcript.scrollTop;
+    el(&#x27;messages&#x27;).innerHTML=state.messages.map(messageMarkup).join(&#x27;&#x27;);
+    el(&#x27;message-count&#x27;).textContent=state.messages.filter(m=&gt;m.person!==&#x27;event&#x27;).length+&#x27; messages · 3 participants&#x27;;
+    transcript.scrollTop=previousTop;
+    root.querySelectorAll(&#x27;[data-anchor]&#x27;).forEach(b=&gt;b.onclick=()=&gt;selectScreen(b.dataset.anchor,Number(b.dataset.version)));
+    [&#x27;dev&#x27;,&#x27;ngo&#x27;].forEach(p=&gt;{
+      const last=state.messages.filter(m=&gt;m.person===p).at(-1), b=el(&#x27;bookmark-&#x27;+p);
+      b.disabled=!last;
+      if(last)b.setAttribute(&#x27;aria-controls&#x27;,last.id);
+    });
+  }
+  function renderQuestion() {
+    const h=state.handoff, open=!!h;
+    el(&#x27;question-panel&#x27;).hidden=!open;
+    if(!open)return;
+    const s=screens.find(x=&gt;x.id===h.screen);
+    const complete=h.answer!==null&amp;&amp;h.follow!==null;
+    el(&#x27;question-state&#x27;).textContent=h.applied?&#x27;Applied to v&#x27;+s.version:state.owner===&#x27;ngo&#x27;?&#x27;Maya has the turn&#x27;:complete?&#x27;Back with Alex&#x27;:&#x27;Answer still needed&#x27;;
+    el(&#x27;question-heading&#x27;).textContent=h.applied?&#x27;NGO guidance applied&#x27;:state.owner===&#x27;ngo&#x27;?(h.answer!==null&amp;&amp;h.follow===null?&#x27;Follow-up for Maya&#x27;:&#x27;Question from Alex&#x27;):complete?&#x27;Maya’s answers&#x27;:&#x27;The question is still open&#x27;;
+    el(&#x27;live-question&#x27;).textContent=complete?s.options[h.answer]+&#x27;. &#x27;+s.followOptions[h.follow]+&#x27;.&#x27;:state.owner===&#x27;ngo&#x27;&amp;&amp;h.answer!==null?s.followup:h.question;
+    el(&#x27;live-context&#x27;).textContent=&#x27;Attached: &#x27;+s.title+&#x27; · v&#x27;+h.version;
+    el(&#x27;reply-help&#x27;).hidden=state.owner!==&#x27;ngo&#x27;||!active()||complete||h.applied;
+    el(&#x27;answer-options&#x27;).innerHTML=&#x27;&#x27;;
+    if(state.owner===&#x27;ngo&#x27;&amp;&amp;active()&amp;&amp;!h.applied) {
+      const follow=h.answer!==null;
+      if(h.answer===null||h.follow===null){
+        const options=follow?s.followOptions:s.options;
+        options.forEach((label,i)=&gt;{const b=document.createElement(&#x27;button&#x27;);b.type=&#x27;button&#x27;;b.className=&#x27;dr-button dr-turn-control&#x27;;b.textContent=label;b.onclick=()=&gt;answer(i,follow);el(&#x27;answer-options&#x27;).append(b);});
+        const unsure=document.createElement(&#x27;button&#x27;);unsure.type=&#x27;button&#x27;;unsure.className=&#x27;dr-button dr-quiet&#x27;;unsure.textContent=&quot;I&#x27;m not sure&quot;;unsure.onclick=()=&gt;{add(&#x27;ngo&#x27;,&quot;I&#x27;m not sure. I need to check this with the coordinator before I can confirm the wording.&quot;,{screen:h.screen,version:h.version});add(&#x27;ai&#x27;,&#x27;I will keep this question open. You can add what you know, choose an answer when you are ready, or hand back to Alex with the question unresolved.&#x27;,{screen:h.screen,version:h.version},true);render();};el(&#x27;answer-options&#x27;).append(unsure);
+      } else {const p=document.createElement(&#x27;p&#x27;);p.textContent=s.options[h.answer]+&#x27;. &#x27;+s.followOptions[h.follow]+&#x27;.&#x27;;el(&#x27;answer-options&#x27;).append(p);}
+    }
+    el(&#x27;return&#x27;).hidden=state.owner!==&#x27;ngo&#x27;||h.applied;el(&#x27;return&#x27;).disabled=!active();
+    el(&#x27;resume&#x27;).hidden=state.owner!==&#x27;dev&#x27;||h.applied||(h.answer!==null&amp;&amp;h.follow!==null);el(&#x27;resume&#x27;).disabled=!devActive();
+    el(&#x27;apply&#x27;).hidden=state.owner!==&#x27;dev&#x27;||h.applied||h.answer===null||h.follow===null;el(&#x27;apply&#x27;).disabled=!devActive();
+  }
+  function renderBuild() {
+    const items=screens.filter(s=&gt;s.boardItem), remaining=screens.filter(s=&gt;s.reviewed!==s.version).length;
+    el(&#x27;build-summary&#x27;).textContent=items.length+&#x27; UI &#x27;+(items.length===1?&#x27;item&#x27;:&#x27;items&#x27;)+&#x27; on the developer board · &#x27;+remaining+&#x27; &#x27;+(remaining===1?&#x27;screen remains&#x27;:&#x27;screens remain&#x27;)+&#x27; in design&#x27;;
+    el(&#x27;build-empty&#x27;).hidden=items.length&gt;0;
+    el(&#x27;board&#x27;).innerHTML=items.map(s=&gt;{
+      const item=s.boardItem;
+      return &#x27;&lt;li class=&quot;dr-board-item&quot; data-board-screen=&quot;&#x27;+s.id+&#x27;&quot;&gt;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;h3&gt;Build UI · &#x27;+s.title+&#x27;&lt;/h3&gt;&lt;span class=&quot;dr-work-status&quot; data-work-status=&quot;&#x27;+(item.started?&#x27;in-progress&#x27;:&#x27;ready&#x27;)+&#x27;&quot;&gt;&lt;i data-lucide=&quot;&#x27;+(item.started?&#x27;clock&#x27;:&#x27;circle-check&#x27;)+&#x27;&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+(item.started?&#x27;…&#x27;:&#x27;✓&#x27;)+&#x27;&lt;/i&gt;&#x27;+(item.started?&#x27;In progress&#x27;:&#x27;Ready to work&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;p&gt;&#x27;+escape(s.requirement)+&#x27;&lt;/p&gt;&lt;p&gt;From Design · &#x27;+s.title+&#x27; v&#x27;+item.version+&#x27; · Signed off by Alex&lt;/p&gt;&#x27;+(s.reviewed!==s.version?&#x27;&lt;p&gt;Design reopened. This item keeps signed-off v&#x27;+item.version+&#x27; until the next sign-off.&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;div class=&quot;dr-row dr-between&quot;&gt;&lt;button class=&quot;dr-button&quot; type=&quot;button&quot; data-view-signed=&quot;&#x27;+s.id+&#x27;&quot;&gt;View signed-off mockup&lt;/button&gt;&lt;button class=&quot;dr-button dr-primary dr-turn-control&quot; type=&quot;button&quot; data-start-work=&quot;&#x27;+s.id+&#x27;&quot;&#x27;+(!devActive()||item.started?&#x27; disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+(item.started?&#x27;Work started&#x27;:&#x27;Start work&#x27;)+&#x27;&lt;/button&gt;&lt;/div&gt;&lt;/li&gt;&#x27;;
+    }).join(&#x27;&#x27;);
+    el(&#x27;board&#x27;).querySelectorAll(&#x27;[data-view-signed]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{const s=screens.find(x=&gt;x.id===b.dataset.viewSigned);state.stage=&#x27;design&#x27;;selectScreen(s.id,s.boardItem.version);});
+    el(&#x27;board&#x27;).querySelectorAll(&#x27;[data-start-work]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{if(!devActive())return;const s=screens.find(x=&gt;x.id===b.dataset.startWork);s.boardItem.started=true;render();});
+  }
+  function render() {
+    const s=screen(), can=active(), index=screens.indexOf(s);
+    root.dataset.layout=design.layout;root.dataset.density=design.density;root.dataset.owner=state.owner;root.dataset.viewer=state.viewer;root.dataset.device=state.device;root.dataset.expanded=String(state.expanded);
+    el(&#x27;viewer&#x27;).value=state.viewer;
+    el(&#x27;example&#x27;).value=state.owner===&#x27;ngo&#x27;?&#x27;ngo&#x27;:questionOpen()?&#x27;returned&#x27;:&#x27;review&#x27;;
+    el(&#x27;workspace-title&#x27;).textContent=state.stage===&#x27;design&#x27;?&#x27;Design workspace&#x27;:&#x27;Build workspace&#x27;;
+    el(&#x27;design-view&#x27;).hidden=state.stage!==&#x27;design&#x27;;el(&#x27;build-view&#x27;).hidden=state.stage!==&#x27;build&#x27;;
+    [&#x27;design&#x27;,&#x27;build&#x27;].forEach(stage=&gt;{if(state.stage===stage)el(stage+&#x27;-stage&#x27;).setAttribute(&#x27;aria-current&#x27;,&#x27;step&#x27;);else el(stage+&#x27;-stage&#x27;).removeAttribute(&#x27;aria-current&#x27;);});
+    el(&#x27;dev-state&#x27;).textContent=state.owner===&#x27;dev&#x27;?&#x27;Active&#x27;:&#x27;Read only&#x27;;
+    el(&#x27;ngo-state&#x27;).textContent=state.owner===&#x27;ngo&#x27;?&#x27;Active&#x27;:&#x27;Read only&#x27;;
+    el(&#x27;owner&#x27;).dataset.person=state.owner;
+    el(&#x27;owner&#x27;).textContent=state.owner===&#x27;dev&#x27;?&#x27;Alex has the turn · Alex and AI review the screens. Maya can read.&#x27;:&#x27;Maya has the turn · Maya and AI discuss Alex’s question. Alex can read.&#x27;;
+    el(&#x27;expand&#x27;).textContent=state.expanded?&#x27;Show conversation&#x27;:&#x27;Expand preview&#x27;;
+    el(&#x27;inventory&#x27;).textContent=&#x27;All &#x27;+screens.length+&#x27; screens from PRD materialization&#x27;;
+    el(&#x27;position&#x27;).textContent=&#x27;Screen &#x27;+(index+1)+&#x27; of &#x27;+screens.length;
+    el(&#x27;previous&#x27;).disabled=index===0;el(&#x27;next&#x27;).disabled=index===screens.length-1;
+    el(&#x27;screens&#x27;).innerHTML=screens.map((x,i)=&gt;{const status=screenStatus(x);return &#x27;&lt;button type=&quot;button&quot; class=&quot;dr-button dr-screen-tab&quot; data-screen=&quot;&#x27;+x.id+&#x27;&quot; data-status=&quot;&#x27;+status+&#x27;&quot; aria-controls=&quot;dr-preview&quot; aria-pressed=&quot;&#x27;+(x.id===state.screen)+&#x27;&quot;&gt;&lt;span class=&quot;dr-screen-tab-head&quot;&gt;&#x27;+statusIcon(status)+&#x27;&lt;span&gt;&#x27;+(i+1)+&#x27;. &#x27;+x.title+&#x27;&lt;/span&gt;&lt;/span&gt;&lt;small&gt;&#x27;+statuses[status].label+&#x27;&lt;/small&gt;&lt;/button&gt;&#x27;;}).join(&#x27;&#x27;);
+    el(&#x27;screens&#x27;).querySelectorAll(&#x27;button&#x27;).forEach(b=&gt;b.onclick=()=&gt;selectScreen(b.dataset.screen));
+    root.querySelectorAll(&#x27;button[data-device]&#x27;).forEach(b=&gt;b.setAttribute(&#x27;aria-pressed&#x27;,String(b.dataset.device===state.device)));
+    const blocked=questionOpen()&amp;&amp;state.handoff.screen===s.id, signed=s.reviewed===s.version;
+    const drafting=!!state.draft&amp;&amp;devActive(), handoffActions=!!questionOpen()&amp;&amp;(state.owner===&#x27;ngo&#x27;||!!blocked);
+    const actionAnchor=drafting?state.draft:handoffActions?state.handoff:attach();
+    el(&#x27;action-context&#x27;).textContent=screens.find(x=&gt;x.id===actionAnchor.screen).title+&#x27; · v&#x27;+actionAnchor.version;
+    el(&#x27;ask&#x27;).disabled=!devActive()||!!questionOpen()||state.version!==s.version;
+    el(&#x27;review&#x27;).disabled=!devActive()||!!blocked||state.version!==s.version;
+    el(&#x27;review&#x27;).textContent=signed?&#x27;Reopen screen&#x27;:&#x27;Sign off screen&#x27;;
+    el(&#x27;review&#x27;).classList.toggle(&#x27;dr-primary&#x27;,!signed);
+    el(&#x27;review-hint&#x27;).textContent=blocked?(screenStatus(s)===&#x27;waiting-ngo&#x27;?&#x27;Waiting for NGO before sign-off.&#x27;:&#x27;Apply NGO guidance before sign-off.&#x27;):state.version&lt;s.version?&#x27;Sign off the current version.&#x27;:signed?&#x27;Alex signed off v&#x27;+s.version+&#x27;.&#x27;:s.boardItem?&#x27;Sign-off updates this screen’s developer item.&#x27;:&#x27;Sign-off creates a UI item on the developer board.&#x27;;
+    el(&#x27;handoff-draft&#x27;).hidden=!drafting;
+    el(&#x27;composer&#x27;).hidden=drafting;
+    el(&#x27;review-actions&#x27;).hidden=drafting||handoffActions;
+    el(&#x27;draft-actions&#x27;).hidden=!drafting;
+    el(&#x27;handoff-actions&#x27;).hidden=drafting||!handoffActions;
+    if(drafting)el(&#x27;review-hint&#x27;).textContent=&#x27;Draft for Maya · You keep the turn until you send.&#x27;;
+    else if(handoffActions)el(&#x27;review-hint&#x27;).textContent=state.owner===&#x27;ngo&#x27;?&#x27;Maya keeps the turn until she hands back to Alex.&#x27;:state.handoff.answer!==null&amp;&amp;state.handoff.follow!==null?&#x27;Apply Maya’s guidance to create the next version for review.&#x27;:&#x27;The question is still open. Send it back to Maya to continue.&#x27;;
+    el(&#x27;compose-label&#x27;).textContent=&#x27;Message AI as &#x27;+(state.viewer===&#x27;dev&#x27;?&#x27;Alex&#x27;:&#x27;Maya&#x27;);
+    const a=state.owner===&#x27;ngo&#x27;&amp;&amp;state.handoff?state.handoff:attach();
+    el(&#x27;compose-context&#x27;).textContent=&#x27;About &#x27;+screens.find(x=&gt;x.id===a.screen).title+&#x27; · v&#x27;+a.version;
+    el(&#x27;message&#x27;).disabled=!can;el(&#x27;send&#x27;).disabled=!can;el(&#x27;effort&#x27;).disabled=!can;el(&#x27;composer&#x27;).dataset.active=String(can);
+    el(&#x27;message&#x27;).value=state.draftText[state.viewer];
+    el(&#x27;effort&#x27;).value=state.effort;
+    el(&#x27;message&#x27;).placeholder=can?&#x27;Discuss this mockup or add a review note...&#x27;:(state.owner===&#x27;ngo&#x27;?&#x27;Maya&#x27;:&#x27;Alex&#x27;)+&#x27; is active. You can read the conversation.&#x27;;
+    el(&#x27;readonly&#x27;).hidden=can;
+    el(&#x27;readonly-text&#x27;).textContent=state.owner===&#x27;ngo&#x27;?&#x27;Your question is with Maya. Preview her turn to try the NGO reply in this example.&#x27;:&#x27;Alex has the turn. Preview his turn to continue the developer review.&#x27;;
+    el(&#x27;view-active&#x27;).textContent=&#x27;Preview &#x27;+(state.owner===&#x27;ngo&#x27;?&quot;Maya&#x27;s&quot;:&quot;Alex&#x27;s&quot;)+&#x27; turn&#x27;;
+    const pct=state.used/20*100;
+    el(&#x27;budget&#x27;).dataset.band=pct&lt;80?&#x27;green&#x27;:pct&lt;=95?&#x27;yellow&#x27;:&#x27;red&#x27;;el(&#x27;meter&#x27;).setAttribute(&#x27;aria-valuenow&#x27;,String(pct));el(&#x27;meter-fill&#x27;).style.width=Math.min(100,pct)+&#x27;%&#x27;;
+    el(&#x27;balance&#x27;).textContent=&#x27;$&#x27;+(20-state.used).toFixed(4)+&#x27; available&#x27;;el(&#x27;spent&#x27;).textContent=&#x27;$&#x27;+state.used.toFixed(4)+&#x27; of $20.00 spent&#x27;;
+    renderPortal();renderMessages();renderQuestion();renderBuild();
+    if(globalThis.lucide)lucide.createIcons({attrs:{width:16,height:16}});
+    alignCarousel(carouselBehavior);carouselBehavior=&#x27;auto&#x27;;
+    if(state.followLatest){el(&#x27;transcript&#x27;).scrollTop=el(&#x27;transcript&#x27;).scrollHeight;state.followLatest=false;}
+  }
+  function prepareQuestion() {
+    if(!devActive()||questionOpen())return;
+    if(state.draft){el(&#x27;question&#x27;).focus();return;}
+    const s=screen();state.draft=attach();state.expanded=false;
+    el(&#x27;handoff-title&#x27;).textContent=&#x27;Question for Maya · NGO&#x27;;
+    el(&#x27;question&#x27;).value=s.id===&#x27;find&#x27;?exampleConversation.ngo[0][1]:s.question+&#x27; &#x27;+s.context;
+    el(&#x27;handoff-context&#x27;).textContent=&#x27;Attached: &#x27;+s.title+&#x27; · v&#x27;+state.version+&#x27; · Marked area and PRD requirement.&#x27;;
+    render();el(&#x27;question&#x27;).focus();el(&#x27;question&#x27;).setSelectionRange(0,0);el(&#x27;question&#x27;).scrollTop=0;
+  }
+  function answer(index,follow) {
+    const h=state.handoff;if(!h||state.owner!==&#x27;ngo&#x27;||!active())return;
+    const s=screens.find(x=&gt;x.id===h.screen);
+    if(follow)h.follow=index;else h.answer=index;
+    const answerText=s.id===&#x27;find&#x27;?(follow?(index===0?exampleConversation.returned[0][1]:&#x27;Hide full shifts from this list. Our volunteers use it to find a place they can still join. Keeping unavailable shifts in the list would make that task harder. The coordinator can make a shift visible again when a place opens.&#x27;):(index===0?exampleConversation.ngo[3][1]:&#x27;Show the exact places. We will keep the coordinator’s bookings in the same list, including bookings taken by phone. Volunteers can then use the count to decide whether there is enough space for their group.&#x27;)):(follow?s.followOptions:s.options)[index];
+    add(&#x27;ngo&#x27;,answerText,{screen:h.screen,version:h.version});
+    add(&#x27;ai&#x27;,follow?&#x27;I have recorded your choices: &#x27;+s.options[h.answer]+&#x27;. &#x27;+s.followOptions[h.follow]+&#x27;. You can add another note below. When you are ready, select Hand back to Alex so he can apply the guidance and review the revised mockup.&#x27;:s.id===&#x27;find&#x27;?(index===0?exampleConversation.ngo[4][1]:&#x27;I have recorded that the screen should show exact place counts. Alex can review that choice with the expectation that phone bookings appear in the same count. There is one related decision: should full shifts stay visible with a Full label, or should the list show only shifts with space?&#x27;):s.followup,{screen:h.screen,version:h.version},true);
+    render();
+  }
+  el(&#x27;viewer&#x27;).onchange=e=&gt;{state.viewer=e.target.value;render();};
+  el(&#x27;example&#x27;).onchange=e=&gt;loadExample(e.target.value);
+  el(&#x27;latest&#x27;).onclick=()=&gt;el(&#x27;transcript&#x27;).scrollTo({top:el(&#x27;transcript&#x27;).scrollHeight,behavior:&#x27;smooth&#x27;});
+  el(&#x27;build-stage&#x27;).onclick=()=&gt;{state.stage=&#x27;build&#x27;;render();};
+  [&#x27;design-stage&#x27;,&#x27;back-design&#x27;].forEach(id=&gt;el(id).onclick=()=&gt;{state.stage=&#x27;design&#x27;;render();});
+  el(&#x27;previous&#x27;).onclick=()=&gt;{const index=screens.indexOf(screen());if(index&gt;0)selectScreen(screens[index-1].id);};
+  el(&#x27;next&#x27;).onclick=()=&gt;{const index=screens.indexOf(screen());if(index&lt;screens.length-1)selectScreen(screens[index+1].id);};
+  el(&#x27;view-active&#x27;).onclick=()=&gt;{state.viewer=state.owner;render();};
+  el(&#x27;ask&#x27;).onclick=prepareQuestion;
+  el(&#x27;review&#x27;).onclick=()=&gt;reviewScreen(state.screen,state.version);
+  el(&#x27;expand&#x27;).onclick=()=&gt;{state.expanded=!state.expanded;render();};
+  root.querySelectorAll(&#x27;button[data-device]&#x27;).forEach(b=&gt;b.onclick=()=&gt;{state.device=b.dataset.device;render();});
+  el(&#x27;cancel&#x27;).onclick=()=&gt;{state.draft=null;render();};
+  el(&#x27;handoff&#x27;).onclick=()=&gt;{
+    if(!devActive()||!state.draft)return;
+    const text=el(&#x27;question&#x27;).value.trim();if(!text){el(&#x27;question&#x27;).focus();return;}
+    state.handoff={...state.draft,question:text,answer:null,follow:null,applied:false};
+    const target=screens.find(s=&gt;s.id===state.draft.screen);target.started=true;target.reviewed=0;
+    add(&#x27;dev&#x27;,text,state.draft);add(&#x27;event&#x27;,&#x27;Alex sent the question and handed the turn to Maya. The attached mockup version stays with the question.&#x27;);
+    add(&#x27;ai&#x27;,&#x27;Maya, Alex has handed you the conversation. The question and the reviewed mockup are attached above. Share how this works for your volunteers; I can help turn that context into a clear design decision. You can answer follow-up questions and add notes before selecting Hand back to Alex.&#x27;,state.draft);
+    state.owner=&#x27;ngo&#x27;;state.draft=null;render();
+  };
+  el(&#x27;anchor&#x27;).onclick=()=&gt;{const h=state.handoff;selectScreen(h.screen,h.version);el(&#x27;portal&#x27;).scrollIntoView({block:&#x27;nearest&#x27;});};
+  el(&#x27;return&#x27;).onclick=()=&gt;{
+    if(state.owner!==&#x27;ngo&#x27;||!active())return;
+    const h=state.handoff,s=screens.find(x=&gt;x.id===h.screen),complete=h.answer!==null&amp;&amp;h.follow!==null;
+    add(&#x27;event&#x27;,&#x27;Maya handed back to Alex.&#x27;);
+    add(&#x27;ai&#x27;,complete?&#x27;Maya confirmed: &#x27;+s.options[h.answer]+&#x27;. &#x27;+s.followOptions[h.follow]+&#x27;. Alex, apply this guidance and review the revised screen.&#x27;:&#x27;Maya handed back with an open question. The screen keeps its current design until the question is resolved.&#x27;,{screen:h.screen,version:h.version});
+    state.owner=&#x27;dev&#x27;;render();
+  };
+  el(&#x27;resume&#x27;).onclick=()=&gt;{
+    if(!devActive()||!questionOpen())return;
+    add(&#x27;event&#x27;,&#x27;Alex handed the open question back to Maya. Her previous answers stay with it.&#x27;);
+    state.owner=&#x27;ngo&#x27;;render();
+  };
+  el(&#x27;apply&#x27;).onclick=()=&gt;{
+    const h=state.handoff;if(!devActive()||!h||h.answer===null||h.follow===null||h.applied)return;
+    const s=screens.find(x=&gt;x.id===h.screen);s.guidance={answer:h.answer,follow:h.follow};s.version++;s.revisions[s.version]={...s.guidance};s.reviewed=0;h.applied=true;
+    add(&#x27;dev&#x27;,&#x27;Apply Maya’s guidance to this screen.&#x27;,{screen:s.id,version:h.version});
+    add(&#x27;ai&#x27;,&#x27;Updated &#x27;+s.title+&#x27; to v&#x27;+s.version+&#x27; using Maya’s guidance: &#x27;+s.options[h.answer]+&#x27;. &#x27;+s.followOptions[h.follow]+&#x27;. The earlier version remains available in the version menu. Review the revised screen, then use Sign off screen to create its developer board item. The other screens can remain in design.&#x27;,{screen:s.id,version:s.version},true);
+    state.screen=s.id;state.version=s.version;render();
+  };
+  function reviewScreen(screenId,version) {
+    const s=screens.find(x=&gt;x.id===screenId);
+    if(!devActive()||version!==s.version||(questionOpen()&amp;&amp;state.handoff.screen===s.id))return;
+    const reopen=s.reviewed===s.version,existing=!!s.boardItem;
+    state.screen=s.id;state.version=version;
+    s.reviewed=reopen?0:s.version;s.started=true;
+    add(&#x27;dev&#x27;,(reopen?&#x27;Reopened &#x27;:&#x27;Signed off &#x27;)+s.title+&#x27; v&#x27;+s.version+&#x27;.&#x27;,{screen:s.id,version:s.version});
+    if(!reopen){
+      if(existing)s.boardItem.version=s.version;else s.boardItem={version:s.version,started:false};
+      add(&#x27;event&#x27;,&#x27;UI item &#x27;+(existing?&#x27;updated&#x27;:&#x27;created&#x27;)+&#x27; on the developer board: &#x27;+s.title+&#x27; v&#x27;+s.version+&#x27;. &#x27;+(s.boardItem.started?&#x27;Work is in progress.&#x27;:&#x27;Available to work in Build.&#x27;));
+    }
+    render();
+  }
+  el(&#x27;message&#x27;).oninput=e=&gt;{state.draftText[state.viewer]=e.target.value;};
+  el(&#x27;effort&#x27;).onchange=e=&gt;{state.effort=e.target.value;};
+  el(&#x27;send&#x27;).type=&#x27;button&#x27;;
+  const sendMessage=e=&gt;{
+    e.preventDefault();if(!active())return;
+    const text=state.draftText[state.viewer].trim();if(!text){el(&#x27;error&#x27;).hidden=false;el(&#x27;error&#x27;).textContent=&#x27;Enter a message first.&#x27;;return;}
+    el(&#x27;error&#x27;).hidden=true;
+    const anchor=state.owner===&#x27;ngo&#x27;&amp;&amp;state.handoff?{screen:state.handoff.screen,version:state.handoff.version}:attach();
+    add(state.viewer,text,anchor);state.draftText[state.viewer]=&#x27;&#x27;;
+    add(&#x27;ai&#x27;,state.owner===&#x27;ngo&#x27;?&#x27;I have kept your note with Alex’s question and the attached mockup. Please confirm the design decision using the quick replies above. You can keep adding context before you hand back; sending a message does not transfer the turn.&#x27;:&#x27;I have kept your review note with this screen and version. If the next decision depends on the NGO’s process, use Ask NGO to draft a question for Maya. You will review the draft before handing her the turn. If you have enough information, you can continue reviewing the mockup.&#x27;,anchor,true);
+    render();
+  };
+  el(&#x27;composer&#x27;).onsubmit=sendMessage;
+  el(&#x27;send&#x27;).onclick=sendMessage;
+  [&#x27;dev&#x27;,&#x27;ngo&#x27;].forEach(p=&gt;el(&#x27;bookmark-&#x27;+p).onclick=()=&gt;{
+    const last=state.messages.filter(m=&gt;m.person===p).at(-1);if(!last)return;
+    state.highlighted=last.id;renderMessages();const transcript=el(&#x27;transcript&#x27;), message=root.querySelector(&#x27;#&#x27;+last.id);transcript.scrollTo({top:transcript.scrollTop+message.getBoundingClientRect().top-transcript.getBoundingClientRect().top-8,behavior:&#x27;auto&#x27;});
+  });
+  loadExample(&#x27;review&#x27;);
+  new ResizeObserver(()=&gt;alignCarousel()).observe(el(&#x27;screens&#x27;));
+  if(globalThis.Tweak){const t=new Tweak({container:root,onChange:render});t.addSelect(design,&#x27;layout&#x27;,{label:&#x27;Panel order&#x27;,options:[{label:&#x27;Mockups first&#x27;,value:&#x27;canvas-first&#x27;},{label:&#x27;Conversation first&#x27;,value:&#x27;chat-first&#x27;}]});t.addSelect(design,&#x27;density&#x27;,{label:&#x27;Mockup spacing&#x27;,options:[{label:&#x27;Comfortable&#x27;,value:&#x27;comfortable&#x27;},{label:&#x27;Compact&#x27;,value:&#x27;compact&#x27;}]});}
+})();
+&lt;/script&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

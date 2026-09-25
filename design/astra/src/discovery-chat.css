@@ -1,0 +1,218 @@
+.discovery-chat {
+  min-width: 0;
+  scroll-margin-top: 90px;
+}
+.discovery-progress {
+  margin: 0 0 28px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.discovery-progress-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.discovery-progress-top > div {
+  flex: 1;
+  min-width: 160px;
+}
+.discovery-progress-top h2 {
+  margin: 0 0 5px;
+  font-size: 15px;
+}
+.discovery-progress-top p {
+  margin: 0;
+}
+.discovery-progress-percent {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.discovery-progress-track {
+  height: 6px;
+  margin: 15px 0 12px;
+  background: var(--muted);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.discovery-progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+.discovery-progress-guidance {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.discovery-progress-details summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.discovery-progress-details ul {
+  padding: 0;
+  margin: 16px 0 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.discovery-progress-details li {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+}
+.discovery-progress-details svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.discovery-progress-details span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.discovery-finish-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+}
+@media (max-width: 700px) {
+  .discovery-progress {
+    padding: 15px;
+  }
+  .discovery-progress-top .button {
+    width: 100%;
+  }
+  .discovery-progress-details ul {
+    grid-template-columns: 1fr;
+  }
+}
+.discovery-chat .chat-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.discovery-chat .chat-heading h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.discovery-chat .chat-bubble {
+  margin: 0 0 22px auto;
+  max-width: 88%;
+  padding: 13px 16px;
+  border-radius: 12px 12px 3px 12px;
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.discovery-chat .message-author {
+  margin: 0 0 7px;
+  font-size: 11px;
+}
+.discovery-chat .ai-message {
+  padding-bottom: 20px;
+  gap: 10px;
+}
+.discovery-chat .chat-ai-content {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.discovery-chat .chat-ai-content h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.discovery-chat .question-reason {
+  margin-bottom: 12px;
+}
+.discovery-chat .chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.discovery-chat .chat-suggestion {
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 8px 12px;
+  font-size: 12px;
+  text-align: left;
+}
+.discovery-chat .chat-suggestion:hover,
+.discovery-chat .chat-suggestion[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--foreground);
+}
+.discovery-chat .chat-batch {
+  margin-top: 12px;
+  font-size: 11px;
+}
+.discovery-chat .chat-composer {
+  border: 1px solid var(--input);
+  border-radius: 12px;
+  padding: 15px;
+  background: var(--card);
+}
+.discovery-chat .chat-composer .field {
+  margin: 0 0 9px;
+  font-size: 12px;
+}
+.discovery-chat .chat-composer textarea {
+  padding: 7px 0;
+  border: 0;
+  background: var(--card);
+  min-height: 68px;
+  resize: vertical;
+  font-size: 14px;
+}
+.discovery-chat .chat-composer > .text-button {
+  font-size: 11px;
+}
+.discovery-chat .composer-footer {
+  padding: 12px 0 0;
+  margin-top: 12px;
+  background: var(--card);
+  flex-wrap: wrap;
+}
+.discovery-chat .composer-footer > span,
+.discovery-chat .chat-receipt {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.discovery-chat .chat-exchange .ai-message p {
+  margin-bottom: 8px;
+}
+.discovery-chat .chat-current .question-card {
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  .discovery-chat .chat-heading {
+    align-items: start;
+  }
+  .discovery-chat .chat-heading > span {
+    width: 100%;
+  }
+  .discovery-chat .chat-bubble {
+    max-width: 94%;
+  }
+  .discovery-chat .chat-composer textarea {
+    font-size: 16px;
+  }
+  .discovery-chat .composer-footer .row {
+    margin-left: auto;
+  }
+  .discovery-chat .chat-suggestion {
+    min-height: 44px;
+  }
+}

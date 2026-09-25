@@ -1,5 +1,9 @@
 # UI Way-of-Work — implementing the design screens in Lovable
 
+> **Astra fixture prototype, 2026-09-21:** The founder requested direct design work in Astra.
+> It lives in `design/astra/`, separate from the Claude Design exports described below.
+> See [design source separation](README.md). This prototype does not change the production implementation workflow.
+
 > How a finished screen from `design/screens/` becomes a real, tracked, verified screen in
 > the app. The UI counterpart to the backend way-of-work (`loop/out/wow-claude-driven-linear.md`).
 > Written 2026-07-21. Companion to `ui-ux-instructions.md` (the screen rules) and

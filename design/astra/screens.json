@@ -1,0 +1,80 @@
+{
+  "author": "Astra",
+  "created": "2026-09-21",
+  "status": "draft-awaiting-founder-review",
+  "runtime": "fixtures-only",
+  "claudeBaseline": "design/screens/",
+  "futureClaudeRevisions": "design/claude-review/<review-name>/",
+  "requirements": [
+    "design/ui-ux-instructions.md",
+    "design/discovery-ui-contract.md",
+    "design/design-ui-contract.md"
+  ],
+  "screens": [
+    {
+      "id": "dashboard",
+      "title": "NGO dashboard",
+      "source": "ngo-dashboard.html",
+      "status": "draft"
+    },
+    {
+      "id": "projects",
+      "title": "My projects",
+      "source": "app-shell.html",
+      "status": "draft"
+    },
+    {
+      "id": "intake",
+      "title": "Project intake",
+      "source": "project-intake.html",
+      "status": "draft"
+    },
+    {
+      "id": "discovery",
+      "title": "Discovery workspace",
+      "source": "discovery-chat.html",
+      "reference": "design/references/discovery-conversation.html",
+      "status": "ready-for-founder-review",
+      "reviewRevision": 4,
+      "reviewDocument": "design/astra/discovery-review.md"
+    },
+    {
+      "id": "scope",
+      "title": "Scope review",
+      "source": "scope-document.html",
+      "status": "draft"
+    },
+    {
+      "id": "publish",
+      "title": "Publish and review",
+      "source": "publish-review.html",
+      "status": "draft"
+    },
+    {
+      "id": "design",
+      "title": "Design workspace",
+      "source": "design-review.html",
+      "sourceAuthor": "Astra",
+      "preview": "design/astra/design-review-preview.html",
+      "audience": "developer-and-ngo",
+      "status": "accepted-for-implementation",
+      "reviewRevision": 1,
+      "reviewDocument": "design/astra/design-review.md"
+    },
+    {
+      "id": "build",
+      "title": "Project build workspace",
+      "source": "project-page.html",
+      "audience": "volunteer",
+      "status": "ready-for-founder-review",
+      "reviewRevision": 2,
+      "reviewDocument": "design/astra/build-review.md"
+    },
+    {
+      "id": "funding",
+      "title": "Project fuel",
+      "source": "funding.html",
+      "status": "draft"
+    }
+  ]
+}
