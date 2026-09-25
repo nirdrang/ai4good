@@ -138,7 +138,7 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 - **Charging formula:** per-turn cost is conversation-weighted; cached content heavily discounted; regenerations + system-error retries cost zero credits. `[intent]`
 - System-prompt tuning to extract technical scope from non-technical NGOs.
 - Model: **Claude Opus**; ~$1–2 per scoped run; 5–10 structured turns.
-- Free-phase guardrail mechanics: a system-prompt scope line; a **deterministic per-conversation turn ceiling** (platform-configurable, pilot-tuned) → wrap-up; repeated-off-topic decline counter → founder-visibility flag.
+- Free-phase guardrail mechanics: a system-prompt scope line; no per-conversation turn ceiling — the NGO's stop request → wrap-up, and the daily and beta free-turn quotas bound free turns; repeated-off-topic decline counter → founder-visibility flag.
 - Scope regenerable up to **3×** (reason logged) then admin escalation.
 - Transparency UI: credit gauge ("Discovery credits: 7 of 10 today") + per-turn cost.
 

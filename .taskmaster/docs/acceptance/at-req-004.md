@@ -113,7 +113,7 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 | Disposition upheld (stays cancelled, no further NGO notice) / overturned (Discovery reopens, NGO notified) | 55, 56 [d89] |
 | Dispositions retrievable as the decline evaluator's calibration dataset; no unauditable decline | 57 [d89] |
 | Regeneration bounded/logged/free; error retries free | 37–39 |
-| Free-phase guardrails (scope rule, turn ceiling, notice+flag, never lockout); paid mode has no free guardrail | 12–15 |
+| Free-turn guardrails (scope rule, stop on request, free-turn quotas, notice+flag, never lockout); paid turns have no free guardrail | 12–15 |
 | Abuse guardrails (verification floor, kill switch, no grants, no platform breaker, credits outside ledger) | 41–45 |
 | Transparency (credits visible, per-turn cost, never silently removed) | 02, 46 |
 | File upload is free; AI file reads follow selected mode | 19 |
