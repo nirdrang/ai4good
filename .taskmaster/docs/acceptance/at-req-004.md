@@ -2,46 +2,46 @@
 
 Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: REQ-003.
 
-**Boundary note [cx]:** REQ-004 owns Discovery behavior, credits/routing at the Discovery boundary, tiers, fit-check/declines, guardrails, and structured output. Tested in their owning suites (setup/cross only here): the **auto `discovery_in_progress → scoped`** transition and the **invalid-output → bounded-retry → admin** rule → AT-REQ-005.5; **funding mechanics** ($50 min, NGO-picked amount, reactive top-up) and the **Discovery ledger label** → AT-REQ-006; **REQ-034 category attribution** → AT-REQ-034; the **UTC reset boundary** → AT-REQ-002.
+**Boundary note [cx]:** REQ-004 owns Discovery behavior, credits/routing at the Discovery boundary, tiers, fit-check/declines, guardrails, and structured output. Tested in their owning suites (setup/cross only here): the **NGO-confirmed `discovery_in_progress → scoped`** transition and the **invalid-output → bounded-retry → admin** rule → AT-REQ-005.5; **funding mechanics** ($50 min, NGO-picked amount, reactive top-up) and the **Discovery ledger label** → AT-REQ-006; **REQ-034 category attribution** → AT-REQ-034; the **UTC reset boundary** → AT-REQ-002.
 
 ## A. Credits & the two-layer money model
 
-- **AT-004.01 (P0)** — Given an unverified-tier NGO, When it converses with Discovery, Then consumption draws from the 10/day allowance; Given a vetted NGO, Then from 30/day [cross: REQ-002].
-- **AT-004.02 (P0)** — Given free-credit turns with controlled provider costs, When each completes, Then the credit charged holds a constant cost-to-credit ratio (proportional to platform cost, under a stated rounding rule), and each turn's cost is shown to the NGO. [cx r2: proportionality, not just monotonicity]
-- **AT-004.03a (P0)** — Given an UNVERIFIED-tier NGO at 0 credits on an unfunded project, When it sends a message, Then it is blocked and shown exactly: get vetted (→30), fund fuel now, or wait for the next day. [cx: split by tier]
-- **AT-004.03b (P0)** — Given a VETTED NGO at 0 credits on an unfunded project, When it sends a message, Then it is blocked and shown only the applicable remedies: fund fuel now, or wait — never "get vetted". [cx: split by tier — REQ-002]
-- **AT-004.49 (P0)** — Given free-phase Discovery over a day, When turns run against the allowance, Then total free-phase provider spend never exceeds the remaining allowance and the balance never goes negative — without prescribing whether an underfunded turn is preflight-rejected or hard-capped. [cx r2: bound platform spend, do not mandate "does not run"]
-- **AT-004.04 (P0)** — Given a funded project (fuel balance > 0), When the NGO runs Discovery on it, Then every turn bills the project's fuel — never the free pool ("Funded → all-$"), and the same platform share applies as any consumption [cross: REQ-006].
-- **AT-004.05 (P0)** — Given one NGO with a funded project A and an unfunded project B, When it runs Discovery on both, Then A's turns bill A's fuel and B's turns draw the NGO's free daily pool — the pool serves only unfunded projects.
-- **AT-004.47 (P0)** — Given one NGO with two UNFUNDED projects, When it runs Discovery across both, Then their combined free consumption cannot exceed the NGO's single daily grant — the allowance is per-NGO, not per-project. [cx: added]
-- **AT-004.48 (P0)** — Given a funded project with exhausted fuel AND the NGO holding a positive free-credit balance, When Discovery runs on that project, Then it does NOT fall back to free credits — it requires a fuel top-up. [cx: added — funded projects never draw the pool]
-- **AT-004.06 (P0)** — Given an NGO that funds a project mid-conversation, When the next turn runs, Then billing switches to fuel from that turn onward.
-- **AT-004.07 [retired — cx r2: duplicate of AT-004.04, which already asserts funded turns bill project fuel at the standard share]**
-- **AT-004.08 (P0)** — Given free credits, When a day rolls over, Then the balance hard-resets to the tier grant with no rollover [cross: REQ-002 owns the exact UTC boundary]. [cx]
-- **AT-004.09 (P0)** — Given funding, When it occurs, Then the model ID and service tier / request-priority settings are identical before and after, and the free daily allowance is unchanged — funding removes only the wait. [cx r2: observable request settings instead of nondeterministic "latency class"]
+- **AT-004.01 (P0)** — Given an enrolled project of either vetting status, free replies consume the project's 10 daily and 50 beta turn limits. A free reply requires capacity in both counters, regardless of paid fuel. [d92]
+- **AT-004.02 (P0)** — Given completed free replies with different input, cached input, output, and internal call counts, each reply consumes exactly one free turn and zero NGO dollars. One NGO submission and its completed AI reply form one turn; internal retries add no free charge. [d92]
+- **AT-004.03a (P0)** — Given an unvetted NGO with no available free turn or fuel, sending stops and preserves the draft. Show ordinary fuel checkout and, only when beta capacity remains, the next daily reset. Do not offer vetting as an allowance increase. [d92]
+- **AT-004.03b (P0)** — Given a vetted NGO with no available free turn or fuel, show the same applicable remedies as the unvetted NGO. If beta capacity is zero, never imply tomorrow supplies more free turns. [d92]
+- **AT-004.49 (P0)** — Given two concurrent requests for the last free turn, at most one reserves that turn. Successful completion consumes once; failure releases once; duplicate completion changes no counter. Neither counter becomes negative. Token usage cannot change a reserved free reply into paid usage. [d92]
+- **AT-004.04 (P0)** — Given a funded project with daily and beta capacity, the next completed reply consumes one free turn and no paid fuel. After either cap is exhausted, a paid reply uses reported usage and versioned rates plus the separate locked platform fee. Uncached input, cache reads, cache writes by duration, output, and billed tools are counted once. Missing final usage remains pending. Duplicate provider events cannot duplicate consumption. [d92]
+- **AT-004.05 (P0)** — Given a sponsored project A and another project B, each paid turn draws only its own project fuel. Free A calls use the platform-funded provider budget and never enter either NGO money ledger, including during provider reconciliation. B has no independent free grant. [d92]
+- **AT-004.47 (P0)** — Given one enrolled NGO and multiple projects, only its recorded sponsored project can consume its beta grant. Reopening or recreating projects, or adding members later, cannot exceed 50 beta turns or create another sponsorship. The initial 20 enrollments permit at most 1,000 completed free turns. [d92]
+- **AT-004.48 (P0)** — Given exhausted paid fuel and eligible daily and beta capacity, the next Discovery reply runs free through the platform budget despite the inactive paid key. Existing account or abuse blocks remain effective. [d92]
+- **AT-004.06 (P0)** — Given mid-conversation funding, the next reply stays free while both counters have capacity. Otherwise it uses paid fuel. After the daily reset it returns to free-first if beta capacity remains. A turn keeps its selected source throughout execution. [d92]
+- **AT-004.07 [retired — cx r2: duplicate of AT-004.04, the earlier paid-routing case; d92 replaces that case with free-first routing]**
+- **AT-004.08 (P0)** — Given the UTC reset, daily capacity becomes 10 without rollover and beta capacity persists. A depleted beta grant never replenishes from the reset. [cross: REQ-002] [d92]
+- **AT-004.09 (P0)** — Given funding, model ID, service tier, request priority, and both free grants remain unchanged. Funding permits paid continuation after free capacity. [d92]
 
 ## B. Conversation behavior
 
-- **AT-004.10 (P0)** — Given a representative non-technical intake fixture, When Discovery runs to completion on Claude Opus over 5–10 structured turns, Then its output satisfies a fixture-specific semantic oracle — the required facts, constraints, user stories, and acceptance criteria for that fixture are present and correct — not merely non-empty fields. [cx r2: 5–10 bound + semantic oracle, not field-presence]
-- **AT-004.11 (P0)** — Given a Discovery conversation in progress, When the NGO leaves and returns (new session, next day), Then the conversation persists and resumes with full prior context.
+- **AT-004.10 (P0)** — Given a representative intake, Discovery uses NGO and AI roles only, reuses known facts, and targets 5–10 structured turns on Claude Opus. Ask the next unresolved question with its reason. Group only independent questions. Dependent questions wait. Suggested answers, custom answers, and uncertainty are supported. The resulting scope satisfies the fixture's required facts, constraints, stories, and criteria. Unknown answers remain explicit. [d92]
+- **AT-004.11 (P0)** — Given an active conversation, leaving and returning restores the transcript, answers, pending questions, brief, and usage. Editing an earlier answer marks dependent answers for review and updates the brief. The AI cannot approve the brief for the NGO. [d92]
 - **AT-004.12 (P0)** — Given free-credit Discovery, When the NGO asks an unrelated task (general Q&A, document drafting, translation, coding help), Then the agent declines/redirects to scoping.
 - **AT-004.13 (P0)** — Given repeated off-topic requests on free credits, When the pattern continues, Then a plain notice is shown and the conversation is flagged for founder visibility — and the NGO is never locked out.
-- **AT-004.14 (P0)** — Given a Discovery conversation of any length, When the NGO says to stop, Then Discovery wraps up on request: the elicitation is recorded as complete with what is known and the rest listed as open questions, and the scope can be generated. There is no turn ceiling; the daily free credits are the only bound. [founder 2026-09-19: "No limit of number of turns (except credit) but ngo can always say stop now"; supersedes the bounded per-conversation turn ceiling]
-- **AT-004.15 (P0)** — Given a funded project's Discovery, When the NGO goes off-topic AND keeps going well past a normal conversation's length AND repeats off-topic requests, Then no free-scope redirect, notice, or founder flag occurs — only the per-turn cost display and fuel gauge apply. [cx r2: exercises the full "funded = no guardrail" clause, not one off-topic turn]
+- **AT-004.14 (P0)** — Given a Discovery conversation of any length, When the NGO says to stop, Then Discovery wraps up on request: the elicitation is recorded as complete with what is known and the rest listed as open questions, and the scope can be generated. There is no per-conversation turn ceiling. On free turns, the daily and beta free-turn quotas are the only bound. When a quota runs out, Discovery offers scope review or paid continuation. A fresh conversation does not reset the daily or beta counts, cannot mint a grant, and cannot approve unresolved scope. [founder 2026-09-19: "No limit of number of turns (except credit) but ngo can always say stop now"; d92 quotas; the founder chose this combination on 2026-09-25]
+- **AT-004.15 (P0)** — Given a paid-mode turn after free capacity is exhausted, free scope redirects and off-topic notices do not apply. Given a funded project still using free capacity, those free guardrails do apply. The selected turn mode decides, not whether fuel was purchased. [d92; the founder kept this over "funded = no guardrail" on 2026-09-25]
 
 ## C. Reference files [cross: REQ-032]
 
 - **AT-004.16 (P0)** — Given a Discovery-visible file containing a unique sentinel fact, When the NGO asks Discovery about it, Then the response or scope reflects that file-backed fact — proving the agent read the file (multimodally where applicable). [cx: sentinel makes citation observable, not "may cite"]
 - **AT-004.17 (P0)** — Given a file NOT marked Discovery-visible, When the conversation runs, Then that file's content never reaches the agent (negative test at the context boundary).
 - **AT-004.18 (P0)** — Given a mid-conversation need, When the agent asks for more material, Then the NGO can upload and the agent uses it in later turns.
-- **AT-004.19 (P0)** — Given a file attachment on free credits, When uploaded, Then it consumes zero credits and triggers no confirmation interruption; Given a funded project, Then file-bearing turns bill fuel like any turn.
+- **AT-004.19 (P0)** — Given any file upload, attachment alone consumes no turn and causes no spending interruption. File-bearing AI replies follow their reserved free or paid mode. A free reply remains one turn and zero NGO dollars, regardless of file tokens. [d92]
 
 ## D. Structured scope output
 
 - **AT-004.20 (P0)** — Given a completed Discovery, When the scope is generated, Then it contains ALL of: a summary; user stories with nested acceptance criteria; a suggested stack; a complexity tier (small/medium/large); risk flags; a data-sensitivity tier; a maintainability-fit verdict; zero to three cause labels; a Lovable recommendation with rationale; and the Lovable-vs-Claude-Code build split. [d90: cause labels added to the enumerated contract — see AT-004.58-60 for generation behavior]
 - **AT-004.21 (P0)** — Given any Discovery output or rendered scope doc, When inspected, Then no project/build-cost estimate appears and the complexity tier is never expressed in money — the mandated ~$25/mo Lovable maintenance figure and per-turn costs are permitted. [cx: narrowed — was "no dollar anywhere", which contradicted the required maintenance figure]
 - **AT-004.22 (P0)** — Given every generated scope, When inspected, Then both parts of the build split are present (which parts are built in Lovable and which are coded through Claude Code) — v1 always emits both.
-- **AT-004.23 [retired — cx: the `discovery_in_progress → scoped` auto-transition is a REQ-005.5 lifecycle obligation → AT-REQ-005.5]**
+- **AT-004.23 [retired — cx: the `discovery_in_progress → scoped` confirmation transition is a REQ-005.5 lifecycle obligation → AT-REQ-005.5]**
 - **AT-004.24 (P0)** — Given a scoped project, When the INITIAL automated build backlog is decomposed [cross: REQ-026/036], Then it derives from the passing dev-authored PRD and no task decomposes Discovery output directly (later volunteer-added sub-issues / accepted scope-additions are exempt). [cx r2: scoped to initial decomposition — later sub-issues are allowed by REQ-026]
 - **AT-004.52 (P0)** — Given a completed Discovery, When PRD authoring and the completion scorer run [cross: REQ-036], Then the Discovery scope is the source supplied to PRD authoring AND the reference the scorer compares the PRD against. [cx r2: covers "scope contract = PRD source + scorer gate reference", not just downstream lineage]
 - **AT-004.25 (P0)** — Given rendered scope docs across Tier 0, Tier 1, and Tier 2 fixtures, When read by the NGO, Then each plainly explains its assigned data tier (Tier-2 additionally renders fixtures-only handling), the complexity tier with rationale + start-small advice, maintenance expectations (chat-evolve, ~$25/mo paid directly, NGO owns the code), and links Lovable pricing where recommended. [cx r2: parameterized across all tiers, not Tier-2 only]
@@ -77,7 +77,7 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 
 - **AT-004.37 (P0)** — Given a generated scope the NGO rejects, When they regenerate, Then regeneration works a bounded number of times, each with a logged reason, and costs zero credits.
 - **AT-004.38 (P0)** — Given the regeneration bound is exhausted, When the NGO tries again, Then the case escalates to an admin instead of regenerating.
-- **AT-004.39 (P0)** — Given a system-error mid-turn, When the turn is retried, Then the retry costs zero credits.
+- **AT-004.39 (P0)** — Given a failed turn or automatic system retry, no extra free turn is consumed. A failed free turn releases its reservation once. Internal retries share the original turn and mode. Bounded scope regeneration retains its explicit zero-credit exemption. [d92]
 - **AT-004.40 [retired — cx: invalid-output → bounded-retry → admin (and not silently reaching `scoped`) is a REQ-005.5 lifecycle obligation → AT-REQ-005.5]**
 
 ## H. Abuse guardrails & controls
@@ -85,19 +85,19 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 - **AT-004.41 (P0)** — Given an email-unverified account, When it attempts any Discovery message, Then it is blocked [cross: REQ-001/002].
 - **AT-004.42 (P0)** — Given a per-NGO admin kill switch, When an admin disables the NGO, Then its Discovery is blocked immediately.
 - **AT-004.43 (P0)** — Given free credits, When any admin path attempts to grant supplemental free credits, Then no such capability exists.
-- **AT-004.44 (P0)** — Given heavy usage by one NGO, When its caps bind, Then only that NGO is limited — there is no platform-wide Discovery circuit breaker.
+- **AT-004.44 (P0)** — Given an enrolled NGO exhausting its grant, other enrolled NGOs retain their own remaining capacity. The initial cohort admits at most 20 NGOs; this admission bound is not a usage-triggered platform shutdown. [d92]
 - **AT-004.45 (P0)** — Given free credits, When inspected against the money system, Then they are never purchasable and live outside the money ledger [cross: REQ-006].
 
 ## I. Transparency
 
-- **AT-004.46 (P0)** — Given a Discovery surface, When the NGO views it, Then remaining daily credits and each turn's cost are visible; and every negative balance delta corresponds exactly to a visible turn-cost record or the documented daily reset, while zero-cost actions (file attach, regeneration, error retry) produce no delta — credits are never silently removed. [cx r2: made "never silently removed" a checkable delta invariant]
+- **AT-004.46 (P0)** — Given Discovery, show only its gate gauge, daily free turns, remaining beta turns, available paid USD, reset time in the viewer's locale, and Free or Paid before Send. Show final or pending per-turn usage and a separate 15% fee for paid consumption. Preserve fractional cents. At consumed percentages 79.99, 80, 95, 95.01, and 100, colors are green, yellow, yellow, red, and red respectively. Text identifies the active limit. Reading, manual editing, review, and approval change no allowance or fuel. Use the existing app font and theme variables, including dark mode. After approval, carry available paid allocation forward once, keep pending amounts reserved, and never convert free turns to dollars. Follow design/discovery-ui-contract.md for layout and states. [d92]
 
 ## Coverage map
 
 | REQ-004 clause | Tests |
 |---|---|
-| Two-layer money: 10/30 daily, reset, no rollover; per-NGO not per-project; insufficient-credit bound | 01, 08, 47, 49 |
-| Funded → all-$ routing; pool serves only unfunded; exhausted funded never falls back | 04–07, 48 |
+| 10 daily / 50 beta turns per enrolled project; UTC reset; no duplicate grants; atomic bounds | 01, 08, 47, 49 |
+| Free-first routing; paid USD settlement; sponsored cost isolation; free works with exhausted fuel | 04–07, 48 |
 | Funding removes the wait only | 09 |
 | Opus, structured conversation → valid scope in bounded turns; persists/resumes | 10, 11 |
 | Reads Discovery-visible files (sentinel-proven); may request more; never non-visible | 16–18 |
@@ -113,8 +113,8 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 | Disposition upheld (stays cancelled, no further NGO notice) / overturned (Discovery reopens, NGO notified) | 55, 56 [d89] |
 | Dispositions retrievable as the decline evaluator's calibration dataset; no unauditable decline | 57 [d89] |
 | Regeneration bounded/logged/free; error retries free | 37–39 |
-| Free-phase guardrails (scope rule, turn ceiling, notice+flag, never lockout); funded = no guardrail | 12–15 |
+| Free-turn guardrails (scope rule, stop on request, free-turn quotas, notice+flag, never lockout); paid turns have no free guardrail | 12–15 |
 | Abuse guardrails (verification floor, kill switch, no grants, no platform breaker, credits outside ledger) | 41–45 |
 | Transparency (credits visible, per-turn cost, never silently removed) | 02, 46 |
-| Files free / no interrupt; funded files bill fuel | 19 |
+| File upload is free; AI file reads follow selected mode | 19 |
 | Retired to owning suites [cx]: valid-output→scoped + invalid→retry→admin (REQ-005.5); ledger label (REQ-006); category attribution (REQ-034) | — |

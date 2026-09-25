@@ -10,7 +10,7 @@ $road = Join-Path $repo '.taskmaster\docs\roadmap.md'
 $secs = 1..9 | ForEach-Object { Get-ChildItem (Join-Path $repo 'loop\out') -Filter "pure-s$_-*.md" } | ForEach-Object { $_.FullName }
 if ($secs.Count -ne 9) { throw "expected 9 pure sections, found $($secs.Count)" }
 
-$parts = $secs | ForEach-Object { [System.IO.File]::ReadAllText($_).TrimEnd() }
+$parts = $secs | ForEach-Object { ([System.IO.File]::ReadAllText($_) -replace "`r`n", "`n").TrimEnd() }
 $doc = ($parts -join "`n`n") + "`n"
 
 $fail = @()

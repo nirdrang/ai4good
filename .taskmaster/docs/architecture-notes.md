@@ -133,10 +133,12 @@ The Lovable MCP is a standard offering (OAuth, no documented SLA/rate-limit). It
 - Draft autosave; upload widget (drag-drop + picker). Disclosure copy hardening once Tier-2 becomes known.
 
 ### REQ-004 — Discovery Agent
+- **Screen ownership, clarified 2026-09-21:** Discovery owns its conversation, questions, brief, usage display, and NGO confirmation. The shared project workspace owns the process bar, a compact view of the process Kanban. The bar can appear above Discovery but has a separate completeness check. It displays the current workflow stage and cannot approve or advance a gate. Other stage and publishing screens remain outside Discovery. See `design/discovery-ui-contract.md` for the boundary and the current interface contract.
+- **Matching after Discovery, clarified 2026-09-21:** the process bar shows Intake, Discovery, Volunteer match, PRD, Design, Build, and Handoff. After NGO confirmation, Volunteer match becomes current. Find a volunteer opens publication review. Human review, volunteer consent, and funding kickoff precede PRD work. This display does not add a lifecycle state or reopen the completed Discovery chat.
 - **Charging formula:** per-turn cost is conversation-weighted; cached content heavily discounted; regenerations + system-error retries cost zero credits. `[intent]`
 - System-prompt tuning to extract technical scope from non-technical NGOs.
 - Model: **Claude Opus**; ~$1–2 per scoped run; 5–10 structured turns.
-- Free-phase guardrail mechanics: a system-prompt scope line; a **deterministic per-conversation turn ceiling** (platform-configurable, pilot-tuned) → wrap-up; repeated-off-topic decline counter → founder-visibility flag.
+- Free-phase guardrail mechanics: a system-prompt scope line; no per-conversation turn ceiling — the NGO's stop request → wrap-up, and the daily and beta free-turn quotas bound free turns; repeated-off-topic decline counter → founder-visibility flag.
 - Scope regenerable up to **3×** (reason logged) then admin escalation.
 - Transparency UI: credit gauge ("Discovery credits: 7 of 10 today") + per-turn cost.
 

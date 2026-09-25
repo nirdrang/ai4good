@@ -1,5 +1,9 @@
 # AT-REQ-006 — Stripe Fuel Top-Up & Ledger
 
+> **[d93 PRD boundary]:** platform-owned PRD calls use OpenRouter and settle provider-reported generation cost once in the money ledger. Preserve the platform fee and pending reservations. Attribution retains tokens only. The Claude Code build gateway and assistant retain their existing accounting. PRD settlement and effort are verified by AT-036.05/07.
+
+> **[d92 Discovery boundary]:** platform-owned paid Discovery prices response usage into a separate provisional money entry, then reconciles to provider billing. Free Discovery uses the platform budget and never debits NGO fuel. The token log keeps no money fields. Replaying attribution rows cannot charge fuel. Gateway and assistant accounting remain unchanged. Discovery settlement, free-first routing, and source isolation are verified by AT-004.04/05/48; this suite retains its other contracts.
+
 Source: requirements/req-006.md (prd-mvp.md REQ-006 + Promise §3/§7/§9). Dependencies: REQ-001, REQ-002, REQ-004, REQ-008, REQ-009.
 
 **Boundary note:** REQ-006 owns money-in (Stripe), the ledger and its balances, the platform-share recognition rule, the acknowledgment cadence and content gates (per AT-REQ-001's boundary, identity capture on acknowledgments is owned by REQ-001), unused-fuel credit rules, and chargebacks. State transitions the money triggers are owned by REQ-005.5; provider-side spend enforcement and thresholds mechanics by REQ-009; Discovery money routing by REQ-004; attribution telemetry by REQ-034 — all appear here only as `[cross:]` firings.
@@ -18,7 +22,7 @@ Source: requirements/req-006.md (prd-mvp.md REQ-006 + Promise §3/§7/§9). Depe
 
 - **AT-006.07 (P0)** — Given a funded project, When the provider bills $X of consumption, Then the ledger books a platform share of exactly 15% of $X at consumption time, and before any consumption no share row exists.
 - **AT-006.08 (P0)** — Given the share configuration changes from 15% to a sentinel value mid-project, When the ledger is read, Then every consumption row booked before the change still carries 15% (locked per consumption, never retroactive) and only consumption after the change carries the new rate.
-- **AT-006.09 (P0)** — Given consumption by the NGO in Discovery, by the NGO via the post-funding project assistant, and by the volunteer building, When the ledger is read, Then each consumption row carries its distinct kind label (Discovery / assistant / build) and all three kinds carry the same share percentage. [cross: REQ-033]
+- **AT-006.09 (P0)** Given Discovery, PRD authoring/scoring/materialization, assistant, and build consumption, when the ledger is read, each row identifies its consumption kind and operation. All paid kinds use the same configured platform-share rule. PRD rows retain provider cost and fee separately; free Discovery never creates NGO consumption. [d93] [cross: AT-036.05 owns PRD settlement]
 
 ## C. Match-to-fund flow
 

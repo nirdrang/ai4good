@@ -1,17 +1,51 @@
-#### REQ-001: User Authentication & Org Membership
+# Change order 008 — Discovery free turns, paid USD, and agreed interface
 
-Two-layer authorization: a global account type (NGO / volunteer / platform admin) plus a per-NGO role (admin / member, NGO accounts only); "NGO admin" means the admin role in that NGO. NGO users may belong to multiple NGOs; volunteers are individual accounts.
+Date: 2026-09-20. Decision: d92. Status: ASTRA FIXTURE READY FOR REVIEW; founder approval is pending.
 
-- Sign-in by email/password, GitHub, or Google. A GitHub link is mandatory at volunteer signup; linking runs volunteer GitHub onboarding (REQ-007). Once volunteer signup is complete, that GitHub link is permanent: the volunteer cannot unlink the GitHub identity.
-- **Single-seat NGO in v1:** one NGO is one account performing every NGO-side action — funding, acknowledgments, scope edits, volunteer offboarding — without precluding later multi-member support (→ RM-12). Guards: every acknowledgment captures the acting person's name, title, and authority attestation (to bind the NGO, fund non-refundable fuel, accept no-SLA); an org email is preferred and shared credentials are prohibited (acknowledgments are per named human); an audited platform-admin contact-transfer/recovery path moves ownership to a new account, deactivates the old one, and preserves history; one non-login escalation contact is captured at concierge onboarding.
-- **Single-dev projects in v1:** one volunteer per project; no collaborator seats or co-volunteers (→ RM-13). (OD-1's "peer volunteer" is a bench reviewer, not a second project member.)
-- NGO data is visible only to its own account and the assigned volunteer, plus the platform admin (whose role spans all accounts for operations and support).
-- Password reset, email verification, and session management.
-- Lifecycle state (active/deactivated) gates every write (REQ-007 AUP) (→ RM-14).
+AI4DEV-9 (Discovery screen design) owns the design revision.
+AI4DEV-158 (Discovery interface wiring) owns the implementation.
 
-Dependencies: none.
+The founder requested the agreed Discovery interface with the system font and color scheme.
+The founder also requested PRD and Linear integration, including reopening affected completed items.
 
----
+## Required screen revision
+
+Use [the Discovery interface contract](../discovery-ui-contract.md) as the design specification.
+Use [the preserved conversation prototype](../references/discovery-conversation.html) for layout and interaction history.
+Its former credit arithmetic and standalone palette are superseded.
+
+**Scope clarification, 2026-09-21:** revise the Discovery screen for Discovery only.
+The stage bar belongs to the shared project workspace and represents a compact process Kanban.
+Its order is Intake, Discovery, Volunteer match, PRD, Design, Build, and Handoff.
+After Discovery confirmation, Find a volunteer opens publication review. Volunteer consent and funding kickoff precede PRD work.
+Keep that boundary visible in the design composition and assess the shared bar separately.
+Do not add other stage screens or publishing into Discovery to satisfy the broader design item.
+The scope review and funding checks below cover Discovery's adjacent entry and exit points, not other stages within this screen.
+
+Revise the interactive fixture in `design/astra/`, as authorized on 2026-09-21.
+Keep `design/screens/discovery-chat.html` as the unchanged Claude Design reference.
+Save later Claude revisions under `design/claude-review/`.
+Update screen 6 and the Discovery gauge rules in `design/ui-ux-instructions.md`.
+Use the app font and `src/styles.css` variables for both themes.
+Keep NGO and AI roles, dependent questions, the live brief, one gate gauge, and NGO confirmation.
+Draw every funding and review state in the contract, including fractional-cent paid receipts.
+
+Check the scope review screen for explicit confirmation of the current brief revision.
+Check the ordinary funding entry point for free-first return behavior after purchase.
+Do not create a separate Discovery wallet, checkout, or 30-turn vetted grant.
+
+## Current delivery route
+
+The founder authorized Astra to edit fixture designs directly. See [the design source rules](../README.md).
+Review the Discovery route at `http://127.0.0.1:4310/#discovery`.
+This fixture uses scripted replies and simulated money. It does not implement the production interface.
+The earlier conversation prototype remains a preserved reference. Its old funding logic does not apply.
+Record the founder's explicit approval of Discovery separately from the other screens in this design item.
+The [revision 4 review](../astra/discovery-review.md) records the NGO and AI chat, completion guidance, matching step, checks, and remaining production work.
+
+## Changed requirement text
+
+The following requirement blocks are copied verbatim from the editable PRD source.
 
 #### REQ-002: NGO Organization Profile & Founder Vetting
 
@@ -32,18 +66,6 @@ NGOs sign up (email-verified) and complete an org profile. v1 trust is a founder
 - A paid "Discovery wallet" is excluded in v1 and v1.5 (→ RM-6).
 
 Dependencies: REQ-001.
-
----
-
-#### REQ-003: Project Need Creation (free-text intake)
-
-An NGO admin starts a "Project Need" with a free-text problem description, which begins Discovery.
-
-- Intake captures a title, problem description, and urgency — no cause field exists at intake. Cause labels are machine-generated by Discovery, not entered here (REQ-004); a draft shown before Discovery runs legitimately carries none. The NGO may remove a wrongly generated label from its project; it may never type or invent one — correction is deletion-only, invention stays machine-owned.
-- An optional reference-file upload (screenshot, spreadsheet, blank form, mockup, requirements doc) is available for Discovery and the volunteer, shown with the data-responsibility disclosure, which is hardened once Tier-2 sensitivity becomes known (REQ-032).
-- Drafts persist automatically without an explicit save; on submission Discovery begins and the raw intake is retained for audit.
-
-Dependencies: REQ-001, REQ-002, REQ-032.
 
 ---
 
@@ -70,7 +92,7 @@ A conversational agent, on Claude Opus, turns intake into a scoped spec over 5�
 - **Free-first routing:** after the daily reset, eligible replies use free turns again. If the beta allowance is exhausted, daily resets provide no further free replies. Buying fuel does not increase either allowance. Free calls use a platform-funded provider budget. Paid calls use the project fuel budget. Paid fuel exhaustion cannot block eligible free calls. Provider reconciliation must never charge free usage to the NGO.
 - **Paid Discovery metering:** the API reports usage; the backend calculates USD from each call's model, service configuration, and versioned rates. Price uncached input, cache reads, cache writes by duration, output, and separately billed tools without overlap. Sum internal calls once. Preserve fractional cents. Reserve an authorized paid amount before dispatch. Settle reported usage once per request and turn. Missing usage remains pending. Apply the existing 15% configurable platform fee, locked per turn, at consumption and show it separately. Provider billing reconciliation posts visible adjustments, never a second charge for the same usage (REQ-006/034).
 - **Discovery interface:** use the agreed question workspace and live brief in `design/discovery-ui-contract.md`. Inherit the application font and shared theme variables from `src/styles.css`. Show only the current gate's usage gauge. Show today's free turns, remaining beta turns, paid USD available, and the next reply's Free or Paid mode before Send. Free quota has no dollar conversion. Show each completed turn's charge and any pending settlement. Gauge colors use the unrounded percentage consumed: green below 80%, yellow from 80% through 95%, and red above 95% through 100%. Keep text labels alongside color. No other gate's gauge appears inside Discovery. Remaining paid allocation becomes available to the next gate after NGO approval, retaining pending reservations. No transfer creates money, changes the project's total fuel, or converts free quota into dollars.
-- **Free-turn scope guardrails:** unrelated tasks receive a scope redirect. A bounded conversation ceiling prompts scope review or a new conversation. A new conversation does not replenish daily or beta counters. Repeated off-topic requests show a notice and flag the conversation for founder visibility, without lockout. These rules follow the selected free mode even when the project has fuel. Paid turns use the cost display and fuel gauge without the free scope guardrails.
+- **Free-turn scope guardrails:** unrelated tasks receive a scope redirect. There is no per-conversation turn ceiling: the NGO can say stop at any time, and Discovery then wraps up with the open questions listed. When a free-turn quota runs out, Discovery offers scope review or paid continuation. A new conversation does not replenish daily or beta counters. Repeated off-topic requests show a notice and flag the conversation for founder visibility, without lockout. These rules follow the selected free mode even when the project has fuel. Paid turns use the cost display and fuel gauge without the free scope guardrails.
 - **Abuse guardrails:** email verification precedes every Discovery message. Cohort admission and daily and beta counters bound the number of sponsored replies, not their dollar cost. Funding changes no model, service priority, or allowance. A per-NGO admin kill switch exists. Admins cannot issue supplemental free grants. The cohort admission cap does not stop other enrolled NGOs when one NGO exhausts its quota. Free counters stay outside the money ledger. Free credits are never purchased.
 
 **No dollar estimation in v1:** the scope doc shows the complexity tier with rationale and links Lovable's public pricing where recommended; the NGO picks its fuel amount at funding ($50 minimum), topping up reactively (→ RM-16). The rendered doc plainly explains the tier and start-small advice, maintenance (the NGO evolves by chat for roughly the ~$25/mo Lovable subscription, paid directly, and owns the code), and the data tier (Tier 2 renders fixtures-only).
@@ -107,24 +129,10 @@ Match records track their own states — invited / consented / declined / expire
 - The project's reserved provider workspace+key pair (reserved at checkout, REQ-009) is bound and its virtual key issued, with no ops task.
 - A Linear workspace is assigned; unavailability raises an urgent ops task + blocker.
 - The repo is established by the NGO and volunteer with no platform-admin involvement (REQ-021, required before completion).
-- The Linear workspace is seeded with the one bootstrap item — author the project PRD from the Discovery scope (REQ-036); the build backlog is materialized only after the passing completion check and developer close (REQ-036).
+- The Linear workspace is seeded with the one bootstrap item — author the project PRD from the Discovery scope (REQ-036); the build backlog decomposes only after the automated completion gate.
 - The funded/kickoff status is announced, the comment thread opens, and the volunteer is notified with setup instructions.
 
 Provisioning failures never invent a sub-state — the project stays `in_progress` and gaps surface as blockers/ops tasks, gating the volunteer only from the pending resource.
-
----
-
-#### REQ-005: Scope Document & Project Publishing
-
-Discovery output renders as an editable scope document the NGO edits and publishes. Publishing needs no pre-funded fuel (fuel is required only at volunteer acceptance — match-first) but requires triage approval (REQ-023).
-
-- Editable: summary, user stories, acceptance criteria, suggested stack. No fuel-budget section (no v1 dollar estimates).
-- **All projects are public MIT (Platform Promise §2):** no visibility choice. Confidential-codebase needs are declined at Discovery (→ RM-2); sensitive *data* is served as Tier-2 fixtures-only (REQ-004).
-- A project may stay `scoped` indefinitely; the NGO picks its fuel amount at match acceptance.
-- Publishing requires vetted status and no fuel deposit; it moves the project to `triage`, never directly to `open`. Every publish awaits the founder's review decision; marketplace visibility begins only at approval (REQ-023).
-- Unpublish to `scoped` any time before consent; a return-to-scoped outcome carries the founder's reason note for editing and republishing.
-
-Dependencies: REQ-004, REQ-023.
 
 ---
 
@@ -143,9 +151,8 @@ NGOs buy fuel via Stripe Checkout (one-time, no subscription). The full gross am
 
 **Acknowledgment cadence:** the full disclaimer at signup (gates project creation); a hard per-project acknowledgment at first funding; a per-match acknowledgment naming the volunteer at first acceptance (never reused across the two); later top-ups carry a passive Promise link only.
 
-**Ledger:** every money movement lands in one auditable ledger and all balances derive from it. Paid project usage remains isolated by provider workspace. Free Discovery uses a separate platform-funded budget and never reduces NGO fuel. Platform-owned paid Discovery and PRD have explicit request-settlement paths. Build gateway accounting remains unchanged.
+**Ledger:** every money movement lands in one auditable ledger and all balances derive from it. Paid project usage remains isolated by provider workspace. Free Discovery uses a separate platform-funded budget and never reduces NGO fuel. Platform-owned paid Discovery has the following request-metering exception. Build gateway accounting remains unchanged.
 - **Paid Discovery exception:** response usage and versioned rates create provisional consumption with a separately recorded platform fee. Reserve before dispatch, settle each request once, and retain unresolved reservations while usage is pending. Nightly provider reconciliation adjusts those entries to billed cost without duplicating consumption. Free calls never enter the NGO money ledger. Transfers between approved gate allocations move available authority only; pending consumption stays reserved. Project fuel returns to the general balance only under the existing completion and cancellation rules.
-- **PRD through OpenRouter:** the backend reserves project USD before dispatch and settles the provider-reported generation cost once. Keep the existing platform fee separate and lock its rate at consumption. Preserve fractional cents. Missing usage retains a pending reservation until generation-cost reconciliation; replaying a receipt cannot debit again. Record PRD authoring, scoring, and materialization as PRD consumption with their operation identified. No free Discovery allowance applies. Deduct from one shared project ledger so concurrent surfaces cannot spend the same available funds. This settlement is separate from the attribution token log (REQ-036).
 - **Provider-truth (build and assistant), two speeds:** the provider's reporting **per workspace** is the single source of truth for each project's AI spend and fuel state — the platform monitor prices the provider's per-workspace usage report at the provider's official rate card each minute for the live gauge and the 20/5/0% thresholds (provisional), and the books conform nightly to the provider's billed cost (final; Stripe is the same truth for money-in). A payment's gross amount funds a provider budget of gross ÷ (1 + share rate); the share is recognized only at consumption. Corrections are audited and visible; only undecidable drift needs a human — it never touches the books and is surfaced to the platform admin (REQ-030).
 - **The zero-fuel stop executes at the provider:** when the project's provider budget is consumed, the platform sets the project's provider key inactive and the provider rejects further requests (REQ-009); the gateway does not gate — it proxies the provider's rejection. Any per-request usage the gateway captures is attribution telemetry (REQ-034), never the money ledger.
 - **Checkout requires reserved provider inventory:** a funding checkout opens only when a pre-created provider workspace+key pair and a workspace slot are reserved for the project (REQ-009); with none available, checkout is blocked BEFORE payment — money is never taken against missing capacity.
