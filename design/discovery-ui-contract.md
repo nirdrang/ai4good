@@ -47,6 +47,7 @@ The completed Discovery chat stays complete while matching proceeds.
 - The shared project workspace can display its process bar above the Discovery screen.
 - The main column holds the NGO and AI conversation, current questions, answers, and composer.
 - A side panel shows the live Discovery brief, confirmed facts, open questions, and review action.
+  The Discovery usage card follows the brief, in the side panel and on narrow screens.
 - The current gate has one usage gauge. Other gates have no gauges in this workspace.
 - On narrow screens, the brief opens in a labeled panel without losing the current answer.
 
@@ -164,6 +165,59 @@ The AI cannot sign off for the NGO. The server checks role, project access, and 
 Reading, manual editing, review, confirmation, and file attachment cost no AI turn.
 Bounded scope regeneration retains the existing zero-credit exemption.
 
+## Usability rules from the NGO critique
+
+Added 2026-09-26 with Discovery design revision 5, at the founder's request. Founder approval of revision 5 is pending.
+Two agent critics played a non-technical NGO coordinator with a small budget.
+DeepSeek V4.1 Flash judged screenshots of the main flow and eleven usage states, on desktop and phone.
+GPT-6 Astra at low operated the mock in a browser, in three iterations.
+Both critics ended with "ready". The record is in [the critique folder](astra/discovery-critique/README.md).
+The rules below stay inside the sections above. They say how the screen presents those rules.
+
+### Progress and finishing
+
+- Before the first answer, the progress panel tells the NGO to start with the AI's first question.
+- While Finish Discovery is disabled, it is a secondary button. When finishing is possible, it is a primary button.
+- After the progress panel scrolls out of view, a compact strip stays at the top of the page.
+  The strip shows the percentage, the agreed topic count, and Finish Discovery with the same enabled state.
+- When the questions are complete, the finish invitation points to Finish Discovery. It does not add a second finish button.
+
+### Conversation and brief
+
+- Each AI reply that saves answers lists the brief topics it added.
+- A free reply receipt says "Free reply · no charge".
+- Each answered topic in the brief has a labeled Edit button. The brief says that edits are free.
+
+### Usage and money
+
+- The usage card starts with one plain sentence. The sentence says whether the next reply is free and how many free replies remain today.
+  If a limit stops free replies, the sentence names the limit and says when free replies return, or that beta replies do not reset.
+- If no reply is possible, the next-reply value is "Not available now". The card and composer then omit the paid hold.
+- In paid mode, the line beside Send shows paid mode, the fuel left, a low-fuel warning at yellow and red, and the per-reply hold.
+- Buy fuel appears only when free replies are used up. It states the $50 minimum and that fuel does not add free replies.
+- The pending message says the shown fuel already excludes the hold, that only actual usage is charged, and that the hold is not an extra charge.
+- Yellow and red gauge captions say that replies still work.
+- Limit messages name the Discovery usage card as the place to add fuel. They use no position word such as "beside".
+
+### Review and confirmation
+
+- The review page names itself as the last step of Discovery. The process bar keeps Discovery current.
+- On narrow screens, a fixed bar jumps to the confirmation card. On wide screens, the confirmation card stays in view while the NGO reads.
+- The confirmation card shows no success mark before confirmation.
+- A plain explanation follows the data-responsibility checkbox. The checkbox wording does not change.
+- The maintenance section explains Lovable in plain words. It shows the standard Lovable subscription of about $25 a month,
+  paid directly to Lovable and never from fuel, with a link to Lovable's public pricing.
+  It states that ai4good gives no ongoing support after handoff in this version, and that larger work is a new project.
+
+### Open minor findings
+
+These findings are not requirements. The founder may choose them later.
+
+- The full usage card is below the brief, away from Send.
+- On a phone, the first question starts below the first screen.
+- Small amounts such as $0.046 show no cents equivalent. Fractional cents must stay visible.
+- The process bar label "PRD" has no plain explanation. The process bar labels are fixed above.
+
 ## Application theme
 
 The source is [src/styles.css](../src/styles.css) and the app's existing Tailwind and shadcn components.
@@ -187,7 +241,7 @@ At 320 CSS pixels, no required control or amount may be clipped.
 
 ## Implementation and proof
 
-AI4DEV-9 (Discovery screen design) owns the screen revision under change order 008.
+AI4DEV-175 (Discovery screen design) owns the screen revision under change orders 008 and 009, within AI4DEV-9 (design batch 2 screens).
 AI4DEV-158 (Discovery interface wiring) owns implementation through edge functions.
 AI4DEV-157 (Discovery usage display) owns the funding display.
 AI4DEV-141 (Discovery question flow) owns dependent questions and persistence.
@@ -197,3 +251,5 @@ Run the revised acceptance criteria against the implementation, including both t
 Exercise usage boundaries at 79.99%, 80%, 95%, 95.01%, and 100%.
 Exercise a funded free turn, paid spillover, UTC reset, beta exhaustion, and a stale Free preview.
 Old completion evidence does not establish compliance with these revised requirements.
+Check each rule in the usability section on the wired screen, on desktop and at phone width.
+The critique prompts and capture scripts in `design/astra/discovery-critique/` can repeat the NGO critique on the wired screen.

@@ -21,7 +21,8 @@ The founder's design approval must be explicit and recorded in the review docume
 Sample NGO confirmation inside the fixture is not design approval.
 
 The Astra files remain separate from `design/screens/`, which preserves the Claude Design exports.
-Later Claude revisions belong under `design/claude-review/`.
+Since 2026-09-26, Claude and Astra revise the same mock in `design/astra/`, by founder ruling.
+Discovery revision 5 is Claude's. AI4DEV-175 (Discovery design approval) owns its review under change order 009.
 
 AI4DEV-158 (Discovery interface wiring) remains backlog work.
 The fixture does not implement real APIs, payments, file processing, or production acceptance checks.
