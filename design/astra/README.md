@@ -41,6 +41,7 @@ One NGO project connects these screens:
 
 The assistant uses scripted replies for the volunteer scheduling example.
 It does not run an AI model. It does not contact a database, payment service, or notification service.
+The Discovery chat uses the real screen's chat library, the Vercel AI SDK, with a sample-data transport in `src/fixture-transport.ts`.
 Reference attachments store file names and sizes only. They do not upload file contents.
 The earlier screens retain their stage labels. The new build view opens at `http://127.0.0.1:4310/#build`.
 It is a separate, fixed snapshot of the same sample project after PRD materialization.

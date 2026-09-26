@@ -1,19 +1,74 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, CircleHelp, FileText, MessageCircle, Pencil, Send, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import Markdown from "react-markdown";
+import { Check, CircleHelp, FileText, MessageCircle, Pencil, Send, Sparkles, Square } from "lucide-react";
+import type {
+  DiscoveryAnswer,
+  DiscoveryRequestBody,
+  DiscoveryUIMessage,
+} from "../../../src/lib/discovery-stream";
 import { Badge, Button, Next, PageTitle, Stages, type ScreenProps } from "./components";
-import {
-  completeReply,
-  funding,
-  refreshDay,
-  saveAnswer,
-  usd,
-  type Answer,
-  type QuestionId,
-} from "./model";
+import { funding, refreshDay, saveAnswer, usd, type Answer, type QuestionId } from "./model";
 import { briefReady, currentQuestions, questions, type Question } from "./questions";
+import { FixtureChatTransport, messagesFromState, questionPart } from "./fixture-transport";
 import { DiscoveryReferences } from "./DiscoveryReferences";
 import { DiscoveryProgress } from "./DiscoveryProgress";
 import "./discovery-chat.css";
+
+function refusalReason(error: Error): string {
+  try {
+    const parsed: unknown = JSON.parse(error.message);
+    if (parsed && typeof parsed === "object" && typeof (parsed as { reason?: unknown }).reason === "string")
+      return (parsed as { reason: string }).reason;
+  } catch {
+    // Not a refusal body: the reply failed on the way.
+  }
+  return error.message;
+}
+
+function AssistantMessage({ message, showQuestions }: { message: DiscoveryUIMessage; showQuestions: boolean }) {
+  return (
+    <div className="ai-message" data-testid="discovery-round" data-testkey={message.id}>
+      <div className="ai-avatar">
+        <Sparkles size={17} />
+      </div>
+      <div className="chat-ai-content">
+        <p className="message-author">ai4good AI</p>
+        {message.parts.map((part, index) => {
+          switch (part.type) {
+            case "text":
+              return <Markdown key={index}>{part.text}</Markdown>;
+            case "data-filed":
+              return (
+                <p key={index} className="chat-filed" data-testid="round-filed">
+                  <Check size={13} aria-hidden="true" /> Added to your brief:{" "}
+                  {part.data.topics.map((topic) => topic.title).join(", ")}
+                </p>
+              );
+            case "data-charge":
+              return part.data.kind === "free" ? (
+                <span key={index} className="chat-receipt">
+                  Free reply · no charge
+                </span>
+              ) : (
+                <div key={index}>
+                  <span className="chat-receipt">Paid reply</span>
+                  <p className="receipt" data-testid="paid-reply-receipt">
+                    AI usage {usd(part.data.usageMicros)} + platform fee {usd(part.data.feeMicros)} ={" "}
+                    {usd(part.data.usageMicros + part.data.feeMicros)} total
+                  </p>
+                </div>
+              );
+            case "data-question":
+              return showQuestions ? <p key={index}>{part.data.text}</p> : null;
+            default:
+              return null;
+          }
+        })}
+      </div>
+    </div>
+  );
+}
 
 function QuestionCard({
   question,
@@ -238,19 +293,29 @@ export function Discovery(props: ScreenProps) {
   const { state, setState, navigate, notify } = props;
   const [editing, setEditing] = useState<QuestionId | null>(null);
   const [editAnswer, setEditAnswer] = useState<Answer>();
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [replyPreview, setReplyPreview] = useState("");
   const [batch, setBatch] = useState(false);
   const [asking, setAsking] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const transport = useMemo(
+    () => new FixtureChatTransport({ read: () => stateRef.current, write: (next) => setState(next) }),
+    [setState],
   );
+  const { messages, sendMessage, setMessages, status, stop } = useChat<DiscoveryUIMessage>({
+    id: "discovery",
+    messages: messagesFromState(state),
+    transport,
+    onFinish: () => setAsking(false),
+    onError: (failure) => setError(refusalReason(failure)),
+  });
+  const busy = status === "submitted" || status === "streaming";
+  // Outside a reply, the transcript follows the saved conversation, as the real page follows
+  // its conversation read after a stop, a refusal, an answer edit, or a review-tool change.
+  useEffect(() => {
+    if (status === "ready" || status === "error") setMessages(messagesFromState(state));
+  }, [state.history, state.answers, status, setMessages]); // eslint-disable-line react-hooks/exhaustive-deps
   const all = questions(state.answers);
   const pending = currentQuestions(state.answers);
   const active = editing
@@ -275,6 +340,7 @@ export function Discovery(props: ScreenProps) {
               ),
           ));
   const declined = state.condition === "declined";
+  const questionCardShown = !declined && !((state.confirmation || ready) && !editing);
 
   function draftAnswer(id: QuestionId, answer: Answer) {
     if (editing) setEditAnswer(answer);
@@ -297,34 +363,36 @@ export function Discovery(props: ScreenProps) {
       return;
     }
     if (!mode.canSend) return;
-    setBusy(true);
     setError("");
-    setReplyPreview("Reading your answers…");
-    const submitted = asking
-      ? {}
-      : Object.fromEntries(
-          active.flatMap((q) => (state.drafts[q.id] ? [[q.id, state.drafts[q.id]]] : [])),
-        );
-    const reply = asking
-      ? `${currentQuestion.reason} You can answer in your own words or leave it open with "I'm not sure". I will keep this question open until you answer it.`
-      : "";
-    const kind = mode.free ? "free" : "paid";
-    timer.current = setTimeout(() => {
-      setReplyPreview("Checking your decisions and the questions that depend on them…");
-      timer.current = setTimeout(() => {
-        if (state.condition === "reply-fails") {
-          setState((current) => ({ ...current, condition: "normal" }));
-          setError(
-            "The reply did not finish. Your answers are saved. No turn or fuel was charged.",
-          );
-        } else {
-          setState((current) => completeReply(current, submitted, kind, reply));
-          setAsking(false);
-        }
-        setBusy(false);
-        setReplyPreview("");
-      }, 900);
-    }, 650);
+    const answers: DiscoveryAnswer[] = asking
+      ? []
+      : active.flatMap((q) => {
+          const draft = state.drafts[q.id];
+          return draft ? [{ questionId: q.id, ...draft }] : [];
+        });
+    const text = [...answers.map((answer) => answer.text), state.note].filter(Boolean).join("\n\n");
+    const body: DiscoveryRequestBody = {
+      organizationId: "sample-organization",
+      projectId: "sample-project",
+      message: text,
+      mode: asking ? "ask" : "answer",
+      answers,
+    };
+    // The transcript keeps the questions this message answers, not every open question.
+    const asked = (asking ? active.slice(0, 1) : active).map(questionPart);
+    setMessages((current) =>
+      current.map((message, index) =>
+        index === current.length - 1 && message.role === "assistant"
+          ? { ...message, parts: [...message.parts.filter((part) => part.type !== "data-question"), ...asked] }
+          : message,
+      ),
+    );
+    void sendMessage({ text }, { body });
+  }
+
+  async function stopReply() {
+    await stop();
+    notify("You stopped the reply. The turn was already used, so the full reply is shown.");
   }
 
   function edit(id: QuestionId) {
@@ -396,61 +464,24 @@ export function Discovery(props: ScreenProps) {
               </details>
             </div>
           )}
-          {state.history.map((round) => (
-            <article
-              className="chat-exchange"
-              key={round.id}
-              data-testid="discovery-round"
-              data-testkey={String(round.id)}
-            >
-              {round.questions.length > 0 && (
-                <div className="ai-message">
-                  <div className="ai-avatar">
-                    <Sparkles size={17} />
-                  </div>
-                  <div className="chat-ai-content">
-                    <p className="message-author">ai4good AI</p>
-                    {round.questions.map((question) => (
-                      <p key={question}>{question}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="ngo-message chat-bubble">
+          {messages.map((message, index) =>
+            message.role === "user" ? (
+              <div className="ngo-message chat-bubble" key={message.id}>
                 <p className="message-author">You · Harbor Community Kitchen</p>
-                {Object.entries(round.answers).map(([id, answer]) => (
-                  <p key={id}>{answer.text}</p>
-                ))}
-                {round.note && <p>{round.note}</p>}
+                {message.parts.flatMap((part) =>
+                  part.type === "text"
+                    ? part.text.split("\n\n").map((paragraph, i) => <p key={i}>{paragraph}</p>)
+                    : [],
+                )}
               </div>
-              <div className="ai-message">
-                <div className="ai-avatar">
-                  <Sparkles size={17} />
-                </div>
-                <div className="chat-ai-content">
-                  <p className="message-author">ai4good AI</p>
-                  <p>{round.reply}</p>
-                  {Object.keys(round.answers).length > 0 && (
-                    <p className="chat-filed" data-testid="round-filed">
-                      <Check size={13} aria-hidden="true" /> Added to your brief:{" "}
-                      {Object.keys(round.answers)
-                        .map((id) => all.find((q) => q.id === id)?.title ?? id)
-                        .join(", ")}
-                    </p>
-                  )}
-                  <span className="chat-receipt">
-                    {round.charge.kind === "free" ? "Free reply · no charge" : "Paid reply"}
-                  </span>
-                  {round.charge.kind === "paid" && (
-                    <p className="receipt" data-testid="paid-reply-receipt">
-                      AI usage {usd(round.charge.usage)} + platform fee {usd(round.charge.fee)} ={" "}
-                      {usd(round.charge.usage + round.charge.fee)} total
-                    </p>
-                  )}
-                </div>
-              </div>
-            </article>
-          ))}
+            ) : (
+              <AssistantMessage
+                key={message.id}
+                message={message}
+                showQuestions={index < messages.length - 1 || !questionCardShown}
+              />
+            ),
+          )}
           {declined ? (
             <div className="panel decline" data-testid="fit-decline-notice">
               <h2>This project needs a different kind of support.</h2>
@@ -538,9 +569,6 @@ export function Discovery(props: ScreenProps) {
                   <p className="message-author">
                     {editing ? "Revise your answer · No turn used" : "ai4good AI"}
                   </p>
-                  {!state.history.length && !editing && (
-                    <p>I have read your intake. Let's start with what matters most.</p>
-                  )}
                   {batch && !editing
                     ? active.map((q) => (
                         <QuestionCard
@@ -684,10 +712,14 @@ export function Discovery(props: ScreenProps) {
                     data-testid="streaming-reply"
                   >
                     <strong>ai4good assistant</strong>
-                    <p>{replyPreview}</p>
+                    <p>{status === "submitted" ? "Reading your answers…" : "Replying…"}</p>
                     <p className="small muted">
                       One reply is in progress. Your answers stay saved.
                     </p>
+                    <Button testId="stop-discovery-reply" variant="quiet" onClick={() => void stopReply()}>
+                      <Square size={13} />
+                      Stop
+                    </Button>
                   </div>
                 )}
                 {!mode.canSend && !editing && (

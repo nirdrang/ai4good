@@ -35,7 +35,7 @@
       "source": "discovery-chat.html",
       "reference": "design/references/discovery-conversation.html",
       "status": "ready-for-founder-review",
-      "reviewRevision": 5,
+      "reviewRevision": 6,
       "revisionAuthor": "Claude",
       "reviewDocument": "design/astra/discovery-review.md"
     },

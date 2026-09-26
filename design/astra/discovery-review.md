@@ -1,4 +1,4 @@
-# Discovery design review — revision 5
+# Discovery design review — revision 6
 
 Date: 2026-09-26. Author: Claude, on Astra revision 4. Status: ready for founder review; approval is pending.
 
@@ -20,7 +20,25 @@ The specification remains [the Discovery interface contract](../discovery-ui-con
 6. Open **Astra · fixture mock** to inspect funding, failure, decline, and reference-file states.
 
 The sample confirmation button records a fictional NGO decision. It does not approve this design.
-The founder must approve revision 5 explicitly in the conversation.
+The founder must approve revision 6 explicitly in the conversation.
+
+## Revision 6: the real chat library, on sample data
+
+The founder asked for the mock to use the chat library chosen for the real screen, the Vercel AI SDK.
+The founder chose to keep the reviewed look. Only the chat logic changed. The layout, text, and rules of revision 5 are unchanged.
+
+- The chat uses `useChat` from `@ai-sdk/react`, as the real page at `src/routes/discovery/` does.
+- A sample-data transport, `src/fixture-transport.ts`, takes the place of the `discovery-message` function.
+  It reads and writes the mock's saved state and streams the same kind of reply chunks the real route streams.
+- Replies stream word by word. The NGO can stop a reply. As on the real route, a stopped turn is still used.
+- Replies render through `react-markdown`, as on the real page.
+- Refusals arrive as an error with a kind and a reason, as the real send route answers today.
+- The typed stream parts are in `src/lib/discovery-stream.ts`: question, filed topics, charge, ready, and usage.
+  The real route does not emit them yet. The wired screen must emit and read these parts.
+
+Browser checks pass for streaming, stop, a no-fuel refusal, failure and retry, a paid reply with its receipt,
+reload, and the ready state. The TypeScript checks for the mock and the whole application pass.
+Revision 6 replaces revision 5 for design approval. The critics' "ready" still applies, because the screen does not change.
 
 ## Revision 5: NGO usability fixes
 
@@ -181,5 +199,6 @@ Approved revision: none.
 Founder feedback: revision 1 did not make the chat clear. Revision 2 added the visible conversation. Revision 3 added progress and a defined finish.
 Revision 4 adds volunteer matching after Discovery and before PRD.
 Revision 5 applies the NGO usability critique.
+Revision 6 moves the chat onto the Vercel AI SDK with a sample-data transport.
 
 Approval covers the Discovery design only. It does not close the broader design item or the production requirements.

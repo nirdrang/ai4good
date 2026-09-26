@@ -252,4 +252,10 @@ Exercise usage boundaries at 79.99%, 80%, 95%, 95.01%, and 100%.
 Exercise a funded free turn, paid spillover, UTC reset, beta exhaustion, and a stale Free preview.
 Old completion evidence does not establish compliance with these revised requirements.
 Check each rule in the usability section on the wired screen, on desktop and at phone width.
+
+The chat uses the Vercel AI SDK, `useChat` from `@ai-sdk/react`, on the mock and on the real page.
+The mock swaps only the transport: `design/astra/src/fixture-transport.ts` streams sample replies.
+The wired screen keeps the mock's chat code and uses a transport to the `discovery-message` function.
+Each reply streams the typed parts in `src/lib/discovery-stream.ts`: question, filed, charge, ready, and usage.
+The send route must emit those parts. Today it emits only the reply text and one `data-turn` part.
 The critique prompts and capture scripts in `design/astra/discovery-critique/` can repeat the NGO critique on the wired screen.
