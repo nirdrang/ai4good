@@ -111,6 +111,7 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
   const noAllocation = !mode.free && state.usage.allocation === 0;
   const reset = new Date();
   reset.setUTCHours(24, 0, 0, 0);
+  const resetTime = reset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return (
     <section className="panel funding-panel" aria-labelledby="fuel-title">
       <div className="section-heading">
@@ -125,9 +126,24 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
                 : "Fuel needed"}
         </Badge>
       </div>
+      <p className="usage-summary" data-testid="usage-summary">
+        {questionsComplete
+          ? "No more AI replies are needed. Reviewing and finishing are free."
+          : mode.free
+            ? `Your next reply is free. ${Math.min(mode.dailyLeft, mode.betaLeft)} free ${Math.min(mode.dailyLeft, mode.betaLeft) === 1 ? "reply" : "replies"} left today. Free replies never use your money.`
+            : `${
+                mode.betaLeft === 0
+                  ? "All 50 beta free replies are used. Beta free replies don't reset."
+                  : `Today's 10 free replies are used. Free replies start again at ${resetTime}. Beta free replies count only while today's free replies last.`
+              } ${
+                mode.canSend
+                  ? `Your next reply is paid from project fuel (${usd(mode.available)} available).`
+                  : "Your draft is saved."
+              }`}
+      </p>
       {noAllocation ? (
         <p className="callout" data-testid="empty-paid-allocation">
-          No paid fuel is allocated to Discovery.
+          This project has no fuel for Discovery replies.
         </p>
       ) : (
         <>
@@ -150,8 +166,8 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
                 : mode.band === "green"
                   ? "Within allowance"
                   : mode.band === "yellow"
-                    ? "Getting low"
-                    : "Nearly used"}
+                    ? "Getting low · replies still work"
+                    : "Nearly used · replies still work"}
             </span>
             <span>{mode.free ? "1 reply = 1 turn" : "Actual usage in USD"}</span>
           </div>
@@ -177,8 +193,9 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
       </dl>
       {state.usage.reserved > 0 && (
         <p className="callout warning" data-testid="usage-pending">
-          Usage pending · {usd(state.usage.reserved)} reserved. This is separate from settled
-          charges.
+          Usage pending · {usd(state.usage.reserved)} is set aside while a reply's final cost is
+          confirmed. The fuel shown already excludes it. You pay only the actual usage; the rest
+          returns. This is not an extra charge.
         </p>
       )}
       <div className="next-reply" data-testid="next-reply-mode">
@@ -188,23 +205,30 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
             ? "Review brief · free"
             : mode.free
               ? "Free · 1 turn"
-              : "Paid · actual usage in USD"}
+              : mode.canSend
+                ? "Paid · actual usage in USD"
+                : "Not available now"}
         </strong>
       </div>
-      {!questionsComplete && !mode.free && (
+      {!questionsComplete && !mode.free && mode.canSend && (
         <p className="small muted">Up to $0.25 reserved per reply. Unused fuel stays available.</p>
       )}
       <p className="small muted">
         {questionsComplete
           ? "No more AI replies are needed. Review and confirmation use no turns or paid fuel."
           : mode.betaLeft > 0
-            ? `Daily turns reset at ${reset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} in your time zone.`
+            ? `Daily turns reset at ${resetTime} in your time zone.`
             : "Your beta allowance is used. A daily reset does not renew it."}
       </p>
-      {!questionsComplete && (
-        <Button testId="buy-fuel" className="full-width" onClick={() => navigate("funding")}>
-          Buy fuel
-        </Button>
+      {!questionsComplete && !mode.free && (
+        <>
+          <Button testId="buy-fuel" className="full-width" onClick={() => navigate("funding")}>
+            Buy fuel
+          </Button>
+          <p className="small muted buy-fuel-terms" data-testid="buy-fuel-terms">
+            Minimum purchase $50. Fuel pays for replies. It does not add free replies.
+          </p>
+        </>
       )}
     </section>
   );
@@ -406,8 +430,16 @@ export function Discovery(props: ScreenProps) {
                 <div className="chat-ai-content">
                   <p className="message-author">ai4good AI</p>
                   <p>{round.reply}</p>
+                  {Object.keys(round.answers).length > 0 && (
+                    <p className="chat-filed" data-testid="round-filed">
+                      <Check size={13} aria-hidden="true" /> Added to your brief:{" "}
+                      {Object.keys(round.answers)
+                        .map((id) => all.find((q) => q.id === id)?.title ?? id)
+                        .join(", ")}
+                    </p>
+                  )}
                   <span className="chat-receipt">
-                    {round.charge.kind === "free" ? "1 free turn" : "Paid reply"}
+                    {round.charge.kind === "free" ? "Free reply · no charge" : "Paid reply"}
                   </span>
                   {round.charge.kind === "paid" && (
                     <p className="receipt" data-testid="paid-reply-receipt">
@@ -475,16 +507,22 @@ export function Discovery(props: ScreenProps) {
               </span>
               <h2>We have enough to finish Discovery.</h2>
               <p>
-                All required topics are agreed. I have stopped asking questions. Review the brief
-                and finish when it describes what you need.
+                All required topics are agreed. I have stopped asking questions. Press{" "}
+                <strong>Finish Discovery</strong> at the top of this page to review your brief and
+                confirm it.
               </p>
-              <Button
-                testId="review-ready-brief"
-                variant="primary"
-                onClick={() => navigate("scope")}
+              <button
+                type="button"
+                className="text-button"
+                data-testid="review-ready-brief"
+                onClick={() => {
+                  const panel = document.getElementById("discovery-progress-title");
+                  panel?.scrollIntoView({ block: "center", behavior: "smooth" });
+                  document.querySelector<HTMLButtonElement>('[data-testid="finish-discovery"]')?.focus({ preventScroll: true });
+                }}
               >
-                <Next>Review and finish</Next>
-              </Button>
+                Take me to Finish Discovery ↑
+              </button>
               <p className="small muted">Review and confirmation use no turns.</p>
             </div>
           ) : (
@@ -656,8 +694,8 @@ export function Discovery(props: ScreenProps) {
                   <p className="callout warning" data-testid="free-capacity-exhausted">
                     Your draft is saved.{" "}
                     {mode.betaLeft > 0
-                      ? "Wait for the daily reset or buy fuel to continue."
-                      : "Your beta allowance is used. Buy fuel to continue."}
+                      ? "Today's free replies are used. Send it after the daily reset, or add project fuel in the Discovery usage card."
+                      : "Your beta free replies are used. Add project fuel in the Discovery usage card to continue."}
                   </p>
                 )}
                 <div className="composer-footer">
@@ -668,7 +706,15 @@ export function Discovery(props: ScreenProps) {
                         ? "Changing an answer may reopen dependent questions."
                         : mode.free
                           ? "Next reply: free · 1 turn"
-                          : "Next reply: paid · actual usage in USD"}
+                          : !mode.canSend
+                            ? "Next reply: not available now · your draft is saved"
+                            : `Next reply: paid · actual usage in USD · ${usd(mode.available)} fuel left${
+                              mode.band === "yellow"
+                                ? " · getting low"
+                                : mode.band === "red"
+                                  ? " · nearly used"
+                                  : ""
+                            }. Up to $0.25 is set aside while it runs.`}
                   </span>
                   <div className="row">
                     {editing && (
@@ -702,7 +748,6 @@ export function Discovery(props: ScreenProps) {
           )}
         </section>
         <aside className="discovery-aside">
-          {!state.confirmation && !declined && <FundingPanel state={state} navigate={navigate} />}
           <section
             className="panel brief-panel"
             id="discovery-brief"
@@ -713,7 +758,9 @@ export function Discovery(props: ScreenProps) {
               <h2 id="discovery-brief-title">Your live brief</h2>
               <Badge>{state.confirmation ? "Confirmed" : `Revision ${state.revision}`}</Badge>
             </div>
-            <p className="small muted">Your confirmed decisions appear here.</p>
+            <p className="small muted">
+              Each answer you give appears here. Use Edit to change one at any time, at no cost.
+            </p>
             <div className="brief-fact">
               <span>THE NEED</span>
               <p>{state.intake.need}</p>
@@ -725,14 +772,15 @@ export function Discovery(props: ScreenProps) {
                     {q.title}
                     {state.answers[q.id] && !busy && !declined && (
                       <button
-                        className="icon-button"
+                        className="brief-edit"
                         type="button"
                         data-testid="edit-brief-answer"
                         data-testkey={q.id}
                         aria-label={`Edit ${q.title.toLowerCase()}`}
                         onClick={() => edit(q.id)}
                       >
-                        <Pencil size={13} />
+                        <Pencil size={12} />
+                        Edit
                       </button>
                     )}
                   </dt>
@@ -761,6 +809,7 @@ export function Discovery(props: ScreenProps) {
               confirmed
             </p>
           </section>
+          {!state.confirmation && !declined && <FundingPanel state={state} navigate={navigate} />}
           <DiscoveryReferences state={state} setState={setState} notify={notify} />
         </aside>
       </div>

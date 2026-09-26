@@ -21,7 +21,7 @@ export function DiscoveryProgress({
       : editing
         ? "Save or cancel your answer change before finishing."
         : open.length
-          ? `Still needed: ${open.map((topic) => topic.title.toLowerCase()).join(", ")}.`
+          ? `${state.history.length ? "" : "Start below: answer the AI's first question. "}Still needed: ${open.map((topic) => topic.title.toLowerCase()).join(", ")}.`
           : summaryEmpty
             ? "Add a first version summary in the brief before finishing."
             : "The required topics are agreed. The AI has stopped asking questions. Review the brief to finish.";
@@ -44,7 +44,7 @@ export function DiscoveryProgress({
         <strong className="discovery-progress-percent">{progress.percent}%</strong>
         <Button
           testId="finish-discovery"
-          variant="primary"
+          variant={ready || confirmed ? "primary" : "secondary"}
           disabled={!confirmed && (!ready || busy || editing)}
           onClick={() => navigate("scope")}
         >
@@ -70,9 +70,7 @@ export function DiscoveryProgress({
       </p>
       <details className="discovery-progress-details">
         <summary>
-          {open.length
-            ? `${open.length} ${open.length === 1 ? "topic" : "topics"} left · View checklist`
-            : "View completed checklist"}
+          {open.length ? "View checklist" : "View completed checklist"}
         </summary>
         <ul>
           {progress.topics.map((topic) => (

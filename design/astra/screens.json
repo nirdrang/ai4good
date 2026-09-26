@@ -1,10 +1,10 @@
 {
   "author": "Astra",
+  "authors": ["Astra", "Claude"],
   "created": "2026-09-21",
   "status": "draft-awaiting-founder-review",
   "runtime": "fixtures-only",
   "claudeBaseline": "design/screens/",
-  "futureClaudeRevisions": "design/claude-review/<review-name>/",
   "requirements": [
     "design/ui-ux-instructions.md",
     "design/discovery-ui-contract.md",
@@ -35,7 +35,8 @@
       "source": "discovery-chat.html",
       "reference": "design/references/discovery-conversation.html",
       "status": "ready-for-founder-review",
-      "reviewRevision": 4,
+      "reviewRevision": 5,
+      "revisionAuthor": "Claude",
       "reviewDocument": "design/astra/discovery-review.md"
     },
     {

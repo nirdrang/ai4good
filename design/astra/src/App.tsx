@@ -246,11 +246,9 @@ function Review({ state, setState, navigate, notify }: ScreenProps) {
             )}
           </section>
           <p className="small muted aside-note">
-            Astra files: design/astra/
+            Shared Astra and Claude mock: design/astra/
             <br />
-            Claude exports: design/screens/
-            <br />
-            Future Claude revisions: design/claude-review/
+            Claude Design exports: design/screens/
           </p>
         </aside>
       </div>

@@ -1,12 +1,12 @@
-# Discovery design review — revision 4
+# Discovery design review — revision 5
 
-Date: 2026-09-21. Author: Astra. Status: ready for founder review; approval is pending.
+Date: 2026-09-26. Author: Claude, on Astra revision 4. Status: ready for founder review; approval is pending.
 
 Open [the Discovery fixture](http://127.0.0.1:4310/#discovery).
 This review covers Discovery and its scope confirmation. Other screens retain their own review status.
 The process bar belongs to the shared project workspace. It displays progress and cannot approve a gate.
 
-AI4DEV-9 (Discovery screen design) owns this review.
+AI4DEV-175 (Discovery screen design) owns this review, under AI4DEV-9 (design batch 2 screens).
 AI4DEV-158 (Discovery interface wiring) owns the later production interface.
 The specification remains [the Discovery interface contract](../discovery-ui-contract.md).
 
@@ -20,7 +20,34 @@ The specification remains [the Discovery interface contract](../discovery-ui-con
 6. Open **Astra · fixture mock** to inspect funding, failure, decline, and reference-file states.
 
 The sample confirmation button records a fictional NGO decision. It does not approve this design.
-The founder must approve revision 4 explicitly in the conversation.
+The founder must approve revision 5 explicitly in the conversation.
+
+## Revision 5: NGO usability fixes
+
+The founder asked for an agent to critique the layout as an NGO, then asked Claude to make the fixes.
+The founder then ruled that Claude and Astra share this one mock, with no separate folder.
+The critique method, rounds, and findings not acted on are in [the critique record](discovery-critique/README.md).
+All changes stay inside the Discovery interface contract.
+
+- The Finish Discovery button stays visible. It is a secondary button until every required topic is agreed.
+- Before the first answer, the progress panel says where to start.
+- At 100%, the chat card points to Finish Discovery at the top. It does not repeat the button.
+- The live brief comes before the usage card. Each answered row has a labeled Edit button.
+- The usage card starts with one plain sentence about cost.
+- When a limit stops replies, the card says which limit applies and when free replies return.
+- When no reply is possible, the card and composer say "Not available now".
+- In paid mode, the composer shows the fuel left, a low-fuel warning, and the $0.25 hold, next to Send.
+- Buy fuel shows only when free replies are used up. It states the $50 minimum.
+- The pending message says the fuel shown already excludes the hold, and that it is not an extra charge.
+- The yellow and red gauge captions say that replies still work.
+- Each AI reply lists the brief topics it added. Free receipts say "Free reply · no charge".
+- The review page says it is the last step of Discovery.
+- On narrow screens, a fixed bar jumps to the confirmation card. On wide screens, the card stays in view.
+- The confirmation card shows no success mark before confirmation.
+- A plain explanation sits under the data-responsibility checkbox. The checkbox wording is unchanged.
+
+The TypeScript check passes. The last critic rounds gave "ready" for the main flow and for eleven usage states.
+Revision 5 replaces revision 4 for design approval.
 
 ## Revision 4: volunteer matching after Discovery
 
@@ -146,5 +173,6 @@ Decision: pending.
 Approved revision: none.
 Founder feedback: revision 1 did not make the chat clear. Revision 2 added the visible conversation. Revision 3 added progress and a defined finish.
 Revision 4 adds volunteer matching after Discovery and before PRD.
+Revision 5 applies the NGO usability critique.
 
 Approval covers the Discovery design only. It does not close the broader design item or the production requirements.

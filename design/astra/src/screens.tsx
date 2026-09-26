@@ -405,7 +405,7 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
   return (
     <>
       <PageTitle
-        eyebrow="Your project / Scope"
+        eyebrow="Your project / Discovery · last step"
         title="Does this describe what you need?"
         action={
           <Badge tone={isConfirmed ? "green" : "neutral"}>
@@ -535,11 +535,29 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
             </details>
           </section>
         </div>
-        <aside>
-          <section className="panel confirmation-panel">
-            <span className="project-icon">
-              <CheckCircle2 size={24} />
-            </span>
+        {!isConfirmed && (
+          <div className="scope-jump">
+            <Button
+              testId="jump-to-confirmation"
+              variant="primary"
+              className="full-width"
+              onClick={() => {
+                const panel = document.getElementById("confirm-discovery");
+                panel?.scrollIntoView({ block: "start", behavior: "smooth" });
+                panel?.focus({ preventScroll: true });
+              }}
+            >
+              <Next>Ready? Go to Finish Discovery</Next>
+            </Button>
+          </div>
+        )}
+        <aside className="confirmation-aside">
+          <section className="panel confirmation-panel" id="confirm-discovery" tabIndex={-1}>
+            {isConfirmed && (
+              <span className="project-icon">
+                <CheckCircle2 size={24} />
+              </span>
+            )}
             <h2>{isConfirmed ? "Discovery is finished" : "Finish Discovery"}</h2>
             {isConfirmed ? (
               <>
@@ -602,6 +620,13 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
                         : "Our NGO takes responsibility for data access and keeps only the personal information this tool needs."}
                     </span>
                   </label>
+                )}
+                {tier > 0 && (
+                  <p className="small muted checkbox-help" data-testid="data-responsibility-help">
+                    {tier === 2
+                      ? "In practice: the volunteer builds and tests with made-up records. Your team adds the real records after handoff."
+                      : "In practice: your NGO decides who can see volunteer details, and the tool stores only what “Information handled” lists."}
+                  </p>
                 )}
                 <Button
                   testId="confirm-brief"
