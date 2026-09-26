@@ -318,11 +318,11 @@ export default function App() {
     { route: "projects", label: "My projects", icon: FolderOpen },
     { route: "funding", label: "Project fuel", icon: Wallet },
   ].map((item) => ({ ...item, route: routeSchema.parse(item.route) }));
-  const projectNav: { route: Route; label: string }[] = [
-    { route: "intake", label: "Project need" },
-    { route: "discovery", label: "Discovery" },
-    { route: "scope", label: "Scope document" },
-    { route: "publish", label: "Publish and review" },
+  const projectNav: { route: Route; label: string; step: number }[] = [
+    { route: "intake", label: "Intake", step: 1 },
+    { route: "discovery", label: "Discovery", step: 2 },
+    { route: "scope", label: "Discovery review", step: 2 },
+    { route: "publish", label: "Volunteer match", step: 3 },
   ];
 
   return (
@@ -406,7 +406,7 @@ export default function App() {
             ))}
             <p className="nav-label project-nav-label">CURRENT PROJECT</p>
             <div className="nav-project-name">{state.intake.title || "New project"}</div>
-            {projectNav.map((item, i) => (
+            {projectNav.map((item) => (
               <a
                 key={item.route}
                 href={`#${item.route}`}
@@ -414,7 +414,7 @@ export default function App() {
                 aria-current={route === item.route ? "page" : undefined}
                 className={`project-nav ${route === item.route ? "active" : ""}`}
               >
-                <span className="nav-step">{i + 1}</span>
+                <span className="nav-step">{item.step}</span>
                 {item.label}
               </a>
             ))}

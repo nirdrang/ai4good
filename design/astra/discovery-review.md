@@ -46,7 +46,14 @@ All changes stay inside the Discovery interface contract.
 - The confirmation card shows no success mark before confirmation.
 - A plain explanation sits under the data-responsibility checkbox. The checkbox wording is unchanged.
 
-The TypeScript check passes. The last critic rounds gave "ready" for the main flow and for eleven usage states.
+A second critic, GPT-6 Astra at low, then operated the mock in a browser as the same NGO, in three iterations.
+Revision 5 now also includes its fixes:
+
+- A compact progress strip with Finish Discovery stays on screen after the progress panel scrolls away.
+- The side menu uses the process bar's stage names and numbers.
+- The review page explains Lovable, shows the required disclosure of about $25 a month, and states that ai4good gives no support after handoff.
+
+The TypeScript check passes. Both critics gave "ready": DeepSeek on screenshots, Astra by operating the mock.
 Revision 5 replaces revision 4 for design approval.
 
 ## Revision 4: volunteer matching after Discovery

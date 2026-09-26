@@ -87,6 +87,24 @@ export function DiscoveryScope({ state, setState }: Pick<ScreenProps, "state" | 
           <strong>Proposed fit: yes.</strong> The first version is a small internal scheduling tool.
           Your named owner maintains routine changes in Lovable.
         </p>
+        <p data-testid="scope-lovable-explained">
+          Lovable is an online tool. Your team makes routine changes by typing requests in a chat.
+          The volunteer sets it up and hands it over with access instructions
+          and a short operating guide.
+        </p>
+        <p data-testid="scope-lovable-cost">
+          <strong>Cost after handoff:</strong> the standard Lovable subscription is about $25 a
+          month. Your NGO pays it directly to Lovable. It never comes from project fuel. See{" "}
+          <a href="https://lovable.dev/pricing" target="_blank" rel="noreferrer">
+            Lovable's public pricing
+          </a>
+          .
+        </p>
+        <p data-testid="scope-after-handoff-support">
+          <strong>Help after handoff:</strong> your team makes routine changes in Lovable. In this
+          version, ai4good gives no ongoing support after handoff. For a larger change, or a
+          problem your team cannot fix, post a new project.
+        </p>
         <p>
           Confirm this scope with your maintenance owner. Ongoing custom integrations need a new fit
           review.

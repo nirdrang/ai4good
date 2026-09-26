@@ -278,3 +278,35 @@
   margin: 8px 0 0;
   text-align: center;
 }
+
+/* Iteration with the Astra NGO agent: compact progress that stays on screen */
+.progress-float-anchor {
+  position: sticky;
+  top: 64px;
+  z-index: 25;
+  height: 0;
+}
+.progress-float {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 6px 18px oklch(0 0 0 / 0.08);
+  font-size: 13px;
+}
+.progress-float .button {
+  padding-block: 6px;
+}
+@media (max-width: 700px) {
+  .progress-float-anchor {
+    top: 58px;
+  }
+  .progress-float {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}

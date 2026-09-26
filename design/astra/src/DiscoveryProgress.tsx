@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Check, Circle } from "lucide-react";
 import { Button, Next, type ScreenProps } from "./components";
 import { discoveryProgress } from "./questions";
@@ -26,8 +27,21 @@ export function DiscoveryProgress({
             ? "Add a first version summary in the brief before finishing."
             : "The required topics are agreed. The AI has stopped asking questions. Review the brief to finish.";
 
+  const panel = useRef<HTMLElement>(null);
+  const [scrolledPast, setScrolledPast] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) =>
+      setScrolledPast(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+    );
+    if (panel.current) observer.observe(panel.current);
+    return () => observer.disconnect();
+  }, []);
+  const finishDisabled = !confirmed && (!ready || busy || editing);
+
   return (
+    <>
     <section
+      ref={panel}
       className="discovery-progress"
       aria-labelledby="discovery-progress-title"
       data-testid="discovery-progress"
@@ -45,7 +59,7 @@ export function DiscoveryProgress({
         <Button
           testId="finish-discovery"
           variant={ready || confirmed ? "primary" : "secondary"}
-          disabled={!confirmed && (!ready || busy || editing)}
+          disabled={finishDisabled}
           onClick={() => navigate("scope")}
         >
           <Next>{confirmed ? "View approved brief" : "Finish Discovery"}</Next>
@@ -98,5 +112,24 @@ export function DiscoveryProgress({
         </p>
       )}
     </section>
+    <div className="progress-float-anchor">
+      {scrolledPast && (
+        <div className="progress-float" data-testid="discovery-progress-compact">
+          <span>
+            <strong>{progress.percent}%</strong> · {progress.completed} of {progress.total} topics
+            agreed
+          </span>
+          <Button
+            testId="finish-discovery-compact"
+            variant={ready || confirmed ? "primary" : "secondary"}
+            disabled={finishDisabled}
+            onClick={() => navigate("scope")}
+          >
+            <Next>{confirmed ? "View approved brief" : "Finish Discovery"}</Next>
+          </Button>
+        </div>
+      )}
+    </div>
+    </>
   );
 }
