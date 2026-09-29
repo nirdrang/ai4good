@@ -272,14 +272,22 @@ Phase 3 must prove the same from the stack's own record of model calls.
 
 | File | Role |
 |---|---|
-| `tests/at/harness/screen.ts` | builds the fixture shell once per test file into a temporary folder, serves it from `node:http` on a free port, owns one Chromium, opens a fresh context per page, closes all in `afterAll` and throws on a teardown failure |
-| `tests/at/harness/dom-names.d.ts` | four opaque DOM names playwright-core's declarations need (measured by the Opus runner: `Node`, `HTMLElement`, `SVGElement`, `HTMLElementTagNameMap`); `document` still fails to compile |
+| `tests/at/harness/screen-host.mjs` | a small Node process that owns Playwright and Chromium. It reads one JSON command per line on stdin and answers one JSON line on stdout. Commands: open a page (URL, viewport, phone flags, colour scheme; installs the model-call probe), act on a locator given as a chain of role-and-name or text steps (click, fill, press, text, count, visible, box, attribute, focused, set files), read the probe's model calls, reload, close a page, shut down. Locator timeout 5 s. |
+| `tests/at/harness/screen.ts` | the Bun side: builds the fixture shell once per test file into a temporary folder, serves it from `node:http` on a free port, starts `node screen-host.mjs`, sends typed commands, closes everything in `afterAll`, and throws on a teardown failure |
 | `tests/at/harness/screen.selftest.ts` | pure parts only: the URL builder, `eventually`, the MIME map |
 | `tests/at/suites/req-004/_screen.ts` | `discoveryScreens()`, `withDiscovery()`, the tier map, the page objects |
-| `package.json` | `playwright-core` pinned to exactly `1.58.2` (devDependency). Chromium revision 1208 is already on this machine. |
+| `package.json` | `playwright-core` pinned to exactly `1.58.2` (devDependency), loaded only by the Node host. Chromium revision 1208 is already on this machine. |
 | `tests/at/typecheck.ts` | adds the fixture shell's tsconfig as a fifth project |
 | `.github/workflows/ci.yml` | "Install Chromium for the screen tests" (`bunx playwright-core install --with-deps chromium`) before the loop verify step, same `if`; `^design/astra/` in the code pattern |
 
+Why a Node host (measured 2026-09-29 on this machine, Bun 1.3.14): under Bun, Playwright's
+`chromium.launch()` hangs past 40 s, and `chromium.connect()` to a Node-launched browser server also
+hangs, although Bun's own WebSocket reaches that server. Under Node, the same launch reads a page in
+456 ms. Bun spawning a Node host over stdin and stdout opened a page in 574 ms, measured real layout,
+and saw a textarea grow from 21 to 156 pixels. puppeteer-core launches under Bun, but its ARIA
+queries returned nodes with no box. The test project therefore never imports Playwright, and
+`dom-names.d.ts` is not needed. CI needs Node, which the GitHub-hosted runner has; the self-hosted
+runner image needs Node and Chromium's libraries (not done here).
 Tier map, in `_screen.ts` only:
 
 - loop: the fixture shell. Each body calls `ctx.open()` first (the registry refuses a green that
