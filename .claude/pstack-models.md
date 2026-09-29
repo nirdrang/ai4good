@@ -8,21 +8,21 @@ Written by setup on 2026-09-02 for ai4good on pstack 1.2.1: the default role map
 matrix default efforts. The earlier customized sheets are kept beside this file as
 `pstack-models.md.bak-*`.
 
-feature, refactoring: grok:grok-4.6@xhigh
+feature, refactoring: grok:grok-4.7@xhigh
 bug-fix: codex:gpt-5.6-sol@max
 perf-issue: codex:gpt-6-astra@medium
 hillclimb: codex:gpt-6-astra@high
-judgment and prose: claude:fable@max
+judgment and prose: claude:fable@medium
 hardest tasks: codex:gpt-6-astra@medium
-how explorer: grok:grok-4.6@xhigh
-how explainer: claude:fable@low
+how explorer: grok:grok-4.7@xhigh
+how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
-arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.6@xhigh, claude:opus@xhigh
-swarm workers: grok:grok-4.6@xhigh
-architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.6@xhigh, claude:opus@xhigh
-interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.6@xhigh, claude:opus@xhigh, opencode:opencode-go/deepseek-v4.1-flash@max
+arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
+arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.7@xhigh, claude:opus@medium
+swarm workers: grok:grok-4.7@xhigh
+architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
+interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -33,6 +33,35 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Grok 4.7, fable at medium, and opus steps down, 2026-09-29
+
+By founder ruling and not by measurement. Written by hand: the setup skill refuses grok-4.7,
+because the fork's model matrix pins grok-4.6, and it refuses two efforts in one family. Both
+fable (medium, low) and opus (medium, high) now hold two efforts.
+
+- Every grok lane moves from grok-4.6 to grok-4.7, still at xhigh.
+- `judgment and prose` moves from fable at max to fable at medium.
+- `how explainer` moves from fable at low to opus at medium. The seat changes family.
+- The opus lane in `arena runners`, `architect runners` and `arena cross-judge pool` moves from
+  xhigh to medium. The two runner rows stay identical.
+- The opus lane in `interrogate reviewers` moves from xhigh to high.
+
+To undo the grok lanes: replace the grok descriptor with the line below everywhere.
+
+    grok:grok-4.6@xhigh
+
+To undo `judgment and prose`:
+
+    claude:fable@max
+
+To undo `how explainer`:
+
+    claude:fable@low
+
+To undo the opus lane on the two runner rows, the judge pool and the interrogate row:
+
+    claude:opus@xhigh
 
 ### The writer row returns to grok at xhigh, 2026-09-16
 
