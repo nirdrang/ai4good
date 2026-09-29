@@ -1,183 +1,143 @@
 import type { ChatTransport, UIMessageChunk } from "ai";
 import type {
-  DiscoveryRefusal,
   DiscoveryRequestBody,
   DiscoveryUIMessage,
-  DiscoveryUsage,
+  FileChatUIMessage,
 } from "../../../src/lib/discovery-stream";
-import { completeReply, funding, refreshDay, type Answers, type MockState } from "./model";
-import {
-  briefReady,
-  currentQuestions,
-  discoveryProgress,
-  questions,
-  type Question,
-} from "./questions";
+import type { FileChatTarget } from "../../../src/components/discovery/port";
+import type { AppliedTurn, FixtureWorld } from "./fixture-world";
+import { MODEL_CALL_PROBE, type ModelCall, type Pace } from "./givens";
 
-// Stands in for the discovery-message edge function. It reads and writes the mock's saved
-// state instead of the database, and streams the same UI message chunks the real route must
-// stream. Everything above this transport is the real screen's chat code.
+function refusalError(kind: string, reason: string): Error {
+  return new Error(JSON.stringify({ kind, reason }));
+}
 
-type Part = DiscoveryUIMessage["parts"][number];
-type Round = MockState["history"][number];
-export type FixtureBackend = { read: () => MockState; write: (next: MockState) => void };
-
-const introText = "I have read your intake. Let's start with what matters most.";
-
-export function questionPart(question: Question): Part {
+function requestOf(body: unknown): DiscoveryRequestBody {
+  if (body === null || typeof body !== "object") {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  const value = body as Partial<DiscoveryRequestBody>;
+  if (typeof value.organizationId !== "string" || value.organizationId.length === 0) {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  if (typeof value.projectId !== "string" || value.projectId.length === 0) {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  if (value.mode !== "answer" && value.mode !== "ask") {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  if (typeof value.message !== "string" || !Array.isArray(value.answers)) {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  for (const answer of value.answers) {
+    if (
+      answer === null ||
+      typeof answer !== "object" ||
+      typeof answer.questionId !== "string" ||
+      typeof answer.choice !== "string" ||
+      typeof answer.text !== "string" ||
+      typeof answer.certain !== "boolean"
+    ) {
+      throw refusalError("invalid-request", "The reply needs a project.");
+    }
+  }
   return {
-    type: "data-question",
-    data: {
-      id: question.id,
-      text: question.text,
-      reason: question.reason,
-      suggestions: question.options,
-      recommendation: question.recommendation,
-      uncertaintyHelp: question.uncertaintyHelp,
-    },
+    organizationId: value.organizationId,
+    projectId: value.projectId,
+    message: value.message,
+    mode: value.mode,
+    answers: value.answers,
   };
 }
 
-function findQuestion(
-  state: MockState,
-  match: (question: Question) => boolean,
-): Question | undefined {
-  return [...questions(state.answers), ...questions({})].find(match);
-}
-
-/** The parts that end a reply: what it filed, what it cost, and what the AI asks next. */
-function roundParts(state: MockState, round: Round, nextQuestions: Question[] | "ready"): Part[] {
-  const filed = Object.keys(round.answers).map((id) => ({
-    id,
-    title: findQuestion(state, (question) => question.id === id)?.title ?? id,
-  }));
-  const progress = discoveryProgress(state.answers);
-  return [
-    ...(filed.length ? [{ type: "data-filed", data: { topics: filed } } as Part] : []),
-    {
-      type: "data-charge",
-      data:
-        round.charge.kind === "free"
-          ? { kind: "free" }
-          : { kind: "paid", usageMicros: round.charge.usage, feeMicros: round.charge.fee },
-    },
-    ...(nextQuestions === "ready"
-      ? [
-          {
-            type: "data-ready",
-            data: { agreed: progress.completed, total: progress.total },
-          } as Part,
-        ]
-      : nextQuestions.map(questionPart)),
-  ];
-}
-
-function nextQuestionsOf(state: MockState): Question[] | "ready" {
-  return briefReady(state.answers) ? "ready" : currentQuestions(state.answers);
-}
-
-export function usageOf(state: MockState): DiscoveryUsage {
-  const mode = funding(state);
-  return {
-    dailyLeft: mode.dailyLeft,
-    dailyGrant: 10,
-    betaLeft: mode.betaLeft,
-    betaGrant: 50,
-    availableMicros: mode.available,
-    reservedMicros: state.usage.reserved,
-    nextReply: mode.free ? "free" : mode.canSend ? "paid" : "unavailable",
-  };
-}
-
-function refusal(kind: string, reason: string): Error {
-  const body: DiscoveryRefusal = { kind, reason };
-  return new Error(JSON.stringify(body));
+async function reportModelCall(kind: ModelCall): Promise<void> {
+  const probe = (globalThis as Record<string, unknown>)[MODEL_CALL_PROBE];
+  if (typeof probe === "function") await probe(kind);
 }
 
 function pause(ms: number, signal: AbortSignal | undefined): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(timer);
-      resolve();
-    });
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+function textPieces(reply: string, pace: Pace): string[] {
+  return pace === "demo" ? reply.split(/(?<= )/) : [reply];
+}
+
+function streamTurn(
+  pace: Pace,
+  signal: AbortSignal | undefined,
+  turn: AppliedTurn,
+): ReadableStream<UIMessageChunk> {
+  const pieces = textPieces(turn.reply, pace);
+  const tail = turn.parts.filter((part) => part.type !== "text");
+  return new ReadableStream<UIMessageChunk>({
+    async start(controller) {
+      const send = (chunk: UIMessageChunk) => controller.enqueue(chunk);
+      send({ type: "start", messageId: turn.assistantId });
+      send({ type: "text-start", id: "reply" });
+      for (const piece of pieces) {
+        if (signal?.aborted) {
+          send({ type: "abort" });
+          controller.close();
+          return;
+        }
+        send({ type: "text-delta", id: "reply", delta: piece });
+        if (pace === "demo") await pause(35, signal);
+      }
+      send({ type: "text-end", id: "reply" });
+      for (const part of tail) {
+        if (
+          part.type === "data-question" ||
+          part.type === "data-filed" ||
+          part.type === "data-charge" ||
+          part.type === "data-ready"
+        ) {
+          send({ type: part.type, data: part.data });
+        }
+      }
+      send({ type: "data-brief", data: turn.brief, transient: true });
+      send({ type: "data-usage", data: turn.usage, transient: true });
+      send({ type: "finish" });
+      controller.close();
+    },
   });
 }
 
 export class FixtureChatTransport implements ChatTransport<DiscoveryUIMessage> {
-  constructor(private readonly backend: FixtureBackend) {}
+  constructor(
+    private readonly world: FixtureWorld,
+    private readonly pace: Pace,
+  ) {}
 
-  async sendMessages({
-    abortSignal,
-    body,
-  }: Parameters<ChatTransport<DiscoveryUIMessage>["sendMessages"]>[0]): Promise<
-    ReadableStream<UIMessageChunk>
-  > {
-    const request = body as DiscoveryRequestBody;
-    const before = refreshDay(this.backend.read());
-    const mode = funding(before);
-    if (!mode.canSend)
-      throw mode.betaLeft > 0
-        ? refusal(
-            "daily-limit",
-            "Today's free replies are used and the project has no fuel for Discovery.",
-          )
-        : refusal(
-            "beta-limit",
-            "All beta free replies are used and the project has no fuel for Discovery.",
-          );
-    await pause(650, abortSignal);
-    if (abortSignal?.aborted) throw new DOMException("The request was stopped.", "AbortError");
-    if (before.condition === "reply-fails") {
-      this.backend.write({ ...before, condition: "normal" });
-      throw new Error(
-        "The reply did not finish. Your answers are saved. No turn or fuel was charged.",
+  async sendMessages(
+    options: Parameters<ChatTransport<DiscoveryUIMessage>["sendMessages"]>[0],
+  ): Promise<ReadableStream<UIMessageChunk>> {
+    const request = requestOf(options.body);
+    const current = this.world.read();
+    if (current.usage.nextReply === "unavailable") {
+      throw refusalError(
+        current.usage.betaLeft > 0 ? "daily-limit" : "beta-limit",
+        current.usage.betaLeft > 0
+          ? "Today's free replies are used and the project has no fuel for Discovery."
+          : "All beta free replies are used and the project has no fuel for Discovery.",
       );
     }
-    const submitted: Answers =
-      request.mode === "ask"
-        ? {}
-        : Object.fromEntries(
-            request.answers.map((answer) => [
-              answer.questionId,
-              { choice: answer.choice, text: answer.text, certain: answer.certain },
-            ]),
-          );
-    const open = currentQuestions(before.answers)[0];
-    const askedReply =
-      request.mode === "ask" && open
-        ? `${open.reason} You can answer in your own words or leave it open with "I'm not sure". I will keep this question open until you answer it.`
-        : "";
-    const after = completeReply(before, submitted, mode.free ? "free" : "paid", askedReply);
-    if (after === before)
-      throw refusal(
-        "discovery-complete",
-        "Discovery needs no more AI replies. Review the brief to finish.",
-      );
-    // Like the real route, the turn settles even if the NGO presses Stop mid-reply.
-    this.backend.write(after);
-
-    const round = after.history[after.history.length - 1];
-    const words = round.reply.split(/(?<= )/);
-    const tail: UIMessageChunk[] = [
-      ...(roundParts(after, round, nextQuestionsOf(after)) as UIMessageChunk[]),
-      { type: "data-usage", data: usageOf(after), transient: true },
-    ];
-    return new ReadableStream<UIMessageChunk>({
-      async start(controller) {
-        controller.enqueue({ type: "start" });
-        controller.enqueue({ type: "text-start", id: "reply" });
-        for (const word of words) {
-          if (abortSignal?.aborted) return;
-          controller.enqueue({ type: "text-delta", id: "reply", delta: word });
-          await pause(35, abortSignal);
-        }
-        controller.enqueue({ type: "text-end", id: "reply" });
-        tail.forEach((chunk) => controller.enqueue(chunk));
-        controller.enqueue({ type: "finish" });
-        controller.close();
-      },
-    });
+    await reportModelCall("chat-turn");
+    await pause(this.pace === "demo" ? 650 : 20, options.abortSignal);
+    if (options.abortSignal?.aborted) throw new DOMException("The request was stopped.", "AbortError");
+    const turned = this.world.applyTurn({ messages: options.messages, request });
+    if (!turned.ok) throw refusalError(turned.refusal.kind, turned.refusal.reason);
+    return streamTurn(this.pace, options.abortSignal, turned.value);
   }
 
   async reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
@@ -185,42 +145,25 @@ export class FixtureChatTransport implements ChatTransport<DiscoveryUIMessage> {
   }
 }
 
-/** Rebuilds the transcript from saved state, as the real page does from the conversation read. */
-export function messagesFromState(state: MockState): DiscoveryUIMessage[] {
-  const byText = (texts: string[]) =>
-    texts.flatMap((text) => {
-      const question = findQuestion(state, (q) => q.text === text);
-      return question ? [question] : [];
-    });
-  const messages: DiscoveryUIMessage[] = [
-    {
-      id: "intro",
-      role: "assistant",
-      parts: [
-        { type: "text", text: introText },
-        ...(state.history[0]
-          ? byText(state.history[0].questions)
-          : currentQuestions(state.answers).slice(0, 1)
-        ).map(questionPart),
-      ],
-    },
-  ];
-  state.history.forEach((round, index) => {
-    const userText = [...Object.values(round.answers).map((answer) => answer.text), round.note]
-      .filter(Boolean)
-      .join("\n\n");
-    const next = state.history[index + 1];
-    messages.push(
-      { id: `${round.id}:user`, role: "user", parts: [{ type: "text", text: userText }] },
-      {
-        id: `${round.id}:assistant`,
-        role: "assistant",
-        parts: [
-          { type: "text", text: round.reply },
-          ...roundParts(state, round, next ? byText(next.questions) : nextQuestionsOf(state)),
-        ],
-      },
-    );
-  });
-  return messages;
+export class FixtureFileChatTransport implements ChatTransport<FileChatUIMessage> {
+  constructor(
+    private readonly world: FixtureWorld,
+    private readonly target: FileChatTarget,
+  ) {}
+
+  async sendMessages(
+    options: Parameters<ChatTransport<FileChatUIMessage>["sendMessages"]>[0],
+  ): Promise<ReadableStream<UIMessageChunk>> {
+    if (options.abortSignal?.aborted) throw new DOMException("The request was stopped.", "AbortError");
+    const blocked = this.world.fileLimit(this.target);
+    // The three-file limit is a refusal, not a model call.
+    if (blocked) throw refusalError(blocked.kind, blocked.reason);
+    await reportModelCall("file-chat-turn");
+    const name = this.target.kind === "new" ? this.target.file.name : this.target.fileId;
+    throw new Error(`This fixture does not answer a file chat for ${name} yet.`);
+  }
+
+  async reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
+    return null;
+  }
 }

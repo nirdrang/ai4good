@@ -8,7 +8,7 @@ export const routeSchema = z.enum([
   "projects",
   "intake",
   "discovery",
-  "scope",
+  "discovery-review",
   "publish",
   "funding",
   "build",

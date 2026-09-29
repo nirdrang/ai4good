@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -28,9 +28,10 @@ import {
   storageKey,
   type MockState,
 } from "./model";
-import { Discovery } from "./Discovery";
+import { DiscoveryReview, DiscoveryScreen } from "@/components/discovery";
+import { fixturePort, fixtureSelection } from "./fixture-port";
 import { ProjectBuild } from "./ProjectBuild";
-import { Dashboard, Funding, Intake, Projects, Publish, Scope } from "./screens";
+import { Dashboard, Funding, Intake, Projects, Publish } from "./screens";
 
 function readRoute(): Route {
   return routeSchema.safeParse(location.hash.slice(1)).data ?? "dashboard";
@@ -313,6 +314,11 @@ export default function App() {
     } else location.hash = next;
   }
   const props = { state, setState, navigate, notify: setNotice };
+  const selection = fixtureSelection();
+  const discoveryPort = useMemo(
+    () => fixturePort(selection.scenario, selection.pace),
+    [selection.scenario, selection.pace],
+  );
   useEffect(() => {
     const restorePreview = () => setState(readState().state);
     window.addEventListener("ai4good:preview-restored", restorePreview);
@@ -326,7 +332,7 @@ export default function App() {
   const projectNav: { route: Route; label: string; step: number }[] = [
     { route: "intake", label: "Intake", step: 1 },
     { route: "discovery", label: "Discovery", step: 2 },
-    { route: "scope", label: "Discovery review", step: 2 },
+    { route: "discovery-review", label: "Discovery review", step: 2 },
     { route: "publish", label: "Volunteer match", step: 3 },
   ];
 
@@ -465,8 +471,15 @@ export default function App() {
           {route === "dashboard" && <Dashboard {...props} />}
           {route === "projects" && <Projects {...props} />}
           {route === "intake" && <Intake {...props} />}
-          {route === "discovery" && <Discovery {...props} />}
-          {route === "scope" && <Scope {...props} />}
+          {route === "discovery" && (
+            <DiscoveryScreen
+              key={`${selection.scenario}:${selection.pace}`}
+              port={discoveryPort}
+              organizationId="fixture"
+              projectId="fixture"
+            />
+          )}
+          {route === "discovery-review" && <DiscoveryReview onBackToChat={() => navigate("discovery")} />}
           {route === "publish" && <Publish {...props} />}
           {route === "funding" && <Funding {...props} />}
           {route === "build" && <ProjectBuild notify={setNotice} />}

@@ -9,6 +9,11 @@ export default defineConfig({
   root: prototypeRoot,
   base: "./",
   publicDir: false,
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("../../src", import.meta.url)),
+    },
+  },
   envDir: prototypeRoot,
   envPrefix: "ASTRA_MOCK_PUBLIC_",
   plugins: [react(), tailwindcss()],
