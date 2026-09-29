@@ -6,13 +6,13 @@ The founder may ask Claude Design to revise these screens later.
 | Location | Author and purpose |
 | --- | --- |
 | `screens/` | Existing Claude Design exports. Preserve these files as the Claude baseline. |
-| `astra/` | Astra's interactive prototype, fixture data, and review record. |
-| `claude-review/<review-name>/` | Future Claude Design revisions of an Astra handoff. Create this folder when a revision arrives. |
+| `astra/` | The one interactive prototype, fixture data, and review records. Astra and Claude both revise it. |
 | `references/` | Earlier conversation prototypes and other source material. |
 
-Astra can edit its prototype directly. This is the fixture design work requested by the founder.
+Astra and Claude edit the prototype in `astra/` directly. This is the fixture design work requested by the founder.
+On 2026-09-26 the founder ruled that Claude and Astra share one mock and one review, with no separate folders.
+Each screen's review record names the author of every revision.
 Production implementation still follows its own workflow.
-Do not label an Astra screen as Claude-generated, or overwrite either author's work with the other's output.
 
 Shared product requirements apply to both authors.
 The Discovery interface contract takes precedence over older Discovery exports.

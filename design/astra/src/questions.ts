@@ -5,6 +5,8 @@ export type Question = {
   title: string;
   text: string;
   reason: string;
+  recommendation: string;
+  uncertaintyHelp: string;
   dependencies: QuestionId[];
   options: { id: string; label: string; answer: string }[];
 };
@@ -20,6 +22,8 @@ export function questions(answers: Answers): Question[] {
       title: "Main priority",
       text: "What should improve first?",
       reason: "A clear priority keeps the first version small and useful.",
+      recommendation: "Start with less coordination time. Your intake says scheduling takes four hours each week.",
+      uncertaintyHelp: "Ask your coordinators which problem causes the most work: filling shifts or finding gaps.",
       dependencies: [],
       options: [
         option(
@@ -35,6 +39,8 @@ export function questions(answers: Answers): Question[] {
       title: "Who books shifts",
       text: "Who should book volunteers into shifts?",
       reason: "This determines who needs access and which booking rules we ask about next.",
+      recommendation: "Let volunteers book themselves if they can use the tool. Coordinators should still manage exceptions.",
+      uncertaintyHelp: "Check whether your volunteers can book online. Keep coordinator booking if they need help.",
       dependencies: [],
       options: [
         option(
@@ -50,6 +56,8 @@ export function questions(answers: Answers): Question[] {
       title: "Maintenance owner",
       text: "Who will look after the tool?",
       reason: "Your organisation needs someone to manage access and routine changes after handoff.",
+      recommendation: "Name the operations lead if they already manage access and volunteer processes. Confirm their availability.",
+      uncertaintyHelp: "Ask who can maintain access and routine settings after the volunteer developer leaves.",
       dependencies: [],
       options: [
         option(
@@ -74,6 +82,12 @@ export function questions(answers: Answers): Question[] {
           ? "Which measure will show that your chosen priority improved?"
           : "What weekly scheduling time would count as success?",
       reason: "You can use this target to check whether the first version helps.",
+      recommendation: coverage
+        ? "Start with 90% of shifts filled two days ahead. Confirm a target you can measure in the first month."
+        : answers.priority?.choice === "custom"
+          ? "Choose a first-month target that measures your stated priority. Use time saved only if that is the intended result."
+          : "Start with two hours a week, down from four. Check the result after the first month.",
+      uncertaintyHelp: "Use your current weekly scheduling time as the baseline. Ask the coordinators for a realistic first-month target.",
       options: coverage
         ? [
             option(
@@ -116,6 +130,14 @@ export function questions(answers: Answers): Question[] {
     {
       id: "rules",
       title: "Booking rules",
+      recommendation: selfBooking
+        ? "Keep any training restrictions you already use. Choose open shifts only if every volunteer can do every role."
+        : customBooking
+          ? "Start with coordinator approval until your team agrees which bookings need no approval."
+          : "Keep the access rules your coordinators use today. Give access only to the sites they need.",
+      uncertaintyHelp: selfBooking
+        ? "Ask the person who fills shifts whether any role requires training. We will keep booking rules open until they confirm."
+        : "Ask your operations lead which sites each coordinator manages. We will keep access rules open until they confirm.",
       dependencies: ["booking"],
       text: selfBooking
         ? "Can every volunteer book every type of shift?"
@@ -165,6 +187,8 @@ export function questions(answers: Answers): Question[] {
     {
       id: "data",
       title: "Information handled",
+      recommendation: "Keep only the details needed to arrange shifts. Names and contact details may be enough for this project.",
+      uncertaintyHelp: "Check your existing blank scheduling form with the operations lead. Do not paste real volunteer records into this chat.",
       text: "What information will the tool hold?",
       reason:
         "This determines the access safeguards and what sample data we can use during the build.",
@@ -192,6 +216,8 @@ export function questions(answers: Answers): Question[] {
     list.push({
       id: "training",
       title: "Training approval",
+      recommendation: "Use NGO coordinators if they already check training. Otherwise, name your training lead.",
+      uncertaintyHelp: "Ask who currently checks training before a volunteer takes a trained role. This person must confirm the responsibility.",
       dependencies: ["booking", "rules"],
       text: "Who confirms a volunteer's training?",
       reason: "You chose trained roles. The tool needs a named person who can confirm eligibility.",

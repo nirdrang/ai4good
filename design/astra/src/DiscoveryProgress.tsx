@@ -1,52 +1,68 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Circle } from "lucide-react";
 import { Button, Next, type ScreenProps } from "./components";
 import { discoveryProgress } from "./questions";
 
 export function DiscoveryProgress({
   state,
-  navigate,
+  onReview,
   editing,
   busy,
-}: Pick<ScreenProps, "state" | "navigate"> & { editing: boolean; busy: boolean }) {
+  highlight,
+}: Pick<ScreenProps, "state"> & { onReview: () => void; editing: boolean; busy: boolean; highlight?: ReactNode }) {
   const progress = discoveryProgress(state.answers);
   const open = progress.topics.filter((topic) => !topic.complete);
   const confirmed = state.confirmation?.revision === state.revision;
   const blocked = state.condition === "declined" || Boolean(state.regenerationReview);
   const summaryEmpty = state.summary?.trim() === "";
-  const ready = open.length === 0 && !blocked && !summaryEmpty;
   const guidance = confirmed
-    ? "Your NGO confirmed this revision. Discovery is finished. Next: find a volunteer."
+    ? `Your NGO confirmed this revision${state.confirmation?.openQuestions.length ? " with open questions" : ""}. Discovery is finished. Next: find a volunteer.`
     : blocked
       ? "Human review must resolve the project hold before Discovery can finish."
       : editing
-        ? "Save or cancel your answer change before finishing."
-        : open.length
-          ? `Still needed: ${open.map((topic) => topic.title.toLowerCase()).join(", ")}.`
+        ? "Save or cancel your answer change before reviewing the brief."
+        : busy
+          ? "The AI is replying. Stop the reply or wait before reviewing the brief."
+          : open.length
+          ? `Still open: ${open.map((topic) => topic.title.toLowerCase()).join(", ")}. You can review and finish with these questions open.`
           : summaryEmpty
-            ? "Add a first version summary in the brief before finishing."
+            ? "The first version summary is empty. You can review and finish with this gap recorded."
             : "The required topics are agreed. The AI has stopped asking questions. Review the brief to finish.";
 
+  const panel = useRef<HTMLElement>(null);
+  const [scrolledPast, setScrolledPast] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) =>
+      setScrolledPast(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+    );
+    if (panel.current) observer.observe(panel.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
+    <>
     <section
+      ref={panel}
       className="discovery-progress"
       aria-labelledby="discovery-progress-title"
       data-testid="discovery-progress"
+      data-scenario-highlight={highlight ? true : undefined}
     >
+      {highlight}
       <div className="discovery-progress-top">
         <div>
           <h2 id="discovery-progress-title">
             {confirmed ? "Discovery finished" : "Discovery progress"}
           </h2>
           <p className="small muted">
-            {progress.completed} of {progress.total} required topics agreed
+            {progress.completed} of {progress.total} Discovery topics agreed
           </p>
         </div>
         <strong className="discovery-progress-percent">{progress.percent}%</strong>
         <Button
           testId="finish-discovery"
           variant="primary"
-          disabled={!confirmed && (!ready || busy || editing)}
-          onClick={() => navigate("scope")}
+          onClick={onReview}
         >
           <Next>{confirmed ? "View approved brief" : "Finish Discovery"}</Next>
         </Button>
@@ -70,9 +86,7 @@ export function DiscoveryProgress({
       </p>
       <details className="discovery-progress-details">
         <summary>
-          {open.length
-            ? `${open.length} ${open.length === 1 ? "topic" : "topics"} left · View checklist`
-            : "View completed checklist"}
+          {open.length ? "View checklist" : "View completed checklist"}
         </summary>
         <ul>
           {progress.topics.map((topic) => (
@@ -100,5 +114,23 @@ export function DiscoveryProgress({
         </p>
       )}
     </section>
+    <div className="progress-float-anchor">
+      {scrolledPast && (
+        <div className="progress-float" data-testid="discovery-progress-compact">
+          <span>
+            <strong>{progress.percent}%</strong> · {progress.completed} of {progress.total} topics
+            agreed
+          </span>
+          <Button
+            testId="finish-discovery-compact"
+            variant="primary"
+            onClick={onReview}
+          >
+            <Next>{confirmed ? "View approved brief" : "Finish Discovery"}</Next>
+          </Button>
+        </div>
+      )}
+    </div>
+    </>
   );
 }

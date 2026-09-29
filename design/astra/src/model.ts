@@ -56,7 +56,16 @@ export const stateSchema = z.object({
   }),
   revision: z.number(),
   summary: z.string().nullable(),
-  confirmation: z.object({ revision: z.number(), actor: z.string(), at: z.string() }).nullable(),
+  confirmation: z.object({
+    revision: z.number(),
+    actor: z.string(),
+    at: z.string(),
+    openQuestions: z.array(z.object({
+      id: z.enum([...questionId.options, "summary"]),
+      title: z.string(),
+      reason: z.string(),
+    })).default([]),
+  }).nullable(),
   condition: z.enum(["normal", "reply-fails", "declined", "reopened"]),
   declineDate: z.string().nullable().default(null),
   purchases: z.array(z.object({ id: z.number(), amount: z.number() })),
@@ -66,6 +75,18 @@ export const storageKey = "ai4good.astra.prototype.v1";
 export const usd = (micros: number) =>
   `$${(micros / 1_000_000).toFixed(micros !== 0 && Math.abs(micros) < 1_000 ? 6 : micros % 10_000 === 0 ? 2 : 3)}`;
 export const utcDay = () => new Date().toISOString().slice(0, 10);
+
+export function discoveryGaps(state: Pick<MockState, "answers" | "summary">) {
+  const gaps: NonNullable<MockState["confirmation"]>["openQuestions"] = questions(state.answers)
+    .filter((question) => !state.answers[question.id]?.certain || !state.answers[question.id]?.text.trim())
+    .map(({ id, title, reason }) => ({ id, title, reason }));
+  if (state.summary?.trim() === "") gaps.push({
+    id: "summary",
+    title: "First version summary",
+    reason: "The volunteer needs a summary of what the first version should do.",
+  });
+  return gaps;
+}
 
 export function initialState(): MockState {
   return {
@@ -117,11 +138,13 @@ export function readState(): { state: MockState; warning: string } {
     const result = stateSchema.safeParse(JSON.parse(saved));
     if (result.success) {
       const state = refreshDay(result.data);
-      return state.confirmation && !briefReady(state.answers)
+      return state.confirmation && discoveryGaps(state).some((gap) =>
+        !state.confirmation?.openQuestions.some((accepted) => accepted.id === gap.id),
+      )
         ? {
             state: invalidateApproval(state),
             warning:
-              "The brief has a new data question. Review it before confirming this revision.",
+              "The brief has new open questions. Review it before confirming this revision.",
           }
         : { state, warning: "" };
     }
@@ -209,6 +232,8 @@ export function completeReply(
     return state;
   const answers = { ...state.answers, ...submitted };
   const uncertain = Object.values(submitted).some((answer) => !answer.certain);
+  const unresolved = currentQuestions(answers);
+  const uncertainQuestion = questions(answers).find((question) => submitted[question.id]?.certain === false);
   const usage = { ...state.usage };
   const charge: MockState["history"][number]["charge"] =
     kind === "free" ? { kind: "free" } : { kind: "paid", usage: 40_000, fee: 6_000 };
@@ -240,19 +265,21 @@ export function completeReply(
           (briefReady(answers)
             ? "All required Discovery topics are agreed. I have stopped asking questions. Review your brief, then choose Finish Discovery."
             : uncertain
-              ? "I have kept the uncertain answer open. You can return to it when your team knows more. The brief includes only confirmed decisions."
-              : "I have added your answer to the brief. Let's work through the next decision."),
+              ? `I have kept the uncertain answer open. ${uncertainQuestion?.uncertaintyHelp ?? "You can return when your team knows more."} Only agreed topics increase completion.`
+              : unresolved.some((question) => question.id === "training")
+                ? "You chose trained roles. Before booking rules are complete, we need to agree who checks training. Your other confirmed answers are in the brief."
+                : "I have added your answer to the brief. Let's work through the next decision."),
       },
     ],
   };
 }
 
-export function confirmBrief(state: MockState): MockState {
+export function confirmBrief(state: MockState, { acceptOpenQuestions = false } = {}): MockState {
+  const openQuestions = discoveryGaps(state);
   if (
-    !briefReady(state.answers) ||
+    (openQuestions.length > 0 && !acceptOpenQuestions) ||
     state.regenerationReview ||
-    state.condition === "declined" ||
-    state.summary?.trim() === ""
+    state.condition === "declined"
   )
     return state;
   if (state.confirmation?.revision === state.revision) return state;
@@ -260,7 +287,7 @@ export function confirmBrief(state: MockState): MockState {
   return {
     ...state,
     phase: "scoped",
-    confirmation: { revision: state.revision, actor: "Sam Taylor", at: new Date().toISOString() },
+    confirmation: { revision: state.revision, actor: "Sam Taylor", at: new Date().toISOString(), openQuestions },
     usage: {
       ...state.usage,
       allocation: state.usage.allocation - carry,

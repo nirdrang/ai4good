@@ -41,6 +41,7 @@ One NGO project connects these screens:
 
 The assistant uses scripted replies for the volunteer scheduling example.
 It does not run an AI model. It does not contact a database, payment service, or notification service.
+The Discovery chat uses the real screen's chat library, the Vercel AI SDK, with a sample-data transport in `src/fixture-transport.ts`.
 Reference attachments store file names and sizes only. They do not upload file contents.
 The earlier screens retain their stage labels. The new build view opens at `http://127.0.0.1:4310/#build`.
 It is a separate, fixed snapshot of the same sample project after PRD materialization.
@@ -73,13 +74,12 @@ The $0.25 reservation is an illustrative spending limit for a mock reply.
 An approval moves available fuel once. Reopening this mock returns the unused next-stage allocation for review.
 This reversal represents fixture editing, not a production transfer contract.
 
-## Authorship and a second Claude pass
+## Authorship
 
-`screens.json` records Astra's screen inventory and the corresponding Claude references.
-The original Claude files stay in `design/screens/`.
-Save any future Claude revisions in `design/claude-review/<review-name>/`.
-Do not replace Astra files with Claude output or rename Claude output as Astra work.
-The founder selects changes to adopt after comparison.
+Astra and Claude both revise this one prototype. There is no separate Claude revision folder.
+Each screen's review record names the author of every revision. Discovery revision 5 is Claude's.
+`screens.json` records the screen inventory and the corresponding Claude Design references.
+The original Claude Design exports stay unchanged in `design/screens/`.
 
 To prepare a local handoff:
 
@@ -98,5 +98,5 @@ Keep behavior decisions and visual suggestions separate during comparison.
 
 Only screens explicitly accepted in `screens.json` have founder design approval.
 See `verification.md` for the checks completed on this pass.
-The later [Discovery revision 4 review](discovery-review.md) records progress, finishing, volunteer matching, and verification.
+The [Discovery review](discovery-review.md) records each revision through revision 5, and its verification.
 Prototype checks do not close implementation requirements or acceptance criteria.

@@ -2,7 +2,6 @@ import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
 
 atTest('AT-004.16', 'Discovery criterion 16 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
-atTest('AT-004.17', 'Discovery criterion 17 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.18', 'Discovery criterion 18 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.19', 'Discovery criterion 19 awaits referenceUpload', { default: awaiting(AWAITED.referenceUpload) });
 atTest('AT-004.26', 'Discovery criterion 26 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });

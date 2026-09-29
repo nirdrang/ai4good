@@ -225,7 +225,7 @@ Change it with `/setup-pstack-project`, never with the plugin's `/setup-pstack` 
 ---
 ## Project-Specific Guidelines
 
-- **Astra fixture design, founder request 2026-09-21:** Astra can edit the interactive mock in `design/astra/` directly. Keep it separate from Claude Design exports in `design/screens/`. Save future Claude revisions under `design/claude-review/`. See `design/README.md`. This exception covers fixture design only.
+- **Astra fixture design, founder request 2026-09-21:** Astra can edit the interactive mock in `design/astra/` directly. Keep it separate from Claude Design exports in `design/screens/`. Claude and Astra share this one mock: Claude revisions go into `design/astra/` too, with the author named in the screen's review record, and there is no separate Claude revision folder (founder 2026-09-26: "We need to consolidate the mock of Claude and Astra under one mock review and not have separate directories and commit"). See `design/README.md`. This exception covers fixture design only.
 - **Use the Lovable MCP for non-trivial UI work.** For UI changes beyond simple tweaks, drive them through the Lovable MCP — Lovable is the bot operating its own MCP and has more intimate, UI/UX-optimized capabilities. Reserve direct edits for simple UI changes.
 - **UI never touches the DB directly.** UI code must always go through an edge function — never call the database directly from UI code.
 
