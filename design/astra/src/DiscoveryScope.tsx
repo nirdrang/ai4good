@@ -84,8 +84,11 @@ export function DiscoveryScope({ state, setState }: Pick<ScreenProps, "state" | 
       <section className="scope-section" data-testid="scope-maintainability">
         <h3>Can your team maintain it?</h3>
         <p>
-          <strong>Proposed fit: yes.</strong> The first version is a small internal scheduling tool.
-          Your named owner maintains routine changes in Lovable.
+          {state.answers.owner?.certain ? (
+            <><strong>Proposed fit: yes.</strong> The first version is a small internal scheduling tool. Your named owner maintains routine changes in Lovable.</>
+          ) : (
+            <><strong>Maintenance owner still needed.</strong> Confirm who will maintain the tool during project review. Finishing Discovery keeps this question open.</>
+          )}
         </p>
         <p data-testid="scope-lovable-explained">
           Lovable is an online tool. Your team makes routine changes by typing requests in a chat.

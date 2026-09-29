@@ -19,7 +19,16 @@ export type DiscoveryUsage = {
 
 export type DiscoveryDataTypes = {
   /** A question the AI asks next, with its reason and suggested answers. One part per question. */
-  question: { id: string; text: string; reason: string; suggestions: SuggestedAnswer[] };
+  question: {
+    id: string;
+    text: string;
+    reason: string;
+    suggestions: SuggestedAnswer[];
+    /** The approach the AI suggests, with its reason. The NGO still makes the decision. */
+    recommendation: string;
+    /** How the NGO can find the missing fact when the answer is "not sure". */
+    uncertaintyHelp: string;
+  };
   /** The brief topics this reply saved from the NGO's answers. */
   filed: { topics: { id: string; title: string }[] };
   /** What this reply cost. */

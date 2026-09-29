@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useChat } from "@ai-sdk/react";
 import Markdown from "react-markdown";
-import { Check, CircleHelp, FileText, MessageCircle, Pencil, Send, Sparkles, Square } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, FileText, Maximize2, MessageCircle, Minimize2, Pencil, Send, Sparkles, Square } from "lucide-react";
 import type {
   DiscoveryAnswer,
   DiscoveryRequestBody,
@@ -13,6 +13,7 @@ import { briefReady, currentQuestions, questions, type Question } from "./questi
 import { FixtureChatTransport, messagesFromState, questionPart } from "./fixture-transport";
 import { DiscoveryReferences } from "./DiscoveryReferences";
 import { DiscoveryProgress } from "./DiscoveryProgress";
+import { discoveryExample, discoveryExamples } from "./discovery-examples";
 import "./discovery-chat.css";
 
 function refusalReason(error: Error): string {
@@ -97,6 +98,7 @@ function QuestionCard({
         </p>
       )}
       <p className="question-reason">{question.reason}</p>
+      <p className="question-guidance"><strong>Suggested approach.</strong> {question.recommendation}</p>
       <div className="answer-options">
         {question.options.map((option) => (
           <button
@@ -160,7 +162,7 @@ function QuestionCard({
   );
 }
 
-export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "navigate">) {
+export function FundingPanel({ state, navigate, highlight }: Pick<ScreenProps, "state" | "navigate"> & { highlight?: ReactNode }) {
   const mode = funding(state);
   const questionsComplete = briefReady(state.answers);
   const noAllocation = !mode.free && state.usage.allocation === 0;
@@ -168,7 +170,8 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
   reset.setUTCHours(24, 0, 0, 0);
   const resetTime = reset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return (
-    <section className="panel funding-panel" aria-labelledby="fuel-title">
+    <section className="panel funding-panel" aria-labelledby="fuel-title" data-scenario-highlight={highlight ? true : undefined}>
+      {highlight}
       <div className="section-heading">
         <h2 id="fuel-title">Discovery usage</h2>
         <Badge tone={mode.free ? "green" : "neutral"}>
@@ -216,7 +219,9 @@ export function FundingPanel({ state, navigate }: Pick<ScreenProps, "state" | "n
           <div className="gauge-caption">
             <span>
               {Number(mode.percent.toFixed(2))}% used ·{" "}
-              {mode.percent >= 100
+              {!mode.canSend && !questionsComplete
+                ? "More fuel needed to reply"
+                : mode.percent >= 100
                 ? "Fully used"
                 : mode.band === "green"
                   ? "Within allowance"
@@ -294,8 +299,12 @@ export function Discovery(props: ScreenProps) {
   const [editing, setEditing] = useState<QuestionId | null>(null);
   const [editAnswer, setEditAnswer] = useState<Answer>();
   const [error, setError] = useState("");
-  const [batch, setBatch] = useState(false);
+  const [batch, setBatch] = useState(true);
+  const [example, setExample] = useState("");
   const [asking, setAsking] = useState(false);
+  const [briefExpanded, setBriefExpanded] = useState(false);
+  const [openSections, setOpenSections] = useState<QuestionId[]>([]);
+  const selectedExample = discoveryExamples.find((item) => item.id === example);
   const composer = useRef<HTMLTextAreaElement>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -341,6 +350,37 @@ export function Discovery(props: ScreenProps) {
           ));
   const declined = state.condition === "declined";
   const questionCardShown = !declined && !((state.confirmation || ready) && !editing);
+
+  function showExample() {
+    setBriefExpanded(false);
+    requestAnimationFrame(() => {
+      document.querySelector('[data-scenario-highlight="true"]')
+        ?.scrollIntoView({ behavior: "instant", block: "start" });
+    });
+  }
+
+  useEffect(() => {
+    if (example) showExample();
+  }, [example]);
+
+  const exampleHighlight = selectedExample && (
+    <div className="scenario-highlight-note" data-testid="scenario-highlight-note" role="status">
+      <span className="scenario-highlight-label">Selected example</span>
+      <strong>{selectedExample.label}</strong>
+      <p>{selectedExample.note}</p>
+      <button
+        type="button"
+        className="text-button"
+        onClick={() => {
+          const picker = document.getElementById("discovery-example-picker");
+          picker?.scrollIntoView({ behavior: "instant", block: "start" });
+          picker?.focus({ preventScroll: true });
+        }}
+      >
+        ↑ Change scenario
+      </button>
+    </div>
+  );
 
   function draftAnswer(id: QuestionId, answer: Answer) {
     if (editing) setEditAnswer(answer);
@@ -396,38 +436,92 @@ export function Discovery(props: ScreenProps) {
   }
 
   function edit(id: QuestionId) {
+    setBriefExpanded(false);
     setAsking(false);
     setEditing(id);
     setEditAnswer(state.answers[id]);
-    document.getElementById("conversation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(() => {
+      document.getElementById("conversation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function toggleBrief() {
+    setBriefExpanded(!briefExpanded);
+    requestAnimationFrame(() => {
+      document.getElementById(briefExpanded ? "conversation" : "discovery-brief")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function reviewBrief() {
+    if (editing || busy) {
+      setBriefExpanded(false);
+      notify(editing
+        ? "Save or cancel your answer change, then review the brief."
+        : "Stop the current AI reply or wait for it to finish, then review the brief.");
+      requestAnimationFrame(() => {
+        document.getElementById("conversation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+    navigate("scope");
   }
 
   return (
     <>
+      <section className="discovery-examples" aria-label="Discovery scenario preview">
+        <label className="field">
+          Explore scenarios · scripted sample
+          <select
+            id="discovery-example-picker"
+            data-testid="discovery-example"
+            value={example}
+            disabled={busy}
+            onChange={(event) => {
+              const id = event.target.value;
+              setExample(id);
+              setState(discoveryExample(id));
+              setEditing(null);
+              setEditAnswer(undefined);
+              setError("");
+              setAsking(false);
+              setBatch(true);
+              setBriefExpanded(false);
+              setOpenSections([]);
+            }}
+          >
+            <option value="" disabled>Current sample · choose another scenario</option>
+            {discoveryExamples.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <div className="scenario-selection" aria-live="polite">
+          {selectedExample ? (
+            <>
+              <strong>{selectedExample.label}</strong>
+              <p className="small muted">The example is highlighted in the workspace below.</p>
+              <button className="text-button" type="button" onClick={showExample}>Show highlight ↓</button>
+            </>
+          ) : (
+            <p className="small muted">Choose a scenario to highlight its example in the workspace. Sample data only.</p>
+          )}
+        </div>
+      </section>
       <PageTitle
         eyebrow="Your project / Discovery"
         title={state.intake.title || "Your new project"}
-        action={
-          <Button
-            testId="open-mobile-brief"
-            className="brief-mobile-link"
-            onClick={() => {
-              const brief = document.getElementById("discovery-brief");
-              brief?.focus({ preventScroll: true });
-              brief?.scrollIntoView({ block: "start", behavior: "auto" });
-            }}
-          >
-            <FileText size={16} />
-            View brief
-          </Button>
-        }
       >
         Let's turn your need into a clear first version.{" "}
         <span className="discovery-save-state">Draft saved in this browser.</span>
       </PageTitle>
       <Stages current={state.confirmation ? 2 : 1} />
-      <DiscoveryProgress state={state} navigate={navigate} editing={editing !== null} busy={busy} />
-      <div className="discovery-grid">
+      <DiscoveryProgress
+        state={state}
+        onReview={reviewBrief}
+        editing={editing !== null}
+        busy={busy}
+        highlight={selectedExample?.target === "progress" ? exampleHighlight : undefined}
+      />
+      <div className={`discovery-grid${briefExpanded ? " brief-expanded" : ""}`}>
         <section
           className="conversation discovery-chat"
           id="conversation"
@@ -560,7 +654,9 @@ export function Discovery(props: ScreenProps) {
             <section
               className="chat-current"
               aria-label={editing ? "Revise your answer" : "Current questions"}
+              data-scenario-highlight={selectedExample?.target === "interview" ? true : undefined}
             >
+              {selectedExample?.target === "interview" && exampleHighlight}
               <div className="ai-message chat-question">
                 <div className="ai-avatar">
                   <Sparkles size={17} />
@@ -569,6 +665,12 @@ export function Discovery(props: ScreenProps) {
                   <p className="message-author">
                     {editing ? "Revise your answer · No turn used" : "ai4good AI"}
                   </p>
+                  {!editing && batch && active.length > 1 && (
+                    <p className="interview-round" data-testid="interview-round">
+                      <strong>This round · {active.length} independent decisions</strong>
+                      <span>You can answer these together in one turn. I will ask dependent follow-up questions after your answers.</span>
+                    </p>
+                  )}
                   {batch && !editing
                     ? active.map((q) => (
                         <QuestionCard
@@ -584,6 +686,7 @@ export function Discovery(props: ScreenProps) {
                         <div data-testid="discovery-question" data-testkey={currentQuestion.id}>
                           <h3>{currentQuestion.text}</h3>
                           <p className="question-reason">{currentQuestion.reason}</p>
+                          <p className="question-guidance"><strong>Suggested approach.</strong> {currentQuestion.recommendation}</p>
                           {state.answers[currentQuestion.id]?.certain === false && (
                             <p className="callout" data-testid="discovery-open-decision">
                               This topic is still open. Give an answer when you know, ask AI for
@@ -770,7 +873,9 @@ export function Discovery(props: ScreenProps) {
                           ? "Save change"
                           : error
                             ? "Retry reply"
-                            : "Send message"}
+                            : mode.free || !mode.canSend
+                              ? "Send message"
+                              : "Send paid reply"}
                       <Send size={15} />
                     </Button>
                   </div>
@@ -787,51 +892,93 @@ export function Discovery(props: ScreenProps) {
             aria-labelledby="discovery-brief-title"
           >
             <div className="section-heading">
-              <h2 id="discovery-brief-title">Your live brief</h2>
-              <Badge>{state.confirmation ? "Confirmed" : `Revision ${state.revision}`}</Badge>
+              <div className="brief-heading-title">
+                <h2 id="discovery-brief-title">Your live brief</h2>
+                <Badge>{state.confirmation ? "Confirmed" : `Revision ${state.revision}`}</Badge>
+              </div>
+              <button
+                className="brief-expand"
+                type="button"
+                data-testid="expand-whole-brief"
+                aria-label={briefExpanded ? "Collapse whole brief" : "Expand whole brief"}
+                aria-expanded={briefExpanded}
+                aria-controls="discovery-brief-content"
+                onClick={toggleBrief}
+              >
+                {briefExpanded ? <Minimize2 size={16} aria-hidden="true" /> : <Maximize2 size={16} aria-hidden="true" />}
+                {briefExpanded && <span>Back to chat</span>}
+              </button>
             </div>
             <p className="small muted">
-              Each answer you give appears here. Use Edit to change one at any time, at no cost.
+              {briefExpanded
+                ? "Read your whole brief here. Use Edit to change an answer for free."
+                : "Open a section to read more. Use Edit to change an answer for free."}
             </p>
-            <div className="brief-fact">
-              <span>THE NEED</span>
-              <p>{state.intake.need}</p>
+            <div id="discovery-brief-content">
+              <div className="brief-fact">
+                <span>THE NEED</span>
+                <p>{state.intake.need}</p>
+              </div>
+              <dl className="brief-decisions" data-testid="discovery-brief-decisions">
+                {all.map((q) => {
+                  const expanded = briefExpanded || openSections.includes(q.id);
+                  const answer = state.answers[q.id];
+                  return (
+                    <div key={q.id} data-testid="brief-decision" data-testkey={q.id} data-expanded={expanded}>
+                      <dt>
+                        {briefExpanded ? q.title : (
+                          <button
+                            className="brief-section-toggle"
+                            type="button"
+                            aria-label={`${expanded ? "Collapse" : "View"} ${q.title.toLowerCase()}`}
+                            aria-expanded={expanded}
+                            aria-controls={`brief-detail-${q.id}`}
+                            onClick={() => setOpenSections((current) =>
+                              current.includes(q.id) ? current.filter((id) => id !== q.id) : [...current, q.id],
+                            )}
+                          >
+                            <ChevronDown size={14} aria-hidden="true" />
+                            {q.title}
+                          </button>
+                        )}
+                        {answer && !busy && !declined && (
+                          <button
+                            className="brief-edit"
+                            type="button"
+                            data-testid="edit-brief-answer"
+                            data-testkey={q.id}
+                            aria-label={`Edit ${q.title.toLowerCase()}`}
+                            onClick={() => edit(q.id)}
+                          >
+                            <Pencil size={12} />
+                            Edit
+                          </button>
+                        )}
+                      </dt>
+                      <dd>
+                        <p className={`brief-answer${!answer?.certain ? " unresolved" : ""}`}>
+                          {answer?.certain
+                            ? answer.text
+                            : answer
+                              ? "Open question · not sure yet"
+                              : state.needsReview.includes(q.id)
+                                ? "Needs review · earlier answer changed"
+                                : "To be discussed"}
+                        </p>
+                        <div id={`brief-detail-${q.id}`} className="brief-detail" hidden={!expanded}>
+                          <p><strong>Question</strong> {q.text}</p>
+                          <p>{answer?.certain === false ? q.uncertaintyHelp : q.reason}</p>
+                        </div>
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
             </div>
-            <dl className="brief-decisions" data-testid="discovery-brief-decisions">
-              {all.map((q) => (
-                <div key={q.id} data-testid="brief-decision" data-testkey={q.id}>
-                  <dt>
-                    {q.title}
-                    {state.answers[q.id] && !busy && !declined && (
-                      <button
-                        className="brief-edit"
-                        type="button"
-                        data-testid="edit-brief-answer"
-                        data-testkey={q.id}
-                        aria-label={`Edit ${q.title.toLowerCase()}`}
-                        onClick={() => edit(q.id)}
-                      >
-                        <Pencil size={12} />
-                        Edit
-                      </button>
-                    )}
-                  </dt>
-                  <dd className={!state.answers[q.id]?.certain ? "unresolved" : ""}>
-                    {state.answers[q.id]?.certain
-                      ? state.answers[q.id]?.text
-                      : state.answers[q.id]
-                        ? "Open question · not sure yet"
-                        : state.needsReview.includes(q.id)
-                          ? "Needs review · earlier answer changed"
-                          : "To be discussed"}
-                  </dd>
-                </div>
-              ))}
-            </dl>
             <Button
               testId="review-draft-brief"
               className="full-width"
-              onClick={() => navigate("scope")}
+              onClick={reviewBrief}
             >
               <FileText size={15} />
               Review draft brief
@@ -841,7 +988,13 @@ export function Discovery(props: ScreenProps) {
               confirmed
             </p>
           </section>
-          {!state.confirmation && !declined && <FundingPanel state={state} navigate={navigate} />}
+          {!state.confirmation && !declined && (
+            <FundingPanel
+              state={state}
+              navigate={navigate}
+              highlight={selectedExample?.target === "usage" ? exampleHighlight : undefined}
+            />
+          )}
           <DiscoveryReferences state={state} setState={setState} notify={notify} />
         </aside>
       </div>

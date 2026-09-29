@@ -2,6 +2,7 @@
 
 Source: requirements/req-036.md and design/prd-ui-contract.md.
 Amendment d93 records the accepted conversation and topic-navigation behavior on 2026-09-21.
+Amendment d94 records on 2026-09-29 that the technical scope moves from Discovery to the PRD step (cases 11 and 12).
 The ten existing acceptance identifiers remain stable. Their scenarios cover the revised PRD workflow.
 The automatic score-to-board behavior and blanket NGO mutation denial are superseded.
 The separate Design extension retains its own implementation work and outstanding acceptance registration.
@@ -23,6 +24,9 @@ No scenario below has passed merely because this document exists.
 - **AT-036.06 (P0)** Given a current passing completion recommendation, when active Dev selects inline Close PRD, the platform freezes that revision and enters PRD materialize. No score event alone creates the development plan. When Dev starts materialization, the package includes the PRD, isolated requirements, acceptance identifiers, coverage, dependency-ordered decomposition, PM updates, development plan, Design inventory, and build instructions. Trace distinct PRD-only story and criterion wording into the correct requirement and work items. Reuse seeded PM items and preserve tree separation. Acceptance execution reads Not run. Test partial repository and Linear failures, repeat clicks, resume after reload, and changed source revisions. Resume updates the same outputs without rebilling completed generations. Design opens only after the required package completes. Bootstrap evidence includes score, developer close, and completed package; other PM requirements remain uncompleted. Later UI sign-off reuses any planned screen item.
 - **AT-036.07 (P0)** Given repeated funded authoring and scoring attempts, when the user continues below the threshold, no turn count or attempt count blocks progress. Check available USD after pending reservations and enforce applicable funding and access rules. No free Discovery counter funds PRD. Top-up does not clear revocation or other ranked stops. Verify USD labels and gauge colors at 79.999%, 80%, 95%, and 95.001% consumed, before display rounding. Red alone permits a funded call. Typing, selecting effort, reading, topic navigation, source links, bookmarks, and handoff acceptance create no model cost.
 
+- **AT-036.11 (P0)** Given a confirmed Discovery document, when the PRD step produces the technical scope, it contains ALL of: user stories with nested acceptance criteria, a suggested stack, a complexity tier (small, medium, or large), risk flags, a Lovable recommendation with rationale, and the Lovable-vs-Claude-Code build split with both parts present. Each story traces to an agreed answer or kept open question in the Discovery document. [d94: moved from the Discovery scope output, formerly AT-004.20 and AT-004.22]
+- **AT-036.12 (P0)** Given technical scopes for Tier 0, Tier 1, and Tier 2 fixtures, when the NGO reads the PRD, each shows the complexity tier with rationale and start-small advice, never as money; explains maintenance plainly (the NGO evolves by chat for about $25 a month paid directly to Lovable, and owns the code); and links Lovable's public pricing where Lovable is recommended. No project or build cost estimate appears. [d94: moved from AT-004.21 and AT-004.25]
+
 ## Topics, actors, and interface
 
 - **AT-036.08 (P0)** Given Open, Draft, Confirmed, and Needs review topics, when the overview renders, it shows required-topic counts, blockers, answer owners, draft text, and source links. Selecting a topic focuses related turns and questions in the same conversation. Messages retain shared identity; linked prerequisites and All conversation remain reachable. Focus preserves the human, drafts, effort, and budget. Confirmed requires current recorded evidence. Changed answers invalidate affected dependents, lower progress where needed, and invalidate stale recommendations. Preserve unaffected confirmations. Each score remains a separate revision-linked event. Topic confirmation cannot close the PRD, change PM build status, or silently change the required-topic denominator.
@@ -43,6 +47,10 @@ No scenario below has passed merely because this document exists.
 | Topic overview, focus, and revised answers | 08 |
 | One active human and backend authority | 09 |
 | Interface, history, bookmarks, and events | 10 |
+| Technical scope from the Discovery document [d94] | 11 |
+| Money-free complexity, maintenance, and pricing guidance [d94] | 12 |
 
-Run the ten cases at integration tier. Re-run interface cases through the wired UI.
+Amendment d94 (2026-09-29) adds cases 11 and 12: the technical scope moves from Discovery to the PRD step.
+
+Run the twelve cases at integration tier. Re-run interface cases through the wired UI.
 Requirement completion still requires the normal merge evidence and founder attestation.

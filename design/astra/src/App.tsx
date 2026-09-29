@@ -313,6 +313,11 @@ export default function App() {
     } else location.hash = next;
   }
   const props = { state, setState, navigate, notify: setNotice };
+  useEffect(() => {
+    const restorePreview = () => setState(readState().state);
+    window.addEventListener("ai4good:preview-restored", restorePreview);
+    return () => window.removeEventListener("ai4good:preview-restored", restorePreview);
+  }, []);
   const nav = [
     { route: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { route: "projects", label: "My projects", icon: FolderOpen },

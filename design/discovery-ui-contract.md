@@ -49,7 +49,7 @@ The completed Discovery chat stays complete while matching proceeds.
 - A side panel shows the live Discovery brief, confirmed facts, open questions, and review action.
   The Discovery usage card follows the brief, in the side panel and on narrow screens.
 - The current gate has one usage gauge. Other gates have no gauges in this workspace.
-- On narrow screens, the brief opens in a labeled panel without losing the current answer.
+- On desktop, the brief is a card that opens a side panel beside the chat. On narrow screens, the brief opens in a labeled full-screen panel with Back to chat, without losing the current answer (revision 12).
 
 The shared process bar does not introduce new values into the existing project lifecycle table.
 Its labels do not imply that later platform stages are implemented.
@@ -87,12 +87,21 @@ Optional detail must not delay completion. Unknown facts stay visible; the agent
 
 When required topics are agreed, the AI states that Discovery is ready for review and stops asking questions.
 The interface replaces the composer with a finish invitation. Completion must stop further automatic model calls and charges.
-The **Finish Discovery** action remains visible throughout. Disable it while required answers, draft validity, or a review hold prevent finishing.
-Explain the remaining work beside it. Usage limits do not block review or finishing.
+The **Finish Discovery** action remains enabled and primary throughout, including at zero topic coverage or with no fuel.
+Clicking it opens one review page (revision 12). The open questions come first, each with its importance (Needed before build, A suggestion exists, or Can wait), why it matters, and any suggested answer. The NGO can use the suggestion, answer in the chat, or keep the question open.
+The NGO can return to the conversation or acknowledge the gaps and finish anyway.
+Unanswered topics, uncertainty, dependent questions, and an empty summary do not block acknowledged completion.
+Existing human review holds and data responsibilities remain separate. A missing answer is not a review hold.
+If a manual edit or AI reply is in progress, the active button explains how to save, cancel, or stop before review.
 
-**Finish Discovery** opens the current brief. The NGO reviews it, supplies the existing acknowledgments, and selects **Confirm and finish Discovery**.
-That action records the revision, actor, and time. It carries available paid funds once under the existing funding rules.
+The review page then shows the current brief as it stands, each section with its source and an Edit. Saving an edit is free, creates a new revision, and clears the review acknowledgment. There is no AI rewrite, and opening the review makes no model call.
+The NGO supplies the existing acknowledgments and selects **Finish Discovery**, which stays unavailable while an edit is open.
+If gaps remain, require an explicit acknowledgment that the NGO chooses to finish with those gaps open. That checkbox appears only while questions remain open.
+That action records the revision, actor, time, and accepted gaps with their reasons. Confirmation survives reload.
+It carries available paid funds once under the existing funding rules.
 The interface then says **Discovery finished**. AI readiness and 100% topic coverage do not constitute NGO approval.
+If the NGO finishes early, show **Finished with open questions** and preserve actual coverage. Stop further AI questions and charges.
+The confirmed brief carries the accepted gaps into project review and volunteer matching.
 If the NGO changes an answer, reopen affected topics, lower progress where needed, and invalidate the previous approval.
 
 Required checks include incomplete, uncertain, conditional follow-up, ready, confirmed, and edited-after-confirmation states.
@@ -100,7 +109,7 @@ Verify that the last answer stops questioning, finishing is free, and repeated c
 
 ## Funding panel
 
-Keep these values visible together in the Discovery panel:
+Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily, beta, and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. On a phone, the bar sits directly above the message box.
 
 | Value | Example | Rule |
 | --- | --- | --- |
@@ -162,8 +171,7 @@ Free turns never become dollars. The prototype's former per-gate free grants do 
 | Fit declined or reopened | Preserve the existing decline, oversight, and admin-overturn rules. |
 
 The AI cannot sign off for the NGO. The server checks role, project access, and brief revision.
-Reading, manual editing, review, confirmation, and file attachment cost no AI turn.
-Bounded scope regeneration retains the existing zero-credit exemption.
+Reading, manual editing, review, confirmation, file attachment, and the file read cost no AI turn. Each NGO answer in a file chat is one turn (revision 12).
 
 ## Usability rules from the NGO critique
 
@@ -176,10 +184,10 @@ The rules below stay inside the sections above. They say how the screen presents
 
 ### Progress and finishing
 
-- Before the first answer, the progress panel tells the NGO to start with the AI's first question.
-- While Finish Discovery is disabled, it is a secondary button. When finishing is possible, it is a primary button.
+- Before the first answer, the progress panel lists the open topics and offers review and completion with those topics open.
+- Finish Discovery is always an enabled primary button. Missing information appears in the review instead of disabling it.
 - After the progress panel scrolls out of view, a compact strip stays at the top of the page.
-  The strip shows the percentage, the agreed topic count, and Finish Discovery with the same enabled state.
+  The strip shows the percentage, the agreed topic count, and the same enabled Finish Discovery action.
 - When the questions are complete, the finish invitation points to Finish Discovery. It does not add a second finish button.
 
 ### Conversation and brief
@@ -193,7 +201,7 @@ The rules below stay inside the sections above. They say how the screen presents
 - The usage card starts with one plain sentence. The sentence says whether the next reply is free and how many free replies remain today.
   If a limit stops free replies, the sentence names the limit and says when free replies return, or that beta replies do not reset.
 - If no reply is possible, the next-reply value is "Not available now". The card and composer then omit the paid hold.
-- In paid mode, the line beside Send shows paid mode, the fuel left, a low-fuel warning at yellow and red, and the per-reply hold.
+- In paid mode, the usage card headline shows paid mode, the fuel left, a low-fuel warning at yellow and red, and the per-reply hold. No usage line sits beside Send (revision 12).
 - Buy fuel appears only when free replies are used up. It states the $50 minimum and that fuel does not add free replies.
 - The pending message says the shown fuel already excludes the hold, that only actual usage is charged, and that the hold is not an extra charge.
 - Yellow and red gauge captions say that replies still work.
@@ -205,9 +213,64 @@ The rules below stay inside the sections above. They say how the screen presents
 - On narrow screens, a fixed bar jumps to the confirmation card. On wide screens, the confirmation card stays in view while the NGO reads.
 - The confirmation card shows no success mark before confirmation.
 - A plain explanation follows the data-responsibility checkbox. The checkbox wording does not change.
-- The maintenance section explains Lovable in plain words. It shows the standard Lovable subscription of about $25 a month,
-  paid directly to Lovable and never from fuel, with a link to Lovable's public pricing.
-  It states that ai4good gives no ongoing support after handoff in this version, and that larger work is a new project.
+- The review page shows no stack, complexity tier, build split, cost, or maintenance plan (revision 12). The Lovable explanation, the $25 a month subscription, and the pricing link move to the PRD step.
+
+### Astra revisions 7 to 9, 2026-09-26
+
+Astra added these at the founder's request. The earlier critics did not review them. Founder approval is pending.
+
+Guided interview (revision 7):
+
+- Independent questions appear together by default. The NGO can switch to one question at a time.
+  The AI asks dependent follow-up questions only after the answers they depend on.
+- Each question shows a suggested approach and its reason. The NGO still makes the decision.
+- An uncertain answer gets guidance for finding the missing fact. It does not increase completion.
+- A dependent follow-up, such as training approval after trained roles, stays inside its topic. The checklist keeps six topics.
+
+Paid sending (revision 7):
+
+- In paid mode the send button says "Send paid reply". The amount and the temporary hold show in the usage card, not beside Send (revision 12).
+- If the fuel cannot cover the hold, the gauge caption says "More fuel needed to reply". It does not say that replies still work.
+  The rule "Yellow and red gauge captions say that replies still work" applies only when the fuel covers the hold.
+
+Reading the brief (revisions 8 and 9):
+
+- The opening "View brief" shortcut is removed. The live brief keeps a labeled Edit control on each answered section.
+- Each brief section has a viewing arrow. An open section shows the full answer and its question.
+  An unanswered section shows the question. An uncertain section also shows the guidance for the missing fact.
+- An arrow in the brief heading expands the whole brief across the workspace, with every section open.
+  "Back to chat" restores the conversation, the earlier section views, the selected answers, and the message draft.
+- Edit from the expanded brief returns to the conversation and uses no turn.
+- Reading and expanding stay available when free replies and fuel are both empty.
+- Expanding the brief does not confirm or finish Discovery. Finish Discovery still opens the final review.
+
+Resolved in revision 12: on a phone, the brief card opens a labeled full-screen panel with Back to chat.
+
+Prototype only: the scenario examples above the workspace load sample conversations and balances. They are review tools, not product.
+
+Stream format: each `data-question` part also carries `recommendation` and `uncertaintyHelp`, in `src/lib/discovery-stream.ts`.
+
+### Claude revision 12, 2026-09-29
+
+The founder approved revision 12 for desktop on 2026-09-29 and accepted these rule changes. The design is on the Claude Design canvas "Discovery brief side panel", boards Interview, Finish, and Phone. Change order 012 records each ruling. Phone versions of the file chat, the Questions card, and the review page are designed in phase 2 with the mock.
+
+Composer and questions:
+
+- The message box starts at one line and grows with the text, on desktop and phone.
+- A Questions card sits above the usage card. It lists every asked question as Answered, Not sure, Open, Ready to send, or Coming next.
+  Answer focuses that question in the chat. View on an answered question scrolls to and highlights its answer in the chat.
+- Every question offers its options with one marked Suggested, and Write my own for free text. Send works with at least one answer; unanswered questions carry over.
+
+Files:
+
+- The first AI reply asks for files while the project has fewer than three Discovery files, and points to Add a file.
+- Add a file opens a panel beside the main chat with a drop area and Choose a file, which opens the device's file picker. It lists the accepted types and says to use sample or redacted data that ai4good and the volunteer will see.
+- The chosen file's chat asks one question: what should we know about this file, with suggested answers and free text.
+  The answer starts the read. If the AI needs more to finish, the read pauses and it asks in the file chat until the read is complete.
+- Each NGO answer in the file chat is one reply. The read itself is free.
+- The NGO can close the file chat during the read. The file row shows Reading with progress, A question for you, then Ready with the number of facts. Selecting the file reopens its chat.
+- The next AI reply in the main chat says what the file showed and asks the NGO to confirm. A file fact enters the brief only after the NGO agrees.
+- There is no "AI can read" switch; every uploaded file is read. At most three Discovery files while the project is not funded; intake files do not count.
 
 ### Open minor findings
 

@@ -1400,8 +1400,7 @@ hr {
 .skip-link:focus {
   top: 9px;
 }
-.mobile-menu,
-.brief-mobile-link {
+.mobile-menu {
   display: none;
 }
 @media (min-width: 1600px) {
@@ -1465,9 +1464,6 @@ hr {
     grid-template-columns: 1fr 1fr;
     gap: 18px;
     align-items: start;
-  }
-  .brief-mobile-link {
-    display: inline-flex;
   }
   .next-steps {
     margin-top: 0;
@@ -1611,9 +1607,6 @@ hr {
   .toast {
     right: 16px;
     bottom: 16px;
-  }
-  .brief-mobile-link {
-    width: 100%;
   }
   .question-alternatives {
     gap: 15px;

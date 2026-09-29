@@ -240,8 +240,114 @@
 .brief-decisions .brief-edit:hover {
   background: var(--accent);
 }
+.brief-heading-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.brief-heading-title h2 {
+  margin: 0;
+}
+.brief-expand,
+.brief-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.brief-expand {
+  flex-shrink: 0;
+  padding: 7px;
+  font-size: 11px;
+}
+.brief-section-toggle {
+  min-width: 0;
+  padding: 6px 0;
+}
+.brief-section-toggle svg {
+  flex-shrink: 0;
+}
+.brief-section-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.brief-expand:hover,
+.brief-section-toggle:hover {
+  background: var(--accent);
+}
+.brief-decisions .brief-edit {
+  flex-shrink: 0;
+}
+.brief-answer {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.brief-decisions [data-expanded="false"] .brief-answer {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.brief-detail {
+  margin-top: 10px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+.brief-detail p {
+  margin: 6px 0;
+}
+.brief-detail strong {
+  display: block;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.brief-expanded > .discovery-chat,
+.brief-expanded > .discovery-aside > :not(.brief-panel) {
+  display: none;
+}
+.brief-expanded > .discovery-aside {
+  display: block;
+  grid-column: 1 / -1;
+}
+.brief-expanded #discovery-brief-content {
+  max-width: 70ch;
+  margin-inline: auto;
+}
+.brief-expanded .brief-decisions dt,
+.brief-expanded .brief-decisions dd,
+.brief-expanded .brief-decisions .unresolved {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.brief-expanded .brief-decisions > div {
+  padding-block: 18px;
+}
+@media (pointer: coarse) {
+  .brief-expand,
+  .brief-section-toggle,
+  .brief-decisions .brief-edit {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
 .checkbox-help {
   margin: -4px 0 14px 26px;
+}
+.discovery-gap-review {
+  margin-bottom: 24px;
+}
+.discovery-gap-review h2 {
+  font-size: 16px;
+}
+.discovery-gap-review li {
+  margin-block: 8px;
 }
 .scope-jump {
   display: none;
@@ -309,4 +415,76 @@
     padding: 6px 10px;
     font-size: 12px;
   }
+}
+.discovery-examples {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--muted);
+}
+.discovery-examples .field,
+.discovery-examples p {
+  margin: 0;
+}
+.discovery-examples select { width: 100%; min-width: 0; }
+.scenario-selection {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  font-size: 13px;
+}
+[data-scenario-highlight="true"] {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  scroll-margin-top: 150px;
+}
+.scenario-highlight-note {
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.scenario-highlight-note > strong {
+  display: block;
+  margin-top: 7px;
+}
+.scenario-highlight-label {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 11px;
+}
+.scenario-highlight-note p {
+  margin: 7px 0;
+}
+.scenario-highlight-note .text-button {
+  font-size: 12px;
+}
+.discovery-chat .chat-current > .scenario-highlight-note {
+  margin: 16px 20px 0;
+}
+#discovery-example-picker { scroll-margin-top: 100px; }
+.question-guidance {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 12px;
+}
+.interview-round { margin-bottom: 18px; }
+.interview-round strong,
+.interview-round span { display: block; }
+.interview-round span { font-size: 12px; color: var(--muted-foreground); }
+@media (max-width: 720px) {
+  .discovery-examples { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px; }
 }

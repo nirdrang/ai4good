@@ -32,6 +32,8 @@ export function questionPart(question: Question): Part {
       text: question.text,
       reason: question.reason,
       suggestions: question.options,
+      recommendation: question.recommendation,
+      uncertaintyHelp: question.uncertaintyHelp,
     },
   };
 }

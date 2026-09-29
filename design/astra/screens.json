@@ -34,8 +34,8 @@
       "title": "Discovery workspace",
       "source": "discovery-chat.html",
       "reference": "design/references/discovery-conversation.html",
-      "status": "ready-for-founder-review",
-      "reviewRevision": 6,
+      "status": "accepted-for-implementation",
+      "reviewRevision": 12,
       "revisionAuthor": "Claude",
       "reviewDocument": "design/astra/discovery-review.md"
     },

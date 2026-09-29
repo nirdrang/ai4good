@@ -21,7 +21,7 @@ import {
   phaseLabel,
   type ScreenProps,
 } from "./components";
-import { confirmBrief, funding, invalidateApproval, regenerateScope, usd } from "./model";
+import { confirmBrief, discoveryGaps, funding, invalidateApproval, regenerateScope, usd } from "./model";
 import { briefReady, questions, discoveryDataTier } from "./questions";
 import { DiscoveryScope } from "./DiscoveryScope";
 
@@ -393,14 +393,17 @@ export function Intake({ state, setState, navigate, notify }: ScreenProps) {
 export function Scope({ state, setState, navigate, notify }: ScreenProps) {
   const [agreed, setAgreed] = useState(false);
   const [dataAgreed, setDataAgreed] = useState(false);
+  const [gapsAgreed, setGapsAgreed] = useState(false);
   const [rewriteReason, setRewriteReason] = useState("");
   useEffect(() => {
     setAgreed(false);
     setDataAgreed(false);
+    setGapsAgreed(false);
   }, [state.revision]);
   const tier = discoveryDataTier(state.answers);
   const all = questions(state.answers);
   const ready = briefReady(state.answers);
+  const gaps = discoveryGaps(state);
   const isConfirmed = state.confirmation?.revision === state.revision;
   return (
     <>
@@ -416,6 +419,22 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
         Review the decisions, then confirm this version to finish Discovery. This uses no AI turns.
       </PageTitle>
       <Stages current={isConfirmed ? 2 : 1} />
+      {gaps.length > 0 && (
+        <section className="callout warning discovery-gap-review" aria-labelledby="discovery-gaps-title" data-testid="brief-open-questions">
+          <h2 id="discovery-gaps-title">
+            {isConfirmed ? "Finished with open questions" : "Important information is still missing"}
+          </h2>
+          <p>
+            {isConfirmed
+              ? "Your NGO chose to finish with these questions open. They remain in the brief for project review and volunteer matching."
+              : "You can still finish Discovery. Review what is missing and acknowledge it below, or return to the conversation."}
+          </p>
+          <ul>
+            {gaps.map((gap) => <li key={gap.id}><strong>{gap.title}.</strong> {gap.reason}</li>)}
+          </ul>
+          <p className="small">Finishing records your decision. It does not turn an unanswered question into an agreed answer.</p>
+        </section>
+      )}
       <div className="form-grid">
         <div className="panel scope-document" data-testid="scope-document">
           <p className="eyebrow">Harbor Community Kitchen</p>
@@ -587,9 +606,9 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
             ) : (
               <>
                 <p>You decide whether this is the right first version for your organisation.</p>
-                {!ready && (
-                  <p className="callout warning" data-testid="brief-open-questions">
-                    Answer the open Discovery questions before confirming.
+                {(state.condition === "declined" || state.regenerationReview) && (
+                  <p className="callout warning">
+                    A person must resolve the existing project hold before confirmation. Missing answers alone do not block finishing.
                   </p>
                 )}
                 <label className="checkbox-field">
@@ -597,7 +616,6 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
                     data-testid="brief-acknowledgment"
                     type="checkbox"
                     checked={agreed}
-                    disabled={!ready}
                     onChange={(e) => setAgreed(e.target.checked)}
                   />
                   <span>
@@ -605,12 +623,22 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
                     need.
                   </span>
                 </label>
+                {gaps.length > 0 && (
+                  <label className="checkbox-field">
+                    <input
+                      data-testid="open-questions-acknowledgment"
+                      type="checkbox"
+                      checked={gapsAgreed}
+                      onChange={(event) => setGapsAgreed(event.target.checked)}
+                    />
+                    <span>I understand that {gaps.length} {gaps.length === 1 ? "question remains" : "questions remain"} open. I choose to finish Discovery anyway and keep them in the brief.</span>
+                  </label>
+                )}
                 {tier > 0 && (
                   <label className="checkbox-field">
                     <input
                       type="checkbox"
                       data-testid="data-responsibility-acknowledgment"
-                      disabled={!ready}
                       checked={dataAgreed}
                       onChange={(event) => setDataAgreed(event.target.checked)}
                     />
@@ -633,17 +661,18 @@ export function Scope({ state, setState, navigate, notify }: ScreenProps) {
                   variant="primary"
                   className="full-width"
                   disabled={
-                    !ready ||
                     !agreed ||
+                    (gaps.length > 0 && !gapsAgreed) ||
                     Boolean(state.regenerationReview) ||
                     (tier > 0 && !dataAgreed) ||
-                    state.summary?.trim() === "" ||
                     state.condition === "declined"
                   }
                   onClick={() => {
-                    setState(confirmBrief);
+                    setState((current) => confirmBrief(current, { acceptOpenQuestions: gapsAgreed }));
                     notify(
-                      "Discovery finished. Your approved brief is saved. Next: submit your project for volunteer matching.",
+                      gaps.length
+                        ? "Discovery finished with open questions recorded. Next: submit your project for volunteer matching."
+                        : "Discovery finished. Your approved brief is saved. Next: submit your project for volunteer matching.",
                     );
                   }}
                 >
