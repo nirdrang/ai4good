@@ -15,7 +15,7 @@ export function fixturePort(scenario: ScreenScenario, pace: Pace = "test"): Disc
   const world = openFixtureWorld(scenario);
   return {
     load: () => world.load(),
-    chat: new FixtureChatTransport(world, pace),
+    chat: new FixtureChatTransport(world, pace, { organizationId: "fixture", projectId: "fixture" }),
     fileChat: (target) => new FixtureFileChatTransport(world, target),
     subscribe: (listener) => world.subscribe(listener),
     saveBriefEdit: (input) => world.saveBriefEdit(input),

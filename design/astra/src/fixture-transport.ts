@@ -17,9 +17,12 @@ function requestOf(body: unknown): DiscoveryRequestBody {
     throw refusalError("invalid-request", "The reply needs a project.");
   }
   const value = body as Partial<DiscoveryRequestBody>;
-  const organizationId =
-    typeof value.organizationId === "string" && value.organizationId.length > 0 ? value.organizationId : "fixture";
-  const projectId = typeof value.projectId === "string" && value.projectId.length > 0 ? value.projectId : "fixture";
+  if (typeof value.organizationId !== "string" || value.organizationId.length === 0) {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  if (typeof value.projectId !== "string" || value.projectId.length === 0) {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
   if (value.mode !== "answer" && value.mode !== "ask") {
     throw refusalError("invalid-request", "The reply needs a project.");
   }
@@ -39,8 +42,8 @@ function requestOf(body: unknown): DiscoveryRequestBody {
     }
   }
   return {
-    organizationId,
-    projectId,
+    organizationId: value.organizationId,
+    projectId: value.projectId,
     message: value.message,
     mode: value.mode,
     answers: value.answers,
@@ -110,16 +113,19 @@ function streamTurn(
   });
 }
 
+export type ProjectScope = Pick<DiscoveryRequestBody, "organizationId" | "projectId">;
+
 export class FixtureChatTransport implements ChatTransport<DiscoveryUIMessage> {
   constructor(
     private readonly world: FixtureWorld,
     private readonly pace: Pace,
+    private readonly scope: ProjectScope,
   ) {}
 
   async sendMessages(
     options: Parameters<ChatTransport<DiscoveryUIMessage>["sendMessages"]>[0],
   ): Promise<ReadableStream<UIMessageChunk>> {
-    const request = requestOf(options.body);
+    const request = requestOf({ ...(options.body as object | undefined), ...this.scope });
     const current = this.world.read();
     if (current.usage.nextReply === "unavailable") {
       throw refusalError(
