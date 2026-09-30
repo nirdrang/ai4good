@@ -535,17 +535,42 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     }
   }
 
+  /** The pause question has no answer yet. The resume line is stored with that answer. */
+  function questionStillOpen(fileId: string): boolean {
+    const file = discoveryFile(state, fileId);
+    if (!file || !scriptForName(file.name).pause) return false;
+    const chat = state.fileChats[fileId] ?? [];
+    return !chat.some((message) =>
+      message.parts.some((part) => part.type === "text" && part.text === TEXT.fileResumeReply),
+    );
+  }
+
   function scheduleRead(fileId: string, from: number) {
     clearTimers(fileId);
     const file = discoveryFile(state, fileId);
-    if (!file) return;
-    const script = scriptForName(file.name);
+    if (!file || file.status.kind !== "reading") return;
+    // A reload drops the timers and keeps the percent. The question still pauses when it has no answer.
     if (from < 35) {
       later(fileId, delay.to35, () => {
         if (!setReadingPercent(fileId, 35)) return;
-        if (script.pause) later(fileId, delay.pause, () => pauseRead(fileId));
-        else scheduleRead(fileId, 35);
+        if (!questionStillOpen(fileId)) {
+          scheduleRead(fileId, 35);
+          return;
+        }
+        if (state.confirmation) {
+          heldQuestions.add(fileId);
+          return;
+        }
+        later(fileId, delay.pause, () => pauseRead(fileId));
       });
+      return;
+    }
+    if (questionStillOpen(fileId)) {
+      if (state.confirmation) {
+        heldQuestions.add(fileId);
+        return;
+      }
+      later(fileId, delay.pause, () => pauseRead(fileId));
       return;
     }
     later(fileId, delay.to70, () => {

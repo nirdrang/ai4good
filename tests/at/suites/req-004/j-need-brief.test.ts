@@ -242,6 +242,11 @@ atTest(
       await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'narrow' }, async (screen) => {
         await expectFileControlsFit(screen);
       });
+      for (const pace of ['test', 'demo'] as const) {
+        await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop', pace }, async (screen) => {
+          await expectReloadKeepsFileQuestion(screen);
+        });
+      }
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -682,6 +687,49 @@ async function openRotaChat(screen: DiscoveryPage) {
     text.includes(TEXT.fileQuestion),
   );
   return chat;
+}
+
+async function reloadWhileReading(screen: DiscoveryPage, name: string): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < 8_000) {
+    const row = await screen.files.row(name);
+    if (row.includes('A question for you') || row.includes('Ready')) {
+      throw new Error(`the read left Reading… 35% before the reload: ${row}`);
+    }
+    if (/Reading… 35%/.test(row)) {
+      await screen.reload();
+      return;
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
+  }
+  throw new Error('the read did not show Reading… 35%');
+}
+
+async function expectReloadKeepsFileQuestion(screen: DiscoveryPage): Promise<void> {
+  const name = 'sunday-gaps.csv';
+  const question = 'Some rows have no kitchen name. Should I count them as the harbor kitchen?';
+  const chip = 'No, leave them out';
+  await screen.files.openAdd();
+  await screen.files.choose(sampleFile(name));
+  const chat = screen.fileChat(name);
+  await eventually('the file chat asks what we should know', () => chat.text(), (text) =>
+    text.includes(TEXT.fileQuestion),
+  );
+  await chat.pick('These are the shifts we could not fill');
+  await reloadWhileReading(screen, name);
+  await eventually(
+    'a reload during the read still reaches the pause question',
+    () => screen.files.row(name),
+    (text) => text.includes('A question for you'),
+    8_000,
+  );
+  await screen.files.reopen(name);
+  await eventually('the file chat reopens after the reload', () => chat.visible(), (open) => open);
+  const text = await chat.text();
+  expect(text, 'the pause question is asked after the reload').toContain(question);
+  expect(text, 'the reload does not skip to Ready').not.toContain('Ready · 3 facts');
+  expect(await chat.answerCount(), 'the answer box is present after the reload').toBe(1);
+  expect(await chat.chipCount(chip), 'the pause answer chip is present after the reload').toBe(1);
 }
 
 async function expectChooser(screen: DiscoveryPage, finePointer: boolean): Promise<void> {
