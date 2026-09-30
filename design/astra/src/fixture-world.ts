@@ -321,6 +321,8 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       }
       if (!changed) return { ok: true, value: structuredClone(state.brief) };
       next.brief.revision = revision;
+      // A real change drops the earlier approval. Opening Edit and going back does not.
+      next.confirmation = null;
       commit(next);
       return { ok: true, value: structuredClone(next.brief) };
     },

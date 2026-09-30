@@ -55,6 +55,7 @@ export type DiscoveryController = {
   paidSend: boolean;
   refusal: { kind: string; reason: string } | null;
   reopened: readonly string[];
+  pinned: readonly string[];
   panel: DiscoveryPanel | null;
   fileChat: FileChatView | null;
   fileNotice: string | null;
@@ -151,6 +152,7 @@ export function useDiscovery(
   const [composerText, setComposerText] = useState("");
   const [refusal, setRefusal] = useState<{ kind: string; reason: string } | null>(null);
   const [reopened, setReopened] = useState<string[]>([]);
+  const [pinned, setPinned] = useState<string[]>([]);
   const [panel, setPanel] = useState<DiscoveryPanel | null>(null);
   const [staged, setStaged] = useState<{ key: string; name: string; sizeBytes: number } | null>(null);
   const [fileDrafts, setFileDrafts] = useState<Record<string, string>>({});
@@ -171,6 +173,7 @@ export function useDiscovery(
   const savingChange = useRef(false);
   const fileSending = useRef(false);
   const confirmationRef = useRef(confirmation);
+  const shownGeneration = useRef(0);
   const held = useRef(new Map<string, HeldFileChat>());
   confirmationRef.current = confirmation;
   briefRef.current = brief;
@@ -221,9 +224,16 @@ export function useDiscovery(
   useEffect(() => {
     if (!active) return;
     let live = true;
+    const generationAtLoad = shownGeneration.current;
     port.load().then((result) => {
       if (!live || !result.ok) return;
-      setConfirmation(result.value.confirmation);
+      const incoming = result.value.confirmation;
+      // A click during this load keeps the question. An older Edit does not survive confirmation.
+      if (incoming && confirmationRef.current === null && shownGeneration.current === generationAtLoad) {
+        setReopened([]);
+        setPinned([]);
+      }
+      setConfirmation(incoming);
       setBrief((current) => newerBrief(current, result.value.brief));
       setUsage(result.value.usage);
       setFiles(result.value.files);
@@ -514,6 +524,7 @@ export function useDiscovery(
     paidSend: usage.nextReply === "paid",
     refusal,
     reopened,
+    pinned,
     panel,
     fileChat,
     fileNotice,
@@ -543,6 +554,7 @@ export function useDiscovery(
           setRefusal(result.refusal);
           return;
         }
+        const loaded = await port.load();
         setBrief((current) => newerBrief(current, result.value));
         setDrafts((current) => {
           const next = { ...current };
@@ -550,6 +562,8 @@ export function useDiscovery(
           return next;
         });
         setReopened((current) => current.filter((id) => id !== questionId));
+        setPinned((current) => current.filter((id) => id !== questionId));
+        if (loaded.ok) setConfirmation(loaded.value.confirmation);
         setRefusal(null);
       } finally {
         savingChange.current = false;
@@ -581,10 +595,15 @@ export function useDiscovery(
     setFileDraft,
     sendFileAnswer,
     reopen(questionId) {
+      shownGeneration.current += 1;
       setReopened((current) => (current.includes(questionId) ? current : [...current, questionId]));
       pointAt(questionId);
     },
-    focusQuestion: pointAt,
+    focusQuestion(questionId) {
+      shownGeneration.current += 1;
+      setPinned((current) => (current.includes(questionId) ? current : [...current, questionId]));
+      pointAt(questionId);
+    },
     viewAnswer(questionId) {
       const opener = panelRef.current ? openerRef.current : null;
       const target = answerTarget(brief, questionId);

@@ -97,6 +97,9 @@ atTest(
       await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'narrow' }, async (screen) => {
         await expectReviewFits(screen, given);
       });
+      await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'desktop' }, async (screen) => {
+        await expectChangeReopensDiscovery(screen, given);
+      });
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -908,6 +911,76 @@ async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIVEN)['fi
   await screen.review.back();
   expect(await screen.usage.text(), 'Finish consumes no turn or fuel').toBe(usageBefore);
   expect(await screen.modelCalls(), 'returning to the chat makes no model call').toEqual([]);
+}
+
+async function expectChangeReopensDiscovery(
+  screen: DiscoveryPage,
+  given: (typeof GIVEN)['finish-open'],
+): Promise<void> {
+  const priorityQuestion = 'What should improve first?';
+  const nextAnswer = 'Fewer unfilled shifts';
+  await screen.review.ready();
+  await screen.review.tick(TEXT.ack.reviewed(given.revision));
+  await screen.review.tick(TEXT.ack.gaps(given.open.length));
+  await screen.review.tick(TEXT.ack.data);
+  await screen.review.finish();
+  const calls = await screen.modelCalls();
+  await screen.review.back();
+  await eventually('confirmation replaces the composer', () => screen.composer.formCount(), (count) => count === 0);
+  const usage = await screen.usage.text();
+  expect(usage, 'Free today stays 3 of 10 before the edit').toContain('3 of 10');
+  expect(usage, 'Beta stays 18 of 50 before the edit').toContain('18 of 50');
+
+  const owner = given.open[0];
+  await screen.questions.answer(owner.question);
+  const ownerQuestion = screen.chat.question(owner.question);
+  await eventually('Answer shows the question after confirmation', () => ownerQuestion.isAsked(), (asked) => asked);
+  const ownerText = await ownerQuestion.text();
+  expect(ownerText, 'Answer shows an option').toContain(owner.suggested);
+  expect(ownerText, 'Answer shows Save change').toContain(TEXT.saveChange);
+  await screen.review.open();
+  expect(await screen.review.text(), 'Answer does not clear the confirmation').toContain('Discovery finished');
+
+  await screen.review.back();
+  await screen.brief.open();
+  await screen.brief.edit(given.agreed[0].title);
+  const priority = screen.chat.question(priorityQuestion);
+  await eventually('Edit shows the question after confirmation', () => priority.isAsked(), (asked) => asked);
+  const priorityText = await priority.text();
+  expect(priorityText, 'Edit shows the other option').toContain(nextAnswer);
+  expect(priorityText, 'Edit shows Save change').toContain(TEXT.saveChange);
+  await screen.brief.open();
+  await screen.brief.back();
+  await screen.review.open();
+  expect(await screen.review.text(), 'Back without Save change keeps the confirmation').toContain('Discovery finished');
+  expect(await screen.modelCalls(), 'Edit and Back make no model call').toEqual(calls);
+
+  await screen.review.back();
+  await priority.pick(nextAnswer);
+  await priority.saveChange();
+  await screen.brief.open();
+  const saved = await eventually(
+    'the brief shows the saved answer',
+    () => screen.brief.text(),
+    (text) => text.includes(nextAnswer) && text.includes(`Revision ${given.revision + 1}`),
+  );
+  expect(saved, 'the brief shows the new answer').toContain(nextAnswer);
+  expect(saved, 'the brief records your edit').toContain('Your edit');
+  expect(saved, 'the dependent topic needs review').toContain('Needs review');
+  const after = await screen.usage.text();
+  expect(after, 'Free today stays 3 of 10').toContain('3 of 10');
+  expect(after, 'Beta stays 18 of 50').toContain('18 of 50');
+  expect(after, 'Save change leaves the usage card unchanged').toBe(usage);
+  expect(await screen.modelCalls(), 'Save change makes no model call').toEqual(calls);
+  await eventually('the finished composer leaves', () => screen.composer.formCount(), (count) => count === 1);
+
+  await screen.review.open();
+  const review = await screen.review.text();
+  expect(review, 'the finished state is gone').not.toContain('Discovery finished');
+  expect(review, 'the review asks for the new revision').toContain(TEXT.ack.reviewed(given.revision + 1));
+  expect(await screen.review.ticked(TEXT.ack.reviewed(given.revision + 1)), 'the review tick is clear').toBe(false);
+  expect(await screen.review.ticked(TEXT.ack.data), 'the data acknowledgment is clear').toBe(false);
+  expect(await screen.review.finishDisabled(), 'Finish Discovery needs the acknowledgments again').toBe(true);
 }
 
 async function expectDocument(

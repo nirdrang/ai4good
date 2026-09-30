@@ -102,7 +102,13 @@ function Loaded({
     return () => window.clearTimeout(timer);
   }, [discovery.restore]);
   const confirmation = discovery.confirmation;
-  const questions = confirmation ? [] : currentQuestions(discovery.brief, discovery.reopened);
+  const asked = currentQuestions(discovery.brief, discovery.reopened);
+  const questions =
+    confirmation === null
+      ? asked
+      : asked.filter(
+          (question) => discovery.reopened.includes(question.id) || discovery.pinned.includes(question.id),
+        );
   const progress = progressOf(discovery.brief);
   const readyToFinish =
     confirmation === null && questions.length === 0 && progress.total > 0 && progress.agreed === progress.total;
@@ -147,7 +153,10 @@ function Loaded({
       canAdvance={discovery.oneAtATime && discovery.questionIndex < questions.length - 1}
       tail={phone ? files : null}
       onPick={discovery.pick}
-      offerSave={(questionId) => discovery.reopened.includes(questionId)}
+      offerSave={(questionId) =>
+        discovery.reopened.includes(questionId) ||
+        (confirmation !== null && discovery.pinned.includes(questionId))
+      }
       onSave={(questionId) => void discovery.saveChange(questionId)}
       canSave={(questionId) => {
         const question = visible.find((item) => item.id === questionId);
