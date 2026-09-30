@@ -448,7 +448,7 @@ export class DiscoveryPage {
     if (this.viewport === 'desktop') return landmark(SCREEN.questions.role, SCREEN.questions.name);
     const dialog = landmark(SCREEN.questionsFull.role, SCREEN.questionsFull.name);
     if (await this.page.visible([dialog])) return dialog;
-    await this.page.click([landmark('button', SCREEN.openQuestions.name)]);
+    await this.page.click([{ role: 'button', name: 'Questions', exact: false }]);
     await eventually('the questions dialog opens', () => this.page.visible([dialog]), (open) => open);
     return dialog;
   }

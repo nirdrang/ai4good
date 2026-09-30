@@ -7,16 +7,20 @@ import { progressOf } from "./model";
 export function ProgressStrip({
   brief,
   projectTitle,
+  phone = false,
   onOpenReview,
 }: {
   brief: BriefSnapshot;
   projectTitle: string;
+  phone?: boolean;
   onOpenReview(): void;
 }) {
   const sentinel = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
   const progress = progressOf(brief);
+  const summary = `${progress.percent}% · ${progress.agreed} of ${progress.total} topics agreed`;
   useEffect(() => {
+    if (phone) return;
     const node = sentinel.current;
     if (!node) return;
     const observer = new IntersectionObserver(([entry]) => {
@@ -24,7 +28,21 @@ export function ProgressStrip({
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [phone]);
+  if (phone) {
+    return (
+      <div
+        role={SCREEN.progress.role}
+        aria-label={SCREEN.progress.name}
+        className="flex shrink-0 items-center gap-2 bg-background py-1"
+      >
+        <p className="m-0 min-w-0 flex-1 text-sm font-semibold">{summary}</p>
+        <Button type="button" className="shrink-0 px-3" onClick={onOpenReview}>
+          {SCREEN.finish.name}
+        </Button>
+      </div>
+    );
+  }
   return (
     <>
       <div ref={sentinel} className="h-px shrink-0" aria-hidden="true" />

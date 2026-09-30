@@ -502,6 +502,8 @@ atTest(
               await eventually('Edit focuses that question', () => question.hasFocus(), (focused) => focused);
               expect(await question.tag(), 'Edit says you are changing your earlier answer').toBe(TEXT.changing);
             } else {
+              const log = await screen.conversationBox();
+              expect(log.height, 'the chat log is at least 450 px at 390 by 844').toBeGreaterThanOrEqual(450);
               const draft = 'Keep this note';
               await screen.composer.fill(draft);
               await screen.brief.open();
@@ -518,6 +520,10 @@ atTest(
           });
         }
       }
+      await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'short' }, async (screen) => {
+        const log = await screen.conversationBox();
+        expect(log.height, 'the chat log is at least 250 px at 320 by 700').toBeGreaterThanOrEqual(250);
+      });
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);

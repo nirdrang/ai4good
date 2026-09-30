@@ -10,11 +10,12 @@ import { afterAll, beforeAll } from 'vitest';
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const HOST = fileURLToPath(new URL('./screen-host.mjs', import.meta.url));
 
-export type Viewport = 'desktop' | 'phone' | 'narrow';
+export type Viewport = 'desktop' | 'phone' | 'narrow' | 'short';
 export const VIEWPORT_SIZE: Record<Viewport, { width: number; height: number }> = {
   desktop: { width: 1280, height: 800 },
   phone: { width: 390, height: 844 },
   narrow: { width: 320, height: 800 },
+  short: { width: 320, height: 700 },
 };
 
 export type StaticShell = { readonly baseUrl: string; close(): Promise<void> };

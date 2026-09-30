@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { BriefQuestion, DiscoveryState } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { SCREEN, TEXT } from "./a11y";
-import { BriefCard, BriefDialog, BriefSide, briefHeading } from "./BriefPanel";
+import { BriefCard, BriefDialog, BriefSide } from "./BriefPanel";
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
 import { FileOverlay } from "./FilePanel";
@@ -137,12 +137,16 @@ function Loaded({
     />
   );
   return (
-    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3 overflow-hidden">
+    <div className={`flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden ${phone ? "gap-2" : "gap-3"}`}>
       {discovery.refusal ? <p role="alert" className="m-0 shrink-0">{discovery.refusal.reason}</p> : null}
-      <ProgressStrip brief={discovery.brief} projectTitle={discovery.project.title} onOpenReview={onOpenReview} />
+      <ProgressStrip
+        brief={discovery.brief}
+        projectTitle={discovery.project.title}
+        phone={phone}
+        onOpenReview={onOpenReview}
+      />
       {phone ? (
         <PhoneColumn
-          heading={briefHeading(discovery.brief)}
           counts={questionCountLine(rows)}
           onOpenBrief={() => discovery.openPanel("brief")}
           onOpenQuestions={() => discovery.openPanel("questions")}
@@ -199,7 +203,6 @@ function Loaded({
 }
 
 function PhoneColumn({
-  heading,
   counts,
   onOpenBrief,
   onOpenQuestions,
@@ -207,7 +210,6 @@ function PhoneColumn({
   usage,
   composer,
 }: {
-  heading: string;
   counts: string;
   onOpenBrief(): void;
   onOpenQuestions(): void;
@@ -216,18 +218,14 @@ function PhoneColumn({
   composer: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3">
-      <div className="flex shrink-0 flex-col gap-2">
-        <p className="m-0 text-sm font-semibold">{heading}</p>
-        <p className="m-0 text-sm text-muted-foreground">{counts}</p>
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2" onClick={onOpenBrief}>
-            {SCREEN.openBrief.name}
-          </Button>
-          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2" onClick={onOpenQuestions}>
-            {SCREEN.openQuestions.name}
-          </Button>
-        </div>
+    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-2">
+      <div className="grid shrink-0 grid-cols-2 gap-2">
+        <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2 text-sm leading-snug" onClick={onOpenBrief}>
+          {SCREEN.openBrief.name}
+        </Button>
+        <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2 text-sm leading-snug" onClick={onOpenQuestions}>
+          {`Questions · ${counts}`}
+        </Button>
       </div>
       {conversation}
       <div className="flex w-full min-w-0 shrink-0 flex-col gap-2">
