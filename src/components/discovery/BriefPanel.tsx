@@ -16,6 +16,7 @@ export function briefHeading(brief: BriefSnapshot): string {
 function Sections({ brief, onEdit }: { brief: BriefSnapshot; onEdit(questionId: string): void }) {
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-sm">{TEXT.revision(brief.revision)}</p>
       <p className="text-sm text-muted-foreground">{TEXT.editsFree}</p>
       {briefSections(brief).map((section) => {
         const questionId = section.questionId;

@@ -583,6 +583,27 @@ atTest(
               const question = screen.chat.question(given.agreed[0].question);
               await eventually('Edit focuses that question', () => question.hasFocus(), (focused) => focused);
               expect(await question.tag(), 'Edit says you are changing your earlier answer').toBe(TEXT.changing);
+              expect(await question.text(), 'Save change sits with the question').toContain(TEXT.saveChange);
+              const calls = await screen.modelCalls();
+              const usage = await screen.usage.text();
+              expect(usage, 'Free today starts at 3 of 10').toContain('3 of 10');
+              expect(usage, 'Beta starts at 18 of 50').toContain('18 of 50');
+              await question.pick('Fewer unfilled shifts');
+              await question.saveChange();
+              await screen.brief.open();
+              const saved = await eventually(
+                'the brief shows the saved answer',
+                () => screen.brief.text(),
+                (text) => text.includes('Fewer unfilled shifts') && text.includes('Revision 5'),
+              );
+              expect(saved, 'the brief shows the new answer').toContain('Fewer unfilled shifts');
+              expect(saved, 'the brief records your edit').toContain('Your edit');
+              expect(saved, 'the dependent topic needs review').toContain('Needs review');
+              expect(await screen.modelCalls(), 'Save change makes no model call').toEqual(calls);
+              const after = await screen.usage.text();
+              expect(after, 'Free today stays 3 of 10').toContain('3 of 10');
+              expect(after, 'Beta stays 18 of 50').toContain('18 of 50');
+              expect(after, 'the edit leaves the usage card unchanged').toBe(usage);
             } else {
               const log = await screen.conversationBox();
               expect(log.height, 'the chat log is at least 450 px at 390 by 844').toBeGreaterThanOrEqual(450);

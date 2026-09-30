@@ -2,6 +2,7 @@ import type {
   BriefQuestion,
   BriefSnapshot,
   BriefSource,
+  BriefTopic,
   DiscoveryFile,
   DiscoveryUIMessage,
   DiscoveryUsage,
@@ -21,7 +22,25 @@ export function newerBrief(current: BriefSnapshot, incoming: BriefSnapshot): Bri
   return incoming.revision > current.revision ? incoming : current;
 }
 
-/** Asked questions whose topic is not agreed, plus any question Edit reopened. */
+/** Agreed, and not waiting on a changed answer it depends on. */
+export function topicSettled(topic: BriefTopic): boolean {
+  return topic.state.kind === "agreed" && topic.needsReview !== true;
+}
+
+/** The words Save change stores. Null until the draft is an answer. */
+export function answerText(question: BriefQuestion, draft: Draft | undefined): string | null {
+  if (!draft) return null;
+  if (draft.kind === "option") {
+    return question.options.find((item) => item.id === draft.optionId)?.label ?? null;
+  }
+  if (draft.kind === "own") {
+    const text = draft.text.trim();
+    return text.length > 0 ? text : null;
+  }
+  return NAME.notSure;
+}
+
+/** Asked questions whose topic is not settled, plus any question Edit reopened. */
 export function currentQuestions(
   brief: BriefSnapshot,
   reopened: readonly string[] = [],
@@ -30,7 +49,7 @@ export function currentQuestions(
   return brief.questions.filter((question) => {
     if (again.has(question.id)) return true;
     const topic = brief.topics.find((item) => item.id === question.topicId);
-    return topic !== undefined && topic.state.kind !== "agreed";
+    return topic !== undefined && !topicSettled(topic);
   });
 }
 
@@ -303,7 +322,7 @@ export function sourceText(source: BriefSource): string {
 /** Required topics only. The percent rounds down. */
 export function progressOf(brief: BriefSnapshot): { agreed: number; total: number; percent: number } {
   const required = brief.topics.filter((topic) => topic.required);
-  const agreed = required.filter((topic) => topic.state.kind === "agreed").length;
+  const agreed = required.filter((topic) => topicSettled(topic)).length;
   const total = required.length;
   return { agreed, total, percent: total === 0 ? 0 : Math.floor((agreed / total) * 100) };
 }
@@ -339,6 +358,17 @@ export function questionRows(
 ): QuestionRow[] {
   return brief.topics.map((topic) => {
     const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
+    if (topic.needsReview === true && topic.state.kind === "agreed") {
+      return {
+        topicId: topic.id,
+        questionId: question?.id ?? null,
+        text: question?.text ?? topic.plannedQuestion,
+        status: "open",
+        note: BRIEF_STATUS.needsReview,
+        canAnswer: question !== null,
+        canView: false,
+      };
+    }
     if (topic.state.kind === "agreed") {
       return {
         topicId: topic.id,
@@ -356,7 +386,7 @@ export function questionRows(
         questionId: topic.state.questionId,
         text: question?.text ?? topic.plannedQuestion,
         status: "notSure",
-        note: "Stays open in your brief",
+        note: topic.needsReview === true ? BRIEF_STATUS.needsReview : "Stays open in your brief",
         canAnswer: false,
         canView: true,
       };
@@ -434,6 +464,25 @@ export function briefSections(brief: BriefSnapshot): BriefSectionView[] {
   for (const topic of brief.topics) {
     const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
     const importance = IMPORTANCE[topic.importance];
+    const questionLine = `Question: ${question?.text ?? topic.plannedQuestion}`;
+    if (topic.needsReview === true) {
+      const text =
+        topic.state.kind === "agreed"
+          ? topic.state.answer
+          : topic.state.kind === "not-sure"
+            ? topic.state.help
+            : (question?.text ?? topic.plannedQuestion);
+      const source = topic.state.kind === "agreed" ? `${sourceText(topic.state.source)}. ` : "";
+      sections.push({
+        id: topic.id,
+        title: topic.title,
+        status: BRIEF_STATUS.needsReview,
+        text,
+        detail: `${source}${importance}. ${questionLine}`,
+        questionId: question?.id ?? (topic.state.kind === "not-sure" ? topic.state.questionId : null),
+      });
+      continue;
+    }
     if (topic.state.kind === "agreed") {
       sections.push({
         id: topic.id,
@@ -581,7 +630,7 @@ export type OpenReviewItem = {
 /** Topics that are not agreed, in importance order. An unasked topic still appears. */
 export function openForReview(brief: BriefSnapshot): OpenReviewItem[] {
   const items = brief.topics.flatMap((topic): OpenReviewItem[] => {
-    if (topic.state.kind === "agreed") return [];
+    if (topicSettled(topic)) return [];
     const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
     const questionId =
       question?.id ?? (topic.state.kind === "not-sure" ? topic.state.questionId : null);
@@ -628,7 +677,7 @@ export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
     });
   }
   for (const topic of brief.topics) {
-    if (topic.state.kind !== "agreed") continue;
+    if (topic.state.kind !== "agreed" || topic.needsReview === true) continue;
     sections.push({
       id: topic.id,
       title: topic.title,

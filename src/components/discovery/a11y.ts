@@ -86,6 +86,7 @@ export const BRIEF_STATUS = {
   notSure: "Not sure yet",
   open: "To be discussed",
   suggestion: "Suggestion · waiting for you",
+  needsReview: "Needs review",
 } as const;
 
 export const TEXT = {
@@ -137,6 +138,7 @@ export const TEXT = {
   buyFuelNote: "The minimum is $50. Fuel does not add free replies.",
   send: "Send",
   sendPaid: "Send paid reply",
+  saveChange: "Save change",
   readyReply: "Discovery is ready for review. I have stopped asking questions.",
   readyInvite:
     "Discovery is ready for review. The AI has stopped asking questions. Select Finish Discovery.",

@@ -28,6 +28,9 @@ export function Conversation({
   canAdvance,
   tail,
   onPick,
+  offerSave,
+  onSave,
+  canSave,
   onShowOne,
   onShowTogether,
   onNext,
@@ -38,12 +41,15 @@ export function Conversation({
   highlight: { messageId: string; text: string } | null;
   focusId: string | null;
   focusNonce: number;
-  tags: Readonly<Record<string, "carried" | "changing" | null>>;
+  tags: Readonly<Record<string, "carried" | "changing" | "review" | null>>;
   oneAtATime: boolean;
   canToggle: boolean;
   canAdvance: boolean;
   tail?: ReactNode;
   onPick(questionId: string, draft: Draft | null): void;
+  offerSave?(questionId: string): boolean;
+  onSave?(questionId: string): void;
+  canSave?(questionId: string): boolean;
   onShowOne(): void;
   onShowTogether(): void;
   onNext(): void;
@@ -151,6 +157,8 @@ export function Conversation({
           focused={focusId === question.id}
           focusNonce={focusNonce}
           onPick={onPick}
+          onSave={onSave && offerSave?.(question.id) ? () => onSave(question.id) : undefined}
+          canSave={canSave?.(question.id) ?? false}
         />
       ))}
       {oneAtATime && canAdvance ? (

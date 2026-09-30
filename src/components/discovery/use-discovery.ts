@@ -12,6 +12,7 @@ import type {
 } from "@/lib/discovery-stream";
 import { NAME, TEXT } from "./a11y";
 import {
+  answerText,
   currentQuestions,
   fileChatView,
   fileRows,
@@ -65,6 +66,7 @@ export type DiscoveryController = {
   pick(questionId: string, draft: Draft | null): void;
   setComposerText(text: string): void;
   send(): Promise<void>;
+  saveChange(questionId: string): Promise<void>;
   openPanel(panel: "brief" | "questions"): void;
   closePanel(): void;
   openChooser(): void;
@@ -166,6 +168,7 @@ export function useDiscovery(
   const filesRef = useRef(files);
   const panelRef = useRef(panel);
   const sending = useRef(false);
+  const savingChange = useRef(false);
   const fileSending = useRef(false);
   const confirmationRef = useRef(confirmation);
   const held = useRef(new Map<string, HeldFileChat>());
@@ -273,6 +276,7 @@ export function useDiscovery(
   }, [highlight]);
 
   const questions = currentQuestions(brief, reopened);
+  const sendable = questions.filter((question) => !reopened.includes(question.id));
   const questionKey = questions.map((question) => question.id).join("\n");
   const questionKeyRef = useRef(questionKey);
   useLayoutEffect(() => {
@@ -284,7 +288,7 @@ export function useDiscovery(
   const busy = status === "submitted" || status === "streaming";
   const progress = progressOf(brief);
   const requiredDone = progress.total > 0 && progress.agreed === progress.total;
-  const hasDraft = questions.some((question) => draftReady(question.id, question.options, drafts[question.id]));
+  const hasDraft = sendable.some((question) => draftReady(question.id, question.options, drafts[question.id]));
   const hasNote = composerText.trim().length > 0;
   const canSend = !busy && usage.nextReply !== "unavailable" && (requiredDone ? hasDraft : hasDraft || hasNote);
   const index = Math.min(questionIndex, Math.max(questions.length - 1, 0));
@@ -440,7 +444,9 @@ export function useDiscovery(
     if (confirmationRef.current) return;
     if (sending.current) return;
     if (chat.status === "submitted" || chat.status === "streaming") return;
-    const open = currentQuestions(briefRef.current, reopenedRef.current);
+    const open = currentQuestions(briefRef.current, reopenedRef.current).filter(
+      (question) => !reopenedRef.current.includes(question.id),
+    );
     const answers = answersFromDrafts(draftsRef.current, open);
     const note = composerRef.current.trim();
     const progressNow = progressOf(briefRef.current);
@@ -519,6 +525,36 @@ export function useDiscovery(
     pick,
     setComposerText,
     send,
+    async saveChange(questionId) {
+      if (savingChange.current || sending.current) return;
+      const briefNow = briefRef.current;
+      const question = briefNow.questions.find((item) => item.id === questionId);
+      if (!question) return;
+      const text = answerText(question, draftsRef.current[questionId]);
+      if (!text) return;
+      savingChange.current = true;
+      try {
+        const result = await port.saveBriefEdit({
+          sectionId: question.topicId,
+          text,
+          baseRevision: briefNow.revision,
+        });
+        if (!result.ok) {
+          setRefusal(result.refusal);
+          return;
+        }
+        setBrief((current) => newerBrief(current, result.value));
+        setDrafts((current) => {
+          const next = { ...current };
+          delete next[questionId];
+          return next;
+        });
+        setReopened((current) => current.filter((id) => id !== questionId));
+        setRefusal(null);
+      } finally {
+        savingChange.current = false;
+      }
+    },
     openPanel(next) {
       releaseUncommitted(panelRef.current);
       remember(next);

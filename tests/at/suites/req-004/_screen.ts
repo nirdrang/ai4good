@@ -30,6 +30,7 @@ type QuestionGroupObject = {
   text(): Promise<string>;
   tag(): Promise<string | null>;
   hasFocus(): Promise<boolean>;
+  saveChange(): Promise<void>;
   writeOwn(): Promise<void>;
   ownVisible(): Promise<boolean>;
 };
@@ -81,6 +82,7 @@ function questionGroup(page: ScreenPage, text: string): QuestionGroupObject {
       return null;
     },
     hasFocus: () => page.focused([...root, { role: 'button', position: 0 }]),
+    saveChange: () => page.click([...root, landmark('button', TEXT.saveChange)]),
     async writeOwn() {
       await page.click([...root, landmark('button', NAME.writeOwn)]);
     },

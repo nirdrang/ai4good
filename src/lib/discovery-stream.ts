@@ -61,6 +61,8 @@ export type BriefTopic = {
     | { kind: "open" }
     | { kind: "not-sure"; questionId: string; help: string }
     | { kind: "agreed"; answer: string; source: BriefSource; answerMessageId: string | null };
+  /** An earlier answer this topic depends on changed. The old answer stays visible. */
+  needsReview?: boolean;
 };
 
 export type FileSuggestion = {

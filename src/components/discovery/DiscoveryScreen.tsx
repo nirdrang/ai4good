@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import type { BriefQuestion, DiscoveryState } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
-import { SCREEN, TEXT } from "./a11y";
+import { NAME, SCREEN, TEXT } from "./a11y";
 import { BriefCard, BriefDialog, BriefSide } from "./BriefPanel";
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
 import { FileOverlay } from "./FilePanel";
 import { FilesCard } from "./FilesCard";
-import { currentQuestions, progressOf, questionRows } from "./model";
+import { answerText, currentQuestions, progressOf, questionRows } from "./model";
 import type { DiscoveryPort } from "./port";
 import { ProgressStrip } from "./ProgressStrip";
 import { questionCountLine, QuestionsCard, QuestionsDialog } from "./QuestionsCard";
@@ -53,11 +53,22 @@ export function DiscoveryScreen({
 function tagFor(
   question: BriefQuestion,
   discovery: ReturnType<typeof useDiscovery>,
-): "carried" | "changing" | null {
+): "carried" | "changing" | "review" | null {
   if (discovery.reopened.includes(question.id)) return "changing";
   const topic = discovery.brief.topics.find((item) => item.id === question.topicId);
+  if (topic?.needsReview === true) return "review";
   if (topic?.state.kind === "open" && question.askedInRound < discovery.assistantCount) return "carried";
   return null;
+}
+
+function canSaveQuestion(question: BriefQuestion, discovery: ReturnType<typeof useDiscovery>): boolean {
+  const text = answerText(question, discovery.drafts[question.id]);
+  if (!text) return false;
+  const topic = discovery.brief.topics.find((item) => item.id === question.topicId);
+  if (!topic || topic.needsReview === true) return true;
+  if (topic.state.kind === "agreed") return topic.state.answer !== text;
+  if (topic.state.kind === "not-sure") return text !== NAME.notSure;
+  return true;
 }
 
 function Loaded({
@@ -136,6 +147,12 @@ function Loaded({
       canAdvance={discovery.oneAtATime && discovery.questionIndex < questions.length - 1}
       tail={phone ? files : null}
       onPick={discovery.pick}
+      offerSave={(questionId) => discovery.reopened.includes(questionId)}
+      onSave={(questionId) => void discovery.saveChange(questionId)}
+      canSave={(questionId) => {
+        const question = visible.find((item) => item.id === questionId);
+        return question !== undefined && canSaveQuestion(question, discovery);
+      }}
       onShowOne={discovery.showOne}
       onShowTogether={discovery.showTogether}
       onNext={discovery.nextQuestion}

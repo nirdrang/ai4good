@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from "react";
 import type { BriefQuestion } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { IMPORTANCE, NAME, TEXT } from "./a11y";
+import { BRIEF_STATUS, IMPORTANCE, NAME, TEXT } from "./a11y";
 import type { Draft } from "./model";
 
 export function QuestionGroup({
@@ -12,13 +12,17 @@ export function QuestionGroup({
   focused,
   focusNonce,
   onPick,
+  onSave,
+  canSave,
 }: {
   question: BriefQuestion;
   draft: Draft | undefined;
-  tag: "carried" | "changing" | null;
+  tag: "carried" | "changing" | "review" | null;
   focused: boolean;
   focusNonce: number;
   onPick(questionId: string, draft: Draft | null): void;
+  onSave?(): void;
+  canSave?: boolean;
 }) {
   const headingId = useId();
   const firstOption = useRef<HTMLButtonElement>(null);
@@ -42,6 +46,7 @@ export function QuestionGroup({
       </h3>
       {tag === "changing" ? <p className="text-sm">{TEXT.changing}</p> : null}
       {tag === "carried" ? <p className="text-sm">{TEXT.carried}</p> : null}
+      {tag === "review" ? <p className="text-sm">{BRIEF_STATUS.needsReview}</p> : null}
       <p className="text-sm">{IMPORTANCE[question.importance]}</p>
       <p className="text-sm text-muted-foreground">{question.reason}</p>
       <p className="text-sm text-muted-foreground">{question.recommendation}</p>
@@ -93,6 +98,11 @@ export function QuestionGroup({
         </Button>
         {uncertain ? <p className="text-sm text-muted-foreground">{question.uncertaintyHelp}</p> : null}
       </div>
+      {onSave ? (
+        <Button type="button" className="h-auto min-h-11 self-start whitespace-normal" disabled={!canSave} onClick={onSave}>
+          {TEXT.saveChange}
+        </Button>
+      ) : null}
     </div>
   );
 }

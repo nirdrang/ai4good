@@ -1,6 +1,8 @@
-import { TEXT } from "../../../src/components/discovery/a11y";
+import { NAME, TEXT } from "../../../src/components/discovery/a11y";
+import { topicSettled } from "../../../src/components/discovery/model";
 import type {
   BriefSnapshot,
+  BriefTopic,
   Confirmation,
   DiscoveryRequestBody,
   DiscoveryState,
@@ -87,7 +89,26 @@ function refusal(kind: string, reason: string): Result<never> {
 
 export function allRequiredAgreed(brief: BriefSnapshot): boolean {
   const required = brief.topics.filter((topic) => topic.required);
-  return required.length > 0 && required.every((topic) => topic.state.kind === "agreed");
+  return required.length > 0 && required.every((topic) => topicSettled(topic));
+}
+
+/** A changed answer reopens these topics when they already have an answer. */
+const DEPENDENTS: Record<string, readonly string[]> = {
+  priority: ["measure"],
+  booking: ["rules"],
+  owner: ["info"],
+};
+
+function hasAnswer(topic: BriefTopic): boolean {
+  return topic.state.kind === "agreed" || topic.state.kind === "not-sure";
+}
+
+function markDependents(brief: BriefSnapshot, topicId: string) {
+  for (const id of DEPENDENTS[topicId] ?? []) {
+    const topic = brief.topics.find((item) => item.id === id);
+    if (!topic || !hasAnswer(topic)) continue;
+    topic.needsReview = true;
+  }
 }
 
 function replyText(request: DiscoveryRequestBody, certain: string[], uncertain: boolean): string {
@@ -190,6 +211,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
             certain.push({ id: topic.id, title: topic.title, text: answer.text });
             return {
               ...topic,
+              needsReview: false,
               state: {
                 kind: "agreed" as const,
                 answer: answer.text,
@@ -201,6 +223,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
           uncertain = true;
           return {
             ...topic,
+            needsReview: false,
             state: { kind: "not-sure" as const, questionId: question.id, help: question.uncertaintyHelp },
           };
         });
@@ -214,7 +237,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
           revision: changed ? brief.revision : brief.revision + 1,
         };
       }
-      const stillOpen = brief.topics.some((topic) => topic.state.kind === "open");
+      const stillOpen = brief.topics.some((topic) => topic.state.kind === "open" || topic.needsReview === true);
       let replyBody = replyText(
         request,
         certain.map((item) => item.text),
@@ -268,14 +291,35 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       const next = structuredClone(state);
       const revision = next.brief.revision + 1;
       const source = { kind: "edit" as const, revision };
-      if (input.sectionId === "need") next.brief.need = { text: input.text, source };
-      else if (input.sectionId === "usersToday") next.brief.usersToday = { text: input.text, source };
-      else if (input.sectionId === "successMeasure") next.brief.successMeasure = { text: input.text, source };
-      else {
+      let changed = false;
+      if (input.sectionId === "need") {
+        changed = next.brief.need.text !== input.text;
+        next.brief.need = { text: input.text, source };
+      } else if (input.sectionId === "usersToday") {
+        changed = next.brief.usersToday?.text !== input.text;
+        next.brief.usersToday = { text: input.text, source };
+      } else if (input.sectionId === "successMeasure") {
+        changed = next.brief.successMeasure?.text !== input.text;
+        next.brief.successMeasure = { text: input.text, source };
+      } else {
         const topic = next.brief.topics.find((item) => item.id === input.sectionId);
         if (!topic) return refusal("unknown-section", "That part of the brief cannot be edited.");
-        topic.state = { kind: "agreed", answer: input.text, source, answerMessageId: null };
+        const previous = topic.state.kind === "agreed" ? topic.state.answer : null;
+        changed = previous !== input.text || topic.needsReview === true || topic.state.kind !== "agreed";
+        topic.needsReview = false;
+        if (input.text === NAME.notSure) {
+          const question = next.brief.questions.find((item) => item.topicId === topic.id);
+          topic.state = {
+            kind: "not-sure",
+            questionId: question?.id ?? topic.id,
+            help: question?.uncertaintyHelp ?? "",
+          };
+        } else {
+          topic.state = { kind: "agreed", answer: input.text, source, answerMessageId: null };
+        }
+        if (changed) markDependents(next.brief, topic.id);
       }
+      if (!changed) return { ok: true, value: structuredClone(state.brief) };
       next.brief.revision = revision;
       commit(next);
       return { ok: true, value: structuredClone(next.brief) };
@@ -301,6 +345,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       if (!topic || topic.suggestion === null) {
         return refusal("no-suggestion", "This topic has no suggestion to accept.");
       }
+      topic.needsReview = false;
       topic.state = {
         kind: "agreed",
         answer: topic.suggestion,
@@ -327,7 +372,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         return { ok: true, value: structuredClone(state.confirmation) };
       }
       if (input.revision !== state.brief.revision) return stale();
-      const open = state.brief.topics.filter((topic) => topic.state.kind !== "agreed");
+      const open = state.brief.topics.filter((topic) => !topicSettled(topic));
       if (open.length > 0 && !input.acks.openGaps) {
         return refusal("open-gaps", "Open questions stay in the brief unless you accept them.");
       }
