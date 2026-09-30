@@ -116,6 +116,10 @@ export const TEXT = {
     waiting: "A question for you",
     ready: (facts: number) => `Ready · ${facts} facts`,
   },
+  fileChatStatus: {
+    reading: (percent: number) => `Reading… ${percent}% · you can close this`,
+    waiting: (percent: number) => `Reading paused at ${percent}% · a question for you · each answer uses one reply`,
+  },
   source: {
     intake: "From your intake",
     chat: (round: number) => `From the chat, round ${round}`,

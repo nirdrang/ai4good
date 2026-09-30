@@ -197,9 +197,9 @@ atTest(
           const chat = await openRotaChat(screen);
           await chat.pick('It shows where Sundays stay empty');
           await eventually(
-            'the read pauses with A question for you',
+            'the read pauses with a question for you',
             () => chat.text(),
-            (text) => text.includes('A question for you'),
+            (text) => text.includes('Reading paused at') && text.includes('a question for you'),
             8_000,
           );
           if (viewport !== 'desktop') await chat.close();

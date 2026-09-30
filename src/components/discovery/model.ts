@@ -207,12 +207,12 @@ export function fileChatView(input: {
   let closeLabel: string = SCREEN.cancelAdding.name;
   let closeHint: string | null = null;
   if (file?.status.kind === "reading") {
-    statusText = TEXT.fileStatus.reading(file.status.percent);
+    statusText = TEXT.fileChatStatus.reading(file.status.percent);
     percent = file.status.percent;
     closeLabel = TEXT.closeAndKeep;
     closeHint = TEXT.closeReadingHint;
   } else if (file?.status.kind === "waiting") {
-    statusText = `${TEXT.fileStatus.reading(file.status.percent)} ${TEXT.fileStatus.waiting}`;
+    statusText = TEXT.fileChatStatus.waiting(file.status.percent);
     percent = file.status.percent;
     closeLabel = TEXT.closeAndKeep;
     closeHint = TEXT.closeReadingHint;
