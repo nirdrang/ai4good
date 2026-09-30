@@ -70,12 +70,22 @@ export function presentMessages(messages: readonly DiscoveryUIMessage[]): Presen
   });
 }
 
+export type FileBarTone = "reading" | "waiting" | "ready";
+
+/** The file bar colour. Reading stays one working colour. A question warns. Ready is ok. */
+export function fileBarClass(tone: FileBarTone): string {
+  if (tone === "waiting") return "bg-usage-warn";
+  if (tone === "ready") return "bg-usage-ok";
+  return "bg-progress-reading";
+}
+
 export type FileRowView = {
   id: string;
   name: string;
   sizeText: string;
   statusText: string;
   percent: number | null;
+  tone: FileBarTone | null;
   canOpen: boolean;
 };
 
@@ -129,6 +139,13 @@ function percentOf(file: DiscoveryFile): number | null {
   return null;
 }
 
+function rowTone(file: DiscoveryFile): FileBarTone | null {
+  if (file.origin !== "discovery") return null;
+  if (file.status.kind === "reading") return "reading";
+  if (file.status.kind === "waiting") return "waiting";
+  return null;
+}
+
 /** Intake files are listed and never counted. The limit of three applies only while the project is not funded. */
 export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
   rows: FileRowView[];
@@ -144,6 +161,7 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
       sizeText: formatFileSize(file.sizeBytes),
       statusText: statusText(file),
       percent: percentOf(file),
+      tone: rowTone(file),
       canOpen: file.origin === "discovery",
     })),
     discoveryCount,
@@ -165,6 +183,7 @@ export type FileChatView = {
   paid: boolean;
   statusText: string;
   percent: number | null;
+  tone: FileBarTone | null;
   closeLabel: string;
   closeHint: string | null;
 };
@@ -205,21 +224,25 @@ export function fileChatView(input: {
   }
   let statusText: string = TEXT.fileStatus.asking;
   let percent: number | null = null;
+  let tone: FileBarTone | null = null;
   let closeLabel: string = SCREEN.cancelAdding.name;
   let closeHint: string | null = null;
   if (file?.status.kind === "reading") {
     statusText = TEXT.fileChatStatus.reading(file.status.percent);
     percent = file.status.percent;
+    tone = "reading";
     closeLabel = TEXT.closeAndKeep;
     closeHint = TEXT.closeReadingHint;
   } else if (file?.status.kind === "waiting") {
     statusText = TEXT.fileChatStatus.waiting(file.status.percent);
     percent = file.status.percent;
+    tone = "waiting";
     closeLabel = TEXT.closeAndKeep;
     closeHint = TEXT.closeReadingHint;
   } else if (file?.status.kind === "ready") {
     statusText = TEXT.fileStatus.ready(file.status.facts);
     percent = 100;
+    tone = "ready";
     closeLabel = TEXT.closeFile;
     closeHint = TEXT.closeReadyHint;
   } else if (file?.status.kind === "failed") {
@@ -237,6 +260,7 @@ export function fileChatView(input: {
     paid: input.paid,
     statusText,
     percent,
+    tone,
     closeLabel,
     closeHint,
   };

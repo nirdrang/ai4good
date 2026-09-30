@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { NAME, SCREEN, TEXT } from "./a11y";
-import type { FileChatView } from "./model";
+import { fileBarClass, type FileChatView } from "./model";
 import { UsageCard } from "./UsageCard";
 
 const FULL_SCREEN =
@@ -174,8 +174,13 @@ function PanelBody({
           <p aria-live="polite" className="m-0 text-sm">
             {view.statusText}
           </p>
-          {view.percent !== null ? (
-            <Progress className="mt-2 h-1" value={view.percent} aria-label={NAME.reading(view.name)} />
+          {view.percent !== null && view.tone ? (
+            <Progress
+              className="mt-2 h-1"
+              indicatorClassName={fileBarClass(view.tone)}
+              value={view.percent}
+              aria-label={NAME.reading(view.name)}
+            />
           ) : null}
           {notice ? <p className="m-0 mt-2 text-sm text-destructive">{notice}</p> : null}
         </div>
