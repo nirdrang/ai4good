@@ -976,6 +976,8 @@ async function expectChangeReopensDiscovery(
   const usage = await screen.usage.text();
   expect(usage, 'Free today stays 3 of 10 before the edit').toContain('3 of 10');
   expect(usage, 'Beta stays 18 of 50 before the edit').toContain('18 of 50');
+  expect(await screen.files.addDisabled(), 'a confirmed Discovery disables Add a file').toBe('true');
+  expect(await screen.files.text(), 'the files card says why').toContain(TEXT.filesFinished);
 
   const owner = given.open[0];
   await screen.questions.answer(owner.question);
@@ -1019,6 +1021,7 @@ async function expectChangeReopensDiscovery(
   expect(after, 'Save change leaves the usage card unchanged').toBe(usage);
   expect(await screen.modelCalls(), 'Save change makes no model call').toEqual(calls);
   await eventually('the finished composer leaves', () => screen.composer.formCount(), (count) => count === 1);
+  expect(await screen.files.addDisabled(), 'a reopened Discovery enables Add a file again').toBeNull();
 
   await screen.review.open();
   const review = await screen.review.text();

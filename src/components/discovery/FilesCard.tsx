@@ -3,7 +3,7 @@ import type { DiscoveryFile } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { NAME, SCREEN } from "./a11y";
+import { NAME, SCREEN, TEXT } from "./a11y";
 import { fileBarClass, fileRows, type FileRowView } from "./model";
 
 function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): void }) {
@@ -45,6 +45,7 @@ function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): vo
 export function FilesCard({
   files,
   funded,
+  finished = false,
   dense = false,
   addRef,
   onAdd,
@@ -52,6 +53,7 @@ export function FilesCard({
 }: {
   files: readonly DiscoveryFile[];
   funded: boolean;
+  finished?: boolean;
   dense?: boolean;
   addRef?: Ref<HTMLButtonElement>;
   onAdd(): void;
@@ -59,6 +61,8 @@ export function FilesCard({
 }) {
   const view = fileRows(files, funded);
   const countText = view.limitText !== null ? `${view.discoveryCount} of 3 added` : `${view.discoveryCount} added`;
+  // A file chat is an AI reply, and a confirmed Discovery takes no more AI replies (contract line 103).
+  const canAdd = view.canAdd && !finished;
   return (
     <section
       role={SCREEN.files.role}
@@ -76,16 +80,20 @@ export function FilesCard({
               ref={addRef}
               type="button"
               variant="outline"
-              className={`h-auto min-h-11 max-w-full whitespace-normal ${view.canAdd ? "" : "opacity-50"}`}
-              aria-disabled={view.canAdd ? undefined : true}
+              className={`h-auto min-h-11 max-w-full whitespace-normal ${canAdd ? "" : "opacity-50"}`}
+              aria-disabled={canAdd ? undefined : true}
               onClick={() => {
-                if (view.canAdd) onAdd();
+                if (canAdd) onAdd();
               }}
             >
               {SCREEN.addFile.name}
             </Button>
           </div>
-          {view.limitText && !dense ? <p className="text-sm text-muted-foreground">{view.limitText}</p> : null}
+          {finished ? (
+            <p className="text-sm text-muted-foreground">{TEXT.filesFinished}</p>
+          ) : view.limitText && !dense ? (
+            <p className="text-sm text-muted-foreground">{view.limitText}</p>
+          ) : null}
         </CardHeader>
         <CardContent className={dense ? "flex flex-col gap-1 p-2 pt-0" : "flex flex-col gap-2 p-3 pt-0"}>
           <ul className="flex flex-col gap-2">

@@ -120,6 +120,7 @@ function Loaded({
     <FilesCard
       files={discovery.files}
       funded={discovery.project.funded}
+      finished={confirmation !== null}
       dense={showFile && !phone}
       addRef={addOpenerRef}
       onAdd={discovery.openChooser}

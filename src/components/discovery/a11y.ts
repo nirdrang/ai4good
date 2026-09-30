@@ -157,6 +157,7 @@ export const TEXT = {
   finished: "Discovery finished",
   finishedOpen: "Discovery finished with open questions",
   finishedClosed: "Discovery is finished. No further reply is charged.",
+  filesFinished: "Discovery is finished, so files cannot be added. Change an answer to reopen it.",
   review: {
     crumb: "Your project / Discovery · review before you finish",
     title: (project: string) => `${project} · your Discovery document`,
