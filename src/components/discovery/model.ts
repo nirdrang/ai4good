@@ -215,6 +215,8 @@ export type FileChatView = {
   tone: FileBarTone | null;
   closeLabel: string;
   closeHint: string | null;
+  /** Shown in place of the answer controls after Discovery is confirmed. */
+  finishedNote: string | null;
 };
 
 function messageText(message: FileChatUIMessage): string {
@@ -233,6 +235,8 @@ export function fileChatView(input: {
   draft: string;
   busy: boolean;
   paid: boolean;
+  /** A confirmed Discovery takes no more file-chat answers (contract line 103). */
+  finished: boolean;
 }): FileChatView {
   const file = input.file;
   const waiting = file?.status.kind === "waiting" ? file.status : null;
@@ -278,13 +282,15 @@ export function fileChatView(input: {
     statusText = file.status.reason;
     closeLabel = TEXT.closeFile;
   }
+  // A staged file and a paused file both offer an answer. Confirmation removes that offer.
+  const answerable = !input.finished && (file === null || waiting !== null);
   return {
     name: input.name,
     sizeText: formatFileSize(input.sizeBytes),
     messages,
-    chips: waiting ? waiting.question.chips : file ? [] : openingChips(input.name),
+    chips: answerable ? (waiting ? waiting.question.chips : openingChips(input.name)) : [],
     draft: input.draft,
-    canAnswer: file === null || waiting !== null,
+    canAnswer: answerable,
     busy: input.busy,
     paid: input.paid,
     statusText,
@@ -292,6 +298,7 @@ export function fileChatView(input: {
     tone,
     closeLabel,
     closeHint,
+    finishedNote: input.finished ? TEXT.filesFinished : null,
   };
 }
 

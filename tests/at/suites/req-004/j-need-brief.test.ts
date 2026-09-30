@@ -100,6 +100,9 @@ atTest(
       await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'desktop' }, async (screen) => {
         await expectChangeReopensDiscovery(screen, given);
       });
+      await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'desktop' }, async (screen) => {
+        await expectPausedFileChatLocks(screen, given);
+      });
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -957,6 +960,93 @@ async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIVEN)['fi
   await screen.brief.open();
   expect(await screen.brief.hasEdit(rules.title), 'the accepted section has Edit after confirmation').toBe(true);
   await screen.brief.back();
+}
+
+async function expectPausedFileChatLocks(
+  screen: DiscoveryPage,
+  given: (typeof GIVEN)['finish-open'],
+): Promise<void> {
+  const pausedName = 'sunday-gaps.csv';
+  const pausedQuestion = 'Some rows have no kitchen name. Should I count them as the harbor kitchen?';
+  const pausedChip = 'No, leave them out';
+  const stagedName = 'shift-notes.txt';
+  await screen.review.back();
+  await screen.files.openAdd();
+  await screen.files.choose(sampleFile(pausedName));
+  const paused = screen.fileChat(pausedName);
+  await eventually('the file chat asks what we should know', () => paused.text(), (text) =>
+    text.includes(TEXT.fileQuestion),
+  );
+  await paused.pick('These are the shifts we could not fill');
+  await eventually(
+    'the read pauses with a question',
+    () => paused.text(),
+    (text) => text.includes(pausedQuestion),
+    8_000,
+  );
+  await paused.close();
+  await screen.files.openAdd();
+  await screen.files.choose(sampleFile(stagedName));
+  const staged = screen.fileChat(stagedName);
+  await eventually('the staged file asks before it is added', () => staged.text(), (text) =>
+    text.includes(TEXT.fileQuestion),
+  );
+  expect(await screen.files.has(stagedName), 'a staged file is not in the list before its first answer').toBe(false);
+
+  await screen.review.open();
+  await screen.review.ready();
+  await screen.review.tick(TEXT.ack.reviewed(given.revision));
+  await screen.review.tick(TEXT.ack.gaps(given.open.length));
+  await screen.review.tick(TEXT.ack.data);
+  await screen.review.finish();
+  await screen.review.back();
+
+  await eventually(
+    'a confirmed staged file chat has no answer box',
+    () => staged.answerCount(),
+    (count) => count === 0,
+  );
+  const stagedText = await staged.text();
+  expect(stagedText, 'the staged file chat keeps its question').toContain(TEXT.fileQuestion);
+  expect(stagedText, 'the staged file chat says why answers stopped').toContain(TEXT.filesFinished);
+  expect(await staged.sendCount(), 'a confirmed staged file chat has no Send').toBe(0);
+  expect(await screen.files.has(stagedName), 'confirmation does not commit a staged file').toBe(false);
+  await staged.close();
+  expect(await screen.files.has(stagedName), 'closing a staged file still adds nothing').toBe(false);
+
+  await screen.files.reopen(pausedName);
+  await eventually('the paused file chat reopens', () => paused.visible(), (open) => open);
+  await eventually(
+    'a confirmed paused file chat has no answer box',
+    () => paused.answerCount(),
+    (count) => count === 0,
+  );
+  const locked = await paused.text();
+  expect(locked, 'the paused question stays in the file chat').toContain(pausedQuestion);
+  expect(locked, 'the paused file chat says why answers stopped').toContain(TEXT.filesFinished);
+  expect(await paused.sendCount(), 'a confirmed paused file chat has no Send').toBe(0);
+  expect(await paused.chipCount(pausedChip), 'a confirmed paused file chat has no answer chip').toBe(0);
+  await paused.close();
+
+  const priorityQuestion = 'What should improve first?';
+  const nextAnswer = 'Fewer unfilled shifts';
+  await screen.brief.open();
+  await screen.brief.edit(given.agreed[0].title);
+  const priority = screen.chat.question(priorityQuestion);
+  await eventually('Edit shows the question after confirmation', () => priority.isAsked(), (asked) => asked);
+  await priority.pick(nextAnswer);
+  await priority.saveChange();
+  await eventually('Save change brings the composer back', () => screen.composer.formCount(), (count) => count === 1);
+  await screen.files.reopen(pausedName);
+  await eventually('the paused file chat reopens after the change', () => paused.visible(), (open) => open);
+  await eventually(
+    'Save change brings the answer box back',
+    () => paused.answerCount(),
+    (count) => count === 1,
+  );
+  expect(await paused.chipCount(pausedChip), 'Save change brings the answer chip back').toBe(1);
+  expect(await paused.sendCount(), 'Save change brings Send back').toBe(1);
+  expect(await paused.text(), 'the paused question stays after the change').toContain(pausedQuestion);
 }
 
 async function expectChangeReopensDiscovery(

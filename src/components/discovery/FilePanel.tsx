@@ -229,6 +229,8 @@ function PanelBody({
               onSend={() => onSend(view.draft)}
             />
           </div>
+        ) : view.finishedNote ? (
+          <p className="m-0 shrink-0 px-3 pb-3 text-sm text-muted-foreground">{view.finishedNote}</p>
         ) : view.closeHint ? (
           <p className="m-0 shrink-0 px-3 pb-3 text-center text-sm text-muted-foreground">{view.closeHint}</p>
         ) : null}

@@ -350,6 +350,8 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       // A real change drops the earlier approval. Opening Edit and going back does not.
       next.confirmation = null;
       commit(next, true);
+      // A read that reached its question while Discovery was confirmed asks once the change reopens it.
+      releaseHeldQuestions();
       return { ok: true, value: structuredClone(next.brief) };
     },
     async askTopic(input) {
@@ -436,6 +438,8 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       ? { to35: 400, pause: 400, to70: 400, ready: 2200 }
       : { to35: 1200, pause: 1000, to70: 1200, ready: 2400 };
   const timers = new Map<string, number[]>();
+  // Reads that reached a question while Discovery was confirmed. They ask when a saved change reopens it.
+  const heldQuestions = new Set<string>();
 
   function clearTimers(fileId: string) {
     const pending = timers.get(fileId);
@@ -468,9 +472,21 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
   function pauseRead(fileId: string) {
     const next = structuredClone(state);
     const file = discoveryFile(next, fileId);
-    if (!file || file.status.kind !== "reading") return;
+    if (!file || file.status.kind !== "reading") {
+      heldQuestions.delete(fileId);
+      return;
+    }
     const pause = scriptForName(file.name).pause;
-    if (!pause) return;
+    if (!pause) {
+      heldQuestions.delete(fileId);
+      return;
+    }
+    // A finished Discovery stops new questions. The read waits here until a saved change reopens it.
+    if (next.confirmation) {
+      heldQuestions.add(fileId);
+      return;
+    }
+    heldQuestions.delete(fileId);
     const percent = file.status.percent;
     file.status = { kind: "waiting", percent, question: { text: pause.text, chips: [...pause.chips] } };
     const chat = next.fileChats[fileId] ?? [];
@@ -509,6 +525,14 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       ];
     }
     commit(next);
+  }
+
+  function releaseHeldQuestions() {
+    if (state.confirmation) return;
+    for (const fileId of [...heldQuestions]) {
+      heldQuestions.delete(fileId);
+      pauseRead(fileId);
+    }
   }
 
   function scheduleRead(fileId: string, from: number) {

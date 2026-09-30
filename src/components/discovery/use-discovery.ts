@@ -373,6 +373,8 @@ export function useDiscovery(
   }
 
   function chooseFile(file: File) {
+    // A staged file commits with its first answer. Confirmation takes no new answer, so it takes no new file.
+    if (confirmationRef.current) return;
     const key = `new:${file.name}`;
     if (!held.current.has(key)) {
       const seen = new Set(
@@ -525,6 +527,7 @@ export function useDiscovery(
           draft: fileDrafts[fileKey] ?? "",
           busy: fileStatus === "submitted" || fileStatus === "streaming",
           paid: usage.nextReply === "paid",
+          finished: confirmation !== null,
         })
       : null;
 

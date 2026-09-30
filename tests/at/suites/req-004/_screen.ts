@@ -18,6 +18,7 @@ export type ScreenGiven = {
   scenario: ScreenScenario;
   viewport: Viewport;
   colorScheme?: 'light' | 'dark';
+  pace?: 'test' | 'demo';
 };
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -417,6 +418,10 @@ export class DiscoveryPage {
         this.page.fill([root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)], text),
       answerBox: (): Promise<Box> =>
         waitBox(this.page, [root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)], SCREEN.fileAnswer.name),
+      answerCount: (): Promise<number> =>
+        this.page.count([root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)]),
+      sendCount: (): Promise<number> => this.page.count(button(TEXT.send)),
+      chipCount: (label: string): Promise<number> => this.page.count(button(label)),
       sendBox: (): Promise<Box> => waitBox(this.page, button(TEXT.send), TEXT.send),
       chipBox: (label: string): Promise<Box> => waitBox(this.page, button(label), label),
       buttonBox: (label: string): Promise<Box> => waitBox(this.page, button(label), label),
@@ -525,7 +530,7 @@ export function discoveryScreens() {
       viewport: given.viewport,
       colorScheme: given.colorScheme,
       probeName: MODEL_CALL_PROBE,
-      url: (base) => shellUrl(base, given.scenario, start),
+      url: (base) => shellUrl(base, given.scenario, start, given.pace ?? 'test'),
     });
     try {
       await body(new DiscoveryPage(opened.page, given.viewport));
