@@ -429,6 +429,11 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
           () => screen.chat.answerCurrent(given.agreed[0].answer),
           (current) => current === 'true',
         );
+        const outline = await screen.chat.answerStyle(given.agreed[0].answer, 'outline-style');
+        const background = await screen.chat.answerStyle(given.agreed[0].answer, 'background-color');
+        expect(outline, 'View draws an outline on the answer').not.toBe('none');
+        expect(background, 'View fills the answer').not.toBe('rgba(0, 0, 0, 0)');
+        expect(background, 'View fills the answer').not.toBe('transparent');
         await screen.composer.send();
         await eventually(
           'the unanswered question is still open from last round',

@@ -120,6 +120,11 @@ export class DiscoveryPage {
         [landmark(SCREEN.conversation.role, SCREEN.conversation.name), { text: answer }],
         'aria-current',
       ),
+    answerStyle: (answer: string, cssName: string): Promise<string> =>
+      this.page.style(
+        [landmark(SCREEN.conversation.role, SCREEN.conversation.name), { text: answer }],
+        cssName,
+      ),
   };
 
   readonly composer = {
