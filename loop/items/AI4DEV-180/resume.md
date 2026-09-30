@@ -1,60 +1,69 @@
 # Resume note for AI4DEV-180 (Discovery screen on fixtures)
 
-Rewritten at the unit 1 gate, 2026-09-30. The founder chose "compact first" before unit 2.
+Rewritten at the unit 5 gate, 2026-10-01. The founder chose "compact first" before the closing
+stations.
 
 ## Where the run is
 
 - The session runs in the item worktree `.claude/worktrees/AI4DEV-180`, on branch
   `nirdrang/ai4dev-180-phase-2-discovery-screen-on-fixtures-pstack-builds-the-real`. The lead is
-  poteto-mode, following `brief.md`.
-- Playbook: Feature. The how and architect steps are done. The design is `design.md`. The decision
-  record is `decisions.tsv`. The four arena candidates and the judge are in `arena/`.
-- Unit 1 is merged on the item branch (commit 0726535; record 723c7b9) and pushed. AT-004.65 is
-  green at the loop tier. Lead's rerun at 2026-09-29 23:25 local: typecheck 0, at:selftest 0 (474
-  passed), at:check req-004 0, at:verify req-004 --tier loop --expect 0 (35 green, 35 red, matches).
-- Next: unit 2. Its writer prompt is ready at `prompts/unit2-writer.md`. It includes the two fixes
-  unit 1 left: the first-reply copy says "how you work today", and the data port owns the
-  organization and project ids.
+  poteto-mode, following `brief.md`. The design is `design.md`; the decision record is
+  `decisions.tsv` (one row per decision, read it for the full history).
+- All five units are merged on the item branch and pushed. Head at the gate: 6e352d7.
+- Tests: AT-004.61 to .66 and .70 to .73 are green at the loop tier. AT-004.67 and .68 run their
+  screen checks and stay pending (their backend half is phase 3). AT-004.69 stays pending. Last
+  lead rerun: typecheck 0, at:selftest 0 (474 passed), at:check req-004 0, at:verify req-004 --tier
+  loop --expect 0 (44 green, 26 red, matches). The integration run matched at unit 4 (17 green,
+  53 red); run it again before the pull request.
+- Unit 5: Codex (GPT-6 Astra at low) explored in eight rounds, 23 issues, all fixed; round 8 said
+  "No new issues". Reports in `evidence/unit5/round1` to `round8`. The review record
+  `design/astra/discovery-review.md` has the section "Revision 12 built on fixtures", and
+  `design/astra/screens.json` has the implementation fields.
 
-## How to start unit 2
+## Next: the closing stations
 
-1. `git worktree add ..\AI4DEV-180-unit2 -b lane/ai4dev-180/unit2 HEAD` from the item worktree.
-2. Launch the feature writer (grok:grok-4.7@xhigh, isolated-write) through the pstack runner, as a
-   background PowerShell call. Prepend `C:\Users\nirdr\.grok\bin` to `$env:Path` first:
-   `bun <plugin>/skills/poteto-mode/scripts/runner/pstack-runner --parent claude --provider grok --model grok-4.7 --effort xhigh --mode isolated-write --prompt <item>/prompts/unit2-writer.md --cwd <repo>/.claude/worktrees/AI4DEV-180-unit2 --output <scratchpad>/unit2-out.md --receipt <scratchpad>/unit2-receipt.json`
-   The plugin root is `C:\Users\nirdr\.claude\plugins\cache\open-pstack-nirdrang\pstack\1.4.1`.
-3. When it finishes: read the receipt and report, review the diff yourself, rerun the four checks in
-   the unit worktree as a background command writing to files, then `git merge --ff-only
-   lane/ai4dev-180/unit2` in the item worktree, push, add a row to `decisions.tsv`, and open the
-   unit gate with AskUserQuestion (continue or compact, what landed, the commit, the context left).
+1. Integration run: `bun run at:verify req-004 --tier integration --expect` (the one stack must be
+   up; `bun run db:start` if not).
+2. Interrogate: the multi-model review panel on the whole item diff against `main`
+   (`pstack:interrogate`; the reviewers row in `.claude/pstack-models.md`). Rule on each finding;
+   fix the accepted ones through the feature writer or by hand when small.
+3. Deslop (`pstack:deslop`), then the comment audit (`pstack:comment-sicko`, model sonnet).
+4. The pull request from this branch to `main`. Title and body name no other item's id. The body
+   has a "Not done here" list and the copy calls (below). Then CI, green on the exact head.
+5. Merge only when CI is green on the exact head AND the founder says "merge". Squash merge through
+   the mechanical agent, ExitWorktree keep, then `/controller done AI4DEV-180`.
 
 ## Facts that cost time to learn
 
-- Playwright hangs under Bun on this Windows machine (launch and connect). The test runner starts
-  vitest under Bun. So Playwright runs in `tests/at/harness/screen-host.mjs` under Node, driven over
-  JSON lines by `tests/at/harness/screen.ts`. Probes in `probes/`.
-- The first unit 1 writer dropped out after 90 minutes on that problem. Every writer prompt now
-  carries a 15-minute stop rule for environment problems.
-- In PowerShell, a double-quoted here-string expands `$(...)`. Write probe scripts with the Write
-  tool, not a here-string.
-- The registry refuses a green that opened no world. Screen bodies call `ctx.open()` first.
-- CI needs Node for the host. GitHub-hosted runners have it. The self-hosted runner image
-  (`.github/runner/Dockerfile`) has neither Node nor Chromium's libraries: list it under "Not done
-  here" unless the founder asks for it.
+- Playwright hangs under Bun on this Windows machine. It runs in `tests/at/harness/screen-host.mjs`
+  under Node. Explorers drive the shell with Node Playwright too.
+- The lead's Edit tool works only in the item worktree. Unit worktrees are edited by the writer, or
+  by the lead after a fast-forward merge into the item branch.
+- A fresh worktree needs `bun install --frozen-lockfile` before any check.
+- Grok writer runs twice ended "cancelled" on a late shell command (a screenshot retake, a cleanup).
+  Writer briefs now say "commit early"; after a cancel, check `git status` in the unit worktree.
+- In PowerShell, a double-quoted here-string expands `$(...)`. Write scripts with the Write tool.
+- CI needs Node for the screen host. GitHub-hosted runners have it. The self-hosted runner image
+  lacks Node and Chromium's libraries: "Not done here".
 
-## Units left
+## Worktrees kept (no deletion without a founder decision)
 
-2. Chat, Questions card, usage card, brief panel, progress strip, both layouts: .61 (no Finish
-   half), .71, .72, .73.
-3. Files: chooser, file chat, read timers: .66, .70, screen parts of .67 and .68.
-4. Finish review and Discovery document: .62, .63, .64, the Finish half of .61; integration
-   `--expect` on the one stack.
-5. Codex loop (GPT-6 Astra at low, founder ruling) on the shell at 1280 and 390, light and dark;
-   update `design/astra/discovery-review.md` and `design/astra/screens.json`.
-Then interrogate, deslop, the comment audit, the pull request, CI, and the founder's "merge".
+`.claude/worktrees/AI4DEV-180-unit1` to `-unit4`, `-unit5` (round 1 explorer), `-unit5-explore2`
+to `-explore8`, `-unit5-fix1` to `-fix5`, each on its `lane/ai4dev-180/...` branch.
+
+## Not done here (for the pull request)
+
+- Phase 3 wires the port to edge functions and points the same bodies at the real route.
+- The backend halves of AT-004.67 and .68, and the whole of .69.
+- Whether the first AI reply costs a turn, and what starts it, is a phase 3 decision.
+- `runner.ts --wired` keeps its refusal; its message is phase 3's to change.
+- The self-hosted CI runner image needs Node and Chromium's system libraries.
 
 ## Copy calls for the founder, to list in the pull request
 
 - "Remove one to add another" is dropped: no remove control exists.
-- The data-tier and fit sentences are provisional.
 - No demo-only "Use a sample file" button.
+- The desktop file chat fills the right column (founder, unit 3 gate).
+- Provisional: the data-tier and fit sentences; the ready reply and the finish invitation; "You
+  changed <topic>: <answer>" and "You used the suggestion for <topic>: <answer>"; "Discovery is
+  finished, so files cannot be added. Change an answer to reopen it."
