@@ -110,6 +110,13 @@ function PanelBody({
 }) {
   const fine = useFinePointer();
   const inputRef = useRef<HTMLInputElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+  const lastMessageId = view?.messages[view.messages.length - 1]?.id ?? "";
+  useLayoutEffect(() => {
+    const log = logRef.current;
+    if (!log) return;
+    log.scrollTop = log.scrollHeight;
+  }, [lastMessageId]);
   const title = mode === "file" && view ? NAME.fileChat(view.name) : SCREEN.chooser.name;
   const closeLabel = mode === "file" && view ? view.closeLabel : SCREEN.cancelAdding.name;
   const canSend = view !== null && view.canAnswer && !view.busy && view.draft.trim().length > 0;
@@ -172,7 +179,7 @@ function PanelBody({
           ) : null}
           {notice ? <p className="m-0 mt-2 text-sm text-destructive">{notice}</p> : null}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+        <div ref={logRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
           {view.messages.map((message) => (
             <p
               key={message.id}

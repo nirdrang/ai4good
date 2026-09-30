@@ -39,23 +39,29 @@ function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): vo
 export function FilesCard({
   files,
   funded,
+  dense = false,
   onAdd,
   onOpen,
 }: {
   files: readonly DiscoveryFile[];
   funded: boolean;
+  dense?: boolean;
   onAdd(): void;
   onOpen(fileId: string): void;
 }) {
   const view = fileRows(files, funded);
   const countText = view.limitText !== null ? `${view.discoveryCount} of 3 added` : `${view.discoveryCount} added`;
   return (
-    <section role={SCREEN.files.role} aria-label={SCREEN.files.name} className="min-w-0 max-w-full shrink-0">
+    <section
+      role={SCREEN.files.role}
+      aria-label={SCREEN.files.name}
+      className={dense ? "min-w-0 max-w-full shrink-0 max-h-28 overflow-y-auto" : "min-w-0 max-w-full shrink-0"}
+    >
       <Card>
-        <CardHeader className="space-y-1 p-3">
+        <CardHeader className={dense ? "space-y-0 p-2" : "space-y-1 p-3"}>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold">{SCREEN.files.name}</h2>
+              <h2 className={dense ? "text-sm font-semibold" : "text-base font-semibold"}>{SCREEN.files.name}</h2>
               <p className="text-sm text-muted-foreground">{countText}</p>
             </div>
             <Button
@@ -70,9 +76,9 @@ export function FilesCard({
               {SCREEN.addFile.name}
             </Button>
           </div>
-          {view.limitText ? <p className="text-sm text-muted-foreground">{view.limitText}</p> : null}
+          {view.limitText && !dense ? <p className="text-sm text-muted-foreground">{view.limitText}</p> : null}
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 p-3 pt-0">
+        <CardContent className={dense ? "flex flex-col gap-1 p-2 pt-0" : "flex flex-col gap-2 p-3 pt-0"}>
           <ul className="flex flex-col gap-2">
             {view.rows.map((row) => (
               <FileRow key={row.id} row={row} onOpen={onOpen} />

@@ -80,15 +80,16 @@ function Loaded({
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
   const rows = questionRows(discovery.brief, discovery.drafts);
+  const showFile = discovery.panel?.kind === "chooser" || discovery.panel?.kind === "file";
   const files = (
     <FilesCard
       files={discovery.files}
       funded={discovery.project.funded}
+      dense={showFile && !phone}
       onAdd={discovery.openChooser}
       onOpen={discovery.openFile}
     />
   );
-  const showFile = discovery.panel?.kind === "chooser" || discovery.panel?.kind === "file";
   const fileOverlay = showFile ? (
     <FileOverlay
       phone={phone}
@@ -172,7 +173,7 @@ function Loaded({
               </>
             )}
             {files}
-            <UsageCard usage={discovery.usage} />
+            <UsageCard usage={discovery.usage} dense={showFile} />
           </div>
         </div>
       )}
