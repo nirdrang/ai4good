@@ -160,9 +160,13 @@ If the brief has Units, design once for the whole subtree, then build the units 
 commit group per unit.
 At every unit boundary, after the unit's commit is on the branch and the resume note is
 rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose. Ask one
-question, continue or compact, and put in its text what the unit landed, its commit, and the
-remaining context budget. Ask a second question for any decision the next unit needs from the
-founder. The founder's answer starts the next unit.
+question with three options, labelled exactly `Continue`, `Run /compact` and `Fast compact`,
+and put in its text what the unit landed, its commit, and the remaining context budget. Ask a
+second question for any decision the next unit needs from the founder. If the answer is
+`Continue`, start the next unit. If the answer is either compact option, make sure the resume
+note holds the second answer, then end the turn and start nothing. Say in one line: "If nothing
+happens in a few seconds, type /compact." A session started with `loop/work/claude-gated.ps1`
+compacts and starts the next unit by itself; a plain session waits for the founder.
 Send lookups that do not depend on each other together in one message. Each message is one
 step, and each step re-reads the whole conversation.
 Send a question whose answer is a fact or a short list to a subagent: where something is,
