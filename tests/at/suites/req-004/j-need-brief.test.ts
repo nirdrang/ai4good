@@ -148,6 +148,7 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
       const priority = given.questions.priority;
       const question = screen.chat.question(priority);
       expect(await question.isAsked(), 'the first question is in the chat').toBe(true);
+      expect(await screen.progress.text(), 'the interview starts with no topic agreed').toContain('0%');
       await question.pick(given.suggested);
       expect(await question.isPressed(given.suggested), 'the question can be answered without a file').toBe(true);
       const reply = await screen.composer.send();
@@ -155,6 +156,16 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
       expect(await screen.chat.yourText(), 'the sent answer is in the chat').toContain(given.suggested);
       await eventually('the answered question leaves the chat', () => question.isAsked(), (asked) => asked === false);
       expect(await screen.chat.question(given.questions.booking).isAsked(), 'the other question stays open').toBe(true);
+      const progress = await eventually(
+        'the percent rises after the first answer',
+        () => screen.progress.text(),
+        (value) => value.includes('16%') && value.includes('1 of 6'),
+      );
+      expect(progress, 'one topic agreed is 16 percent').toContain('16%');
+      expect(
+        await screen.chat.question('What weekly scheduling time would count as success?').isAsked(),
+        'the next open topic is asked',
+      ).toBe(true);
     });
     await withDiscovery(ctx, { scenario: 'first-reply-three-files', viewport: 'desktop' }, async (screen) => {
       const text = await screen.chat.lastAssistantText();

@@ -183,6 +183,107 @@ function asked(
   };
 }
 
+const TOPIC_ORDER = ["priority", "booking", "measure", "owner", "info", "rules"] as const;
+
+function questionBank(topic: BriefTopic): {
+  text: string;
+  options: SuggestedAnswer[];
+  suggestedId: string;
+  recommendation: string;
+  uncertaintyHelp: string;
+} {
+  const suggestion = topic.suggestion ?? "Something else";
+  switch (topic.id) {
+    case "priority":
+      return {
+        text: topic.plannedQuestion,
+        options: [option("time", suggestion), option("coverage", "Fewer unfilled shifts")],
+        suggestedId: "time",
+        recommendation: "Suggested: less coordination time. Your intake says scheduling takes four hours each week.",
+        uncertaintyHelp: "To find out: ask your coordinators which problem causes the most work.",
+      };
+    case "booking":
+      return {
+        text: topic.plannedQuestion,
+        options: [option("self", suggestion), option("coordinators", "Coordinators book shifts")],
+        suggestedId: "self",
+        recommendation: "Suggested: volunteers book themselves, and coordinators handle exceptions.",
+        uncertaintyHelp: "To find out: check whether your volunteers can book online.",
+      };
+    case "measure":
+      return {
+        text: topic.plannedQuestion,
+        options: [option("two", "Two hours a week"), option("one", "One hour a week")],
+        suggestedId: "two",
+        recommendation: "Suggested: two hours a week, down from four.",
+        uncertaintyHelp: "To find out: ask the people who schedule shifts how long last week took.",
+      };
+    case "owner":
+      return {
+        text: topic.plannedQuestion,
+        options: [option("lead", suggestion), option("coordinators", "Our coordinators")],
+        suggestedId: "lead",
+        recommendation: "Suggested: your operations lead already handles access.",
+        uncertaintyHelp: "To find out: ask who fixes a problem when a coordinator is away.",
+      };
+    case "info":
+      return {
+        text: topic.plannedQuestion,
+        options: [option("phone", suggestion), option("email", "Name, phone and email")],
+        suggestedId: "phone",
+        recommendation: "Suggested: name and phone are enough to fill a shift.",
+        uncertaintyHelp: "To find out: list the fields your rota uses today.",
+      };
+    case "rules":
+      return {
+        text: topic.plannedQuestion,
+        options: [option("weekly", suggestion), option("none", "No weekly limit")],
+        suggestedId: "weekly",
+        recommendation: "Suggested: a weekly shift limit keeps the rota fair.",
+        uncertaintyHelp: "To find out: ask how many shifts one volunteer may take.",
+      };
+    default:
+      return {
+        text: topic.plannedQuestion,
+        options: [option("suggested", suggestion), option("other", "Something else")],
+        suggestedId: "suggested",
+        recommendation: `Suggested: ${suggestion}.`,
+        uncertaintyHelp: "To find out: ask the people who do this work.",
+      };
+  }
+}
+
+/** A question for one topic. The id is the topic id. This call does not charge a turn. */
+export function questionForTopic(topic: BriefTopic, round: number): BriefQuestion {
+  const bank = questionBank(topic);
+  return asked(
+    topic.id,
+    bank.text,
+    topic.why,
+    bank.options,
+    bank.suggestedId,
+    bank.recommendation,
+    bank.uncertaintyHelp,
+    topic.importance,
+    round,
+  );
+}
+
+/** Up to two open topics that have no question yet. Booking rules wait while booking is still open. */
+export function nextOpenQuestions(brief: BriefSnapshot, round: number): BriefQuestion[] {
+  const booking = brief.topics.find((item) => item.id === "booking");
+  const askedTopics = new Set(brief.questions.map((question) => question.topicId));
+  const added: BriefQuestion[] = [];
+  for (const id of TOPIC_ORDER) {
+    if (added.length >= 2) break;
+    const topic = brief.topics.find((item) => item.id === id);
+    if (!topic || topic.state.kind !== "open" || askedTopics.has(topic.id)) continue;
+    if (topic.id === "rules" && booking?.state.kind === "open") continue;
+    added.push(questionForTopic(topic, round));
+  }
+  return added;
+}
+
 function kilobytes(size: string): number {
   const match = /^(\d+) KB$/.exec(size);
   return match ? Number(match[1]) * 1024 : 0;

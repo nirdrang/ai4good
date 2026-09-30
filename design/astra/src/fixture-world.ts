@@ -10,7 +10,7 @@ import type {
   FileStatus,
 } from "../../../src/lib/discovery-stream";
 import type { FileChatTarget, Result, ServerChange } from "../../../src/components/discovery/port";
-import { nextFileId, questionPart, replyKind, scriptForName, seedState } from "./fixture-data";
+import { nextFileId, nextOpenQuestions, questionPart, replyKind, scriptForName, seedState } from "./fixture-data";
 import type { Pace, ScreenScenario } from "./givens";
 
 const STALE = "The brief changed. Review the latest revision.";
@@ -165,8 +165,8 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       let brief = state.brief;
       const certain: { id: string; title: string; text: string }[] = [];
       let uncertain = false;
+      let changed = false;
       if (request.mode === "answer") {
-        let changed = false;
         const topics = brief.topics.map((topic) => {
           const answer = request.answers.find((item) => {
             const question = brief.questions.find((entry) => entry.id === item.questionId);
@@ -196,11 +196,26 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         });
         if (changed) brief = { ...brief, revision: brief.revision + 1, topics };
       }
-      const replyBody = replyText(
+      const added = request.mode === "answer" ? nextOpenQuestions(brief, round) : [];
+      if (added.length > 0) {
+        brief = {
+          ...brief,
+          questions: [...brief.questions, ...added],
+          revision: changed ? brief.revision : brief.revision + 1,
+        };
+      }
+      const stillOpen = brief.topics.some((topic) => topic.state.kind === "open");
+      let replyBody = replyText(
         request,
         certain.map((item) => item.text),
         uncertain,
       );
+      if (request.mode === "answer" && added.length > 0) {
+        replyBody = `${replyBody} ${added.map((question) => question.text).join(" ")}`;
+      }
+      if (request.mode === "answer" && !stillOpen) {
+        replyBody = `${replyBody} Nothing is left to ask. Select Finish Discovery.`;
+      }
       const report = pendingReports(messages);
       const reply = report.length > 0 ? `${report}\n\n${replyBody}` : replyBody;
       const assistantId = `reply-${messages.length}`;

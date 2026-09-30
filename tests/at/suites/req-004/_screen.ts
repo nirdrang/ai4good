@@ -257,6 +257,7 @@ export class DiscoveryPage {
 
   readonly progress = {
     finishBox: (): Promise<Box> => waitBox(this.page, [landmark('button', SCREEN.finish.name)], SCREEN.finish.name),
+    text: (): Promise<string> => this.page.text([landmark(SCREEN.progress.role, SCREEN.progress.name)]),
   };
 
   readonly review = {
