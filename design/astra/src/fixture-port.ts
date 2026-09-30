@@ -21,6 +21,7 @@ export function fixturePort(scenario: ScreenScenario, pace: Pace = "test"): Disc
     subscribe: (listener) => world.subscribe(listener),
     saveBriefEdit: (input) => world.saveBriefEdit(input),
     acceptSuggestion: (input) => world.acceptSuggestion(input),
+    askTopic: (input) => world.askTopic(input),
     removeCauseLabel: (input) => world.removeCauseLabel(input),
     finish: (input) => world.finish(input),
   };

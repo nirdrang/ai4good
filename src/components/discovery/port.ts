@@ -34,6 +34,8 @@ export interface DiscoveryPort {
     baseRevision: number;
   }): Promise<Result<BriefSnapshot>>;
   acceptSuggestion(input: { topicId: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
+  /** Ask one open topic in the chat. No charge, and no new question when one already exists. */
+  askTopic(input: { topicId: string }): Promise<Result<BriefSnapshot>>;
   removeCauseLabel(input: { label: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   finish(input: {
     revision: number;

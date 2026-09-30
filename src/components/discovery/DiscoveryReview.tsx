@@ -268,7 +268,15 @@ function OpenItem({
             type="button"
             variant="outline"
             className="h-auto min-h-11 whitespace-normal"
-            onClick={() => onBackToChat(item.questionId)}
+            onClick={() => {
+              if (item.questionId) {
+                onBackToChat(item.questionId);
+                return;
+              }
+              void review.askTopic(item.topicId).then((questionId) => {
+                if (questionId) onBackToChat(questionId);
+              });
+            }}
           >
             {NAME.answerInChat}
           </Button>

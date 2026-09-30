@@ -562,6 +562,7 @@ export type DiscoveryReviewController = {
   cancelEdit(): void;
   saveEdit(title: string): Promise<void>;
   accept(topicId: string, title: string): Promise<void>;
+  askTopic(topicId: string): Promise<string | null>;
   removeLabel(label: string): Promise<void>;
   finish(): Promise<void>;
 };
@@ -656,6 +657,15 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
       setEditingId(null);
       setDraft("");
       setEditError(null);
+    },
+    async askTopic(topicId) {
+      const result = await port.askTopic({ topicId });
+      if (!result.ok) {
+        setFinishError(result.refusal.reason);
+        return null;
+      }
+      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+      return topicId;
     },
     async accept(topicId, title) {
       if (busy) return;

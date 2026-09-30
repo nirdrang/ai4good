@@ -10,7 +10,7 @@ import type {
   FileStatus,
 } from "../../../src/lib/discovery-stream";
 import type { FileChatTarget, Result, ServerChange } from "../../../src/components/discovery/port";
-import { nextFileId, nextOpenQuestions, questionPart, replyKind, scriptForName, seedState } from "./fixture-data";
+import { nextFileId, nextOpenQuestions, questionForTopic, questionPart, replyKind, scriptForName, seedState } from "./fixture-data";
 import type { Pace, ScreenScenario } from "./givens";
 
 const STALE = "The brief changed. Review the latest revision.";
@@ -40,6 +40,7 @@ export type FixtureWorld = {
   applyTurn(input: { messages: DiscoveryUIMessage[]; request: DiscoveryRequestBody }): Result<AppliedTurn>;
   saveBriefEdit(input: { sectionId: string; text: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   acceptSuggestion(input: { topicId: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
+  askTopic(input: { topicId: string }): Promise<Result<BriefSnapshot>>;
   removeCauseLabel(input: { label: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   finish(input: { revision: number; acks: { reviewed: true; openGaps: boolean; data: true } }): Promise<Result<Confirmation>>;
   fileBlock(target: FileChatTarget): { kind: string; reason: string } | null;
@@ -265,6 +266,20 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         topic.state = { kind: "agreed", answer: input.text, source, answerMessageId: null };
       }
       next.brief.revision = revision;
+      commit(next);
+      return { ok: true, value: structuredClone(next.brief) };
+    },
+    async askTopic(input) {
+      if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
+      const topic = state.brief.topics.find((item) => item.id === input.topicId);
+      if (!topic) return refusal("unknown-topic", "That topic is not in the brief.");
+      if (state.brief.questions.some((question) => question.topicId === topic.id)) {
+        return { ok: true, value: structuredClone(state.brief) };
+      }
+      const round = state.transcript.filter((message) => message.role === "assistant").length;
+      const next = structuredClone(state);
+      next.brief.questions.push(questionForTopic(topic, Math.max(round, 1)));
+      next.brief.revision += 1;
       commit(next);
       return { ok: true, value: structuredClone(next.brief) };
     },
