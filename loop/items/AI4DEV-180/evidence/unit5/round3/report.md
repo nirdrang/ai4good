@@ -1,0 +1,30 @@
+Round 3 confirms issues 12–16 fixed. The regression checks for issues 1, 4, 6, and 10 pass. Two new major issues follow.
+
+I completed eight interviews from `first-reply` through the Discovery document to Volunteer match. These cover questions together and one at a time, at 1280×900 and 390×844, in light and dark themes. Phone contexts use a phone user agent and touch. All runs use Node Playwright and `pace=demo`.
+
+I also opened all nine scenarios in each viewport and theme, plus 320×700 in light mode. Additional checks cover custom answers, uncertain answers, Questions, brief edits, files, review suggestions, confirmation with gaps, reloads, and paid replies. Screenshot names refer to this folder. Measurements and transcripts are in `flows.json`, `explore.json`, `followup.json`, and `confirmed-edit.json`.
+
+12. **Fixed — New rounds show the new reply and first question.** Desktop and phone, both themes and question modes. Select the first two suggested answers and Send. Repeat for Success measure and Maintenance owner. Each next round starts at the new reply. The first question follows below it. The phone no longer opens inside the last question. Reference: `design/astra/canvas-rev12/Phone.dc.html:37`. Screenshots: `390-light-together-round1.png`, `390-dark-single-round1.png`, `1280-light-together-round2.png`.
+
+13. **Fixed — The completed checklist replaces the composer.** Desktop and phone, both themes and modes. Answer all six topics with suggested options. At 100%, a finish invitation replaces the message field and Send button. The original “Thank you” submission is no longer possible. Daily replies remain at seven; beta replies remain at 39. Reference: `design/discovery-ui-contract.md:88`. Screenshot: `390-dark-together-round3.png`.
+
+14. **Fixed — Single-question mode starts each round with its first question.** Desktop and phone, both themes. Select One question at a time. Answer priority, select Next question, answer booking, and Send. Success measure appears first in the next round, followed by Maintenance owner. Information handled and Booking rules follow in the third round. Show questions together remains available. Reference: `design/discovery-ui-contract.md:224`. Screenshots: `1280-light-single-round1.png`, `390-dark-single-round1.png`.
+
+15. **Fixed — Free replies reduce both counters.** Desktop and phone, both themes and modes. Complete the three interview submissions. Daily replies change from 10 to seven; beta replies change from 42 to 39. Two file-chat answers separately change the counters from 10/42 to 8/40. Reference: `design/discovery-ui-contract.md:116`. Screenshots: `1280-light-together-initial.png`, `1280-light-together-round3.png`, `390-light-file-done.png`.
+
+16. **Fixed — Volunteer match retains Discovery confirmation.** Desktop and phone, both themes and modes. Complete Discovery, tick its acknowledgments, and select Find a volunteer. The destination shows Scope confirmed, the edited brief, and Volunteer match as the current stage. Its separate publication acknowledgment enables Send for review. Additional runs with accepted gaps reach Waiting for review, which survives reload. Reference: `design/discovery-ui-contract.md:36`. Screenshots: `1280-light-together-volunteer.png`, `390-light-follow-publication-ack.png`, `390-dark-follow-submitted.png`.
+
+The requested regression checks pass:
+
+- **Issue 1: interview progression.** All eight complete runs agree six topics and reach 100%.
+- **Issue 4: phone header.** At 390 pixels, the chat starts near y=198 and has 488 pixels of height. At 320 pixels, the header remains compact. Screenshot: `320-light-first-reply.png`.
+- **Issue 6: reading colours.** Add `sunday-gaps.csv`, describe it, close during reading, and reopen at the question. Reading is blue; the pause is amber in both themes. Screenshots: `1280-light-reading.png`, `1280-dark-paused.png`, `390-light-paused.png`.
+- **Issue 10: focus.** Closing the brief restores focus to Open your live brief. Closing the chooser restores Add a file. Review Edit focuses its textarea. Screenshot: `390-dark-review-edit.png`.
+
+17. **Major — Changing an answer through the live brief consumes a reply.** Viewports: 1280×900 and 390×844, light and dark. Open `mid-interview`, then Open your live brief. Select Edit Main priority, choose Fewer unfilled shifts, and Send. The answer changes, but an AI reply also appears. Daily replies decrease from three to two; beta replies decrease from 18 to 17. The brief explicitly says “Edits are free.” The contract says manual answer editing consumes no turn (`design/discovery-ui-contract.md:66`, `:197`, `:243`). This is incorrect usage accounting during a normal edit, not minor polish. Screenshots: `390-dark-follow-brief.png`, `1280-light-follow-edit-sent.png`, `390-dark-follow-edit-sent.png`.
+
+18. **Major — Edit and Answer do not work after confirmation.** Viewports: 1280×900 and 390×844, light and dark. Open `finish-open` on the review route. Tick all three acknowledgments and finish Discovery. Select Back to the chat, open the live brief, and select Edit Main priority. The brief closes, but no question, answer field, or save control appears. The chat still says Discovery is finished. Selecting Answer for Maintenance owner in Questions also shows no question. The controls offer actions that the person cannot perform. The contract permits answer changes and requires invalidation of the previous approval (`design/discovery-ui-contract.md:105`). Screenshots: `390-dark-confirmed-edit.png`, `1280-light-confirmed-answer.png`.
+
+The original suspected layout and colour problems do not reproduce. No new minor finding warrants reporting. Both new findings concern normal actions, not unnoticed polish.
+
+The initial sandbox restriction on server dependencies was resolved with an approved retry. Corrected browser selectors and waits resolved script errors; these are not product findings. The fixture server is stopped. Only this evidence folder contains changes. No application files were changed, committed, or pushed.
