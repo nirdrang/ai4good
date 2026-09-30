@@ -305,6 +305,8 @@ export class DiscoveryPage {
     openText: (): Promise<string> => readText(this.page, [this.openRoot()]),
     openItem: (title: string): Promise<string> => readText(this.page, [this.openRoot(), landmark('listitem', title)]),
     sectionText: (title: string): Promise<string> => readText(this.page, [this.sectionRoot(title)]),
+    hasEdit: (title: string): Promise<boolean> =>
+      this.page.visible([this.sectionRoot(title), landmark('button', NAME.editSection(title))]),
     openBox: (): Promise<Box> => waitBox(this.page, [this.openRoot()], SCREEN.reviewOpen.name),
     sectionBox: (title: string): Promise<Box> => waitBox(this.page, [this.sectionRoot(title)], title),
     useSuggestion: (title: string): Promise<void> =>
@@ -377,6 +379,10 @@ export class DiscoveryPage {
     cancelBox: (title: string): Promise<Box> =>
       this.fitBox([this.sectionRoot(title), landmark('button', TEXT.review.cancel)], TEXT.review.cancel),
   };
+
+  reload(): Promise<void> {
+    return this.page.reload();
+  }
 
   readonly document = {
     text: (): Promise<string> =>

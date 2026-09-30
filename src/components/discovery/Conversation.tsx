@@ -91,6 +91,22 @@ export function Conversation({
     if (!reply) return;
     followRef.current = node.scrollTop + 8 >= replyTop(node, reply);
   }
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+  const lastUserId = lastMessage?.role === "user" ? lastMessage.id : "";
+  const seenUser = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (seenUser.current === null) {
+      seenUser.current = lastUserId;
+      return;
+    }
+    if (!lastUserId || seenUser.current === lastUserId) return;
+    seenUser.current = lastUserId;
+    const node = scroller.current;
+    if (!node) return;
+    const people = node.querySelectorAll(`article[aria-label="${NAME.yourTurn}"]`);
+    const line = people.item(people.length - 1);
+    if (line instanceof HTMLElement) line.scrollIntoView({ block: "nearest" });
+  }, [lastUserId]);
   useLayoutEffect(() => {
     if (!highlight) return;
     const current = scroller.current?.querySelector("[aria-current='true']");

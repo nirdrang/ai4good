@@ -139,6 +139,8 @@ export const TEXT = {
   send: "Send",
   sendPaid: "Send paid reply",
   saveChange: "Save change",
+  changedAnswer: (title: string, answer: string) => `You changed ${title}: ${answer}`,
+  usedSuggestion: (title: string, answer: string) => `You used the suggestion for ${title}: ${answer}`,
   readyReply: "Discovery is ready for review. I have stopped asking questions.",
   readyInvite:
     "Discovery is ready for review. The AI has stopped asking questions. Select Finish Discovery.",

@@ -16,6 +16,7 @@ import {
   currentQuestions,
   fileChatView,
   fileRows,
+  messageLead,
   newerBrief,
   openForReview,
   progressOf,
@@ -129,13 +130,19 @@ function answersFromDrafts(
   });
 }
 
-function answerTarget(brief: BriefSnapshot, questionId: string): { messageId: string; text: string } | null {
+function answerTarget(
+  brief: BriefSnapshot,
+  messages: readonly DiscoveryUIMessage[],
+  questionId: string,
+): { messageId: string; text: string } | null {
   const question = brief.questions.find((item) => item.id === questionId);
   const topic = brief.topics.find((item) => item.id === question?.topicId);
-  if (topic?.state.kind === "agreed" && topic.state.answerMessageId) {
-    return { messageId: topic.state.answerMessageId, text: topic.state.answer };
-  }
-  return null;
+  if (!topic || topic.state.kind !== "agreed") return null;
+  const messageId = topic.state.answerMessageId;
+  if (!messageId) return null;
+  const message = messages.find((item) => item.id === messageId);
+  const text = message ? messageLead(message) : null;
+  return { messageId, text: text ?? topic.state.answer };
 }
 
 export function useDiscovery(
@@ -196,7 +203,9 @@ export function useDiscovery(
     });
   }
   const chat = chatStore.current;
-  const { messages, status } = useChat<DiscoveryUIMessage>({ chat });
+  const { messages, status, setMessages } = useChat<DiscoveryUIMessage>({ chat });
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   const idleStore = useRef<Chat<FileChatUIMessage> | null>(null);
   if (idleStore.current === null) {
@@ -252,8 +261,16 @@ export function useDiscovery(
       const incomingBrief = change.brief;
       if (incomingBrief) setBrief((current) => newerBrief(current, incomingBrief));
       if (change.usage) setUsage(change.usage);
+      const incomingTranscript = change.transcript;
+      if (incomingTranscript) {
+        setMessages((current) => {
+          const ids = new Set(current.map((message) => message.id));
+          const extra = incomingTranscript.filter((message) => !ids.has(message.id));
+          return extra.length === 0 ? current : [...current, ...extra];
+        });
+      }
     });
-  }, [port]);
+  }, [port, setMessages]);
 
   useEffect(() => {
     if (panel?.kind !== "file") return;
@@ -606,7 +623,7 @@ export function useDiscovery(
     },
     viewAnswer(questionId) {
       const opener = panelRef.current ? openerRef.current : null;
-      const target = answerTarget(brief, questionId);
+      const target = answerTarget(briefRef.current, messagesRef.current, questionId);
       releaseUncommitted(panelRef.current);
       setPanel(null);
       if (target) setHighlight(target);

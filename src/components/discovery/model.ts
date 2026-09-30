@@ -68,6 +68,16 @@ function paragraphsOf(text: string): string[] {
     .filter((block) => block.length > 0);
 }
 
+/** The first paragraph a person reads in one chat line. */
+export function messageLead(message: DiscoveryUIMessage): string | null {
+  for (const part of message.parts) {
+    if (part.type !== "text") continue;
+    const paragraph = paragraphsOf(part.text)[0];
+    if (paragraph) return paragraph;
+  }
+  return null;
+}
+
 /** The conversation a person reads. Question parts stay out of the bubbles. */
 export function presentMessages(messages: readonly DiscoveryUIMessage[]): PresentedMessage[] {
   return messages.flatMap((message) => {
@@ -683,7 +693,7 @@ export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
       title: topic.title,
       text: topic.state.answer,
       source: sourceText(topic.state.source),
-      editable: topic.state.source.kind !== "accepted-suggestion",
+      editable: true,
     });
   }
   if (brief.successMeasure) {

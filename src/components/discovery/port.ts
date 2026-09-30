@@ -13,7 +13,13 @@ import type {
 export type Result<T> = { ok: true; value: T } | { ok: false; refusal: DiscoveryRefusal };
 
 /** A source push after something the NGO did not just do: a read moved, or a stale write returned the current brief. */
-export type ServerChange = { files?: DiscoveryFile[]; brief?: BriefSnapshot; usage?: DiscoveryUsage };
+export type ServerChange = {
+  files?: DiscoveryFile[];
+  brief?: BriefSnapshot;
+  usage?: DiscoveryUsage;
+  /** Chat lines saved with a brief edit or an accepted suggestion. No AI reply. */
+  transcript?: DiscoveryUIMessage[];
+};
 
 export type FileChatTarget = { kind: "new"; file: File } | { kind: "existing"; fileId: string };
 

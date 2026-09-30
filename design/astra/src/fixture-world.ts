@@ -150,14 +150,33 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     for (const listener of listeners) listener(snapshot);
   }
 
-  function commit(next: DiscoveryState) {
+  function commit(next: DiscoveryState, transcript = false) {
     state = next;
     try {
       localStorage.setItem(storageKey(scenario), JSON.stringify(state));
     } catch {
       // A private window can refuse storage. The in-memory world still answers.
     }
-    notify({ files: state.files, brief: state.brief, usage: state.usage });
+    notify({
+      files: state.files,
+      brief: state.brief,
+      usage: state.usage,
+      ...(transcript ? { transcript: state.transcript } : {}),
+    });
+  }
+
+  function sectionTitle(brief: BriefSnapshot, sectionId: string): string {
+    if (sectionId === "need") return TEXT.review.need;
+    if (sectionId === "usersToday") return TEXT.review.users;
+    if (sectionId === "successMeasure") return TEXT.review.success;
+    return brief.topics.find((item) => item.id === sectionId)?.title ?? sectionId;
+  }
+
+  /** One person line. No assistant reply and no charge. The id is the new revision. */
+  function appendPersonLine(snapshot: DiscoveryState, revision: number, text: string): string {
+    const id = `you-${revision}`;
+    snapshot.transcript.push({ id, role: "user", parts: [{ type: "text", text }] });
+    return id;
   }
 
   function stale(): Result<never> {
@@ -320,10 +339,17 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         if (changed) markDependents(next.brief, topic.id);
       }
       if (!changed) return { ok: true, value: structuredClone(state.brief) };
+      const lineId = appendPersonLine(
+        next,
+        revision,
+        TEXT.changedAnswer(sectionTitle(next.brief, input.sectionId), input.text),
+      );
+      const edited = next.brief.topics.find((item) => item.id === input.sectionId);
+      if (edited?.state.kind === "agreed") edited.state.answerMessageId = lineId;
       next.brief.revision = revision;
       // A real change drops the earlier approval. Opening Edit and going back does not.
       next.confirmation = null;
-      commit(next);
+      commit(next, true);
       return { ok: true, value: structuredClone(next.brief) };
     },
     async askTopic(input) {
@@ -347,15 +373,21 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       if (!topic || topic.suggestion === null) {
         return refusal("no-suggestion", "This topic has no suggestion to accept.");
       }
+      if (!next.brief.questions.some((question) => question.topicId === topic.id)) {
+        const round = next.transcript.filter((message) => message.role === "assistant").length;
+        next.brief.questions.push(questionForTopic(topic, Math.max(round, 1)));
+      }
+      const revision = next.brief.revision + 1;
+      const lineId = appendPersonLine(next, revision, TEXT.usedSuggestion(topic.title, topic.suggestion));
       topic.needsReview = false;
       topic.state = {
         kind: "agreed",
         answer: topic.suggestion,
         source: { kind: "accepted-suggestion" },
-        answerMessageId: null,
+        answerMessageId: lineId,
       };
-      next.brief.revision += 1;
-      commit(next);
+      next.brief.revision = revision;
+      commit(next, true);
       return { ok: true, value: structuredClone(next.brief) };
     },
     async removeCauseLabel(input) {

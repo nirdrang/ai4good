@@ -607,6 +607,28 @@ atTest(
               expect(after, 'Free today stays 3 of 10').toContain('3 of 10');
               expect(after, 'Beta stays 18 of 50').toContain('18 of 50');
               expect(after, 'the edit leaves the usage card unchanged').toBe(usage);
+              const line = TEXT.changedAnswer(given.agreed[0].title, 'Fewer unfilled shifts');
+              await eventually('Save change adds your line', () => screen.chat.yourText(), (text) => text.includes(line));
+              await screen.brief.back();
+              await screen.questions.view(given.agreed[0].question);
+              await eventually(
+                'View highlights the saved change',
+                () => screen.chat.answerCurrent(line),
+                (current) => current === 'true',
+              );
+              const savedOutline = await screen.chat.answerStyle(line, 'outline-style');
+              const savedBackground = await screen.chat.answerStyle(line, 'background-color');
+              expect(savedOutline, 'View draws an outline on the saved change').not.toBe('none');
+              expect(savedBackground, 'View fills the saved change').not.toBe('rgba(0, 0, 0, 0)');
+              expect(savedBackground, 'View fills the saved change').not.toBe('transparent');
+              await screen.reload();
+              await eventually('the saved line survives a reload', () => screen.chat.yourText(), (text) => text.includes(line));
+              await screen.questions.view(given.agreed[0].question);
+              await eventually(
+                'View highlights the saved line after a reload',
+                () => screen.chat.answerCurrent(line),
+                (current) => current === 'true',
+              );
             } else {
               const log = await screen.conversationBox();
               expect(log.height, 'the chat log is at least 450 px at 390 by 844').toBeGreaterThanOrEqual(450);
@@ -878,18 +900,39 @@ async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIVEN)['fi
     expect(row, `${item.title} shows why it matters`).toContain(item.why);
     expect(row, `${item.title} shows its suggestion`).toContain(`Suggested: ${item.suggested}`);
   }
-  const info = given.open[3];
-  await screen.review.useSuggestion(info.title);
+  const rules = given.open[2];
+  await screen.review.useSuggestion(rules.title);
   const section = await eventually(
     'the accepted suggestion becomes a section',
-    () => screen.review.sectionText(info.title),
-    (text) => text.includes('Suggestion you accepted') && text.includes(info.suggested),
+    () => screen.review.sectionText(rules.title),
+    (text) => text.includes('Suggestion you accepted') && text.includes(rules.suggested),
   );
   expect(section, 'the source is Suggestion you accepted').toContain('Suggestion you accepted');
-  expect(section, 'the accepted words stay Name and phone only').toContain(info.suggested);
+  expect(section, 'the accepted words stay Weekly shift limit').toContain(rules.suggested);
+  expect(await screen.review.hasEdit(rules.title), 'the accepted section has Edit').toBe(true);
+  expect(await screen.modelCalls(), 'Use the suggestion makes no model call').toEqual([]);
   const accepted = await screen.review.text();
   expect(accepted, 'accepting creates the next revision').toContain(`Revision ${given.revision + 1}`);
   expect(accepted, 'accepting lowers the open count').toContain('3 questions are still open');
+  const line = TEXT.usedSuggestion(rules.title, rules.suggested);
+  await screen.review.back();
+  await eventually('Use the suggestion adds your line', () => screen.chat.yourText(), (text) => text.includes(line));
+  await screen.brief.open();
+  expect(await screen.brief.hasEdit(rules.title), 'the live brief section has Edit').toBe(true);
+  await screen.brief.edit(rules.title);
+  const rulesQuestion = screen.chat.question(rules.question);
+  await eventually('Edit reopens the accepted question', () => rulesQuestion.isAsked(), (asked) => asked);
+  const rulesText = await rulesQuestion.text();
+  expect(rulesText, 'Edit shows the suggestion option').toContain(rules.suggested);
+  expect(rulesText, 'Edit shows Save change').toContain(TEXT.saveChange);
+  await screen.questions.view(rules.question);
+  await eventually(
+    'View highlights the suggestion line',
+    () => screen.chat.answerCurrent(line),
+    (current) => current === 'true',
+  );
+  await screen.questions.close();
+  await screen.review.open();
   const owner = given.open[0];
   await screen.review.answerInChat(owner.title);
   const question = screen.chat.question(owner.question);
@@ -911,6 +954,9 @@ async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIVEN)['fi
   await screen.review.back();
   expect(await screen.usage.text(), 'Finish consumes no turn or fuel').toBe(usageBefore);
   expect(await screen.modelCalls(), 'returning to the chat makes no model call').toEqual([]);
+  await screen.brief.open();
+  expect(await screen.brief.hasEdit(rules.title), 'the accepted section has Edit after confirmation').toBe(true);
+  await screen.brief.back();
 }
 
 async function expectChangeReopensDiscovery(
