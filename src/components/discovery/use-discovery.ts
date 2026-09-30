@@ -2,14 +2,27 @@ import { Chat, useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 import type {
   BriefSnapshot,
+  Confirmation,
   DiscoveryAnswer,
   DiscoveryFile,
   DiscoveryState,
   DiscoveryUIMessage,
+  DiscoveryUsage,
   FileChatUIMessage,
 } from "@/lib/discovery-stream";
 import { NAME, TEXT } from "./a11y";
-import { currentQuestions, fileChatView, fileRows, newerBrief, type Draft, type FileChatView } from "./model";
+import {
+  currentQuestions,
+  fileChatView,
+  fileRows,
+  newerBrief,
+  openForReview,
+  reviewGate,
+  reviewSections,
+  type Draft,
+  type FileChatView,
+  type ReviewTicks,
+} from "./model";
 import type { DiscoveryPort } from "./port";
 
 export type DiscoveryPanel =
@@ -30,7 +43,7 @@ export type DiscoveryController = {
   brief: DiscoveryState["brief"];
   files: DiscoveryState["files"];
   usage: DiscoveryState["usage"];
-  confirmation: DiscoveryState["confirmation"];
+  confirmation: Confirmation | null;
   messages: DiscoveryUIMessage[];
   drafts: Readonly<Record<string, Draft>>;
   composerText: string;
@@ -118,10 +131,16 @@ function answerTarget(brief: BriefSnapshot, questionId: string): { messageId: st
   return null;
 }
 
-export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): DiscoveryController {
+export function useDiscovery(
+  port: DiscoveryPort,
+  initial: DiscoveryState,
+  active = true,
+  returnFocus: { questionId: string; nonce: number } | null = null,
+): DiscoveryController {
   const [brief, setBrief] = useState(initial.brief);
   const [files, setFiles] = useState(initial.files);
   const [usage, setUsage] = useState(initial.usage);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(initial.confirmation);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [composerText, setComposerText] = useState("");
   const [refusal, setRefusal] = useState<{ kind: string; reason: string } | null>(null);
@@ -142,7 +161,9 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   const panelRef = useRef(panel);
   const sending = useRef(false);
   const fileSending = useRef(false);
+  const confirmationRef = useRef(confirmation);
   const held = useRef(new Map<string, HeldFileChat>());
+  confirmationRef.current = confirmation;
   briefRef.current = brief;
   draftsRef.current = drafts;
   composerRef.current = composerText;
@@ -180,6 +201,28 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   const { messages: fileMessages, status: fileStatus } = useChat<FileChatUIMessage>({ chat: activeFileChat });
   const fileChatRef = useRef(activeFileChat);
   fileChatRef.current = activeFileChat;
+
+  useEffect(() => {
+    if (!active || !returnFocus) return;
+    setOneAtATime(false);
+    setPanel(null);
+    setFocus({ id: returnFocus.questionId, nonce: returnFocus.nonce });
+  }, [active, returnFocus]);
+
+  useEffect(() => {
+    if (!active) return;
+    let live = true;
+    port.load().then((result) => {
+      if (!live || !result.ok) return;
+      setConfirmation(result.value.confirmation);
+      setBrief((current) => newerBrief(current, result.value.brief));
+      setUsage(result.value.usage);
+      setFiles(result.value.files);
+    });
+    return () => {
+      live = false;
+    };
+  }, [active, port]);
 
   useEffect(() => {
     return port.subscribe((change) => {
@@ -342,6 +385,7 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   }
 
   async function sendFileAnswer(text: string) {
+    if (confirmationRef.current) return;
     const trimmed = text.trim();
     if (trimmed.length === 0) return;
     if (fileSending.current) return;
@@ -372,6 +416,7 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   }
 
   async function send() {
+    if (confirmationRef.current) return;
     if (sending.current) return;
     if (chat.status === "submitted" || chat.status === "streaming") return;
     const open = currentQuestions(briefRef.current, reopenedRef.current);
@@ -432,7 +477,7 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     brief,
     files,
     usage,
-    confirmation: initial.confirmation,
+    confirmation,
     messages,
     drafts,
     composerText,
@@ -490,6 +535,170 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     },
     nextQuestion() {
       setQuestionIndex((current) => current + 1);
+    },
+  };
+}
+
+export type DiscoveryReviewController = {
+  project: DiscoveryState["project"];
+  brief: BriefSnapshot;
+  files: DiscoveryFile[];
+  usage: DiscoveryUsage;
+  confirmation: Confirmation | null;
+  open: ReturnType<typeof openForReview>;
+  sections: ReturnType<typeof reviewSections>;
+  ticks: ReviewTicks;
+  editingId: string | null;
+  draft: string;
+  editError: string | null;
+  finishError: string | null;
+  changed: readonly string[];
+  gate: { canFinish: boolean; hint: string };
+  setReviewed(checked: boolean): void;
+  setOpenGaps(checked: boolean): void;
+  setData(checked: boolean): void;
+  beginEdit(sectionId: string, text: string): void;
+  setDraft(text: string): void;
+  cancelEdit(): void;
+  saveEdit(title: string): Promise<void>;
+  accept(topicId: string, title: string): Promise<void>;
+  removeLabel(label: string): Promise<void>;
+  finish(): Promise<void>;
+};
+
+export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState): DiscoveryReviewController {
+  const [brief, setBrief] = useState(initial.brief);
+  const [files, setFiles] = useState(initial.files);
+  const [usage, setUsage] = useState(initial.usage);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(initial.confirmation);
+  const [reviewedRevision, setReviewedRevision] = useState<number | null>(null);
+  const [openGaps, setOpenGaps] = useState(false);
+  const [dataAck, setDataAck] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [editBase, setEditBase] = useState(initial.brief.revision);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [finishError, setFinishError] = useState<string | null>(null);
+  const [changed, setChanged] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const briefRef = useRef(brief);
+  briefRef.current = brief;
+
+  useEffect(() => {
+    return port.subscribe((change) => {
+      if (change.brief) setBrief((current) => newerBrief(current, change.brief as BriefSnapshot));
+      if (change.files) setFiles(change.files);
+      if (change.usage) setUsage(change.usage);
+    });
+  }, [port]);
+
+  const open = openForReview(brief);
+  const sections = reviewSections(brief);
+  const ticks: ReviewTicks = { reviewedRevision, openGaps, data: dataAck };
+  const gate = reviewGate({
+    revision: brief.revision,
+    openCount: open.length,
+    ticks,
+    editing: editingId !== null,
+  });
+
+  return {
+    project: initial.project,
+    brief,
+    files,
+    usage,
+    confirmation,
+    open,
+    sections,
+    ticks,
+    editingId,
+    draft,
+    editError,
+    finishError,
+    changed,
+    gate,
+    setReviewed(checked) {
+      setReviewedRevision(checked ? briefRef.current.revision : null);
+    },
+    setOpenGaps,
+    setData: setDataAck,
+    beginEdit(sectionId, text) {
+      setEditingId(sectionId);
+      setDraft(text);
+      setEditBase(briefRef.current.revision);
+      setEditError(null);
+    },
+    setDraft,
+    cancelEdit() {
+      setEditingId(null);
+      setDraft("");
+      setEditError(null);
+    },
+    async saveEdit(title) {
+      if (!editingId || busy) return;
+      const current = reviewSections(briefRef.current).find((section) => section.id === editingId);
+      if (current && current.text === draft) {
+        setEditingId(null);
+        setDraft("");
+        setEditError(null);
+        return;
+      }
+      setBusy(true);
+      const result = await port.saveBriefEdit({ sectionId: editingId, text: draft, baseRevision: editBase });
+      setBusy(false);
+      if (!result.ok) {
+        setEditError(result.refusal.reason);
+        if (result.refusal.kind === "stale-revision") setEditBase(briefRef.current.revision);
+        return;
+      }
+      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+      setChanged((list) => [...list, title]);
+      setEditingId(null);
+      setDraft("");
+      setEditError(null);
+    },
+    async accept(topicId, title) {
+      if (busy) return;
+      setBusy(true);
+      const result = await port.acceptSuggestion({ topicId, baseRevision: briefRef.current.revision });
+      setBusy(false);
+      if (!result.ok) {
+        setFinishError(result.refusal.reason);
+        return;
+      }
+      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+      setChanged((list) => [...list, title]);
+    },
+    async removeLabel(label) {
+      const result = await port.removeCauseLabel({ label, baseRevision: briefRef.current.revision });
+      if (!result.ok) {
+        setFinishError(result.refusal.reason);
+        return;
+      }
+      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+    },
+    async finish() {
+      const latest = briefRef.current;
+      const openNow = openForReview(latest);
+      const ready = reviewGate({
+        revision: latest.revision,
+        openCount: openNow.length,
+        ticks: { reviewedRevision, openGaps, data: dataAck },
+        editing: editingId !== null,
+      });
+      if (!ready.canFinish || busy) return;
+      setBusy(true);
+      const result = await port.finish({
+        revision: latest.revision,
+        acks: { reviewed: true, openGaps: openNow.length > 0 ? openGaps : false, data: true },
+      });
+      setBusy(false);
+      if (!result.ok) {
+        setFinishError(result.refusal.reason);
+        return;
+      }
+      setConfirmation(result.value);
+      setFinishError(null);
     },
   };
 }

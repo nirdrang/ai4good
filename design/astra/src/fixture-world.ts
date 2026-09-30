@@ -149,6 +149,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       return () => listeners.delete(listener);
     },
     applyTurn({ messages, request }) {
+      if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
       const charged = charge(state.usage);
       if (!charged) {
         return refusal(
@@ -454,6 +455,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     text: string;
     messages: FileChatUIMessage[];
   }): Result<AppliedFileAnswer> {
+    if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
     const blocked = fileBlock(input.target);
     if (blocked) return refusal(blocked.kind, blocked.reason);
     const charged = charge(state.usage);

@@ -148,6 +148,52 @@ export const TEXT = {
   },
   finished: "Discovery finished",
   finishedOpen: "Discovery finished with open questions",
+  finishedClosed: "Discovery is finished. No further reply is charged.",
+  review: {
+    crumb: "Your project / Discovery · review before you finish",
+    title: (project: string) => `${project} · your Discovery document`,
+    intro:
+      "This is your brief as it stands, in your words. Edit any section before you finish. Nothing here is rewritten by the AI.",
+    openTitle: (open: number) => (open === 1 ? "1 question is still open" : `${open} questions are still open`),
+    openNote:
+      "You can finish with them open. They stay in this document for the ai4good team and the volunteer.",
+    suggestedLine: (text: string) => `Suggested: ${text}`,
+    saveNote: "Saving makes a new revision. Editing is free.",
+    changeNote: (revision: number, changed: string) =>
+      `Revision ${revision} · you changed: ${changed}. Tick the review box again for this revision.`,
+    took: (fact: string) => `The AI took from it: ${fact}`,
+    tookNothing: "The AI took nothing from it yet.",
+    fromIntake: "from intake",
+    addedInDiscovery: "added in Discovery",
+    causeNote: "The AI chose this label. You can remove it, but not type a new one.",
+    noCause: "No cause label.",
+    removeLabel: (label: string) => `Remove the label ${label}`,
+    confirmLead: "You decide whether this is the right first version for your organisation.",
+    dataPractice:
+      "In practice: your NGO decides who can see volunteer details, and the tool stores only what “Information handled” lists.",
+    nextTitle: "What happens next",
+    nextBody:
+      "ai4good reviews your project, then helps you find a volunteer. The technical plan, the tools and who builds what, is written later in the PRD step, after a volunteer agrees.",
+    goToFinish: "Go to Finish Discovery",
+    save: "Save",
+    cancel: "Cancel",
+    edit: "Edit",
+    gateEditing: "Save or cancel your edit first.",
+    gateReady: (revision: number) => `Finishing is free. It records your name, the time, and revision ${revision}.`,
+    gateIdle: "Tick the boxes above to finish. Finishing is free.",
+    doneBody: (revision: number) => `You confirmed revision ${revision} of your Discovery document.`,
+    doneOpen: (open: number) =>
+      open === 0
+        ? "Every question has an answer."
+        : `${open === 1 ? "The open question stays" : `The ${open} open questions stay`} in it for the ai4good team and the volunteer.`,
+    doneNext:
+      "Next: find a volunteer. ai4good reviews your project first. The PRD step, where the technical plan is written, starts after a volunteer agrees and your project is funded.",
+    need: "The need",
+    users: "Who uses it, and what they do today",
+    success: "How you will know it works",
+    cause: "Cause",
+    openQuestions: "Open questions",
+  },
   dataTier: {
     0: "Data: Tier 0. The tool keeps no personal information.",
     1: "Data: Tier 1. The tool keeps ordinary personal information. Keep only what it needs.",

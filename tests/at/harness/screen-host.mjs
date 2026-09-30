@@ -151,6 +151,10 @@ const ops = {
     }, Number(top ?? 0));
     return null;
   },
+  async scrollIntoView({ page, chain }) {
+    await locate(entry(page).page, chain).scrollIntoViewIfNeeded();
+    return null;
+  },
   async focused({ page, chain }) {
     return locate(entry(page).page, chain).evaluate((element) => element === document.activeElement);
   },

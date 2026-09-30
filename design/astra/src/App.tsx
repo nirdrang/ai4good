@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -28,7 +28,7 @@ import {
   storageKey,
   type MockState,
 } from "./model";
-import { DiscoveryReview, DiscoveryScreen } from "@/components/discovery";
+import { DiscoveryReview, DiscoveryScreen, type DiscoveryPort } from "@/components/discovery";
 import { fixturePort, fixtureSelection } from "./fixture-port";
 import { ProjectBuild } from "./ProjectBuild";
 import { Dashboard, Funding, Intake, Projects, Publish } from "./screens";
@@ -257,6 +257,43 @@ function Review({ state, setState, navigate, notify }: ScreenProps) {
   );
 }
 
+function DiscoveryRoutes({
+  route,
+  port,
+  navigate,
+}: {
+  route: Route;
+  port: DiscoveryPort;
+  navigate: (next: Route) => void;
+}) {
+  const [returnFocus, setReturnFocus] = useState<{ questionId: string; nonce: number } | null>(null);
+  const nonce = useRef(0);
+  const showChat = route === "discovery";
+  return (
+    <>
+      {/* The chat stays mounted so a draft and a file read survive the review.
+          This box is the flex child. A plain wrapper grows with the chat and pushes Send below the frame. */}
+      <div hidden={!showChat} className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden">
+        <DiscoveryScreen
+          port={port}
+          active={showChat}
+          returnFocus={returnFocus}
+          onOpenReview={() => navigate("discovery-review")}
+        />
+      </div>
+      {route === "discovery-review" ? (
+        <DiscoveryReview
+          port={port}
+          onBackToChat={(questionId) => {
+            setReturnFocus(questionId === null ? null : { questionId, nonce: ++nonce.current });
+            navigate("discovery");
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export default function App() {
   const [initial] = useState(readState);
   const [state, setState] = useState<MockState>(initial.state);
@@ -465,7 +502,7 @@ export default function App() {
         </aside>
         <main
           id="main-content"
-          className={`main-content ${route === "discovery" ? "discovery-content" : ""} ${route === "build" ? "build-content" : ""}`}
+          className={`main-content ${route === "discovery" || route === "discovery-review" ? "discovery-content" : ""} ${route === "build" ? "build-content" : ""}`}
           tabIndex={-1}
         >
           {warning && (
@@ -476,14 +513,14 @@ export default function App() {
           {route === "dashboard" && <Dashboard {...props} />}
           {route === "projects" && <Projects {...props} />}
           {route === "intake" && <Intake {...props} />}
-          {route === "discovery" && (
-            <DiscoveryScreen
+          {(route === "discovery" || route === "discovery-review") && (
+            <DiscoveryRoutes
               key={`${selection.scenario}:${selection.pace}`}
+              route={route}
               port={discoveryPort}
-              onOpenReview={() => navigate("discovery-review")}
+              navigate={navigate}
             />
           )}
-          {route === "discovery-review" && <DiscoveryReview onBackToChat={() => navigate("discovery")} />}
           {route === "publish" && <Publish {...props} />}
           {route === "funding" && <Funding {...props} />}
           {route === "build" && <ProjectBuild notify={setNotice} />}

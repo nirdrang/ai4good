@@ -6,6 +6,7 @@ import type {
   DiscoveryUIMessage,
   DiscoveryUsage,
   FileChatUIMessage,
+  Importance,
 } from "@/lib/discovery-stream";
 import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, SCREEN, TEXT, type QuestionStatus } from "./a11y";
 
@@ -540,4 +541,110 @@ export function resetClock(iso: string): string {
     minute: "2-digit",
     hourCycle: "h23",
   }).format(new Date(iso));
+}
+
+const IMPORTANCE_RANK: Record<Importance, number> = { needed: 0, suggested: 1, later: 2 };
+
+export type OpenReviewItem = {
+  topicId: string;
+  topicTitle: string;
+  questionId: string | null;
+  importance: Importance;
+  why: string;
+  suggestion: string | null;
+};
+
+/** Topics that are not agreed, in importance order. An unasked topic still appears. */
+export function openForReview(brief: BriefSnapshot): OpenReviewItem[] {
+  const items = brief.topics.flatMap((topic): OpenReviewItem[] => {
+    if (topic.state.kind === "agreed") return [];
+    const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
+    const questionId =
+      question?.id ?? (topic.state.kind === "not-sure" ? topic.state.questionId : null);
+    return [
+      {
+        topicId: topic.id,
+        topicTitle: topic.title,
+        questionId,
+        importance: question?.importance ?? topic.importance,
+        why: topic.why,
+        suggestion: topic.suggestion,
+      },
+    ];
+  });
+  return items.sort((a, b) => IMPORTANCE_RANK[a.importance] - IMPORTANCE_RANK[b.importance]);
+}
+
+export type ReviewSection = {
+  id: string;
+  title: string;
+  text: string;
+  source: string;
+  editable: boolean;
+};
+
+/** The brief as it stands. An accepted suggestion stays as the person accepted it. */
+export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
+  const sections: ReviewSection[] = [
+    {
+      id: "need",
+      title: TEXT.review.need,
+      text: brief.need.text,
+      source: sourceText(brief.need.source),
+      editable: true,
+    },
+  ];
+  if (brief.usersToday) {
+    sections.push({
+      id: "usersToday",
+      title: TEXT.review.users,
+      text: brief.usersToday.text,
+      source: sourceText(brief.usersToday.source),
+      editable: true,
+    });
+  }
+  for (const topic of brief.topics) {
+    if (topic.state.kind !== "agreed") continue;
+    sections.push({
+      id: topic.id,
+      title: topic.title,
+      text: topic.state.answer,
+      source: sourceText(topic.state.source),
+      editable: topic.state.source.kind !== "accepted-suggestion",
+    });
+  }
+  if (brief.successMeasure) {
+    sections.push({
+      id: "successMeasure",
+      title: TEXT.review.success,
+      text: brief.successMeasure.text,
+      source: sourceText(brief.successMeasure.source),
+      editable: true,
+    });
+  }
+  return sections;
+}
+
+export type ReviewTicks = { reviewedRevision: number | null; openGaps: boolean; data: boolean };
+
+/** Finish stays unavailable while an edit is open, and the review tick must match this revision. */
+export function reviewGate(input: {
+  revision: number;
+  openCount: number;
+  ticks: ReviewTicks;
+  editing: boolean;
+}): { canFinish: boolean; hint: string } {
+  if (input.editing) return { canFinish: false, hint: TEXT.review.gateEditing };
+  const reviewed = input.ticks.reviewedRevision === input.revision;
+  const gapsOk = input.openCount === 0 || input.ticks.openGaps;
+  if (reviewed && gapsOk && input.ticks.data) {
+    return { canFinish: true, hint: TEXT.review.gateReady(input.revision) };
+  }
+  return { canFinish: false, hint: TEXT.review.gateIdle };
+}
+
+export function fileTookLine(file: DiscoveryFile): string {
+  const where = file.origin === "intake" ? TEXT.review.fromIntake : TEXT.review.addedInDiscovery;
+  const took = file.tookFromIt ? TEXT.review.took(file.tookFromIt) : TEXT.review.tookNothing;
+  return `${file.name} · ${where}. ${took}`;
 }

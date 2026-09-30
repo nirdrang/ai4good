@@ -259,6 +259,96 @@ export class DiscoveryPage {
     finishBox: (): Promise<Box> => waitBox(this.page, [landmark('button', SCREEN.finish.name)], SCREEN.finish.name),
   };
 
+  readonly review = {
+    ready: (): Promise<boolean> =>
+      eventually('the review page is open', () => this.page.visible([this.reviewRoot()]), (open) => open),
+    text: (): Promise<string> => this.page.text([this.reviewRoot()]),
+    openText: (): Promise<string> => readText(this.page, [this.openRoot()]),
+    openItem: (title: string): Promise<string> => readText(this.page, [this.openRoot(), landmark('listitem', title)]),
+    sectionText: (title: string): Promise<string> => readText(this.page, [this.sectionRoot(title)]),
+    openBox: (): Promise<Box> => waitBox(this.page, [this.openRoot()], SCREEN.reviewOpen.name),
+    sectionBox: (title: string): Promise<Box> => waitBox(this.page, [this.sectionRoot(title)], title),
+    useSuggestion: (title: string): Promise<void> =>
+      this.page.click([this.openRoot(), landmark('listitem', title), landmark('button', NAME.useSuggestion)]),
+    answerInChat: (title: string): Promise<void> =>
+      this.page.click([this.openRoot(), landmark('listitem', title), landmark('button', NAME.answerInChat)]),
+    edit: async (title: string): Promise<void> => {
+      await this.page.click([this.sectionRoot(title), landmark('button', NAME.editSection(title))]);
+      await eventually(
+        `the edit box for ${title} is open`,
+        () => this.page.visible([this.sectionRoot(title), landmark('textbox', title)]),
+        (open) => open,
+      );
+    },
+    fill: (title: string, text: string): Promise<void> =>
+      this.page.fill([this.sectionRoot(title), landmark('textbox', title)], text),
+    save: (title: string): Promise<void> =>
+      this.page.click([this.sectionRoot(title), landmark('button', TEXT.review.save)]),
+    tick: async (name: string): Promise<void> => {
+      const box = this.check(name);
+      if ((await this.page.attribute(box, 'aria-checked')) !== 'true') await this.page.click(box);
+      await eventually(`${name} is ticked`, () => this.page.attribute(box, 'aria-checked'), (value) => value === 'true');
+    },
+    ticked: async (name: string): Promise<boolean> => (await this.page.attribute(this.check(name), 'aria-checked')) === 'true',
+    finishDisabled: async (): Promise<boolean> =>
+      (await this.page.attribute([this.confirmRoot(), landmark('button', SCREEN.finish.name)], 'aria-disabled')) === 'true',
+    finish: async (): Promise<void> => {
+      await this.page.click([this.confirmRoot(), landmark('button', SCREEN.finish.name)]);
+      await eventually(
+        'Finish Discovery confirms the document',
+        () => readText(this.page, [this.reviewRoot()]),
+        (text) => text.includes('Discovery finished'),
+      );
+    },
+    backVisible: (): Promise<boolean> => this.page.visible([landmark('button', SCREEN.reviewBack.name)]),
+    back: async (): Promise<void> => {
+      await this.page.click([landmark('button', SCREEN.reviewBack.name)]);
+      await eventually(
+        'Back to the chat shows the conversation',
+        () => this.page.visible([landmark(SCREEN.conversation.role, SCREEN.conversation.name)]),
+        (open) => open,
+      );
+    },
+    open: async (): Promise<void> => {
+      await this.page.click([landmark('button', SCREEN.finish.name)]);
+      await eventually('Finish Discovery opens the review', () => this.page.visible([this.reviewRoot()]), (open) => open);
+    },
+    jumpVisible: (): Promise<boolean> => this.page.visible([landmark('button', TEXT.review.goToFinish)]),
+    goToFinish: async (): Promise<void> => {
+      await this.page.click([landmark('button', TEXT.review.goToFinish)]);
+      await eventually(
+        'the jump bar hides when the confirm card is in view',
+        () => this.page.visible([landmark('button', TEXT.review.goToFinish)]),
+        (open) => open === false,
+      );
+    },
+    buttonCount: (fragment: string): Promise<number> => this.page.count([{ role: 'button', name: fragment, exact: false }]),
+    backBox: (): Promise<Box> => this.fitBox([landmark('button', SCREEN.reviewBack.name)], SCREEN.reviewBack.name),
+    suggestionBox: (): Promise<Box> =>
+      this.fitBox([this.openRoot(), landmark('button', NAME.useSuggestion, 0)], NAME.useSuggestion),
+    answerBox: (): Promise<Box> =>
+      this.fitBox([this.openRoot(), landmark('button', NAME.answerInChat, 0)], NAME.answerInChat),
+    jumpBox: (): Promise<Box> => this.fitBox([landmark('button', TEXT.review.goToFinish)], TEXT.review.goToFinish),
+    finishBox: (): Promise<Box> =>
+      this.fitBox([this.confirmRoot(), landmark('button', SCREEN.finish.name)], SCREEN.finish.name),
+    checkBox: (name: string): Promise<Box> => this.fitBox(this.check(name), name),
+    editBox: (title: string): Promise<Box> => this.fitBox([this.sectionRoot(title), landmark('textbox', title)], title),
+    saveBox: (title: string): Promise<Box> =>
+      this.fitBox([this.sectionRoot(title), landmark('button', TEXT.review.save)], TEXT.review.save),
+    cancelBox: (title: string): Promise<Box> =>
+      this.fitBox([this.sectionRoot(title), landmark('button', TEXT.review.cancel)], TEXT.review.cancel),
+  };
+
+  readonly document = {
+    text: (): Promise<string> =>
+      eventually(
+        'the Discovery document',
+        () => readText(this.page, [this.documentRoot()]),
+        (text) => text.trim().length > 0,
+      ),
+    box: (): Promise<Box> => waitBox(this.page, [this.documentRoot()], SCREEN.document.name),
+  };
+
   async sendBox(): Promise<Box> {
     const paid = landmark('button', TEXT.sendPaid);
     const free = landmark('button', TEXT.send);
@@ -322,6 +412,35 @@ export class DiscoveryPage {
     return this.viewport === 'desktop'
       ? landmark(SCREEN.briefSide.role, SCREEN.briefSide.name)
       : landmark(SCREEN.briefFull.role, SCREEN.briefFull.name);
+  }
+
+  private async fitBox(chain: LocatorStep[], what: string): Promise<Box> {
+    await this.page.scrollIntoView(chain);
+    return waitBox(this.page, chain, what);
+  }
+
+  private check(name: string): LocatorStep[] {
+    return [this.confirmRoot(), landmark('checkbox', name)];
+  }
+
+  private reviewRoot(): LocatorStep {
+    return landmark(SCREEN.review.role, SCREEN.review.name);
+  }
+
+  private openRoot(): LocatorStep {
+    return landmark(SCREEN.reviewOpen.role, SCREEN.reviewOpen.name);
+  }
+
+  private confirmRoot(): LocatorStep {
+    return landmark(SCREEN.confirmation.role, SCREEN.confirmation.name);
+  }
+
+  private sectionRoot(title: string): LocatorStep {
+    return landmark('region', title);
+  }
+
+  private documentRoot(): LocatorStep {
+    return landmark(SCREEN.document.role, SCREEN.document.name);
   }
 
   private async questionsRoot(): Promise<LocatorStep> {

@@ -12,7 +12,7 @@ const SIZES = ['desktop', 'phone'] as const;
 
 // d94 (2026-09-29): the need brief, files, and Finish. The Discovery screen item replaces each stub
 // with a body that runs against the shared mock first and the wired app after.
-atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui' }, {
+atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui', timeoutMs: { loop: 60_000 } }, {
   loop: async (ctx) => {
     const given = GIVEN['mid-interview'];
     await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
@@ -40,6 +40,8 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
       expect(await owner.text(), 'the owner question shows Needed before build').toContain('Needed before build');
       expect(await measure.text(), 'the measure question shows A suggestion exists').toContain('A suggestion exists');
       expect(await screen.modelCalls(), 'opening the brief makes no model call').toEqual(calls);
+      await screen.review.open();
+      expect(await screen.modelCalls(), 'opening Finish makes no model call').toEqual(calls);
     });
   },
   integration: async () => {
@@ -49,9 +51,89 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
     throw new CapabilityPending([AWAITED.discoverySurface]);
   },
 });
-atTest('AT-004.62', 'Finish groups open questions by importance without a model call', { default: notYet('AT-004.62') });
-atTest('AT-004.63', 'the Discovery document holds the need and no technical scope', { default: notYet('AT-004.63') });
-atTest('AT-004.64', 'the review offers the chat and brief edits, never an AI rewrite', { default: notYet('AT-004.64') });
+atTest(
+  'AT-004.62',
+  'Finish groups open questions by importance without a model call',
+  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  {
+    loop: async (ctx) => {
+      const given = GIVEN['finish-open'];
+      for (const colorScheme of SCHEMES) {
+        for (const viewport of SIZES) {
+          await withDiscovery(ctx, { scenario: 'finish-open', viewport, colorScheme }, async (screen) => {
+            await expectFinishFlow(screen, given);
+          });
+        }
+      }
+      await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'narrow' }, async (screen) => {
+        await expectReviewFits(screen, given);
+      });
+    },
+    integration: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+    drill: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+  },
+);
+atTest(
+  'AT-004.63',
+  'the Discovery document holds the need and no technical scope',
+  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  {
+    loop: async (ctx) => {
+      for (const colorScheme of SCHEMES) {
+        for (const viewport of SIZES) {
+          await withDiscovery(ctx, { scenario: 'confirmed-tier-2', viewport, colorScheme }, async (screen) => {
+            await expectDocument(screen, GIVEN['confirmed-tier-2']);
+          });
+          await withDiscovery(ctx, { scenario: 'confirmed-tier-1', viewport, colorScheme }, async (screen) => {
+            await expectDocument(screen, GIVEN['confirmed-tier-1']);
+          });
+        }
+      }
+      await withDiscovery(ctx, { scenario: 'confirmed-tier-2', viewport: 'narrow' }, async (screen) => {
+        await screen.review.ready();
+        const box = await screen.document.box();
+        expect(box.x, 'the document starts inside the 320 px viewport').toBeGreaterThanOrEqual(-1);
+        expect(box.x + box.width, 'the document ends inside the 320 px viewport').toBeLessThanOrEqual(screen.width + 1);
+      });
+    },
+    integration: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+    drill: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+  },
+);
+atTest(
+  'AT-004.64',
+  'the review offers the chat and brief edits, never an AI rewrite',
+  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  {
+    loop: async (ctx) => {
+      const given = GIVEN['finish-open'];
+      for (const colorScheme of SCHEMES) {
+        for (const viewport of SIZES) {
+          await withDiscovery(ctx, { scenario: 'finish-open', viewport, colorScheme }, async (screen) => {
+            await expectEditClearsReview(screen, given);
+          });
+        }
+      }
+      await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'narrow' }, async (screen) => {
+        await expectReviewFits(screen, given);
+      });
+    },
+    integration: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+    drill: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+  },
+);
 atTest('AT-004.65', 'the first reply asks for files while fewer than three exist', { surface: 'ui' }, {
   loop: async (ctx) => {
     const given = GIVEN['first-reply'];
@@ -641,4 +723,167 @@ async function expectInside(screen: DiscoveryPage): Promise<void> {
     expect(box.x, `${what} starts inside the 320 px screen`).toBeGreaterThanOrEqual(-1);
     expect(box.x + box.width, `${what} ends inside the 320 px screen`).toBeLessThanOrEqual(screen.width + 1);
   }
+}
+
+const OPEN_IMPORTANCE = ['Needed before build', 'A suggestion exists', 'A suggestion exists', 'Can wait'] as const;
+
+async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIVEN)['finish-open']): Promise<void> {
+  await screen.review.ready();
+  expect(await screen.modelCalls(), 'the review starts with no model call').toEqual([]);
+  const pageText = await screen.review.text();
+  const needAt = pageText.indexOf('The need');
+  expect(needAt, 'the brief is on the review page').toBeGreaterThanOrEqual(0);
+  expect(pageText.indexOf(given.open[0].title), 'open questions come before the brief').toBeGreaterThanOrEqual(0);
+  expect(pageText.indexOf(given.open[0].title), 'open questions come before The need').toBeLessThan(needAt);
+  const openBox = await screen.review.openBox();
+  const needBox = await screen.review.sectionBox('The need');
+  expect(openBox.y, 'the open questions sit above the brief').toBeLessThan(needBox.y);
+  let previous = -1;
+  const openText = await screen.review.openText();
+  for (let index = 0; index < given.open.length; index += 1) {
+    const item = given.open[index];
+    const at = openText.indexOf(item.title);
+    expect(at, `${item.title} is on the review in importance order`).toBeGreaterThan(previous);
+    previous = at;
+    const row = await screen.review.openItem(item.title);
+    expect(row, `${item.title} shows ${OPEN_IMPORTANCE[index]}`).toContain(OPEN_IMPORTANCE[index]);
+    expect(row, `${item.title} shows why it matters`).toContain(item.why);
+    expect(row, `${item.title} shows its suggestion`).toContain(`Suggested: ${item.suggested}`);
+  }
+  const info = given.open[3];
+  await screen.review.useSuggestion(info.title);
+  const section = await eventually(
+    'the accepted suggestion becomes a section',
+    () => screen.review.sectionText(info.title),
+    (text) => text.includes('Suggestion you accepted') && text.includes(info.suggested),
+  );
+  expect(section, 'the source is Suggestion you accepted').toContain('Suggestion you accepted');
+  expect(section, 'the accepted words stay Name and phone only').toContain(info.suggested);
+  const accepted = await screen.review.text();
+  expect(accepted, 'accepting creates the next revision').toContain(`Revision ${given.revision + 1}`);
+  expect(accepted, 'accepting lowers the open count').toContain('3 questions are still open');
+  const owner = given.open[0];
+  await screen.review.answerInChat(owner.title);
+  const question = screen.chat.question(owner.question);
+  await eventually('Answer in the chat keeps the question in the chat', () => question.isAsked(), (asked) => asked);
+  await eventually('Answer in the chat focuses the question', () => question.hasFocus(), (focused) => focused);
+  const row = await screen.questions.row(owner.question);
+  expect(row, 'the question stays Open').toContain('Open');
+  await screen.questions.close();
+  const usageBefore = await screen.usage.text();
+  await screen.review.open();
+  await screen.review.tick(TEXT.ack.reviewed(given.revision + 1));
+  await screen.review.tick(TEXT.ack.gaps(given.open.length - 1));
+  await screen.review.tick(TEXT.ack.data);
+  await screen.review.finish();
+  expect(await screen.review.text(), 'Finish records Discovery finished with open questions').toContain(
+    'Discovery finished with open questions',
+  );
+  expect(await screen.modelCalls(), 'Finish makes no model call').toEqual([]);
+  await screen.review.back();
+  expect(await screen.usage.text(), 'Finish consumes no turn or fuel').toBe(usageBefore);
+  expect(await screen.modelCalls(), 'returning to the chat makes no model call').toEqual([]);
+}
+
+async function expectDocument(
+  screen: DiscoveryPage,
+  given: (typeof GIVEN)['confirmed-tier-2'] | (typeof GIVEN)['confirmed-tier-1'],
+): Promise<void> {
+  const text = await screen.document.text();
+  expect(text, 'the document names the project').toContain('Volunteer scheduling');
+  expect(text, 'the document is your Discovery document').toContain('your Discovery document');
+  expect(text, 'the document holds the need in the NGO words').toContain(given.need);
+  expect(text, 'the need shows From your intake').toContain('From your intake');
+  expect(text, 'the document names who uses the tool').toContain('Who uses it, and what they do today');
+  for (const line of given.users.split('\n')) {
+    expect(text, 'the document holds how they work today').toContain(line);
+  }
+  for (const item of given.agreed) {
+    expect(text, `${item.title} keeps the agreed answer`).toContain(item.answer);
+    expect(text, `${item.title} shows From the chat, round ${item.round}`).toContain(`From the chat, round ${item.round}`);
+  }
+  expect(text, 'the document holds how the NGO will know it works').toContain('How you will know it works');
+  expect(text, 'the success measure stays in the NGO words').toContain(given.success);
+  expect(text, 'the success measure shows From the chat, round 4').toContain('From the chat, round 4');
+  const openImportance = ['Needed before build', 'A suggestion exists'] as const;
+  for (let index = 0; index < given.open.length; index += 1) {
+    const item = given.open[index];
+    expect(text, `${item.title} stays in the document`).toContain(item.title);
+    expect(text, `${item.title} keeps ${openImportance[index]}`).toContain(openImportance[index]);
+    expect(text, `${item.title} keeps why it matters`).toContain(item.why);
+  }
+  for (const file of given.files) {
+    expect(text, `${file.name} is in the document`).toContain(file.name);
+    expect(text, `${file.name} says what the AI took`).toContain('The AI took from it:');
+    expect(text, `${file.name} keeps what the AI took`).toContain(file.took);
+  }
+  expect(text, `the document explains Tier ${given.tier}`).toContain(`Tier ${given.tier}`);
+  if (given.tier === 2) expect(text, 'Tier 2 says sample data only').toContain('sample data only');
+  else expect(text, 'Tier 1 does not say sample data only').not.toContain('sample data only');
+  expect(text, 'the fit verdict says a staff member can look after this tool by chat').toContain(
+    'a staff member can look after this tool by chat',
+  );
+  expect(given.labels.length, 'the document has at most three cause labels').toBeLessThanOrEqual(3);
+  if (given.labels.length === 0) expect(text, 'zero cause labels say No cause label.').toContain('No cause label.');
+  for (const label of given.labels) expect(text, `the cause label ${label} is in the document`).toContain(label);
+  for (const blocked of ['stack', 'complexity', 'Lovable', 'build split', '$']) {
+    expect(text, `the document does not contain ${blocked}`).not.toContain(blocked);
+  }
+}
+
+async function expectEditClearsReview(screen: DiscoveryPage, given: (typeof GIVEN)['finish-open']): Promise<void> {
+  await screen.review.ready();
+  expect(await screen.review.backVisible(), 'Back to the chat is available before the edit').toBe(true);
+  expect(await screen.modelCalls(), 'the review starts with no model call').toEqual([]);
+  await screen.review.back();
+  const usageBefore = await screen.usage.text();
+  await screen.review.open();
+  await screen.review.tick(TEXT.ack.reviewed(given.revision));
+  await screen.review.tick(TEXT.ack.gaps(given.open.length));
+  await screen.review.tick(TEXT.ack.data);
+  expect(await screen.review.finishDisabled(), 'Finish Discovery is available after the three ticks').toBe(false);
+  await screen.review.edit('The need');
+  expect(await screen.review.finishDisabled(), 'Finish Discovery stays unavailable while an edit is open').toBe(true);
+  expect(await screen.review.backVisible(), 'Back to the chat is available while an edit is open').toBe(true);
+  await screen.review.fill('The need', given.edit);
+  await screen.review.save('The need');
+  const section = await eventually(
+    'the saved section keeps the new words',
+    () => screen.review.sectionText('The need'),
+    (text) => text.includes(given.edit),
+  );
+  expect(section, 'the edit is kept verbatim').toContain(given.edit);
+  expect(await screen.review.text(), 'saving creates the next revision').toContain(`Revision ${given.revision + 1}`);
+  expect(await screen.review.ticked(TEXT.ack.reviewed(given.revision + 1)), 'the review tick clears for the new revision').toBe(
+    false,
+  );
+  expect(await screen.review.ticked(TEXT.ack.gaps(given.open.length)), 'the open-questions tick stays').toBe(true);
+  expect(await screen.review.ticked(TEXT.ack.data), 'the data tick stays').toBe(true);
+  expect(await screen.review.finishDisabled(), 'Finish Discovery stays unavailable until the review is ticked again').toBe(true);
+  await screen.review.tick(TEXT.ack.reviewed(given.revision + 1));
+  expect(await screen.review.finishDisabled(), 'Finish Discovery is available after the review is ticked again').toBe(false);
+  expect(await screen.review.backVisible(), 'Back to the chat is available after the save').toBe(true);
+  expect(await screen.review.buttonCount('rewrite'), 'no rewrite control').toBe(0);
+  expect(await screen.review.buttonCount('regenerate'), 'no regenerate control').toBe(0);
+  await screen.review.back();
+  expect(await screen.usage.text(), 'the edit consumes no turn or fuel').toBe(usageBefore);
+  expect(await screen.modelCalls(), 'the edit makes no model call').toEqual([]);
+}
+
+async function expectReviewFits(screen: DiscoveryPage, given: (typeof GIVEN)['finish-open']): Promise<void> {
+  await screen.review.ready();
+  expect(await screen.review.jumpVisible(), 'Go to Finish Discovery is on screen before the card is in view').toBe(true);
+  await expectFullyVisible(screen, 'Back to the chat', await screen.review.backBox());
+  await expectFullyVisible(screen, 'Use the suggestion', await screen.review.suggestionBox());
+  await expectFullyVisible(screen, 'Answer in the chat', await screen.review.answerBox());
+  await expectFullyVisible(screen, 'Go to Finish Discovery', await screen.review.jumpBox());
+  await screen.review.goToFinish();
+  await expectFullyVisible(screen, 'Finish Discovery', await screen.review.finishBox());
+  await expectFullyVisible(screen, 'the review tick', await screen.review.checkBox(TEXT.ack.reviewed(given.revision)));
+  await expectFullyVisible(screen, 'the open-questions tick', await screen.review.checkBox(TEXT.ack.gaps(given.open.length)));
+  await expectFullyVisible(screen, 'the data tick', await screen.review.checkBox(TEXT.ack.data));
+  await screen.review.edit('The need');
+  await expectFullyVisible(screen, 'the edit box', await screen.review.editBox('The need'));
+  await expectFullyVisible(screen, 'Cancel', await screen.review.cancelBox('The need'));
+  await expectFullyVisible(screen, 'Save', await screen.review.saveBox('The need'));
 }

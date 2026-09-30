@@ -15,7 +15,17 @@ import { useDiscovery } from "./use-discovery";
 import { useIsPhone } from "./use-is-phone";
 import { UsageCard } from "./UsageCard";
 
-export function DiscoveryScreen({ port, onOpenReview }: { port: DiscoveryPort; onOpenReview(): void }) {
+export function DiscoveryScreen({
+  port,
+  onOpenReview,
+  active = true,
+  returnFocus = null,
+}: {
+  port: DiscoveryPort;
+  onOpenReview(): void;
+  active?: boolean;
+  returnFocus?: { questionId: string; nonce: number } | null;
+}) {
   const [loaded, setLoaded] = useState<DiscoveryState | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   useEffect(() => {
@@ -37,7 +47,7 @@ export function DiscoveryScreen({ port, onOpenReview }: { port: DiscoveryPort; o
   }, [port]);
   if (failure) return <p role="alert">{failure}</p>;
   if (!loaded) return <p>Loading Discovery.</p>;
-  return <Loaded port={port} initial={loaded} onOpenReview={onOpenReview} />;
+  return <Loaded port={port} initial={loaded} onOpenReview={onOpenReview} active={active} returnFocus={returnFocus} />;
 }
 
 function tagFor(
@@ -54,14 +64,19 @@ function Loaded({
   port,
   initial,
   onOpenReview,
+  active,
+  returnFocus,
 }: {
   port: DiscoveryPort;
   initial: DiscoveryState;
   onOpenReview(): void;
+  active: boolean;
+  returnFocus: { questionId: string; nonce: number } | null;
 }) {
   const phone = useIsPhone();
-  const discovery = useDiscovery(port, initial);
-  const questions = currentQuestions(discovery.brief, discovery.reopened);
+  const discovery = useDiscovery(port, initial, active, returnFocus);
+  const confirmation = discovery.confirmation;
+  const questions = confirmation ? [] : currentQuestions(discovery.brief, discovery.reopened);
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
   const rows = questionRows(discovery.brief, discovery.drafts);
@@ -105,7 +120,12 @@ function Loaded({
       onNext={discovery.nextQuestion}
     />
   );
-  const composer = (
+  const composer = confirmation ? (
+    <div className="flex flex-col gap-1">
+      <p className="m-0 text-sm font-semibold">{confirmation.acceptedGaps.length > 0 ? TEXT.finishedOpen : TEXT.finished}</p>
+      <p className="m-0 text-sm">{TEXT.finishedClosed}</p>
+    </div>
+  ) : (
     <Composer
       text={discovery.composerText}
       canSend={discovery.canSend}
