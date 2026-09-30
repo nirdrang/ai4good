@@ -501,6 +501,13 @@ atTest(
               for (const title of [given.agreed[0].title, given.notSure.title, given.open[0].title]) {
                 expect(await screen.brief.hasEdit(title), `${title} has Edit`).toBe(true);
               }
+              await screen.brief.back();
+              await eventually(
+                'focus returns to Open your live brief',
+                () => screen.brief.openerFocused(),
+                (focused) => focused,
+              );
+              await screen.brief.open();
               await screen.brief.edit(given.agreed[0].title);
               await eventually('Edit closes the brief', () => screen.brief.openVisible(), (open) => open === false);
               const question = screen.chat.question(given.agreed[0].question);
@@ -520,6 +527,11 @@ atTest(
               expect(panel.width, 'the phone brief has width').toBeGreaterThan(0);
               expect(await screen.usage.visible(), 'the usage card stays visible while the brief is open').toBe(true);
               await screen.brief.back();
+              await eventually(
+                'focus returns to Open your live brief',
+                () => screen.brief.openerFocused(),
+                (focused) => focused,
+              );
               expect(await screen.composer.value(), 'Back to chat keeps the message draft').toBe(draft);
             }
           });

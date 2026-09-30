@@ -258,6 +258,7 @@ export class DiscoveryPage {
     },
     box: (): Promise<Box> => waitBox(this.page, [this.briefRoot()], 'the live brief'),
     openVisible: (): Promise<boolean> => this.page.visible([this.briefRoot()]),
+    openerFocused: (): Promise<boolean> => this.page.focused([landmark('button', SCREEN.openBrief.name)]),
   };
 
   readonly progress = {

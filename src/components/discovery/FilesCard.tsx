@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type Ref } from "react";
 import type { DiscoveryFile } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -13,6 +13,7 @@ function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): vo
       <div className="flex min-w-0 items-start gap-2">
         {row.canOpen ? (
           <Button
+            id={`discovery-file-${row.id}`}
             type="button"
             variant="ghost"
             aria-label={NAME.openFileChat(row.name)}
@@ -45,12 +46,14 @@ export function FilesCard({
   files,
   funded,
   dense = false,
+  addRef,
   onAdd,
   onOpen,
 }: {
   files: readonly DiscoveryFile[];
   funded: boolean;
   dense?: boolean;
+  addRef?: Ref<HTMLButtonElement>;
   onAdd(): void;
   onOpen(fileId: string): void;
 }) {
@@ -70,6 +73,7 @@ export function FilesCard({
               <p className="text-sm text-muted-foreground">{countText}</p>
             </div>
             <Button
+              ref={addRef}
               type="button"
               variant="outline"
               className={`h-auto min-h-11 max-w-full whitespace-normal ${view.canAdd ? "" : "opacity-50"}`}

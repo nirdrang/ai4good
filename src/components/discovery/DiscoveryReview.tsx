@@ -296,7 +296,12 @@ function BriefSection({
   phone: boolean;
 }) {
   const headingId = useId();
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
   const editing = review.editingId === section.id;
+  useEffect(() => {
+    if (!editing) return;
+    fieldRef.current?.focus();
+  }, [editing]);
   return (
     <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-2 border-b border-border pb-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -319,6 +324,7 @@ function BriefSection({
       {editing ? (
         <>
           <Textarea
+            ref={fieldRef}
             aria-label={section.title}
             value={review.draft}
             rows={4}

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import type { BriefSnapshot } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -37,11 +37,25 @@ function Sections({ brief, onEdit }: { brief: BriefSnapshot; onEdit(questionId: 
   );
 }
 
-export function BriefCard({ brief, onOpen }: { brief: BriefSnapshot; onOpen(): void }) {
+export function BriefCard({
+  brief,
+  onOpen,
+  buttonRef,
+}: {
+  brief: BriefSnapshot;
+  onOpen(): void;
+  buttonRef?: Ref<HTMLButtonElement>;
+}) {
   return (
     <section className="flex min-w-0 shrink-0 flex-col gap-3 rounded-xl border bg-card p-4">
       <h2 className="m-0 text-base font-semibold">{briefHeading(brief)}</h2>
-      <Button type="button" variant="outline" className="h-auto min-h-11 self-start whitespace-normal" onClick={onOpen}>
+      <Button
+        ref={buttonRef}
+        type="button"
+        variant="outline"
+        className="h-auto min-h-11 self-start whitespace-normal"
+        onClick={onOpen}
+      >
         {SCREEN.openBrief.name}
       </Button>
     </section>

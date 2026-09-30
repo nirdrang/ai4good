@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import type { BriefQuestion, DiscoveryState } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { SCREEN, TEXT } from "./a11y";
@@ -75,6 +75,21 @@ function Loaded({
 }) {
   const phone = useIsPhone();
   const discovery = useDiscovery(port, initial, active, returnFocus);
+  const briefOpenerRef = useRef<HTMLButtonElement>(null);
+  const questionsOpenerRef = useRef<HTMLButtonElement>(null);
+  const addOpenerRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const token = discovery.restore;
+    if (!token) return;
+    const timer = window.setTimeout(() => {
+      const opener = token.opener;
+      if (opener === "brief") briefOpenerRef.current?.focus();
+      else if (opener === "questions") questionsOpenerRef.current?.focus();
+      else if (opener === "add") addOpenerRef.current?.focus();
+      else document.getElementById(`discovery-file-${opener.fileId}`)?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [discovery.restore]);
   const confirmation = discovery.confirmation;
   const questions = confirmation ? [] : currentQuestions(discovery.brief, discovery.reopened);
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
@@ -86,6 +101,7 @@ function Loaded({
       files={discovery.files}
       funded={discovery.project.funded}
       dense={showFile && !phone}
+      addRef={addOpenerRef}
       onAdd={discovery.openChooser}
       onOpen={discovery.openFile}
     />
@@ -148,6 +164,8 @@ function Loaded({
       {phone ? (
         <PhoneColumn
           counts={questionCountLine(rows)}
+          briefRef={briefOpenerRef}
+          questionsRef={questionsOpenerRef}
           onOpenBrief={() => discovery.openPanel("brief")}
           onOpenQuestions={() => discovery.openPanel("questions")}
           conversation={conversation}
@@ -169,7 +187,11 @@ function Loaded({
                 {discovery.panel?.kind === "brief" ? (
                   <BriefSide brief={discovery.brief} onClose={discovery.closePanel} onEdit={discovery.reopen} />
                 ) : (
-                  <BriefCard brief={discovery.brief} onOpen={() => discovery.openPanel("brief")} />
+                  <BriefCard
+                    brief={discovery.brief}
+                    buttonRef={briefOpenerRef}
+                    onOpen={() => discovery.openPanel("brief")}
+                  />
                 )}
                 {discovery.panel?.kind === "brief" ? null : (
                   <QuestionsCard rows={rows} onAnswer={discovery.focusQuestion} onView={discovery.viewAnswer} />
@@ -204,6 +226,8 @@ function Loaded({
 
 function PhoneColumn({
   counts,
+  briefRef,
+  questionsRef,
   onOpenBrief,
   onOpenQuestions,
   conversation,
@@ -211,6 +235,8 @@ function PhoneColumn({
   composer,
 }: {
   counts: string;
+  briefRef: Ref<HTMLButtonElement>;
+  questionsRef: Ref<HTMLButtonElement>;
   onOpenBrief(): void;
   onOpenQuestions(): void;
   conversation: ReactNode;
@@ -220,10 +246,10 @@ function PhoneColumn({
   return (
     <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-2">
       <div className="grid shrink-0 grid-cols-2 gap-2">
-        <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2 text-sm leading-snug" onClick={onOpenBrief}>
+        <Button ref={briefRef} type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2 text-sm leading-snug" onClick={onOpenBrief}>
           {SCREEN.openBrief.name}
         </Button>
-        <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2 text-sm leading-snug" onClick={onOpenQuestions}>
+        <Button ref={questionsRef} type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2 text-sm leading-snug" onClick={onOpenQuestions}>
           {`Questions · ${counts}`}
         </Button>
       </div>

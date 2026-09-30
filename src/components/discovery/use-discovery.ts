@@ -31,6 +31,8 @@ export type DiscoveryPanel =
   | { kind: "chooser" }
   | { kind: "file"; key: string };
 
+export type DiscoveryOpener = "brief" | "questions" | "add" | { kind: "file"; fileId: string };
+
 type HeldFileChat = {
   chat: Chat<FileChatUIMessage>;
   name: string;
@@ -75,6 +77,7 @@ export type DiscoveryController = {
   showOne(): void;
   showTogether(): void;
   nextQuestion(): void;
+  restore: { nonce: number; opener: DiscoveryOpener } | null;
 };
 
 function parseRefusal(error: unknown): { kind: string; reason: string } {
@@ -151,6 +154,8 @@ export function useDiscovery(
   const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ messageId: string; text: string } | null>(null);
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
+  const [restore, setRestore] = useState<{ nonce: number; opener: DiscoveryOpener } | null>(null);
+  const openerRef = useRef<DiscoveryOpener | null>(null);
   const [oneAtATime, setOneAtATime] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const briefRef = useRef(brief);
@@ -315,10 +320,15 @@ export function useDiscovery(
     });
   }
 
+  function remember(opener: DiscoveryOpener) {
+    openerRef.current = opener;
+  }
+
   function pointAt(questionId: string) {
     setOneAtATime(false);
     releaseUncommitted(panelRef.current);
     setPanel(null);
+    setRestore(null);
     setFocus({ id: questionId, nonce: Date.now() });
   }
 
@@ -375,6 +385,8 @@ export function useDiscovery(
       });
     }
     setFileNotice(null);
+    remember({ kind: "file", fileId });
+    setRestore(null);
     setPanel({ kind: "file", key: fileId });
   }
 
@@ -498,16 +510,22 @@ export function useDiscovery(
     send,
     openPanel(next) {
       releaseUncommitted(panelRef.current);
+      remember(next);
+      setRestore(null);
       setPanel({ kind: next });
     },
     closePanel() {
       releaseUncommitted(panelRef.current);
       setFileNotice(null);
       setPanel(null);
+      const opener = openerRef.current;
+      if (opener) setRestore({ nonce: Date.now(), opener });
     },
     openChooser() {
       if (!fileRows(filesRef.current, initial.project.funded).canAdd) return;
       releaseUncommitted(panelRef.current);
+      remember("add");
+      setRestore(null);
       setFileNotice(null);
       setPanel({ kind: "chooser" });
     },
@@ -521,10 +539,12 @@ export function useDiscovery(
     },
     focusQuestion: pointAt,
     viewAnswer(questionId) {
+      const opener = panelRef.current ? openerRef.current : null;
       const target = answerTarget(brief, questionId);
       releaseUncommitted(panelRef.current);
       setPanel(null);
       if (target) setHighlight(target);
+      if (opener) setRestore({ nonce: Date.now(), opener });
     },
     showOne() {
       setQuestionIndex(0);
@@ -536,6 +556,7 @@ export function useDiscovery(
     nextQuestion() {
       setQuestionIndex((current) => current + 1);
     },
+    restore,
   };
 }
 
