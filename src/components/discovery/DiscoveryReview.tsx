@@ -300,7 +300,7 @@ function BriefSection({
   return (
     <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-2 border-b border-border pb-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 id={headingId} className="min-w-0 flex-1 text-sm font-semibold">
+        <h3 id={headingId} aria-label={section.title} className="min-w-0 flex-1 text-sm font-semibold uppercase tracking-wide">
           {section.title}
         </h3>
         <span className="text-xs text-muted-foreground">{section.source}</span>
@@ -350,7 +350,7 @@ function BriefSection({
 function FilesBlock({ files }: { files: DiscoveryReviewController["files"] }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <h2 className="text-sm font-semibold">Your files</h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide">Your files</h2>
       {files.map((file) => (
         <p key={file.id} className="break-words text-sm">
           {fileTookLine(file)}
@@ -364,7 +364,7 @@ function CauseBlock({ review }: { review: DiscoveryReviewController }) {
   const labels = review.brief.causeLabels;
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-sm font-semibold">{TEXT.review.cause}</h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide">{TEXT.review.cause}</h2>
       {labels.length === 0 ? (
         <p className="text-sm text-muted-foreground">{TEXT.review.noCause}</p>
       ) : (
