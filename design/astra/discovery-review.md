@@ -1,6 +1,6 @@
 # Discovery design review — revision 12
 
-Date: 2026-09-29. Author: Claude, on revision 11. Status: approved by the founder for desktop on 2026-09-29; the shared mock does not show revision 12 yet.
+Date: 2026-09-29. Author: Claude, on revision 11. Status: approved by the founder for desktop on 2026-09-29; the shared mock shows revision 12 on fixtures since 2026-10-01 (see "Revision 12 built on fixtures").
 
 Open [the Discovery fixture](http://127.0.0.1:4310/#discovery).
 This review covers Discovery and its scope confirmation. Other screens retain their own review status.
@@ -37,7 +37,28 @@ Change order 012 lists each ruling in the founder's words and the contract edits
 - Finish is one review page. Open questions come first, with an importance tag and a suggestion to accept. The brief follows as it stands; each section can be edited in place, which is free, makes a new revision, and clears the review checkbox. Finish makes no model call. The Discovery document holds the need, not the technical scope. There is no AI rewrite.
 
 Verification: each board works in Play on the canvas. The file-chat flow and turn counting were also checked in a scripted run of the board logic.
-The shared mock in `design/astra/src` is not updated. Phase 2 of the Discovery screen item carries this revision into the mock and runs the acceptance tests against it.
+
+## Revision 12 built on fixtures
+
+Date: 2026-10-01. Author: Claude, with Grok as the feature writer. Status: waiting for the founder's review.
+
+The real Discovery components now live in `src/components/discovery/`. The shared mock mounts them on fixture data, so [the Discovery fixture](http://127.0.0.1:4310/?scenario=first-reply&pace=demo#discovery) shows revision 12. The scenario names are in `design/astra/src/givens.ts`.
+
+The acceptance tests for the screen drive the shell headless at 1280 and 390 pixels, in light and dark. Codex explored the shell as an NGO person in eight rounds. It reported 23 issues, and all 23 are fixed. The eighth round reported no new issue. The reports and screenshots are in `loop/items/AI4DEV-180/evidence/unit5/`.
+
+The build differs from the boards in these places. Each difference is a decision, not an open issue:
+
+- The desktop file chat fills the right column, in place of the board's floating panel. The founder chose this at the unit 3 gate.
+- There is no "Use a sample file" button.
+- The review page section headings show in capitals, as on the Finish board. The page text stays in sentence case.
+- After confirmation, Add a file is disabled, and an open file chat takes no answer. A saved change reopens Discovery.
+
+Provisional copy, for the founder to approve or replace:
+
+- "You changed Main priority: Fewer unfilled shifts" and "You used the suggestion for Booking rules: Weekly shift limit". These are the chat lines for a saved change and an accepted suggestion.
+- "Discovery is finished, so files cannot be added. Change an answer to reopen it."
+- The ready reply and the finish invitation that replaces the message box.
+- The data-tier sentences and the fit sentences on the Discovery document.
 
 ## Revision 11: highlight the selected scenario
 
