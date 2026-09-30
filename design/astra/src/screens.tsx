@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -10,6 +10,8 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import type { DiscoveryPort } from "@/components/discovery";
+import type { DiscoveryState } from "@/lib/discovery-stream";
 import {
   Badge,
   Button,
@@ -387,9 +389,38 @@ export function Intake({ state, setState, navigate, notify }: ScreenProps) {
   );
 }
 
-export function Publish({ state, setState, navigate, notify }: ScreenProps) {
+function confirmedBriefLines(discovery: DiscoveryState): string[] {
+  const brief = discovery.brief;
+  const lines = [brief.need.text];
+  if (brief.usersToday) lines.push(brief.usersToday.text);
+  for (const topic of brief.topics) {
+    if (topic.state.kind === "agreed") lines.push(`${topic.title}: ${topic.state.answer}`);
+  }
+  if (brief.successMeasure) lines.push(brief.successMeasure.text);
+  for (const gap of discovery.confirmation?.acceptedGaps ?? []) lines.push(`${gap.title}: ${gap.reason}`);
+  return lines;
+}
+
+export function Publish({ state, setState, navigate, notify, port }: ScreenProps & { port: DiscoveryPort }) {
   const [agreed, setAgreed] = useState(false);
+  const [discovery, setDiscovery] = useState<DiscoveryState | null>(null);
   const submitted = state.phase === "under-review";
+  useEffect(() => {
+    let live = true;
+    port.load().then(
+      (result) => {
+        if (!live || !result.ok) return;
+        setDiscovery(result.value);
+      },
+      () => {
+        /* The screen keeps the loading line. */
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [port]);
+  const confirmation = discovery?.confirmation ?? null;
   return (
     <>
       <PageTitle
@@ -400,21 +431,25 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
           ? "A person reviews your project before it becomes public. After approval, ai4good coordinates a volunteer match."
           : "Submit your approved scope for review. After approval, ai4good helps find a volunteer. PRD work follows volunteer consent and funding."}
       </PageTitle>
-      <Stages current={state.confirmation ? 2 : 1} />
+      <Stages current={confirmation ? 2 : 1} />
       <div className="review-layout">
         <section className="panel publish-card">
           <span className="large-status">
             {submitted ? <Clock3 size={30} /> : <ShieldCheck size={30} />}
           </span>
           <Badge tone={submitted ? "amber" : "green"}>
-            {submitted
-              ? "Under review"
-              : state.confirmation
-                ? "Scope confirmed"
-                : "Scope not confirmed"}
+            {submitted ? "Under review" : !discovery ? "Loading Discovery" : confirmation ? "Scope confirmed" : "Scope not confirmed"}
           </Badge>
-          <h2>{state.intake.title || "Your project"}</h2>
-          <p>{state.intake.outcome}</p>
+          <h2>{confirmation && discovery ? discovery.project.title : state.intake.title || "Your project"}</h2>
+          {confirmation && discovery ? (
+            confirmedBriefLines(discovery).map((line, index) => (
+              <p key={`${index}:${line}`} style={{ whiteSpace: "pre-wrap" }}>
+                {line}
+              </p>
+            ))
+          ) : (
+            <p>{state.intake.outcome}</p>
+          )}
           <div className="publish-checks">
             <p>
               <Check size={16} />
@@ -445,7 +480,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
             </div>
           ) : (
             <>
-              {!state.confirmation && (
+              {discovery && !confirmation && (
                 <p className="callout warning">
                   Confirm your Discovery brief before submitting this project.
                 </p>
@@ -455,7 +490,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
                   data-testid="publish-acknowledgment"
                   type="checkbox"
                   checked={agreed}
-                  disabled={!state.confirmation}
+                  disabled={!confirmation}
                   onChange={(e) => setAgreed(e.target.checked)}
                 />
                 <span>
@@ -465,7 +500,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
               <Button
                 testId="submit-for-review"
                 variant="primary"
-                disabled={!state.confirmation || !agreed}
+                disabled={!confirmation || !agreed}
                 onClick={() => {
                   setState((current) => ({ ...current, phase: "under-review" }));
                   notify("The sample project is now under review.");

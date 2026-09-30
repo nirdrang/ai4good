@@ -85,6 +85,11 @@ function refusal(kind: string, reason: string): Result<never> {
   return { ok: false, refusal: { kind, reason } };
 }
 
+export function allRequiredAgreed(brief: BriefSnapshot): boolean {
+  const required = brief.topics.filter((topic) => topic.required);
+  return required.length > 0 && required.every((topic) => topic.state.kind === "agreed");
+}
+
 function replyText(request: DiscoveryRequestBody, certain: string[], uncertain: boolean): string {
   if (request.mode === "ask") return "The open questions stay in the chat. Answer them when you are ready.";
   if (certain.length > 0 && uncertain) {
@@ -99,9 +104,10 @@ function charge(usage: DiscoveryUsage): { usage: DiscoveryUsage; charge: Discove
   const kind = replyKind(usage);
   if (kind === "unavailable") return null;
   const next = { ...usage };
-  if (next.dailyLeft > 0) next.dailyLeft -= 1;
-  else if (next.betaLeft > 0) next.betaLeft -= 1;
-  else {
+  if (kind === "free") {
+    next.dailyLeft -= 1;
+    next.betaLeft -= 1;
+  } else {
     next.availableMicros -= next.holdMicros;
     next.settledMicros += next.holdMicros;
   }
@@ -151,6 +157,9 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     },
     applyTurn({ messages, request }) {
       if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
+      if (allRequiredAgreed(state.brief) && request.answers.length === 0) {
+        return refusal("discovery-ready", TEXT.readyInvite);
+      }
       const charged = charge(state.usage);
       if (!charged) {
         return refusal(
@@ -214,7 +223,9 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       if (request.mode === "answer" && added.length > 0) {
         replyBody = `${replyBody} ${added.map((question) => question.text).join(" ")}`;
       }
-      if (request.mode === "answer" && !stillOpen) {
+      if (allRequiredAgreed(brief)) {
+        replyBody = `${replyBody} ${TEXT.readyReply}`;
+      } else if (request.mode === "answer" && !stillOpen) {
         replyBody = `${replyBody} Nothing is left to ask. Select Finish Discovery.`;
       }
       const report = pendingReports(messages);

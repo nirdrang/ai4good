@@ -1,5 +1,5 @@
 import { Chat, useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   BriefSnapshot,
   Confirmation,
@@ -17,6 +17,7 @@ import {
   fileRows,
   newerBrief,
   openForReview,
+  progressOf,
   reviewGate,
   reviewSections,
   type Draft,
@@ -272,12 +273,20 @@ export function useDiscovery(
   }, [highlight]);
 
   const questions = currentQuestions(brief, reopened);
+  const questionKey = questions.map((question) => question.id).join("\n");
+  const questionKeyRef = useRef(questionKey);
+  useLayoutEffect(() => {
+    if (questionKeyRef.current === questionKey) return;
+    questionKeyRef.current = questionKey;
+    setQuestionIndex(0);
+  }, [questionKey]);
   const assistantCount = messages.filter((message) => message.role === "assistant").length;
   const busy = status === "submitted" || status === "streaming";
-  const ready =
-    composerText.trim().length > 0 ||
-    questions.some((question) => draftReady(question.id, question.options, drafts[question.id]));
-  const canSend = !busy && usage.nextReply !== "unavailable" && ready;
+  const progress = progressOf(brief);
+  const requiredDone = progress.total > 0 && progress.agreed === progress.total;
+  const hasDraft = questions.some((question) => draftReady(question.id, question.options, drafts[question.id]));
+  const hasNote = composerText.trim().length > 0;
+  const canSend = !busy && usage.nextReply !== "unavailable" && (requiredDone ? hasDraft : hasDraft || hasNote);
   const index = Math.min(questionIndex, Math.max(questions.length - 1, 0));
 
   function pick(questionId: string, draft: Draft | null) {
@@ -434,6 +443,8 @@ export function useDiscovery(
     const open = currentQuestions(briefRef.current, reopenedRef.current);
     const answers = answersFromDrafts(draftsRef.current, open);
     const note = composerRef.current.trim();
+    const progressNow = progressOf(briefRef.current);
+    if (progressNow.total > 0 && progressNow.agreed === progressNow.total && answers.length === 0) return;
     if (answers.length === 0 && note.length === 0) return;
     const text = [...answers.map((answer) => answer.text), note]
       .filter((item) => item.length > 0)

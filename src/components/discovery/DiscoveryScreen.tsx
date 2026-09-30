@@ -7,7 +7,7 @@ import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
 import { FileOverlay } from "./FilePanel";
 import { FilesCard } from "./FilesCard";
-import { currentQuestions, questionRows } from "./model";
+import { currentQuestions, progressOf, questionRows } from "./model";
 import type { DiscoveryPort } from "./port";
 import { ProgressStrip } from "./ProgressStrip";
 import { questionCountLine, QuestionsCard, QuestionsDialog } from "./QuestionsCard";
@@ -92,6 +92,9 @@ function Loaded({
   }, [discovery.restore]);
   const confirmation = discovery.confirmation;
   const questions = confirmation ? [] : currentQuestions(discovery.brief, discovery.reopened);
+  const progress = progressOf(discovery.brief);
+  const readyToFinish =
+    confirmation === null && questions.length === 0 && progress.total > 0 && progress.agreed === progress.total;
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
   const rows = questionRows(discovery.brief, discovery.drafts);
@@ -129,6 +132,7 @@ function Loaded({
       focusNonce={discovery.focus?.nonce ?? 0}
       tags={tags}
       oneAtATime={discovery.oneAtATime}
+      canToggle={discovery.oneAtATime || questions.length > 1}
       canAdvance={discovery.oneAtATime && discovery.questionIndex < questions.length - 1}
       tail={phone ? files : null}
       onPick={discovery.pick}
@@ -141,6 +145,10 @@ function Loaded({
     <div className="flex flex-col gap-1">
       <p className="m-0 text-sm font-semibold">{confirmation.acceptedGaps.length > 0 ? TEXT.finishedOpen : TEXT.finished}</p>
       <p className="m-0 text-sm">{TEXT.finishedClosed}</p>
+    </div>
+  ) : readyToFinish ? (
+    <div role={SCREEN.readyInvite.role} aria-label={SCREEN.readyInvite.name} className="shrink-0">
+      <p className="m-0 text-sm">{TEXT.readyInvite}</p>
     </div>
   ) : (
     <Composer

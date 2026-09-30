@@ -5,6 +5,16 @@ import { NAME, SCREEN, TEXT } from "./a11y";
 import { presentMessages, type Draft } from "./model";
 import { QuestionGroup } from "./QuestionGroup";
 
+function latestReply(node: HTMLElement): HTMLElement | null {
+  const replies = node.querySelectorAll(`article[aria-label="${NAME.aiReply}"]`);
+  const last = replies.length > 0 ? replies.item(replies.length - 1) : null;
+  return last instanceof HTMLElement ? last : null;
+}
+
+function replyTop(node: HTMLElement, reply: HTMLElement): number {
+  return reply.getBoundingClientRect().top - node.getBoundingClientRect().top + node.scrollTop;
+}
+
 export function Conversation({
   messages,
   questions,
@@ -14,6 +24,7 @@ export function Conversation({
   focusNonce,
   tags,
   oneAtATime,
+  canToggle,
   canAdvance,
   tail,
   onPick,
@@ -29,6 +40,7 @@ export function Conversation({
   focusNonce: number;
   tags: Readonly<Record<string, "carried" | "changing" | null>>;
   oneAtATime: boolean;
+  canToggle: boolean;
   canAdvance: boolean;
   tail?: ReactNode;
   onPick(questionId: string, draft: Draft | null): void;
@@ -36,20 +48,43 @@ export function Conversation({
   onShowTogether(): void;
   onNext(): void;
 }) {
+  let lastAssistantId = "";
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "assistant") {
+      lastAssistantId = message.id;
+      break;
+    }
+  }
   const scroller = useRef<HTMLDivElement>(null);
+  const followRef = useRef(true);
+  const intentRef = useRef(true);
+  const adjustingRef = useRef(false);
+  const openedAt = useRef(lastAssistantId);
+  // intentRef is the follow flag from before this reply was painted.
+  intentRef.current = followRef.current;
   const presented = presentMessages(messages);
-  const lastId = messages.length > 0 ? messages[messages.length - 1].id : "";
   useLayoutEffect(() => {
     const node = scroller.current;
     if (!node) return;
-    const replies = node.querySelectorAll(`article[aria-label="${NAME.aiReply}"]`);
-    const last = replies.length > 0 ? replies.item(replies.length - 1) : null;
-    if (last instanceof HTMLElement && (replies.length <= 1 || last.offsetHeight > node.clientHeight)) {
-      node.scrollTop = last.offsetTop;
-      return;
-    }
-    node.scrollTop = node.scrollHeight;
-  }, [lastId, messages.length]);
+    const reply = latestReply(node);
+    if (!reply) return;
+    const atLoad = lastAssistantId === openedAt.current;
+    const count = node.querySelectorAll(`article[aria-label="${NAME.aiReply}"]`).length;
+    const pinTop = atLoad ? count <= 1 || reply.offsetHeight > node.clientHeight : intentRef.current;
+    if (!atLoad && !pinTop) return;
+    adjustingRef.current = true;
+    node.scrollTop = pinTop ? replyTop(node, reply) : node.scrollHeight;
+    adjustingRef.current = false;
+  }, [lastAssistantId]);
+  function onLogScroll() {
+    if (adjustingRef.current) return;
+    const node = scroller.current;
+    if (!node) return;
+    const reply = latestReply(node);
+    if (!reply) return;
+    followRef.current = node.scrollTop + 8 >= replyTop(node, reply);
+  }
   useLayoutEffect(() => {
     if (!highlight) return;
     const current = scroller.current?.querySelector("[aria-current='true']");
@@ -62,6 +97,7 @@ export function Conversation({
       role={SCREEN.conversation.role}
       aria-label={SCREEN.conversation.name}
       className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
+      onScroll={onLogScroll}
     >
       {presented.map((message) => {
         const name = message.role === "assistant" ? NAME.aiReply : NAME.yourTurn;
@@ -101,7 +137,7 @@ export function Conversation({
           </article>
         );
       })}
-      {questions.length > 1 ? (
+      {canToggle ? (
         <Button type="button" variant="outline" className="self-start" onClick={oneAtATime ? onShowTogether : onShowOne}>
           {oneAtATime ? TEXT.showTogether : TEXT.oneAtATime}
         </Button>

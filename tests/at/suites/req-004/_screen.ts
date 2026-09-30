@@ -111,6 +111,26 @@ export class DiscoveryPage {
     question: (text: string): QuestionGroupObject => questionGroup(this.page, text),
     lastAssistantText: (): Promise<string> => this.messageText(NAME.aiReply),
     yourText: (): Promise<string> => this.messageText(NAME.yourTurn),
+    oneAtATime: (): Promise<void> =>
+      this.page.click([
+        landmark(SCREEN.conversation.role, SCREEN.conversation.name),
+        landmark('button', TEXT.oneAtATime),
+      ]),
+    showTogether: (): Promise<void> =>
+      this.page.click([
+        landmark(SCREEN.conversation.role, SCREEN.conversation.name),
+        landmark('button', TEXT.showTogether),
+      ]),
+    showTogetherVisible: (): Promise<boolean> =>
+      this.page.visible([
+        landmark(SCREEN.conversation.role, SCREEN.conversation.name),
+        landmark('button', TEXT.showTogether),
+      ]),
+    nextQuestion: (): Promise<void> =>
+      this.page.click([
+        landmark(SCREEN.conversation.role, SCREEN.conversation.name),
+        landmark('button', TEXT.nextQuestion),
+      ]),
     scrollToTop: (): Promise<void> =>
       this.page.scroll([landmark(SCREEN.conversation.role, SCREEN.conversation.name)], 0),
     scrollToEnd: (): Promise<void> =>
@@ -130,10 +150,11 @@ export class DiscoveryPage {
   readonly composer = {
     send: async (): Promise<string> => {
       const before = await this.chat.lastAssistantText();
-      await this.page.click([
-        landmark(SCREEN.composer.role, SCREEN.composer.name),
-        landmark('button', TEXT.send),
-      ]);
+      const root = landmark(SCREEN.composer.role, SCREEN.composer.name);
+      const paid = [root, landmark('button', TEXT.sendPaid)];
+      const free = [root, landmark('button', TEXT.send)];
+      // Three free replies can use the daily turns. The button then says Send paid reply.
+      await this.page.click((await this.page.count(paid)) > 0 ? paid : free);
       const article = [
         landmark(SCREEN.conversation.role, SCREEN.conversation.name),
         landmark('article', NAME.aiReply, 'last'),
@@ -157,6 +178,9 @@ export class DiscoveryPage {
         [landmark(SCREEN.composer.role, SCREEN.composer.name), landmark(SCREEN.messageBox.role, SCREEN.messageBox.name)],
         'the message box',
       ),
+    formCount: (): Promise<number> => this.page.count([landmark(SCREEN.composer.role, SCREEN.composer.name)]),
+    messageCount: (): Promise<number> => this.page.count([landmark(SCREEN.messageBox.role, SCREEN.messageBox.name)]),
+    sendCount: (): Promise<number> => this.page.count([landmark('button', TEXT.send)]),
     oneLineLimit: async (): Promise<number> => {
       const chain = [
         landmark(SCREEN.composer.role, SCREEN.composer.name),
@@ -259,6 +283,12 @@ export class DiscoveryPage {
     box: (): Promise<Box> => waitBox(this.page, [this.briefRoot()], 'the live brief'),
     openVisible: (): Promise<boolean> => this.page.visible([this.briefRoot()]),
     openerFocused: (): Promise<boolean> => this.page.focused([landmark('button', SCREEN.openBrief.name)]),
+  };
+
+  readonly ready = {
+    visible: (): Promise<boolean> =>
+      this.page.visible([landmark(SCREEN.readyInvite.role, SCREEN.readyInvite.name)]),
+    text: (): Promise<string> => this.page.text([landmark(SCREEN.readyInvite.role, SCREEN.readyInvite.name)]),
   };
 
   readonly progress = {

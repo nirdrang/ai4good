@@ -24,6 +24,7 @@ export const SCREEN = {
   conversation: { role: "log", name: "NGO and AI conversation" },
   composer: { role: "form", name: "Your reply" },
   messageBox: { role: "textbox", name: "Your message" },
+  readyInvite: { role: "region", name: "Discovery is ready for review" },
   questions: { role: "region", name: "Questions" },
   questionsFull: { role: "dialog", name: "Questions" },
   openQuestions: { role: "button", name: "Open the questions" },
@@ -136,6 +137,9 @@ export const TEXT = {
   buyFuelNote: "The minimum is $50. Fuel does not add free replies.",
   send: "Send",
   sendPaid: "Send paid reply",
+  readyReply: "Discovery is ready for review. I have stopped asking questions.",
+  readyInvite:
+    "Discovery is ready for review. The AI has stopped asking questions. Select Finish Discovery.",
   notePlaceholder: "Add a note to your answers (optional)",
   replyPlaceholder: "Reply to ai4good AI",
   usageValues: { daily: "Free today", beta: "Beta", fuel: "Fuel" },

@@ -4,8 +4,9 @@ import type {
   DiscoveryUIMessage,
   FileChatUIMessage,
 } from "../../../src/lib/discovery-stream";
+import { TEXT } from "../../../src/components/discovery/a11y";
 import type { FileChatTarget } from "../../../src/components/discovery/port";
-import type { AppliedFileAnswer, AppliedTurn, FixtureWorld } from "./fixture-world";
+import { allRequiredAgreed, type AppliedFileAnswer, type AppliedTurn, type FixtureWorld } from "./fixture-world";
 import { MODEL_CALL_PROBE, type ModelCall, type Pace } from "./givens";
 
 function refusalError(kind: string, reason: string): Error {
@@ -127,6 +128,9 @@ export class FixtureChatTransport implements ChatTransport<DiscoveryUIMessage> {
   ): Promise<ReadableStream<UIMessageChunk>> {
     const request = requestOf({ ...(options.body as object | undefined), ...this.scope });
     const current = this.world.read();
+    if (allRequiredAgreed(current.brief) && request.answers.length === 0) {
+      throw refusalError("discovery-ready", TEXT.readyInvite);
+    }
     if (current.usage.nextReply === "unavailable") {
       throw refusalError(
         current.usage.betaLeft > 0 ? "daily-limit" : "beta-limit",

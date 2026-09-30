@@ -522,7 +522,7 @@ export default function App() {
               navigate={navigate}
             />
           )}
-          {route === "publish" && <Publish {...props} />}
+          {route === "publish" && <Publish {...props} port={discoveryPort} />}
           {route === "funding" && <Funding {...props} />}
           {route === "build" && <ProjectBuild notify={setNotice} />}
           {route === "review" && <Review {...props} />}

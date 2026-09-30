@@ -113,7 +113,7 @@ export function scriptForName(name: string): FileScript {
 export function replyKind(
   usage: Pick<DiscoveryUsage, "dailyLeft" | "betaLeft" | "availableMicros" | "reservedMicros" | "holdMicros">,
 ): DiscoveryUsage["nextReply"] {
-  if (usage.dailyLeft > 0 || usage.betaLeft > 0) return "free";
+  if (usage.dailyLeft > 0 && usage.betaLeft > 0) return "free";
   if (usage.availableMicros - usage.reservedMicros >= usage.holdMicros) return "paid";
   return "unavailable";
 }

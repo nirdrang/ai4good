@@ -10,9 +10,15 @@ const withDiscovery = discoveryScreens();
 const SCHEMES = ['light', 'dark'] as const;
 const SIZES = ['desktop', 'phone'] as const;
 
+async function answerWhenAsked(screen: DiscoveryPage, question: string, label: string): Promise<void> {
+  const group = screen.chat.question(question);
+  await eventually(`${question} is asked`, () => group.isAsked(), (asked) => asked);
+  await group.pick(label);
+}
+
 // d94 (2026-09-29): the need brief, files, and Finish. The Discovery screen item replaces each stub
 // with a body that runs against the shared mock first and the wired app after.
-atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui', timeoutMs: { loop: 60_000 } }, {
+atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui', timeoutMs: { loop: 120_000 } }, {
   loop: async (ctx) => {
     const given = GIVEN['mid-interview'];
     await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
@@ -42,6 +48,29 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
       expect(await screen.modelCalls(), 'opening the brief makes no model call').toEqual(calls);
       await screen.review.open();
       expect(await screen.modelCalls(), 'opening Finish makes no model call').toEqual(calls);
+    });
+    await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
+      const first = GIVEN['first-reply'];
+      const mid = GIVEN['mid-interview'];
+      expect(await screen.modelCalls(), 'the opening transcript makes no model call').toEqual([]);
+      await screen.chat.question(first.questions.priority).pick(first.suggested);
+      await screen.chat.question(first.questions.booking).pick(mid.agreed[1].answer);
+      await screen.composer.send();
+      await answerWhenAsked(screen, mid.notSure.question, 'Two hours a week');
+      await answerWhenAsked(screen, mid.open[0].question, mid.open[0].suggested);
+      await screen.composer.send();
+      await answerWhenAsked(screen, mid.open[1].question, mid.open[1].suggested);
+      await answerWhenAsked(screen, mid.next.question, 'Weekly shift limit');
+      await screen.composer.send();
+      await eventually('the finish invitation replaces the composer', () => screen.ready.visible(), (open) => open);
+      expect(await screen.chat.lastAssistantText(), 'the reply says Discovery is ready for review').toContain(TEXT.readyReply);
+      expect((await screen.ready.text()).trim(), 'the invitation points to Finish Discovery').toBe(TEXT.readyInvite);
+      expect(await screen.composer.formCount(), 'the message form is gone').toBe(0);
+      expect(await screen.composer.messageCount(), 'the message box is gone').toBe(0);
+      expect(await screen.composer.sendCount(), 'Send is gone').toBe(0);
+      const calls = await screen.modelCalls();
+      expect(calls, 'three replies are three model calls').toEqual(['chat-turn', 'chat-turn', 'chat-turn']);
+      expect(await screen.modelCalls(), 'the ready state adds no model call').toEqual(calls);
     });
   },
   integration: async () => {
@@ -402,7 +431,7 @@ atTest(
     },
   },
 );
-atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { surface: 'ui', timeoutMs: { loop: 90_000 } }, {
+atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { surface: 'ui', timeoutMs: { loop: 120_000 } }, {
   loop: async (ctx) => {
     const given = GIVEN['mid-interview'];
     for (const viewport of SIZES) {
@@ -442,6 +471,32 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
         );
       });
     }
+    await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
+      const first = GIVEN['first-reply'];
+      const mid = GIVEN['mid-interview'];
+      await screen.chat.oneAtATime();
+      const priority = screen.chat.question(first.questions.priority);
+      const booking = screen.chat.question(first.questions.booking);
+      expect(await priority.isAsked(), 'one question at a time starts at the first question').toBe(true);
+      expect(await booking.isAsked(), 'the second question waits').toBe(false);
+      expect(await screen.chat.showTogetherVisible(), 'Show questions together is the way back').toBe(true);
+      await priority.pick(first.suggested);
+      await screen.chat.nextQuestion();
+      await eventually('Next question shows who books shifts', () => booking.isAsked(), (asked) => asked);
+      expect(await priority.isAsked(), 'Next question leaves the first question').toBe(false);
+      await booking.pick(mid.agreed[1].answer);
+      await screen.composer.send();
+      const measure = screen.chat.question(mid.notSure.question);
+      const owner = screen.chat.question(mid.open[0].question);
+      await eventually('the next round starts at Success measure', () => measure.isAsked(), (asked) => asked);
+      expect(await owner.isAsked(), 'the next round does not skip to Maintenance owner').toBe(false);
+      await screen.chat.nextQuestion();
+      await eventually('Next question shows Maintenance owner', () => owner.isAsked(), (asked) => asked);
+      expect(await measure.isAsked(), 'Next question leaves Success measure').toBe(false);
+      await screen.chat.showTogether();
+      await eventually('Show questions together shows Success measure', () => measure.isAsked(), (asked) => asked);
+      expect(await owner.isAsked(), 'Show questions together keeps Maintenance owner').toBe(true);
+    });
   },
   integration: async () => {
     throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -470,6 +525,21 @@ atTest(
           await expectInside(screen);
         });
       }
+      await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
+        const before = await screen.usage.text();
+        expect(before, 'Free today starts at 3 of 10').toContain('3 of 10');
+        expect(before, 'Beta starts at 18 of 50').toContain('18 of 50');
+        const given = GIVEN['mid-interview'];
+        await screen.chat.question(given.open[1].question).pick(given.open[1].suggested);
+        await screen.composer.send();
+        const after = await eventually(
+          'one free send drops Free today and Beta',
+          () => screen.usage.text(),
+          (text) => text.includes('2 of 10') && text.includes('17 of 50'),
+        );
+        expect(after, 'Free today drops by one').toContain('2 of 10');
+        expect(after, 'Beta drops by one').toContain('17 of 50');
+      });
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
