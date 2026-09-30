@@ -14,9 +14,11 @@ import { useDiscoveryReview, type DiscoveryReviewController } from "./use-discov
 export function DiscoveryReview({
   port,
   onBackToChat,
+  onFindVolunteer,
 }: {
   port: DiscoveryPort;
   onBackToChat(questionId: string | null): void;
+  onFindVolunteer(): void;
 }) {
   const [loaded, setLoaded] = useState<DiscoveryState | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -39,21 +41,23 @@ export function DiscoveryReview({
   }, [port]);
   if (failure) return <p role="alert">{failure}</p>;
   if (!loaded) return <p>Loading Discovery.</p>;
-  return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} />;
+  return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
 }
 
 function Loaded({
   port,
   initial,
   onBackToChat,
+  onFindVolunteer,
 }: {
   port: DiscoveryPort;
   initial: DiscoveryState;
   onBackToChat(questionId: string | null): void;
+  onFindVolunteer(): void;
 }) {
   const phone = useIsPhone();
   const review = useDiscoveryReview(port, initial);
-  if (review.confirmation) return <Finished review={review} onBackToChat={onBackToChat} />;
+  if (review.confirmation) return <Finished review={review} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
   if (phone) return <PhoneReview review={review} onBackToChat={onBackToChat} />;
   return <DesktopReview review={review} onBackToChat={onBackToChat} />;
 }
@@ -128,9 +132,11 @@ function PhoneReview({
 function Finished({
   review,
   onBackToChat,
+  onFindVolunteer,
 }: {
   review: DiscoveryReviewController;
   onBackToChat(questionId: string | null): void;
+  onFindVolunteer(): void;
 }) {
   const confirmation = review.confirmation;
   if (!confirmation) return null;
@@ -154,7 +160,7 @@ function Finished({
               {TEXT.review.doneBody(confirmation.revision)} {TEXT.review.doneOpen(open)}
             </p>
             <p className="text-sm text-muted-foreground">{TEXT.review.doneNext}</p>
-            <Button type="button" className="min-h-11 w-full">
+            <Button type="button" className="min-h-11 w-full" onClick={onFindVolunteer}>
               {SCREEN.findVolunteer.name}
             </Button>
           </div>

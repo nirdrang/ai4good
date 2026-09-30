@@ -288,6 +288,7 @@ function DiscoveryRoutes({
             setReturnFocus(questionId === null ? null : { questionId, nonce: ++nonce.current });
             navigate("discovery");
           }}
+          onFindVolunteer={() => navigate("publish")}
         />
       ) : null}
     </>
