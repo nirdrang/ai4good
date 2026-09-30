@@ -10,10 +10,11 @@ import { afterAll, beforeAll } from 'vitest';
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const HOST = fileURLToPath(new URL('./screen-host.mjs', import.meta.url));
 
-export type Viewport = 'desktop' | 'phone';
+export type Viewport = 'desktop' | 'phone' | 'narrow';
 export const VIEWPORT_SIZE: Record<Viewport, { width: number; height: number }> = {
   desktop: { width: 1280, height: 800 },
   phone: { width: 390, height: 844 },
+  narrow: { width: 320, height: 800 },
 };
 
 export type StaticShell = { readonly baseUrl: string; close(): Promise<void> };
@@ -39,6 +40,7 @@ export type ScreenPage = {
   box(chain: LocatorStep[]): Promise<{ x: number; y: number; width: number; height: number } | null>;
   attribute(chain: LocatorStep[], name: string): Promise<string | null>;
   focused(chain: LocatorStep[]): Promise<boolean>;
+  value(chain: LocatorStep[]): Promise<string>;
   setFiles(chain: LocatorStep[], files: ScreenFile[]): Promise<void>;
   modelCalls(): Promise<readonly string[]>;
   reload(): Promise<void>;
@@ -338,6 +340,7 @@ function pageApi(host: ScreenHost, pageId: number): ScreenPage {
     box: (chain) => host.call('box', args(chain), 10_000),
     attribute: (chain, name) => host.call('attribute', args(chain, { name }), 10_000),
     focused: (chain) => host.call('focused', args(chain), 10_000),
+    value: (chain) => host.call('value', args(chain), 10_000),
     setFiles: (chain, files) => host.call('setFiles', args(chain, { files }), 10_000),
     modelCalls: () => host.call('modelCalls', { page: pageId }, 10_000),
     reload: () => host.call('reload', { page: pageId }, 20_000),
@@ -400,7 +403,7 @@ export function useScreenDriver(opts: { viteConfig: string; enabled: boolean }):
         {
           url: input.url(activeShell.baseUrl),
           viewport: VIEWPORT_SIZE[input.viewport],
-          phone: input.viewport === 'phone',
+          phone: input.viewport !== 'desktop',
           colorScheme: input.colorScheme ?? 'light',
           probe: input.probeName,
         },

@@ -1,10 +1,12 @@
 import type {
   BriefQuestion,
   BriefSnapshot,
+  BriefSource,
   DiscoveryFile,
   DiscoveryUIMessage,
+  DiscoveryUsage,
 } from "@/lib/discovery-stream";
-import { TEXT } from "./a11y";
+import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, TEXT, type QuestionStatus } from "./a11y";
 
 /** What the NGO has chosen for one current question but not yet sent. */
 export type Draft =
@@ -58,6 +60,8 @@ export function presentMessages(messages: readonly DiscoveryUIMessage[]): Presen
         for (const topic of part.data.topics) filed.push(topic.title);
       } else if (part.type === "data-charge" && part.data.kind === "free") {
         receipt = TEXT.freeReceipt;
+      } else if (part.type === "data-charge" && part.data.kind === "paid") {
+        receipt = paidReceipt(part.data.usageMicros, part.data.feeMicros);
       }
     }
     return [{ id: message.id, role: message.role, paragraphs, filed, receipt }];
@@ -112,4 +116,305 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
     canAdd: funded || discoveryCount < 3,
     limitText: funded ? null : TEXT.fileLimit,
   };
+}
+
+/** Whole cents stay two digits. A fractional cent stays visible. */
+export function formatUsd(micros: number): string {
+  const sign = micros < 0 ? "-" : "";
+  const abs = Math.abs(micros);
+  const whole = Math.trunc(abs / 1_000_000);
+  const fraction = abs % 1_000_000;
+  if (fraction % 10_000 === 0) {
+    const cents = Math.trunc(fraction / 10_000);
+    return `${sign}$${whole}.${String(cents).padStart(2, "0")}`;
+  }
+  const digits = String(fraction).padStart(6, "0").replace(/0+$/, "");
+  return `${sign}$${whole}.${digits}`;
+}
+
+function paidReceipt(usageMicros: number, feeMicros: number): string {
+  const total = formatUsd(usageMicros + feeMicros);
+  return `${formatUsd(usageMicros)} AI usage + ${formatUsd(feeMicros)} platform fee = ${total} total`;
+}
+
+export function sourceText(source: BriefSource): string {
+  switch (source.kind) {
+    case "intake":
+      return TEXT.source.intake;
+    case "chat":
+      return TEXT.source.chat(source.round);
+    case "accepted-suggestion":
+      return TEXT.source.accepted;
+    case "edit":
+      return TEXT.source.edit;
+    case "file":
+      return TEXT.source.file(source.fileName);
+  }
+}
+
+/** Required topics only. The percent rounds down. */
+export function progressOf(brief: BriefSnapshot): { agreed: number; total: number; percent: number } {
+  const required = brief.topics.filter((topic) => topic.required);
+  const agreed = required.filter((topic) => topic.state.kind === "agreed").length;
+  const total = required.length;
+  return { agreed, total, percent: total === 0 ? 0 : Math.floor((agreed / total) * 100) };
+}
+
+export type QuestionRow = {
+  topicId: string;
+  questionId: string | null;
+  text: string;
+  status: QuestionStatus;
+  note: string;
+  canAnswer: boolean;
+  canView: boolean;
+};
+
+function draftIsReady(draft: Draft | undefined): boolean {
+  if (!draft) return false;
+  if (draft.kind === "own") return draft.text.trim().length > 0;
+  return true;
+}
+
+function draftNote(question: BriefQuestion, draft: Draft): string {
+  if (draft.kind === "option") {
+    return question.options.find((option) => option.id === draft.optionId)?.label ?? "";
+  }
+  if (draft.kind === "own") return draft.text.trim();
+  return NAME.notSure;
+}
+
+/** One row per topic, in checklist order. */
+export function questionRows(
+  brief: BriefSnapshot,
+  drafts: Readonly<Record<string, Draft>>,
+): QuestionRow[] {
+  return brief.topics.map((topic) => {
+    const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
+    if (topic.state.kind === "agreed") {
+      return {
+        topicId: topic.id,
+        questionId: question?.id ?? null,
+        text: question?.text ?? topic.plannedQuestion,
+        status: "answered",
+        note: topic.state.answer,
+        canAnswer: false,
+        canView: true,
+      };
+    }
+    if (topic.state.kind === "not-sure") {
+      return {
+        topicId: topic.id,
+        questionId: topic.state.questionId,
+        text: question?.text ?? topic.plannedQuestion,
+        status: "notSure",
+        note: "Stays open in your brief",
+        canAnswer: false,
+        canView: true,
+      };
+    }
+    if (question) {
+      const draft = drafts[question.id];
+      const ready = draftIsReady(draft);
+      return {
+        topicId: topic.id,
+        questionId: question.id,
+        text: question.text,
+        status: ready ? "ready" : "open",
+        note: ready && draft ? draftNote(question, draft) : "Waiting for your answer",
+        canAnswer: true,
+        canView: false,
+      };
+    }
+    return {
+      topicId: topic.id,
+      questionId: null,
+      text: topic.plannedQuestion,
+      status: "next",
+      note: "After this round",
+      canAnswer: false,
+      canView: false,
+    };
+  });
+}
+
+export function questionStatusText(status: QuestionStatus): string {
+  return QUESTION_STATUS[status];
+}
+
+export type BriefSectionView = {
+  id: string;
+  title: string;
+  status: string;
+  text: string;
+  detail: string;
+  questionId: string | null;
+};
+
+/** The need, then each topic. Edit exists only where a question can reopen. */
+export function briefSections(brief: BriefSnapshot): BriefSectionView[] {
+  const sections: BriefSectionView[] = [
+    {
+      id: "need",
+      title: "The need",
+      status: sourceText(brief.need.source),
+      text: brief.need.text,
+      detail: "",
+      questionId: null,
+    },
+  ];
+  if (brief.usersToday) {
+    sections.push({
+      id: "usersToday",
+      title: "Who uses it today",
+      status: sourceText(brief.usersToday.source),
+      text: brief.usersToday.text,
+      detail: "",
+      questionId: null,
+    });
+  }
+  if (brief.successMeasure) {
+    sections.push({
+      id: "successMeasure",
+      title: "How you will know it works",
+      status: sourceText(brief.successMeasure.source),
+      text: brief.successMeasure.text,
+      detail: "",
+      questionId: null,
+    });
+  }
+  for (const topic of brief.topics) {
+    const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
+    const importance = IMPORTANCE[topic.importance];
+    if (topic.state.kind === "agreed") {
+      sections.push({
+        id: topic.id,
+        title: topic.title,
+        status: BRIEF_STATUS.agreed,
+        text: topic.state.answer,
+        detail: `${sourceText(topic.state.source)}. ${importance}. Question: ${question?.text ?? topic.plannedQuestion}`,
+        questionId: question?.id ?? null,
+      });
+    } else if (topic.state.kind === "not-sure") {
+      sections.push({
+        id: topic.id,
+        title: topic.title,
+        status: BRIEF_STATUS.notSure,
+        text: topic.state.help,
+        detail: `${importance}. Question: ${question?.text ?? topic.plannedQuestion}`,
+        questionId: topic.state.questionId,
+      });
+    } else {
+      sections.push({
+        id: topic.id,
+        title: topic.title,
+        status: BRIEF_STATUS.open,
+        text: question?.text ?? topic.plannedQuestion,
+        detail: importance,
+        questionId: question?.id ?? null,
+      });
+    }
+  }
+  for (const suggestion of brief.suggestions) {
+    sections.push({
+      id: suggestion.id,
+      title: suggestion.fileName,
+      status: BRIEF_STATUS.suggestion,
+      text: suggestion.fact,
+      detail: "",
+      questionId: null,
+    });
+  }
+  return sections;
+}
+
+export type UsageTone = "green" | "yellow" | "red";
+
+/**
+ * Colour from the unrounded consumed fraction.
+ * 0.8 and 0.95 stay yellow; the next fraction above 0.95 is red.
+ */
+export function gaugeTone(consumed: number): UsageTone {
+  if (consumed > 0.95) return "red";
+  if (consumed >= 0.8) return "yellow";
+  return "green";
+}
+
+function ratio(used: number, total: number): number {
+  if (total <= 0) return 0;
+  return used / total;
+}
+
+export type UsageView = {
+  headline: string;
+  values: { daily: string; beta: string; fuel: string };
+  bar: { free: number; fuel: number; label: string; freeTone: UsageTone; fuelTone: UsageTone };
+  footer: string;
+};
+
+export function usageView(usage: DiscoveryUsage, resetLocalTime: string): UsageView {
+  const dailyConsumed = ratio(usage.dailyGrant - usage.dailyLeft, usage.dailyGrant);
+  const betaConsumed = ratio(usage.betaGrant - usage.betaLeft, usage.betaGrant);
+  const freeTone = gaugeTone(Math.max(dailyConsumed, betaConsumed));
+  const fuelConsumed = usage.allocationMicros > 0 ? usage.settledMicros / usage.allocationMicros : 0;
+  const fuelTone = gaugeTone(fuelConsumed);
+  const fuel = formatUsd(usage.availableMicros);
+  const freeTitle = betaConsumed > dailyConsumed ? "Beta free replies" : "Free replies";
+  const freeCount =
+    betaConsumed > dailyConsumed
+      ? `${usage.betaLeft} of ${usage.betaGrant} left`
+      : `${usage.dailyLeft} of ${usage.dailyGrant} left today`;
+  const coversHold = usage.availableMicros >= usage.holdMicros;
+  const returns =
+    usage.betaLeft > 0 && resetLocalTime.length > 0
+      ? ` Free replies return at ${resetLocalTime}.`
+      : " Beta replies do not reset.";
+  let headline: string;
+  if (usage.nextReply === "free") headline = `Next reply is free · ${usage.dailyLeft} left today`;
+  else if (usage.nextReply === "unavailable") headline = `Not available now.${returns}`;
+  else if (!coversHold) headline = `Next reply is paid · ${fuel} left. More fuel needed to reply.${returns}`;
+  else if (fuelTone === "green") {
+    headline = `Next reply is paid · ${fuel} left. ${formatUsd(usage.holdMicros)} hold per reply.${returns}`;
+  } else {
+    headline = `Next reply is paid · ${fuel} left. Low fuel. Replies still work. ${formatUsd(usage.holdMicros)} hold per reply.${returns}`;
+  }
+  let footer: string;
+  if (usage.nextReply === "paid") {
+    const tail =
+      usage.betaLeft > 0 && resetLocalTime.length > 0
+        ? ` Resets at ${resetLocalTime}.`
+        : " Beta replies do not reset.";
+    footer = `The shown fuel already excludes the hold. Only actual usage is charged. The hold is not an extra charge.${tail}`;
+  } else if (usage.betaLeft > 0 && resetLocalTime.length > 0) {
+    footer = `Free replies are used first, then fuel. Resets at ${resetLocalTime}.`;
+  } else {
+    footer = "Beta replies do not reset.";
+  }
+  return {
+    headline,
+    values: {
+      daily: `${usage.dailyLeft} of ${usage.dailyGrant}`,
+      beta: `${usage.betaLeft} of ${usage.betaGrant}`,
+      fuel,
+    },
+    bar: {
+      free: usage.dailyGrant > 0 ? Math.min(1, Math.max(0, usage.dailyLeft / usage.dailyGrant)) : 0,
+      fuel:
+        usage.allocationMicros > 0
+          ? Math.min(1, Math.max(0, usage.availableMicros / usage.allocationMicros))
+          : 0,
+      label: `${freeTitle} ${freeCount}. Paid fuel ${fuel}.`,
+      freeTone,
+      fuelTone: usage.nextReply === "free" ? freeTone : fuelTone,
+    },
+    footer,
+  };
+}
+
+export function resetClock(iso: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(iso));
 }

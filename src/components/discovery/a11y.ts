@@ -112,6 +112,14 @@ export const TEXT = {
     file: (fileName: string) => `From ${fileName}`,
   },
   revision: (n: number) => `Revision ${n}`,
+  editsFree: "Edits are free.",
+  oneAtATime: "One question at a time",
+  showTogether: "Show questions together",
+  nextQuestion: "Next question",
+  buyFuel: "Buy fuel",
+  buyFuelNote: "The minimum is $50. Fuel does not add free replies.",
+  send: "Send",
+  sendPaid: "Send paid reply",
   usageValues: { daily: "Free today", beta: "Beta", fuel: "Fuel" },
   ack: {
     reviewed: (revision: number) =>

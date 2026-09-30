@@ -1619,6 +1619,18 @@ hr {
   }
   .app-header {
     padding-inline: 11px;
+    overflow: hidden;
+  }
+  .workspace-name,
+  .brand-divider {
+    display: none;
+  }
+  .brand {
+    font-size: 16px;
+    gap: 6px;
+  }
+  .prototype-label span {
+    display: none;
   }
   .brand-mark {
     display: none;

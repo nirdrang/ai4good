@@ -7,6 +7,7 @@ import type {
   DiscoveryState,
   DiscoveryUIMessage,
   DiscoveryUsage,
+  Importance,
   SuggestedAnswer,
 } from "../../../src/lib/discovery-stream";
 import { GIVEN, type ScreenScenario } from "./givens";
@@ -17,9 +18,8 @@ const NEED =
 const THANKS =
   "Thanks, I read your intake. We need to agree six topics before a volunteer developer can start. I will ask the questions that do not depend on each other together.";
 
-// The acceptance text says "how the NGO works today". The approved canvas says "how you work today".
-const FILE_REQUEST =
-  "Before we start: do you have files that show how the NGO works today? A rota, a sign-up sheet, or your volunteer rules would help this need. Add a file in Your files. Attaching is free, and you can also add files later.";
+const FILE_KINDS = GIVEN["first-reply"].fileKinds;
+const FILE_REQUEST = `Before we start: do you have ${GIVEN["first-reply"].filePhrase}? A ${FILE_KINDS[0]}, a ${FILE_KINDS[1]}, or your ${FILE_KINDS[2]} would help this need. Add a file in Your files. Attaching is free, and you can also add files later.`;
 
 const QUESTIONS_INTRO = "Here are the first two questions. Each has my suggestion, but you decide.";
 
@@ -116,6 +116,8 @@ function asked(
   suggestedId: string,
   recommendation: string,
   uncertaintyHelp: string,
+  importance: Importance = "needed",
+  askedInRound = 1,
 ): BriefQuestion {
   return {
     id: topicId,
@@ -124,10 +126,10 @@ function asked(
     reason,
     options,
     suggestedId,
-    importance: "needed",
+    importance,
     recommendation,
     uncertaintyHelp,
-    askedInRound: 1,
+    askedInRound,
   };
 }
 
@@ -267,7 +269,225 @@ function brief(): BriefSnapshot {
   };
 }
 
+function message(id: string, role: "user" | "assistant", text: string, extra: DiscoveryUIMessage["parts"] = []): DiscoveryUIMessage {
+  return { id, role, parts: [{ type: "text", text }, ...extra] };
+}
+
+function filed(id: string, title: string): DiscoveryUIMessage["parts"][number] {
+  return { type: "data-filed", data: { topics: [{ id, title }] } };
+}
+
+const FREE_CHARGE: DiscoveryUIMessage["parts"][number] = { type: "data-charge", data: { kind: "free" } };
+
+function midUsage(paid: boolean): DiscoveryUsage {
+  const value: DiscoveryUsage = paid
+    ? {
+        dailyLeft: 0,
+        dailyGrant: 10,
+        betaLeft: 0,
+        betaGrant: 50,
+        availableMicros: 1_600_000,
+        reservedMicros: 0,
+        allocationMicros: 10_000_000,
+        settledMicros: 8_400_000,
+        holdMicros: 250_000,
+        nextResetAt: null,
+        nextReply: "paid",
+      }
+    : {
+        dailyLeft: 3,
+        dailyGrant: 10,
+        betaLeft: 18,
+        betaGrant: 50,
+        availableMicros: 10_000_000,
+        reservedMicros: 0,
+        allocationMicros: 10_000_000,
+        settledMicros: 0,
+        holdMicros: 250_000,
+        nextResetAt: "2026-09-30T00:00:00.000Z",
+        nextReply: "free",
+      };
+  value.nextReply = replyKind(value);
+  return value;
+}
+
+function midState(paid: boolean): DiscoveryState {
+  const given = GIVEN["mid-interview"];
+  const priority = given.agreed[0];
+  const booking = given.agreed[1];
+  const measure = given.notSure;
+  const owner = given.open[0];
+  const info = given.open[1];
+  const rules = given.next;
+  const measureHelp = "To find out: ask the people who schedule shifts how long last week took.";
+  const topics: BriefTopic[] = [
+    {
+      id: "priority",
+      title: priority.title,
+      required: true,
+      importance: "needed",
+      why: "A clear priority keeps the first version small and useful.",
+      suggestion: priority.answer,
+      plannedQuestion: priority.question,
+      state: {
+        kind: "agreed",
+        answer: priority.answer,
+        source: { kind: "chat", round: 2 },
+        answerMessageId: "u-priority",
+      },
+    },
+    {
+      id: "booking",
+      title: booking.title,
+      required: true,
+      importance: "needed",
+      why: "This decides who needs access and which rules we ask about next.",
+      suggestion: booking.answer,
+      plannedQuestion: booking.question,
+      state: {
+        kind: "agreed",
+        answer: booking.answer,
+        source: { kind: "chat", round: 3 },
+        answerMessageId: "u-booking",
+      },
+    },
+    {
+      id: "measure",
+      title: measure.title,
+      required: true,
+      importance: "suggested",
+      why: "You can use this target to check whether the first version helps.",
+      suggestion: "Two hours a week, down from four",
+      plannedQuestion: measure.question,
+      state: { kind: "not-sure", questionId: "measure", help: measureHelp },
+    },
+    {
+      id: "owner",
+      title: owner.title,
+      required: true,
+      importance: "needed",
+      why: "Someone must manage access and small changes after handoff.",
+      suggestion: owner.suggested,
+      plannedQuestion: owner.question,
+      state: { kind: "open" },
+    },
+    {
+      id: "info",
+      title: info.title,
+      required: true,
+      importance: "later",
+      why: "Less personal information means less risk and simpler rules.",
+      suggestion: info.suggested,
+      plannedQuestion: info.question,
+      state: { kind: "open" },
+    },
+    {
+      id: "rules",
+      title: rules.title,
+      required: true,
+      importance: "suggested",
+      why: "The tool needs limits once volunteers book themselves.",
+      suggestion: "Weekly shift limit",
+      plannedQuestion: rules.question,
+      state: { kind: "open" },
+    },
+  ];
+  const questions: BriefQuestion[] = [
+    asked(
+      "priority",
+      priority.question,
+      "A clear priority keeps the first version small and useful.",
+      [option("time", priority.answer), option("coverage", "Fewer unfilled shifts")],
+      "time",
+      "Suggested: less coordination time. Your intake says scheduling takes four hours each week.",
+      "To find out: ask your coordinators which problem causes the most work.",
+      "needed",
+      1,
+    ),
+    asked(
+      "booking",
+      booking.question,
+      "This decides who needs access and which rules we ask about next.",
+      [option("self", booking.answer), option("coordinators", "Coordinators book shifts")],
+      "self",
+      "Suggested: volunteers book themselves, and coordinators handle exceptions.",
+      "To find out: check whether your volunteers can book online.",
+      "needed",
+      2,
+    ),
+    asked(
+      "measure",
+      measure.question,
+      "You can use this target to check whether the first version helps.",
+      [option("two", "Two hours a week"), option("one", "One hour a week")],
+      "two",
+      "Suggested: two hours a week, down from four.",
+      measureHelp,
+      "suggested",
+      3,
+    ),
+    asked(
+      "owner",
+      owner.question,
+      "Someone must manage access and small changes after handoff.",
+      [option("lead", owner.suggested), option("coordinators", owner.other)],
+      "lead",
+      "Suggested: your operations lead already handles access.",
+      "To find out: ask who fixes a problem when a coordinator is away.",
+      "needed",
+      4,
+    ),
+    asked(
+      "info",
+      info.question,
+      "Less personal information means less risk and simpler rules.",
+      [option("phone", info.suggested), option("email", info.other)],
+      "phone",
+      "Suggested: name and phone are enough to fill a shift.",
+      "To find out: list the fields your rota uses today.",
+      "later",
+      4,
+    ),
+  ];
+  const snapshot: BriefSnapshot = {
+    revision: 4,
+    need: { text: NEED, source: { kind: "intake" } },
+    usersToday: null,
+    successMeasure: null,
+    topics,
+    questions,
+    suggestions: [],
+    dataTier: null,
+    fit: null,
+    causeLabels: [],
+  };
+  return {
+    project: { title: "Volunteer scheduling", organizationName: "Harbor Community Kitchen", funded: false },
+    transcript: [
+      message("intake", "user", `${TEXT.source.intake}\n\n${NEED}`),
+      message("a1", "assistant", THANKS, [FREE_CHARGE]),
+      message("u-priority", "user", priority.answer),
+      message("a2", "assistant", "I saved your first decision in the brief.", [filed("priority", priority.title), FREE_CHARGE]),
+      message("u-booking", "user", booking.answer),
+      message("a3", "assistant", "I saved who books the shifts in the brief.", [filed("booking", booking.title), FREE_CHARGE]),
+      message("u-measure", "user", "I'm not sure"),
+      message(
+        "a4",
+        "assistant",
+        "Two questions are still open. Answer either one when you are ready.",
+        [FREE_CHARGE],
+      ),
+    ],
+    fileChats: {},
+    brief: snapshot,
+    files: [intakeFile()],
+    usage: midUsage(paid),
+    confirmation: null,
+  };
+}
+
 export function seedState(scenario: ScreenScenario): DiscoveryState {
+  if (scenario === "mid-interview" || scenario === "mid-interview-paid") return midState(scenario === "mid-interview-paid");
   const snapshot = brief();
   const files = scenario === "first-reply-three-files" ? [intakeFile(), ...discoveryFiles()] : [intakeFile()];
   const discoveryCount = files.filter((file) => file.origin === "discovery").length;

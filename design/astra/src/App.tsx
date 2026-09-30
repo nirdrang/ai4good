@@ -265,11 +265,16 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
   const [dark, setDark] = useState(() => {
+    let stored: string | null = null;
     try {
-      return localStorage.getItem("ai4good.astra.theme") === "dark";
+      stored = localStorage.getItem("ai4good.astra.theme");
     } catch {
-      return false;
+      stored = null;
     }
+    const next =
+      stored === "dark" ? true : stored === "light" ? false : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", next);
+    return next;
   });
   useEffect(() => {
     try {
@@ -475,8 +480,7 @@ export default function App() {
             <DiscoveryScreen
               key={`${selection.scenario}:${selection.pace}`}
               port={discoveryPort}
-              organizationId="fixture"
-              projectId="fixture"
+              onOpenReview={() => navigate("discovery-review")}
             />
           )}
           {route === "discovery-review" && <DiscoveryReview onBackToChat={() => navigate("discovery")} />}

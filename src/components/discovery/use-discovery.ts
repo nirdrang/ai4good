@@ -1,9 +1,11 @@
 import { Chat, useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
-import type { DiscoveryAnswer, DiscoveryState, DiscoveryUIMessage } from "@/lib/discovery-stream";
+import type { BriefSnapshot, DiscoveryAnswer, DiscoveryState, DiscoveryUIMessage } from "@/lib/discovery-stream";
 import { NAME } from "./a11y";
 import { currentQuestions, newerBrief, type Draft } from "./model";
 import type { DiscoveryPort } from "./port";
+
+export type DiscoveryPanel = "brief" | "questions";
 
 export type DiscoveryController = {
   project: DiscoveryState["project"];
@@ -15,10 +17,26 @@ export type DiscoveryController = {
   drafts: Readonly<Record<string, Draft>>;
   composerText: string;
   canSend: boolean;
+  paidSend: boolean;
   refusal: { kind: string; reason: string } | null;
+  reopened: readonly string[];
+  panel: DiscoveryPanel | null;
+  highlight: { messageId: string; text: string } | null;
+  focus: { id: string; nonce: number } | null;
+  oneAtATime: boolean;
+  questionIndex: number;
+  assistantCount: number;
   pick(questionId: string, draft: Draft | null): void;
   setComposerText(text: string): void;
   send(): Promise<void>;
+  openPanel(panel: DiscoveryPanel): void;
+  closePanel(): void;
+  reopen(questionId: string): void;
+  focusQuestion(questionId: string): void;
+  viewAnswer(questionId: string): void;
+  showOne(): void;
+  showTogether(): void;
+  nextQuestion(): void;
 };
 
 function parseRefusal(error: unknown): { kind: string; reason: string } {
@@ -66,24 +84,37 @@ function answersFromDrafts(
   });
 }
 
-export function useDiscovery(
-  port: DiscoveryPort,
-  initial: DiscoveryState,
-  scope: { organizationId: string; projectId: string },
-): DiscoveryController {
+function answerTarget(brief: BriefSnapshot, questionId: string): { messageId: string; text: string } | null {
+  const question = brief.questions.find((item) => item.id === questionId);
+  const topic = brief.topics.find((item) => item.id === question?.topicId);
+  if (topic?.state.kind === "agreed" && topic.state.answerMessageId) {
+    return { messageId: topic.state.answerMessageId, text: topic.state.answer };
+  }
+  return null;
+}
+
+export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): DiscoveryController {
   const [brief, setBrief] = useState(initial.brief);
   const [files, setFiles] = useState(initial.files);
   const [usage, setUsage] = useState(initial.usage);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [composerText, setComposerText] = useState("");
   const [refusal, setRefusal] = useState<{ kind: string; reason: string } | null>(null);
+  const [reopened, setReopened] = useState<string[]>([]);
+  const [panel, setPanel] = useState<DiscoveryPanel | null>(null);
+  const [highlight, setHighlight] = useState<{ messageId: string; text: string } | null>(null);
+  const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
+  const [oneAtATime, setOneAtATime] = useState(false);
+  const [questionIndex, setQuestionIndex] = useState(0);
   const briefRef = useRef(brief);
   const draftsRef = useRef(drafts);
   const composerRef = useRef(composerText);
+  const reopenedRef = useRef(reopened);
   const sending = useRef(false);
   briefRef.current = brief;
   draftsRef.current = drafts;
   composerRef.current = composerText;
+  reopenedRef.current = reopened;
 
   const chatStore = useRef<Chat<DiscoveryUIMessage> | null>(null);
   if (chatStore.current === null) {
@@ -109,12 +140,20 @@ export function useDiscovery(
     });
   }, [port]);
 
-  const questions = currentQuestions(brief);
+  useEffect(() => {
+    if (!highlight) return;
+    const timer = window.setTimeout(() => setHighlight(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [highlight]);
+
+  const questions = currentQuestions(brief, reopened);
+  const assistantCount = messages.filter((message) => message.role === "assistant").length;
   const busy = status === "submitted" || status === "streaming";
   const ready =
     composerText.trim().length > 0 ||
     questions.some((question) => draftReady(question.id, question.options, drafts[question.id]));
-  const canSend = !busy && ready;
+  const canSend = !busy && usage.nextReply !== "unavailable" && ready;
+  const index = Math.min(questionIndex, Math.max(questions.length - 1, 0));
 
   function pick(questionId: string, draft: Draft | null) {
     setDrafts((current) => {
@@ -125,10 +164,16 @@ export function useDiscovery(
     });
   }
 
+  function pointAt(questionId: string) {
+    setOneAtATime(false);
+    setPanel(null);
+    setFocus({ id: questionId, nonce: Date.now() });
+  }
+
   async function send() {
     if (sending.current) return;
     if (chat.status === "submitted" || chat.status === "streaming") return;
-    const open = currentQuestions(briefRef.current);
+    const open = currentQuestions(briefRef.current, reopenedRef.current);
     const answers = answersFromDrafts(draftsRef.current, open);
     const note = composerRef.current.trim();
     if (answers.length === 0 && note.length === 0) return;
@@ -141,8 +186,6 @@ export function useDiscovery(
         { text },
         {
           body: {
-            organizationId: scope.organizationId,
-            projectId: scope.projectId,
             message: note,
             mode: "answer",
             answers,
@@ -159,6 +202,7 @@ export function useDiscovery(
         for (const id of sent) delete next[id];
         return next;
       });
+      setReopened((current) => current.filter((id) => !sent.has(id)));
       setComposerText("");
       setRefusal(null);
     } catch (error) {
@@ -178,9 +222,43 @@ export function useDiscovery(
     drafts,
     composerText,
     canSend,
+    paidSend: usage.nextReply === "paid",
     refusal,
+    reopened,
+    panel,
+    highlight,
+    focus,
+    oneAtATime,
+    questionIndex: index,
+    assistantCount,
     pick,
     setComposerText,
     send,
+    openPanel(next) {
+      setPanel(next);
+    },
+    closePanel() {
+      setPanel(null);
+    },
+    reopen(questionId) {
+      setReopened((current) => (current.includes(questionId) ? current : [...current, questionId]));
+      pointAt(questionId);
+    },
+    focusQuestion: pointAt,
+    viewAnswer(questionId) {
+      const target = answerTarget(brief, questionId);
+      setPanel(null);
+      if (target) setHighlight(target);
+    },
+    showOne() {
+      setQuestionIndex(0);
+      setOneAtATime(true);
+    },
+    showTogether() {
+      setOneAtATime(false);
+    },
+    nextQuestion() {
+      setQuestionIndex((current) => current + 1);
+    },
   };
 }

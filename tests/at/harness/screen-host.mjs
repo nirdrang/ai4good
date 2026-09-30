@@ -120,6 +120,9 @@ const ops = {
   async focused({ page, chain }) {
     return locate(entry(page).page, chain).evaluate((element) => element === document.activeElement);
   },
+  async value({ page, chain }) {
+    return locate(entry(page).page, chain).inputValue();
+  },
   async setFiles({ page, chain, files }) {
     const payload = (Array.isArray(files) ? files : []).map((file) => ({
       name: String(file.name),
