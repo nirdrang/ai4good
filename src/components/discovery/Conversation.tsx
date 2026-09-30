@@ -42,6 +42,12 @@ export function Conversation({
   useLayoutEffect(() => {
     const node = scroller.current;
     if (!node) return;
+    const replies = node.querySelectorAll(`article[aria-label="${NAME.aiReply}"]`);
+    const last = replies.length > 0 ? replies.item(replies.length - 1) : null;
+    if (last instanceof HTMLElement && (replies.length <= 1 || last.offsetHeight > node.clientHeight)) {
+      node.scrollTop = last.offsetTop;
+      return;
+    }
     node.scrollTop = node.scrollHeight;
   }, [lastId, messages.length]);
   useLayoutEffect(() => {
