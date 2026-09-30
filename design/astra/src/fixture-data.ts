@@ -1,4 +1,5 @@
 import { TEXT } from "../../../src/components/discovery/a11y";
+import { openingChips } from "../../../src/components/discovery/model";
 import type {
   BriefQuestion,
   BriefSnapshot,
@@ -23,42 +24,91 @@ const FILE_REQUEST = `Before we start: do you have ${GIVEN["first-reply"].filePh
 
 const QUESTIONS_INTRO = "Here are the first two questions. Each has my suggestion, but you decide.";
 
-export const FILE_SCRIPTS = [
+export type FileScript = {
+  id: string;
+  name: string;
+  size: string;
+  facts: number;
+  chips: readonly string[];
+  pause: { text: string; chips: readonly string[] } | null;
+  fact: string;
+  report: string;
+};
+
+const ROTA_FACT =
+  "last month 38 of your 45 volunteers booked at least one shift, and the same 20 people filled most shifts";
+const SUNDAY_FACT = "14 empty Sunday shifts this year, most of them in August at the harbor kitchen";
+const KITCHEN_FACT = "volunteers must be 16 or older and finish a hygiene course before their first shift";
+
+export const FILE_SCRIPTS: readonly FileScript[] = [
   {
     id: "volunteer-rota",
     name: "volunteer-rota.xlsx",
     size: "48 KB",
     facts: 4,
-    chips: [
-      "Our August rota. Look at who books which shifts",
-      "It shows where Sundays stay empty",
-      "It has phone numbers. Leave them out",
-    ],
+    chips: openingChips("volunteer-rota.xlsx"),
     pause: {
       text: "Some rows have only a first name. Are two rows with the same first name the same volunteer?",
       chips: ["Yes, usually the same person", "No, count them apart", "Not sure"],
     },
+    fact: ROTA_FACT,
+    report: `I finished reading volunteer-rota.xlsx. It shows that ${ROTA_FACT}. Is that right? I add it to your brief when you agree.`,
   },
   {
     id: "sunday-gaps",
     name: "sunday-gaps.csv",
     size: "6 KB",
     facts: 3,
-    chips: ["These are the shifts we could not fill", "Look at which kitchen is short"],
+    chips: openingChips("sunday-gaps.csv"),
     pause: {
       text: "Some rows have no kitchen name. Should I count them as the harbor kitchen?",
       chips: ["Yes", "No, leave them out", "Not sure"],
     },
+    fact: SUNDAY_FACT,
+    report: `I finished reading sunday-gaps.csv. It shows ${SUNDAY_FACT}. Is that right? I add it to your brief when you agree.`,
   },
   {
     id: "kitchen-rules",
     name: "kitchen-rules.docx",
     size: "31 KB",
     facts: 5,
-    chips: ["Our volunteer rules. Look at who may take a shift", "Look at how shifts are cancelled"],
+    chips: openingChips("kitchen-rules.docx"),
     pause: null,
+    fact: KITCHEN_FACT,
+    report: `I finished reading kitchen-rules.docx. It says ${KITCHEN_FACT}. Is that right? I add it to your brief when you agree.`,
   },
-] as const;
+];
+
+function slug(name: string): string {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return base.length > 0 ? base : "file";
+}
+
+/** A known file keeps its id. Any other name becomes a slug, with -2 when that id is taken. */
+export function nextFileId(name: string, taken: readonly string[]): string {
+  const known = FILE_SCRIPTS.find((item) => item.name === name);
+  const base = known?.id ?? slug(name);
+  if (!taken.includes(base)) return base;
+  let n = 2;
+  while (taken.includes(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+export function scriptForName(name: string): FileScript {
+  const found = FILE_SCRIPTS.find((item) => item.name === name);
+  if (found) return found;
+  const fact = `I found three facts in ${name} that matter for your need.`;
+  return {
+    id: "",
+    name,
+    size: "1 KB",
+    facts: 3,
+    chips: openingChips(name),
+    pause: null,
+    fact,
+    report: `I finished reading ${name}. ${fact} Is that right? I add them to your brief when you agree.`,
+  };
+}
 
 export function replyKind(
   usage: Pick<DiscoveryUsage, "dailyLeft" | "betaLeft" | "availableMicros" | "reservedMicros" | "holdMicros">,
@@ -489,7 +539,11 @@ function midState(paid: boolean): DiscoveryState {
 export function seedState(scenario: ScreenScenario): DiscoveryState {
   if (scenario === "mid-interview" || scenario === "mid-interview-paid") return midState(scenario === "mid-interview-paid");
   const snapshot = brief();
-  const files = scenario === "first-reply-three-files" ? [intakeFile(), ...discoveryFiles()] : [intakeFile()];
+  const three =
+    scenario === "first-reply-three-files" ||
+    scenario === "three-files-unfunded" ||
+    scenario === "three-files-funded";
+  const files = three ? [intakeFile(), ...discoveryFiles()] : [intakeFile()];
   const discoveryCount = files.filter((file) => file.origin === "discovery").length;
   const opening: DiscoveryUIMessage = {
     id: "opening",
@@ -506,7 +560,11 @@ export function seedState(scenario: ScreenScenario): DiscoveryState {
     parts: [{ type: "text", text: `${TEXT.source.intake}\n\n${NEED}` }],
   };
   return {
-    project: { title: "Volunteer scheduling", organizationName: "Harbor Community Kitchen", funded: false },
+    project: {
+      title: "Volunteer scheduling",
+      organizationName: "Harbor Community Kitchen",
+      funded: scenario === "three-files-funded",
+    },
     transcript: [intake, opening],
     fileChats: {},
     brief: snapshot,

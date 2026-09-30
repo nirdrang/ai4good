@@ -1,11 +1,29 @@
 import { Chat, useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
-import type { BriefSnapshot, DiscoveryAnswer, DiscoveryState, DiscoveryUIMessage } from "@/lib/discovery-stream";
-import { NAME } from "./a11y";
-import { currentQuestions, newerBrief, type Draft } from "./model";
+import type {
+  BriefSnapshot,
+  DiscoveryAnswer,
+  DiscoveryFile,
+  DiscoveryState,
+  DiscoveryUIMessage,
+  FileChatUIMessage,
+} from "@/lib/discovery-stream";
+import { NAME, TEXT } from "./a11y";
+import { currentQuestions, fileChatView, fileRows, newerBrief, type Draft, type FileChatView } from "./model";
 import type { DiscoveryPort } from "./port";
 
-export type DiscoveryPanel = "brief" | "questions";
+export type DiscoveryPanel =
+  | { kind: "brief" }
+  | { kind: "questions" }
+  | { kind: "chooser" }
+  | { kind: "file"; key: string };
+
+type HeldFileChat = {
+  chat: Chat<FileChatUIMessage>;
+  name: string;
+  staged: boolean;
+  seen: ReadonlySet<string>;
+};
 
 export type DiscoveryController = {
   project: DiscoveryState["project"];
@@ -21,6 +39,8 @@ export type DiscoveryController = {
   refusal: { kind: string; reason: string } | null;
   reopened: readonly string[];
   panel: DiscoveryPanel | null;
+  fileChat: FileChatView | null;
+  fileNotice: string | null;
   highlight: { messageId: string; text: string } | null;
   focus: { id: string; nonce: number } | null;
   oneAtATime: boolean;
@@ -29,8 +49,13 @@ export type DiscoveryController = {
   pick(questionId: string, draft: Draft | null): void;
   setComposerText(text: string): void;
   send(): Promise<void>;
-  openPanel(panel: DiscoveryPanel): void;
+  openPanel(panel: "brief" | "questions"): void;
   closePanel(): void;
+  openChooser(): void;
+  chooseFile(file: File): void;
+  openFile(fileId: string): void;
+  setFileDraft(text: string): void;
+  sendFileAnswer(text: string): Promise<void>;
   reopen(questionId: string): void;
   focusQuestion(questionId: string): void;
   viewAnswer(questionId: string): void;
@@ -102,6 +127,9 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   const [refusal, setRefusal] = useState<{ kind: string; reason: string } | null>(null);
   const [reopened, setReopened] = useState<string[]>([]);
   const [panel, setPanel] = useState<DiscoveryPanel | null>(null);
+  const [staged, setStaged] = useState<{ key: string; name: string; sizeBytes: number } | null>(null);
+  const [fileDrafts, setFileDrafts] = useState<Record<string, string>>({});
+  const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ messageId: string; text: string } | null>(null);
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
   const [oneAtATime, setOneAtATime] = useState(false);
@@ -110,11 +138,17 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   const draftsRef = useRef(drafts);
   const composerRef = useRef(composerText);
   const reopenedRef = useRef(reopened);
+  const filesRef = useRef(files);
+  const panelRef = useRef(panel);
   const sending = useRef(false);
+  const fileSending = useRef(false);
+  const held = useRef(new Map<string, HeldFileChat>());
   briefRef.current = brief;
   draftsRef.current = drafts;
   composerRef.current = composerText;
   reopenedRef.current = reopened;
+  filesRef.current = files;
+  panelRef.current = panel;
 
   const chatStore = useRef<Chat<DiscoveryUIMessage> | null>(null);
   if (chatStore.current === null) {
@@ -131,14 +165,57 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
   const chat = chatStore.current;
   const { messages, status } = useChat<DiscoveryUIMessage>({ chat });
 
+  const idleStore = useRef<Chat<FileChatUIMessage> | null>(null);
+  if (idleStore.current === null) {
+    idleStore.current = new Chat<FileChatUIMessage>({
+      id: "file-idle",
+      messages: [],
+      transport: port.fileChat({ kind: "existing", fileId: "idle" }),
+    });
+  }
+  const idleChat = idleStore.current;
+  const fileKey = panel?.kind === "file" ? panel.key : null;
+  const fileEntry = fileKey ? (held.current.get(fileKey) ?? null) : null;
+  const activeFileChat = fileEntry?.chat ?? idleChat;
+  const { messages: fileMessages, status: fileStatus } = useChat<FileChatUIMessage>({ chat: activeFileChat });
+  const fileChatRef = useRef(activeFileChat);
+  fileChatRef.current = activeFileChat;
+
   useEffect(() => {
     return port.subscribe((change) => {
-      if (change.files) setFiles(change.files);
+      if (change.files) {
+        filesRef.current = change.files;
+        setFiles(change.files);
+      }
       const incomingBrief = change.brief;
       if (incomingBrief) setBrief((current) => newerBrief(current, incomingBrief));
       if (change.usage) setUsage(change.usage);
     });
   }, [port]);
+
+  useEffect(() => {
+    if (panel?.kind !== "file") return;
+    const entry = held.current.get(panel.key);
+    if (!entry?.staged) return;
+    const created = files.find(
+      (item) => item.origin === "discovery" && item.name === entry.name && !entry.seen.has(item.id),
+    );
+    if (!created || created.origin !== "discovery") return;
+    entry.staged = false;
+    held.current.delete(panel.key);
+    held.current.set(created.id, entry);
+    const oldKey = panel.key;
+    setFileDrafts((draftsNow) => {
+      if (!(oldKey in draftsNow)) return draftsNow;
+      const next = { ...draftsNow };
+      const text = next[oldKey] ?? "";
+      delete next[oldKey];
+      next[created.id] = text;
+      return next;
+    });
+    setStaged((item) => (item?.key === oldKey ? null : item));
+    setPanel({ kind: "file", key: created.id });
+  }, [files, panel]);
 
   useEffect(() => {
     if (!highlight) return;
@@ -164,10 +241,134 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     });
   }
 
+  function linkedFile(): Extract<DiscoveryFile, { origin: "discovery" }> | null {
+    if (!fileEntry) return null;
+    if (fileKey) {
+      const byId = files.find((item) => item.origin === "discovery" && item.id === fileKey);
+      if (byId && byId.origin === "discovery") return byId;
+    }
+    if (!fileEntry.staged) return null;
+    const created = files.find(
+      (item) => item.origin === "discovery" && item.name === fileEntry.name && !fileEntry.seen.has(item.id),
+    );
+    return created && created.origin === "discovery" ? created : null;
+  }
+
+  function releaseUncommitted(current: DiscoveryPanel | null) {
+    if (current?.kind !== "file") return;
+    const entry = held.current.get(current.key);
+    if (!entry?.staged) return;
+    const committed = filesRef.current.some(
+      (item) => item.origin === "discovery" && item.name === entry.name && !entry.seen.has(item.id),
+    );
+    if (committed) return;
+    held.current.delete(current.key);
+    setStaged((item) => (item?.key === current.key ? null : item));
+    setFileDrafts((draftsNow) => {
+      if (!(current.key in draftsNow)) return draftsNow;
+      const next = { ...draftsNow };
+      delete next[current.key];
+      return next;
+    });
+  }
+
   function pointAt(questionId: string) {
     setOneAtATime(false);
+    releaseUncommitted(panelRef.current);
     setPanel(null);
     setFocus({ id: questionId, nonce: Date.now() });
+  }
+
+  function chooseFile(file: File) {
+    const key = `new:${file.name}`;
+    if (!held.current.has(key)) {
+      const seen = new Set(
+        filesRef.current.filter((item) => item.origin === "discovery").map((item) => item.id),
+      );
+      const fileChat = new Chat<FileChatUIMessage>({
+        id: `file-new-${file.name}`,
+        messages: [
+          {
+            id: `open-${file.name}`,
+            role: "assistant",
+            parts: [{ type: "text", text: TEXT.fileQuestion }],
+          },
+        ],
+        transport: port.fileChat({ kind: "new", file }),
+        onData: (part) => {
+          if (part.type === "data-usage") setUsage(part.data);
+        },
+      });
+      held.current.set(key, { chat: fileChat, name: file.name, staged: true, seen });
+      setStaged({ key, name: file.name, sizeBytes: file.size });
+    }
+    setFileNotice(null);
+    setPanel({ kind: "file", key });
+  }
+
+  function openFile(fileId: string) {
+    const file = filesRef.current.find((item) => item.id === fileId && item.origin === "discovery");
+    if (!file || file.origin !== "discovery") return;
+    const stagedKey = `new:${file.name}`;
+    const stagedEntry = held.current.get(stagedKey);
+    if (!held.current.has(fileId) && stagedEntry) {
+      stagedEntry.staged = false;
+      held.current.delete(stagedKey);
+      held.current.set(fileId, stagedEntry);
+    }
+    if (!held.current.has(fileId)) {
+      held.current.set(fileId, {
+        name: file.name,
+        staged: false,
+        seen: new Set(filesRef.current.map((item) => item.id)),
+        chat: new Chat<FileChatUIMessage>({
+          id: `file-${fileId}`,
+          messages: structuredClone(initial.fileChats[fileId] ?? []),
+          transport: port.fileChat({ kind: "existing", fileId }),
+          onData: (part) => {
+            if (part.type === "data-usage") setUsage(part.data);
+          },
+        }),
+      });
+    }
+    setFileNotice(null);
+    setPanel({ kind: "file", key: fileId });
+  }
+
+  function setFileDraft(text: string) {
+    const key = panelRef.current?.kind === "file" ? panelRef.current.key : null;
+    if (!key) return;
+    setFileDrafts((draftsNow) => ({ ...draftsNow, [key]: text }));
+  }
+
+  async function sendFileAnswer(text: string) {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return;
+    if (fileSending.current) return;
+    const current = fileChatRef.current;
+    if (current === idleChat) return;
+    if (current.status === "submitted" || current.status === "streaming") return;
+    const key = panelRef.current?.kind === "file" ? panelRef.current.key : null;
+    fileSending.current = true;
+    setFileNotice(null);
+    try {
+      await current.sendMessage({ text: trimmed });
+      if (current.status === "error") {
+        setFileNotice(parseRefusal(current.error).reason);
+        return;
+      }
+      setFileDrafts((draftsNow) => {
+        const next = { ...draftsNow };
+        if (key) next[key] = "";
+        const liveKey = panelRef.current?.kind === "file" ? panelRef.current.key : null;
+        if (liveKey) next[liveKey] = "";
+        return next;
+      });
+    } catch (error) {
+      setFileNotice(parseRefusal(error).reason);
+    } finally {
+      fileSending.current = false;
+    }
   }
 
   async function send() {
@@ -212,6 +413,20 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     }
   }
 
+  const linked = linkedFile();
+  const fileChat =
+    fileEntry && fileKey
+      ? fileChatView({
+          name: fileEntry.name,
+          sizeBytes: linked?.sizeBytes ?? (staged?.name === fileEntry.name ? staged.sizeBytes : 0),
+          file: linked,
+          messages: fileMessages,
+          draft: fileDrafts[fileKey] ?? "",
+          busy: fileStatus === "submitted" || fileStatus === "streaming",
+          paid: usage.nextReply === "paid",
+        })
+      : null;
+
   return {
     project: initial.project,
     brief,
@@ -226,6 +441,8 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     refusal,
     reopened,
     panel,
+    fileChat,
+    fileNotice,
     highlight,
     focus,
     oneAtATime,
@@ -235,11 +452,24 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     setComposerText,
     send,
     openPanel(next) {
-      setPanel(next);
+      releaseUncommitted(panelRef.current);
+      setPanel({ kind: next });
     },
     closePanel() {
+      releaseUncommitted(panelRef.current);
+      setFileNotice(null);
       setPanel(null);
     },
+    openChooser() {
+      if (!fileRows(filesRef.current, initial.project.funded).canAdd) return;
+      releaseUncommitted(panelRef.current);
+      setFileNotice(null);
+      setPanel({ kind: "chooser" });
+    },
+    chooseFile,
+    openFile,
+    setFileDraft,
+    sendFileAnswer,
     reopen(questionId) {
       setReopened((current) => (current.includes(questionId) ? current : [...current, questionId]));
       pointAt(questionId);
@@ -247,6 +477,7 @@ export function useDiscovery(port: DiscoveryPort, initial: DiscoveryState): Disc
     focusQuestion: pointAt,
     viewAnswer(questionId) {
       const target = answerTarget(brief, questionId);
+      releaseUncommitted(panelRef.current);
       setPanel(null);
       if (target) setHighlight(target);
     },

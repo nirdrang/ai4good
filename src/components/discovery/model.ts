@@ -5,8 +5,9 @@ import type {
   DiscoveryFile,
   DiscoveryUIMessage,
   DiscoveryUsage,
+  FileChatUIMessage,
 } from "@/lib/discovery-stream";
-import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, TEXT, type QuestionStatus } from "./a11y";
+import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, SCREEN, TEXT, type QuestionStatus } from "./a11y";
 
 /** What the NGO has chosen for one current question but not yet sent. */
 export type Draft =
@@ -71,10 +72,41 @@ export function presentMessages(messages: readonly DiscoveryUIMessage[]): Presen
 export type FileRowView = {
   id: string;
   name: string;
+  sizeText: string;
   statusText: string;
   percent: number | null;
   canOpen: boolean;
 };
+
+/** 1 KB is the smallest label. A megabyte keeps one decimal. */
+export function formatFileSize(bytes: number): string {
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+const OPENING_CHIPS: Record<string, readonly string[]> = {
+  "volunteer-rota.xlsx": [
+    "Our August rota. Look at who books which shifts",
+    "It shows where Sundays stay empty",
+    "It has phone numbers. Leave them out",
+  ],
+  "sunday-gaps.csv": ["These are the shifts we could not fill", "Look at which kitchen is short"],
+  "kitchen-rules.docx": [
+    "Our volunteer rules. Look at who may take a shift",
+    "Look at how shifts are cancelled",
+  ],
+};
+
+const GENERIC_CHIPS = [
+  "It shows how we work today",
+  "It lists our volunteers or shifts",
+  "Look at all of it",
+] as const;
+
+/** Chips for the opening file question. A known file name has its own list. */
+export function openingChips(fileName: string): readonly string[] {
+  return OPENING_CHIPS[fileName] ?? GENERIC_CHIPS;
+}
 
 function statusText(file: DiscoveryFile): string {
   if (file.origin === "intake") return TEXT.source.intake;
@@ -108,6 +140,7 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
     rows: files.map((file) => ({
       id: file.id,
       name: file.name,
+      sizeText: formatFileSize(file.sizeBytes),
       statusText: statusText(file),
       percent: percentOf(file),
       canOpen: file.origin === "discovery",
@@ -115,6 +148,96 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
     discoveryCount,
     canAdd: funded || discoveryCount < 3,
     limitText: funded ? null : TEXT.fileLimit,
+  };
+}
+
+export type FileChatMessage = { id: string; role: "user" | "assistant"; text: string };
+
+export type FileChatView = {
+  name: string;
+  sizeText: string;
+  messages: FileChatMessage[];
+  chips: readonly string[];
+  draft: string;
+  canAnswer: boolean;
+  busy: boolean;
+  paid: boolean;
+  statusText: string;
+  percent: number | null;
+  closeLabel: string;
+  closeHint: string | null;
+};
+
+function messageText(message: FileChatUIMessage): string {
+  return message.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("\n\n")
+    .trim();
+}
+
+/** What the file panel shows. The pause question and the done line come from the file when the chat does not already have them. */
+export function fileChatView(input: {
+  name: string;
+  sizeBytes: number;
+  file: Extract<DiscoveryFile, { origin: "discovery" }> | null;
+  messages: readonly FileChatUIMessage[];
+  draft: string;
+  busy: boolean;
+  paid: boolean;
+}): FileChatView {
+  const file = input.file;
+  const waiting = file?.status.kind === "waiting" ? file.status : null;
+  const messages: FileChatMessage[] = [];
+  for (const message of input.messages) {
+    if (message.role !== "user" && message.role !== "assistant") continue;
+    const text = messageText(message);
+    if (text.length === 0) continue;
+    messages.push({ id: message.id, role: message.role, text });
+  }
+  const shown = messages.map((message) => message.text).join("\n");
+  if (waiting && !shown.includes(waiting.question.text)) {
+    messages.push({ id: `ask-${input.name}`, role: "assistant", text: waiting.question.text });
+  }
+  if (file?.status.kind === "ready") {
+    const done = TEXT.fileDone(file.status.facts);
+    if (!shown.includes(done)) messages.push({ id: `done-${input.name}`, role: "assistant", text: done });
+  }
+  let statusText: string = TEXT.fileStatus.asking;
+  let percent: number | null = null;
+  let closeLabel: string = SCREEN.cancelAdding.name;
+  let closeHint: string | null = null;
+  if (file?.status.kind === "reading") {
+    statusText = TEXT.fileStatus.reading(file.status.percent);
+    percent = file.status.percent;
+    closeLabel = TEXT.closeAndKeep;
+    closeHint = TEXT.closeReadingHint;
+  } else if (file?.status.kind === "waiting") {
+    statusText = `${TEXT.fileStatus.reading(file.status.percent)} ${TEXT.fileStatus.waiting}`;
+    percent = file.status.percent;
+    closeLabel = TEXT.closeAndKeep;
+    closeHint = TEXT.closeReadingHint;
+  } else if (file?.status.kind === "ready") {
+    statusText = TEXT.fileStatus.ready(file.status.facts);
+    percent = 100;
+    closeLabel = TEXT.closeFile;
+    closeHint = TEXT.closeReadyHint;
+  } else if (file?.status.kind === "failed") {
+    statusText = file.status.reason;
+    closeLabel = TEXT.closeFile;
+  }
+  return {
+    name: input.name,
+    sizeText: formatFileSize(input.sizeBytes),
+    messages,
+    chips: waiting ? waiting.question.chips : file ? [] : openingChips(input.name),
+    draft: input.draft,
+    canAnswer: file === null || waiting !== null,
+    busy: input.busy,
+    paid: input.paid,
+    statusText,
+    percent,
+    closeLabel,
+    closeHint,
   };
 }
 

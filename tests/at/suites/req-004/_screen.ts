@@ -5,6 +5,7 @@ import {
   useScreenDriver,
   VIEWPORT_SIZE,
   type LocatorStep,
+  type ScreenFile,
   type ScreenPage,
   type Viewport,
 } from '../../harness/screen.ts';
@@ -112,6 +113,8 @@ export class DiscoveryPage {
     yourText: (): Promise<string> => this.messageText(NAME.yourTurn),
     scrollToTop: (): Promise<void> =>
       this.page.scroll([landmark(SCREEN.conversation.role, SCREEN.conversation.name)], 0),
+    scrollToEnd: (): Promise<void> =>
+      this.page.scroll([landmark(SCREEN.conversation.role, SCREEN.conversation.name)], 100_000),
     answerCurrent: (answer: string): Promise<string | null> =>
       this.page.attribute(
         [landmark(SCREEN.conversation.role, SCREEN.conversation.name), { text: answer }],
@@ -169,8 +172,36 @@ export class DiscoveryPage {
 
   readonly files = {
     addVisible: (): Promise<boolean> => this.page.visible([landmark('button', SCREEN.addFile.name)]),
+    text: (): Promise<string> => this.page.text([this.filesRoot()]),
+    addDisabled: (): Promise<string | null> =>
+      this.page.attribute([landmark('button', SCREEN.addFile.name)], 'aria-disabled'),
+    addBox: (): Promise<Box> => waitBox(this.page, [landmark('button', SCREEN.addFile.name)], SCREEN.addFile.name),
+    openAdd: async (): Promise<void> => {
+      await this.page.click([landmark('button', SCREEN.addFile.name)]);
+      await eventually('Add a file opens the chooser', () => this.page.visible([this.chooserRoot()]), (open) => open);
+    },
+    choose: (file: ScreenFile): Promise<void> => this.page.setFiles([this.chooserRoot()], [file]),
+    row: (name: string): Promise<string> =>
+      readText(this.page, [this.filesRoot(), landmark('listitem', name)]),
     has: (name: string): Promise<boolean> =>
-      this.page.visible([landmark(SCREEN.files.role, SCREEN.files.name), landmark('listitem', name)]),
+      this.page.visible([this.filesRoot(), landmark('listitem', name)]),
+    reopen: (name: string): Promise<void> =>
+      this.page.click([this.filesRoot(), landmark('button', NAME.openFileChat(name))]),
+  };
+
+  readonly chooser = {
+    visible: (): Promise<boolean> => this.page.visible([this.chooserRoot()]),
+    dropVisible: (): Promise<boolean> => this.page.visible([this.chooserRoot(), { text: TEXT.dropHere }]),
+    text: (): Promise<string> => this.page.text([this.chooserRoot()]),
+    chooseCount: (): Promise<number> =>
+      this.page.count([this.chooserRoot(), landmark('button', SCREEN.chooseFile.name)]),
+    cancel: async (): Promise<void> => {
+      await this.page.click([this.chooserRoot(), landmark('button', SCREEN.cancelAdding.name)]);
+      await eventually('Cancel closes the chooser', () => this.page.visible([this.chooserRoot()]), (open) => open === false);
+    },
+    buttonBox: (name: string): Promise<Box> =>
+      waitBox(this.page, [this.chooserRoot(), landmark('button', name)], name),
+    textBox: (phrase: string): Promise<Box> => waitBox(this.page, [this.chooserRoot(), { text: phrase }], phrase),
   };
 
   readonly usage = {
@@ -237,12 +268,50 @@ export class DiscoveryPage {
     return waitBox(this.page, [landmark(SCREEN.composer.role, SCREEN.composer.name), free], TEXT.send);
   }
 
+  fileChat(name: string) {
+    const root =
+      this.viewport === 'desktop'
+        ? landmark('region', NAME.fileChat(name))
+        : landmark('dialog', NAME.fileChat(name));
+    const button = (label: string): LocatorStep[] => [root, landmark('button', label)];
+    return {
+      visible: (): Promise<boolean> => this.page.visible([root]),
+      text: (): Promise<string> => this.page.text([root]),
+      pick: (label: string): Promise<void> => this.page.click(button(label)),
+      fill: (text: string): Promise<void> =>
+        this.page.fill([root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)], text),
+      answerBox: (): Promise<Box> =>
+        waitBox(this.page, [root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)], SCREEN.fileAnswer.name),
+      sendBox: (): Promise<Box> => waitBox(this.page, button(TEXT.send), TEXT.send),
+      chipBox: (label: string): Promise<Box> => waitBox(this.page, button(label), label),
+      buttonBox: (label: string): Promise<Box> => waitBox(this.page, button(label), label),
+      close: async (): Promise<void> => {
+        const labels = [SCREEN.cancelAdding.name, TEXT.closeAndKeep, TEXT.closeFile];
+        for (const label of labels) {
+          if (!(await this.page.visible(button(label)))) continue;
+          await this.page.click(button(label));
+          await eventually('the file chat closes', () => this.page.visible([root]), (open) => open === false);
+          return;
+        }
+        throw new Error(`the file chat for ${name} has no close control`);
+      },
+    };
+  }
+
   conversationBox(): Promise<Box> {
     return waitBox(
       this.page,
       [landmark(SCREEN.conversation.role, SCREEN.conversation.name)],
       SCREEN.conversation.name,
     );
+  }
+
+  private filesRoot(): LocatorStep {
+    return landmark(SCREEN.files.role, SCREEN.files.name);
+  }
+
+  private chooserRoot(): LocatorStep {
+    return landmark(SCREEN.chooser.role, SCREEN.chooser.name);
   }
 
   private usageRoot(): LocatorStep {

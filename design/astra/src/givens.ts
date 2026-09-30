@@ -6,7 +6,14 @@ const QUESTIONS = {
   booking: "Who should book volunteers into shifts?",
 } as const;
 
-export const SCENARIOS = ["first-reply", "first-reply-three-files", "mid-interview", "mid-interview-paid"] as const;
+export const SCENARIOS = [
+  "first-reply",
+  "first-reply-three-files",
+  "mid-interview",
+  "mid-interview-paid",
+  "three-files-unfunded",
+  "three-files-funded",
+] as const;
 export type ScreenScenario = (typeof SCENARIOS)[number];
 
 export type Start = "chat" | "review";
@@ -58,6 +65,18 @@ export const GIVEN = {
   },
   "mid-interview": INTERVIEW,
   "mid-interview-paid": INTERVIEW,
+  "three-files-unfunded": {
+    start: "chat" as Start,
+    intake: "intake-notes.pdf",
+    files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
+    funded: false,
+  },
+  "three-files-funded": {
+    start: "chat" as Start,
+    intake: "intake-notes.pdf",
+    files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
+    funded: true,
+  },
 } as const satisfies Record<ScreenScenario, { start: Start } & Record<string, unknown>>;
 
 /** The fixture calls this, when it exists, once per model call it stands in for.

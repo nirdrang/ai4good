@@ -12,11 +12,12 @@ export function fixtureSelection(search = location.search): { scenario: ScreenSc
 }
 
 export function fixturePort(scenario: ScreenScenario, pace: Pace = "test"): DiscoveryPort {
-  const world = openFixtureWorld(scenario);
+  const world = openFixtureWorld(scenario, pace);
+  const scope = { organizationId: "fixture", projectId: "fixture" };
   return {
     load: () => world.load(),
-    chat: new FixtureChatTransport(world, pace, { organizationId: "fixture", projectId: "fixture" }),
-    fileChat: (target) => new FixtureFileChatTransport(world, target),
+    chat: new FixtureChatTransport(world, pace, scope),
+    fileChat: (target) => new FixtureFileChatTransport(world, target, pace, scope),
     subscribe: (listener) => world.subscribe(listener),
     saveBriefEdit: (input) => world.saveBriefEdit(input),
     acceptSuggestion: (input) => world.acceptSuggestion(input),

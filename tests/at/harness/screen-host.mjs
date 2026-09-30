@@ -78,6 +78,29 @@ const ops = {
     const page = await context.newPage();
     page.setDefaultTimeout(LOCATOR_TIMEOUT_MS);
     page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
+    // A phone context can still report a fine pointer. The drop area is only for a fine pointer.
+    // The width query stays on the real matchMedia so the phone layout still follows the viewport.
+    if (phone === true) {
+      await page.addInitScript(() => {
+        const native = window.matchMedia.bind(window);
+        window.matchMedia = (query) => {
+          if (query === '(pointer: fine)') {
+            const real = native(query);
+            return {
+              matches: false,
+              media: query,
+              onchange: null,
+              addListener: real.addListener.bind(real),
+              removeListener: real.removeListener.bind(real),
+              addEventListener: real.addEventListener.bind(real),
+              removeEventListener: real.removeEventListener.bind(real),
+              dispatchEvent: real.dispatchEvent.bind(real),
+            };
+          }
+          return native(query);
+        };
+      });
+    }
     const id = next++;
     pages.set(id, { page, context, calls });
     try {
@@ -140,8 +163,24 @@ const ops = {
       mimeType: String(file.mimeType),
       buffer: Buffer.from(String(file.base64 ?? ''), 'base64'),
     }));
-    await locate(entry(page).page, chain).setInputFiles(payload);
+    // The chooser landmark is the dialog. The file input is the hidden control inside it.
+    const root = locate(entry(page).page, chain);
+    const nested = root.locator('input[type=file]');
+    if ((await nested.count()) > 0) {
+      await nested.first().setInputFiles(payload);
+      return null;
+    }
+    const dialogInput = entry(page).page.locator('[role=dialog] input[type=file]');
+    if ((await dialogInput.count()) > 0) {
+      await dialogInput.first().setInputFiles(payload);
+      return null;
+    }
+    await root.setInputFiles(payload);
     return null;
+  },
+  async screenshot({ page }) {
+    const buffer = await entry(page).page.screenshot({ fullPage: false, type: 'png' });
+    return buffer.toString('base64');
   },
   async modelCalls({ page }) {
     return entry(page).calls.slice();

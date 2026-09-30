@@ -5,6 +5,7 @@ import { SCREEN, TEXT } from "./a11y";
 import { BriefCard, BriefDialog, BriefSide, briefHeading } from "./BriefPanel";
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
+import { FileOverlay } from "./FilePanel";
 import { FilesCard } from "./FilesCard";
 import { currentQuestions, questionRows } from "./model";
 import type { DiscoveryPort } from "./port";
@@ -64,7 +65,28 @@ function Loaded({
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
   const rows = questionRows(discovery.brief, discovery.drafts);
-  const files = <FilesCard files={discovery.files} funded={discovery.project.funded} />;
+  const files = (
+    <FilesCard
+      files={discovery.files}
+      funded={discovery.project.funded}
+      onAdd={discovery.openChooser}
+      onOpen={discovery.openFile}
+    />
+  );
+  const showFile = discovery.panel?.kind === "chooser" || discovery.panel?.kind === "file";
+  const fileOverlay = showFile ? (
+    <FileOverlay
+      phone={phone}
+      mode={discovery.panel?.kind === "file" ? "file" : "chooser"}
+      view={discovery.fileChat}
+      usage={discovery.usage}
+      notice={discovery.fileNotice}
+      onChoose={discovery.chooseFile}
+      onClose={discovery.closePanel}
+      onDraft={discovery.setFileDraft}
+      onSend={(text) => void discovery.sendFileAnswer(text)}
+    />
+  ) : null;
   const conversation = (
     <Conversation
       messages={discovery.messages}
@@ -104,7 +126,7 @@ function Loaded({
           onOpenBrief={() => discovery.openPanel("brief")}
           onOpenQuestions={() => discovery.openPanel("questions")}
           conversation={conversation}
-          usage={discovery.panel === "brief" ? null : <UsageCard usage={discovery.usage} dock />}
+          usage={discovery.panel?.kind === "brief" ? null : <UsageCard usage={discovery.usage} dock />}
           composer={composer}
         />
       ) : (
@@ -114,20 +136,28 @@ function Loaded({
             {composer}
           </div>
           <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
-            {discovery.panel === "brief" ? (
-              <BriefSide brief={discovery.brief} onClose={discovery.closePanel} onEdit={discovery.reopen} />
+            {showFile ? (
+              // A floating panel would cover Send. A modal would hide the main chat during a read.
+              fileOverlay
             ) : (
-              <BriefCard brief={discovery.brief} onOpen={() => discovery.openPanel("brief")} />
-            )}
-            {discovery.panel === "brief" ? null : (
-              <QuestionsCard rows={rows} onAnswer={discovery.focusQuestion} onView={discovery.viewAnswer} />
+              <>
+                {discovery.panel?.kind === "brief" ? (
+                  <BriefSide brief={discovery.brief} onClose={discovery.closePanel} onEdit={discovery.reopen} />
+                ) : (
+                  <BriefCard brief={discovery.brief} onOpen={() => discovery.openPanel("brief")} />
+                )}
+                {discovery.panel?.kind === "brief" ? null : (
+                  <QuestionsCard rows={rows} onAnswer={discovery.focusQuestion} onView={discovery.viewAnswer} />
+                )}
+              </>
             )}
             {files}
             <UsageCard usage={discovery.usage} />
           </div>
         </div>
       )}
-      {phone && discovery.panel === "brief" ? (
+      {phone && showFile ? fileOverlay : null}
+      {phone && discovery.panel?.kind === "brief" ? (
         <BriefDialog
           brief={discovery.brief}
           usage={<UsageCard usage={discovery.usage} />}
@@ -135,7 +165,7 @@ function Loaded({
           onEdit={discovery.reopen}
         />
       ) : null}
-      {phone && discovery.panel === "questions" ? (
+      {phone && discovery.panel?.kind === "questions" ? (
         <QuestionsDialog
           rows={rows}
           onAnswer={discovery.focusQuestion}

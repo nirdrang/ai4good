@@ -97,6 +97,18 @@ export const TEXT = {
   acceptedTypes: "PDF, images, CSV, TSV, TXT, Word, or Excel.",
   sampleData: "Use sample or redacted data, not real records. ai4good and your volunteer will see it.",
   fileLimit: "Free projects can add 3 files in Discovery.",
+  fileDuplicate: "This file is already in your files.",
+  fileDone: (facts: number) =>
+    `Done. I found ${facts} facts. I will check them with you in the main chat.`,
+  fileReadingReply:
+    "Thanks. I am reading it now. You can close this and keep going in the main chat. If I need to know more, I ask here.",
+  fileResumeReply: "Thanks, that helps. I am reading on.",
+  closeAndKeep: "Close and keep reading",
+  closeFile: "Close",
+  closeReadyHint: "The facts wait for you in the main chat.",
+  closeReadingHint: "Reading goes on. Open the file in Your files to come back.",
+  dropHere: "Drop a file here",
+  fileAnswerPlaceholder: "Or type your answer",
   fileStatus: {
     asking: "Setting up",
     readingPrefix: "Reading…",

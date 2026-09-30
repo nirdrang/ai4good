@@ -1,8 +1,8 @@
 import { expect } from 'vitest';
 import { eventually } from '../../harness/screen.ts';
-import { TEXT } from '../../../../src/components/discovery/a11y.ts';
+import { SCREEN, TEXT } from '../../../../src/components/discovery/a11y.ts';
 import { GIVEN } from '../../../../design/astra/src/givens.ts';
-import { atTest, CapabilityPending } from './_bind.ts';
+import { atTest, AtPending, CapabilityPending } from './_bind.ts';
 import { AWAITED, notYet } from './_pending.ts';
 import { discoveryScreens, type DiscoveryPage } from './_screen.ts';
 
@@ -95,11 +95,220 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
     throw new CapabilityPending([AWAITED.discoverySurface]);
   },
 });
-atTest('AT-004.66', 'Add a file opens a file chat that asks until the AI is ready', { default: notYet('AT-004.66') });
-atTest('AT-004.67', 'file-chat answers are turns and the read is free', { default: notYet('AT-004.67') });
-atTest('AT-004.68', 'the file is read in the background into a digest', { default: notYet('AT-004.68') });
+atTest(
+  'AT-004.66',
+  'Add a file opens a file chat that asks until the AI is ready',
+  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  {
+    loop: async (ctx) => {
+      for (const viewport of SIZES) {
+        await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
+          await expectChooser(screen, viewport === 'desktop');
+          await screen.chooser.cancel();
+          expect(await screen.files.text(), 'Cancel adds nothing: the count stays 0 of 3 added').toContain('0 of 3 added');
+          expect(await screen.files.has('volunteer-rota.xlsx'), 'Cancel adds nothing: volunteer-rota.xlsx is not listed').toBe(false);
+          await readRotaUntilReady(screen);
+          await cancelNotesBeforeAnswer(screen);
+        });
+      }
+      await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'narrow' }, async (screen) => {
+        await expectFileControlsFit(screen);
+      });
+    },
+    integration: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+    drill: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+  },
+);
+atTest(
+  'AT-004.67',
+  'file-chat answers are turns and the read is free',
+  { surface: 'ui', timeoutMs: { loop: 180_000 } },
+  {
+    loop: async (ctx) => {
+      for (const viewport of SIZES) {
+        await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
+          await answerRotaTwice(screen);
+          const usage = await eventually(
+            'two file answers leave 1 free reply',
+            () => screen.usage.text(),
+            (text) => text.includes('1 left today') && !text.includes('3 left today'),
+          );
+          expect(usage, 'the usage display no longer shows 3 left today').not.toContain('3 left today');
+          await eventually(
+            'the read reaches Ready · 4 facts',
+            () => screen.fileChat('volunteer-rota.xlsx').text(),
+            (text) => text.includes('Ready · 4 facts'),
+            8_000,
+          );
+          expect(await screen.usage.text(), 'the read adds no turn').toBe(usage);
+          expect(await screen.modelCalls(), 'two file answers and one read').toEqual([
+            'file-chat-turn',
+            'file-read',
+            'file-chat-turn',
+          ]);
+        });
+        await withDiscovery(ctx, { scenario: 'mid-interview-paid', viewport }, async (screen) => {
+          await answerRotaTwice(screen);
+          const usage = await eventually(
+            'two paid file answers show $1.10',
+            () => screen.usage.text(),
+            (text) => text.includes('$1.10') && !text.includes('$1.60') && !text.includes('$0.85'),
+          );
+          expect(usage, 'the paid display is not the balance from before the answers').not.toContain('$1.60');
+          expect(usage, 'the paid display is not a third hold').not.toContain('$0.85');
+          await eventually(
+            'the paid read reaches Ready · 4 facts',
+            () => screen.fileChat('volunteer-rota.xlsx').text(),
+            (text) => text.includes('Ready · 4 facts'),
+            8_000,
+          );
+          expect(await screen.usage.text(), 'the read adds no fuel charge').toBe(usage);
+          expect(await screen.modelCalls(), 'two paid file answers and one read').toEqual([
+            'file-chat-turn',
+            'file-read',
+            'file-chat-turn',
+          ]);
+        });
+      }
+      throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
+    },
+    integration: async () => {
+      throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
+    },
+    drill: async () => {
+      throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
+    },
+  },
+);
+atTest(
+  'AT-004.68',
+  'the file is read in the background into a digest',
+  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  {
+    loop: async (ctx) => {
+      const given = GIVEN['mid-interview'];
+      const fact = '38 of your 45 volunteers booked at least one shift';
+      for (const viewport of SIZES) {
+        await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
+          const chat = await openRotaChat(screen);
+          await chat.pick('It shows where Sundays stay empty');
+          await eventually(
+            'the read pauses with A question for you',
+            () => chat.text(),
+            (text) => text.includes('A question for you'),
+            8_000,
+          );
+          if (viewport !== 'desktop') await chat.close();
+          const owner = screen.chat.question(given.open[0].question);
+          await owner.pick(given.open[0].suggested);
+          const during = await screen.composer.send();
+          expect(during, 'a main-chat reply during the read does not report 38 of your 45').not.toContain('38 of your 45');
+          if (viewport !== 'desktop') {
+            await screen.files.reopen('volunteer-rota.xlsx');
+            await eventually('the file chat reopens', () => chat.visible(), (open) => open);
+          }
+          const before = await screen.modelCalls();
+          if (viewport === 'desktop') {
+            const saw = sawReadingPercent(screen, 'volunteer-rota.xlsx');
+            await chat.pick('Yes, usually the same person');
+            expect(await saw, 'the row shows Reading… N% while the read continues').toBe(true);
+          } else {
+            await chat.pick('Yes, usually the same person');
+            await chat.close();
+            expect(
+              await sawReadingPercent(screen, 'volunteer-rota.xlsx'),
+              'after the file chat closes, the row shows Reading… N%',
+            ).toBe(true);
+          }
+          const calls = await eventually(
+            'the pause answer is one file-chat turn',
+            () => screen.modelCalls(),
+            (kinds) => kinds.length === before.length + 1,
+          );
+          expect(calls, 'the pause answer does not start a second read').toEqual([...before, 'file-chat-turn']);
+          await eventually(
+            'the row shows Ready · 4 facts',
+            () => screen.files.row('volunteer-rota.xlsx'),
+            (text) => text.includes('Ready · 4 facts'),
+            8_000,
+          );
+          expect(await screen.modelCalls(), 'reaching Ready makes no model call').toEqual(calls);
+          await screen.composer.fill('What did the file show?');
+          const reply = await screen.composer.send();
+          expect(reply, 'the next reply reports what the file showed').toContain(fact);
+          if (await chat.visible()) await chat.close();
+          await screen.brief.open();
+          const brief = await screen.brief.text();
+          const markerAt = brief.indexOf('Suggestion · waiting for you');
+          const factAt = brief.indexOf(fact);
+          expect(markerAt, 'the brief lists the fact as Suggestion · waiting for you').toBeGreaterThan(-1);
+          expect(factAt, 'the fact follows Suggestion · waiting for you').toBeGreaterThan(markerAt);
+        });
+      }
+      throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
+    },
+    integration: async () => {
+      throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
+    },
+    drill: async () => {
+      throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
+    },
+  },
+);
 atTest('AT-004.69', 'a large file is read in parts into one digest', { default: notYet('AT-004.69') });
-atTest('AT-004.70', 'three Discovery files while the project is not funded', { default: notYet('AT-004.70') });
+atTest(
+  'AT-004.70',
+  'three Discovery files while the project is not funded',
+  { surface: 'ui', timeoutMs: { loop: 120_000 } },
+  {
+    loop: async (ctx) => {
+      const given = GIVEN['first-reply'];
+      for (const viewport of SIZES) {
+        await withDiscovery(ctx, { scenario: 'three-files-unfunded', viewport }, async (screen) => {
+          const unfunded = GIVEN['three-files-unfunded'];
+          expect(await screen.files.addDisabled(), 'Add a file is unavailable').toBe('true');
+          expect(await screen.files.text(), 'the screen explains the limit of three files for free projects').toContain(
+            'Free projects can add 3 files in Discovery.',
+          );
+          expect(await screen.files.has(unfunded.intake), 'the intake file is listed').toBe(true);
+          for (const name of unfunded.files) {
+            expect(await screen.files.has(name), `${name} is listed`).toBe(true);
+          }
+          expect(await screen.files.text(), 'the count says 3 of 3 added').toContain('3 of 3 added');
+          const opening = await screen.chat.lastAssistantText();
+          expect(opening, 'three Discovery files: the first reply does not point to Add a file').not.toContain('Add a file');
+          expect(opening, 'three Discovery files: the first reply does not ask for files that show how you work today').not.toContain(
+            given.filePhrase,
+          );
+        });
+        await withDiscovery(ctx, { scenario: 'three-files-funded', viewport }, async (screen) => {
+          const funded = GIVEN['three-files-funded'];
+          const before = await screen.modelCalls();
+          expect(await screen.files.addDisabled(), 'a funded project can add a file').not.toBe('true');
+          expect(await screen.files.text(), 'a funded project does not show the limit of three').not.toContain(
+            'Free projects can add 3 files in Discovery.',
+          );
+          expect(await screen.files.text(), 'the count says 3 added').toContain('3 added');
+          expect(await screen.files.text(), 'the count does not say 3 of 3').not.toContain('3 of 3');
+          expect(await screen.files.has(funded.intake), 'the intake file is listed').toBe(true);
+          await screen.files.openAdd();
+          expect(await screen.chooser.visible(), 'Add a file opens the chooser').toBe(true);
+          expect(await screen.modelCalls(), 'opening the chooser makes no model call').toEqual(before);
+        });
+      }
+    },
+    integration: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+    drill: async () => {
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
+  },
+);
 atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { surface: 'ui', timeoutMs: { loop: 90_000 } }, {
   loop: async (ctx) => {
     const given = GIVEN['mid-interview'];
@@ -225,6 +434,134 @@ atTest(
     },
   },
 );
+
+function sampleFile(name: string): { name: string; mimeType: string; base64: string } {
+  return { name, mimeType: 'text/plain', base64: Buffer.from(name).toString('base64') };
+}
+
+async function openRotaChat(screen: DiscoveryPage) {
+  await screen.files.openAdd();
+  await screen.files.choose(sampleFile('volunteer-rota.xlsx'));
+  const chat = screen.fileChat('volunteer-rota.xlsx');
+  await eventually('the file chat asks what we should know', () => chat.text(), (text) =>
+    text.includes(TEXT.fileQuestion),
+  );
+  return chat;
+}
+
+async function expectChooser(screen: DiscoveryPage, finePointer: boolean): Promise<void> {
+  await screen.files.openAdd();
+  expect(await screen.chooser.chooseCount(), 'the chooser has one Choose a file button').toBe(1);
+  expect(await screen.chooser.dropVisible(), 'Drop a file here follows the pointer').toBe(finePointer);
+  const text = await screen.chooser.text();
+  expect(text, 'the chooser lists the accepted types').toContain(TEXT.acceptedTypes);
+  expect(text, 'the chooser shows the sample-data sentence').toContain(TEXT.sampleData);
+  expect(await screen.chooser.visible(), 'Add a file names the chooser').toBe(true);
+}
+
+async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
+  const chat = await openRotaChat(screen);
+  expect(await chat.text(), 'the file chat offers It shows where Sundays stay empty').toContain(
+    'It shows where Sundays stay empty',
+  );
+  await eventually(
+    'the file chat has an answer box',
+    () => chat.answerBox(),
+    (box) => box.width > 0,
+  );
+  const before = await screen.modelCalls();
+  await chat.pick('It shows where Sundays stay empty');
+  await eventually('the answer starts the read', () => chat.text(), (text) => text.includes('Reading'));
+  const started = await screen.modelCalls();
+  expect(started, 'the answer is one file-chat turn and one read').toEqual([...before, 'file-chat-turn', 'file-read']);
+  await chat.close();
+  await eventually(
+    'closing the file chat does not stop the read: the row shows A question for you',
+    () => screen.files.row('volunteer-rota.xlsx'),
+    (text) => text.includes('A question for you'),
+    8_000,
+  );
+  await screen.files.reopen('volunteer-rota.xlsx');
+  await eventually('selecting the file reopens its chat', () => chat.visible(), (open) => open);
+  await chat.pick('Yes, usually the same person');
+  const resumed = await eventually(
+    'the next answer is one file-chat turn',
+    () => screen.modelCalls(),
+    (calls) => calls.length === started.length + 1,
+  );
+  expect(resumed, 'the read does not start again').toEqual([...started, 'file-chat-turn']);
+  await eventually(
+    'the file chat shows Ready · 4 facts',
+    () => chat.text(),
+    (text) => text.includes('Ready · 4 facts'),
+    8_000,
+  );
+  expect(await screen.modelCalls(), 'Ready adds no model call').toEqual(resumed);
+  await chat.close();
+  expect(await screen.files.row('volunteer-rota.xlsx'), 'the row shows Ready · 4 facts').toContain('Ready · 4 facts');
+  expect(await screen.files.text(), 'one Discovery file counts as 1 of 3 added').toContain('1 of 3 added');
+}
+
+async function cancelNotesBeforeAnswer(screen: DiscoveryPage): Promise<void> {
+  const calls = await screen.modelCalls();
+  await screen.files.openAdd();
+  await screen.files.choose(sampleFile('shift-notes.txt'));
+  const notes = screen.fileChat('shift-notes.txt');
+  await eventually('the second file asks before it is added', () => notes.text(), (text) =>
+    text.includes(TEXT.fileQuestion),
+  );
+  await notes.close();
+  expect(await screen.files.has('shift-notes.txt'), 'Cancel before the first answer adds no file').toBe(false);
+  expect(await screen.files.has('volunteer-rota.xlsx'), 'the first file stays listed').toBe(true);
+  expect(await screen.modelCalls(), 'Cancel before the first answer makes no model call').toEqual(calls);
+}
+
+async function answerRotaTwice(screen: DiscoveryPage): Promise<void> {
+  const chat = await openRotaChat(screen);
+  await chat.pick('It shows where Sundays stay empty');
+  await chat.pick('Yes, usually the same person');
+}
+
+async function sawReadingPercent(screen: DiscoveryPage, name: string): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < 2_500) {
+    if (/Reading… \d+%/.test(await screen.files.row(name))) return true;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 15));
+  }
+  return false;
+}
+
+async function expectFileControlsFit(screen: DiscoveryPage): Promise<void> {
+  await screen.chat.scrollToEnd();
+  await expectFullyVisible(screen, 'Add a file', await screen.files.addBox());
+  await screen.files.openAdd();
+  expect(await screen.chooser.dropVisible(), 'at 320 px the drop area stays hidden').toBe(false);
+  await expectFullyVisible(screen, 'Choose a file', await screen.chooser.buttonBox(SCREEN.chooseFile.name));
+  await expectFullyVisible(screen, 'Cancel adding this file', await screen.chooser.buttonBox(SCREEN.cancelAdding.name));
+  await expectFullyVisible(screen, 'the accepted types', await screen.chooser.textBox(TEXT.acceptedTypes));
+  await expectFullyVisible(screen, 'the sample-data sentence', await screen.chooser.textBox(TEXT.sampleData));
+  await expectFullyVisible(screen, 'Back to chat', await screen.chooser.buttonBox(SCREEN.backToChat.name));
+  await screen.files.choose(sampleFile('volunteer-rota.xlsx'));
+  const chat = screen.fileChat('volunteer-rota.xlsx');
+  await eventually('the file chat opens at 320 px', () => chat.visible(), (open) => open);
+  await expectFullyVisible(screen, 'Your answer about this file', await chat.answerBox());
+  await expectFullyVisible(screen, 'Send', await chat.sendBox());
+  await expectFullyVisible(screen, 'It shows where Sundays stay empty', await chat.chipBox('It shows where Sundays stay empty'));
+  await expectFullyVisible(screen, 'Cancel adding this file', await chat.buttonBox(SCREEN.cancelAdding.name));
+}
+
+async function expectFullyVisible(
+  screen: DiscoveryPage,
+  what: string,
+  box: { x: number; y: number; width: number; height: number },
+): Promise<void> {
+  expect(box.width, `${what} has width`).toBeGreaterThan(0);
+  expect(box.height, `${what} has height`).toBeGreaterThan(0);
+  expect(box.x, `${what} starts inside the viewport`).toBeGreaterThanOrEqual(-1);
+  expect(box.y, `${what} starts inside the viewport`).toBeGreaterThanOrEqual(-1);
+  expect(box.x + box.width, `${what} ends inside the viewport`).toBeLessThanOrEqual(screen.width + 1);
+  expect(box.y + box.height, `${what} ends inside the viewport`).toBeLessThanOrEqual(screen.height + 1);
+}
 
 async function expectUsage(screen: DiscoveryPage): Promise<void> {
   await expectFramePins(screen);

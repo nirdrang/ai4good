@@ -46,6 +46,7 @@ export type ScreenPage = {
   setFiles(chain: LocatorStep[], files: ScreenFile[]): Promise<void>;
   modelCalls(): Promise<readonly string[]>;
   reload(): Promise<void>;
+  screenshot(): Promise<string>;
 };
 
 export function shellUrl(
@@ -227,12 +228,16 @@ export async function buildAndServe(opts: { viteConfig: string }): Promise<Stati
 
 type HostResponse = { id: number; ok: true; value: unknown } | { id: number; ok: false; error: string };
 
-type ScreenHost = {
+export type ScreenHost = {
   call<T>(op: string, args: Record<string, unknown>, timeoutMs: number): Promise<T>;
   shutdown(): Promise<void>;
 };
 
 /** Bun's Playwright launch hangs on this machine. Node owns Chromium and speaks JSON lines. */
+export function createScreenHost(): ScreenHost {
+  return startHost();
+}
+
 function startHost(): ScreenHost {
   const child = spawn('node', [HOST], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }) as ChildProcessWithoutNullStreams;
   const waiting = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
@@ -348,7 +353,12 @@ function pageApi(host: ScreenHost, pageId: number): ScreenPage {
     setFiles: (chain, files) => host.call('setFiles', args(chain, { files }), 10_000),
     modelCalls: () => host.call('modelCalls', { page: pageId }, 10_000),
     reload: () => host.call('reload', { page: pageId }, 20_000),
+    screenshot: () => host.call('screenshot', { page: pageId }, 15_000),
   };
+}
+
+export function bindScreenPage(host: ScreenHost, pageId: number): ScreenPage {
+  return pageApi(host, pageId);
 }
 
 export type ScreenDriver = {
