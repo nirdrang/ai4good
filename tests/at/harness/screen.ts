@@ -39,6 +39,8 @@ export type ScreenPage = {
   visible(chain: LocatorStep[]): Promise<boolean>;
   box(chain: LocatorStep[]): Promise<{ x: number; y: number; width: number; height: number } | null>;
   attribute(chain: LocatorStep[], name: string): Promise<string | null>;
+  style(chain: LocatorStep[], name: string): Promise<string>;
+  scroll(chain: LocatorStep[], top?: number): Promise<void>;
   focused(chain: LocatorStep[]): Promise<boolean>;
   value(chain: LocatorStep[]): Promise<string>;
   setFiles(chain: LocatorStep[], files: ScreenFile[]): Promise<void>;
@@ -339,6 +341,8 @@ function pageApi(host: ScreenHost, pageId: number): ScreenPage {
     visible: (chain) => host.call('visible', args(chain), 10_000),
     box: (chain) => host.call('box', args(chain), 10_000),
     attribute: (chain, name) => host.call('attribute', args(chain, { name }), 10_000),
+    style: (chain, name) => host.call('style', args(chain, { name }), 10_000),
+    scroll: (chain, top = 0) => host.call('scroll', args(chain, { top }), 10_000),
     focused: (chain) => host.call('focused', args(chain), 10_000),
     value: (chain) => host.call('value', args(chain), 10_000),
     setFiles: (chain, files) => host.call('setFiles', args(chain, { files }), 10_000),

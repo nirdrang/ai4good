@@ -110,6 +110,8 @@ export class DiscoveryPage {
     question: (text: string): QuestionGroupObject => questionGroup(this.page, text),
     lastAssistantText: (): Promise<string> => this.messageText(NAME.aiReply),
     yourText: (): Promise<string> => this.messageText(NAME.yourTurn),
+    scrollToTop: (): Promise<void> =>
+      this.page.scroll([landmark(SCREEN.conversation.role, SCREEN.conversation.name)], 0),
     answerCurrent: (answer: string): Promise<string | null> =>
       this.page.attribute(
         [landmark(SCREEN.conversation.role, SCREEN.conversation.name), { text: answer }],
@@ -147,6 +149,22 @@ export class DiscoveryPage {
         [landmark(SCREEN.composer.role, SCREEN.composer.name), landmark(SCREEN.messageBox.role, SCREEN.messageBox.name)],
         'the message box',
       ),
+    oneLineLimit: async (): Promise<number> => {
+      const chain = [
+        landmark(SCREEN.composer.role, SCREEN.composer.name),
+        landmark(SCREEN.messageBox.role, SCREEN.messageBox.name),
+      ];
+      const length = async (name: string): Promise<number> => {
+        const raw = await this.page.style(chain, name);
+        const value = Number.parseFloat(raw);
+        if (!Number.isFinite(value)) throw new Error(`${name} is ${raw}`);
+        return value;
+      };
+      const line = await length('line-height');
+      const padding = (await length('padding-top')) + (await length('padding-bottom'));
+      const border = (await length('border-top-width')) + (await length('border-bottom-width'));
+      return line * 2 + padding + border;
+    },
   };
 
   readonly files = {
@@ -161,6 +179,7 @@ export class DiscoveryPage {
     text: (): Promise<string> => this.page.text([this.usageRoot()]),
     visible: (): Promise<boolean> => this.page.visible([this.usageRoot()]),
     barBox: (): Promise<Box> => waitBox(this.page, [this.usageRoot(), { role: 'img' }], 'the usage bar'),
+    box: (): Promise<Box> => waitBox(this.page, [this.usageRoot()], 'the usage card'),
     labelBox: (label: string): Promise<Box> => waitBox(this.page, [this.usageRoot(), { text: label }], label),
   };
 

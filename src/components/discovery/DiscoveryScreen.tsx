@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { BriefQuestion, DiscoveryState } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
-import { SCREEN } from "./a11y";
+import { SCREEN, TEXT } from "./a11y";
 import { BriefCard, BriefDialog, BriefSide, briefHeading } from "./BriefPanel";
 import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
@@ -64,6 +64,7 @@ function Loaded({
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
   const rows = questionRows(discovery.brief, discovery.drafts);
+  const files = <FilesCard files={discovery.files} funded={discovery.project.funded} />;
   const conversation = (
     <Conversation
       messages={discovery.messages}
@@ -75,6 +76,7 @@ function Loaded({
       tags={tags}
       oneAtATime={discovery.oneAtATime}
       canAdvance={discovery.oneAtATime && discovery.questionIndex < questions.length - 1}
+      tail={phone ? files : null}
       onPick={discovery.pick}
       onShowOne={discovery.showOne}
       onShowTogether={discovery.showTogether}
@@ -86,13 +88,14 @@ function Loaded({
       text={discovery.composerText}
       canSend={discovery.canSend}
       paid={discovery.paidSend}
+      placeholder={phone ? TEXT.replyPlaceholder : TEXT.notePlaceholder}
       onText={discovery.setComposerText}
       onSend={() => void discovery.send()}
     />
   );
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-3">
-      {discovery.refusal ? <p role="alert">{discovery.refusal.reason}</p> : null}
+    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3 overflow-hidden">
+      {discovery.refusal ? <p role="alert" className="m-0 shrink-0">{discovery.refusal.reason}</p> : null}
       <ProgressStrip brief={discovery.brief} projectTitle={discovery.project.title} onOpenReview={onOpenReview} />
       {phone ? (
         <PhoneColumn
@@ -101,17 +104,16 @@ function Loaded({
           onOpenBrief={() => discovery.openPanel("brief")}
           onOpenQuestions={() => discovery.openPanel("questions")}
           conversation={conversation}
-          files={<FilesCard files={discovery.files} funded={discovery.project.funded} />}
           usage={discovery.panel === "brief" ? null : <UsageCard usage={discovery.usage} dock />}
           composer={composer}
         />
       ) : (
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_22rem] items-start gap-4">
-          <div className="flex min-w-0 flex-col gap-3">
+        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_22rem] gap-4">
+          <div className="flex min-h-0 min-w-0 flex-col gap-3">
             {conversation}
             {composer}
           </div>
-          <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
             {discovery.panel === "brief" ? (
               <BriefSide brief={discovery.brief} onClose={discovery.closePanel} onEdit={discovery.reopen} />
             ) : (
@@ -120,7 +122,7 @@ function Loaded({
             {discovery.panel === "brief" ? null : (
               <QuestionsCard rows={rows} onAnswer={discovery.focusQuestion} onView={discovery.viewAnswer} />
             )}
-            <FilesCard files={discovery.files} funded={discovery.project.funded} />
+            {files}
             <UsageCard usage={discovery.usage} />
           </div>
         </div>
@@ -151,7 +153,6 @@ function PhoneColumn({
   onOpenBrief,
   onOpenQuestions,
   conversation,
-  files,
   usage,
   composer,
 }: {
@@ -160,25 +161,25 @@ function PhoneColumn({
   onOpenBrief(): void;
   onOpenQuestions(): void;
   conversation: ReactNode;
-  files: ReactNode;
   usage: ReactNode;
   composer: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-3">
-      <p className="text-sm font-semibold">{heading}</p>
-      <p className="text-sm text-muted-foreground">{counts}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2" onClick={onOpenBrief}>
-          {SCREEN.openBrief.name}
-        </Button>
-        <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2" onClick={onOpenQuestions}>
-          {SCREEN.openQuestions.name}
-        </Button>
+    <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-2">
+        <p className="m-0 text-sm font-semibold">{heading}</p>
+        <p className="m-0 text-sm text-muted-foreground">{counts}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2" onClick={onOpenBrief}>
+            {SCREEN.openBrief.name}
+          </Button>
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal px-2" onClick={onOpenQuestions}>
+            {SCREEN.openQuestions.name}
+          </Button>
+        </div>
       </div>
       {conversation}
-      {files}
-      <div className="flex w-full min-w-0 flex-col gap-2">
+      <div className="flex w-full min-w-0 shrink-0 flex-col gap-2">
         {usage}
         {composer}
       </div>

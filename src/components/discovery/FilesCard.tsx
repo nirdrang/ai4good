@@ -20,14 +20,14 @@ export function FilesCard({ files, funded }: { files: readonly DiscoveryFile[]; 
   const countText =
     view.limitText !== null ? `${view.discoveryCount} of 3 added` : `${view.discoveryCount} added`;
   return (
-    <section role={SCREEN.files.role} aria-label={SCREEN.files.name}>
+    <section role={SCREEN.files.role} aria-label={SCREEN.files.name} className="min-w-0 shrink-0">
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-1 p-3">
           <h2 className="text-base font-semibold">{SCREEN.files.name}</h2>
           <p className="text-sm text-muted-foreground">{countText}</p>
           {view.limitText ? <p className="text-sm text-muted-foreground">{view.limitText}</p> : null}
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-2 p-3 pt-0">
           <ul className="flex flex-col gap-2">
             {view.rows.map((row) => (
               <FileRow key={row.id} name={row.name} status={row.statusText} />

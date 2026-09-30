@@ -87,8 +87,8 @@ export function QuestionsCard({
   onView(questionId: string): void;
 }) {
   return (
-    <section role={SCREEN.questions.role} aria-label={SCREEN.questions.name} className="min-w-0">
-      <Card>
+    <section role={SCREEN.questions.role} aria-label={SCREEN.questions.name} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+      <Card className="min-h-full">
         <CardHeader className="p-4">
           <h2 className="text-base font-semibold">{SCREEN.questions.name}</h2>
         </CardHeader>

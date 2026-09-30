@@ -117,6 +117,17 @@ const ops = {
   async attribute({ page, chain, name }) {
     return locate(entry(page).page, chain).getAttribute(String(name));
   },
+  async style({ page, chain, name }) {
+    return locate(entry(page).page, chain).evaluate((element, prop) => {
+      return getComputedStyle(element).getPropertyValue(prop);
+    }, String(name));
+  },
+  async scroll({ page, chain, top }) {
+    await locate(entry(page).page, chain).evaluate((element, scrollTop) => {
+      element.scrollTop = scrollTop;
+    }, Number(top ?? 0));
+    return null;
+  },
   async focused({ page, chain }) {
     return locate(entry(page).page, chain).evaluate((element) => element === document.activeElement);
   },

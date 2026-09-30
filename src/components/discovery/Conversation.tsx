@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import type { BriefQuestion, DiscoveryUIMessage } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { NAME, SCREEN, TEXT } from "./a11y";
@@ -14,6 +15,7 @@ export function Conversation({
   tags,
   oneAtATime,
   canAdvance,
+  tail,
   onPick,
   onShowOne,
   onShowTogether,
@@ -28,14 +30,33 @@ export function Conversation({
   tags: Readonly<Record<string, "carried" | "changing" | null>>;
   oneAtATime: boolean;
   canAdvance: boolean;
+  tail?: ReactNode;
   onPick(questionId: string, draft: Draft | null): void;
   onShowOne(): void;
   onShowTogether(): void;
   onNext(): void;
 }) {
+  const scroller = useRef<HTMLDivElement>(null);
   const presented = presentMessages(messages);
+  const lastId = messages.length > 0 ? messages[messages.length - 1].id : "";
+  useLayoutEffect(() => {
+    const node = scroller.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, [lastId, messages.length]);
+  useLayoutEffect(() => {
+    if (!highlight) return;
+    const current = scroller.current?.querySelector("[aria-current='true']");
+    if (current instanceof HTMLElement) current.scrollIntoView({ block: "nearest" });
+  }, [highlight]);
   return (
-    <div role={SCREEN.conversation.role} aria-label={SCREEN.conversation.name} className="flex min-w-0 flex-col gap-4">
+    // The log is the containing block. A screen-reader heading must not stretch the page.
+    <div
+      ref={scroller}
+      role={SCREEN.conversation.role}
+      aria-label={SCREEN.conversation.name}
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
+    >
       {presented.map((message) => {
         const name = message.role === "assistant" ? NAME.aiReply : NAME.yourTurn;
         return (
@@ -87,6 +108,7 @@ export function Conversation({
           {TEXT.nextQuestion}
         </Button>
       ) : null}
+      {tail}
     </div>
   );
 }

@@ -227,6 +227,7 @@ atTest(
 );
 
 async function expectUsage(screen: DiscoveryPage): Promise<void> {
+  await expectFramePins(screen);
   expect(await screen.usage.barCount(), 'the usage card has one bar').toBe(1);
   const label = (await screen.usage.barLabel()).toLowerCase();
   const freeAt = label.indexOf('free replies');
@@ -242,18 +243,45 @@ async function expectUsage(screen: DiscoveryPage): Promise<void> {
   expect(form, 'no reply count sits beside Send').not.toContain('left today');
   expect(form.toLowerCase(), 'no free-reply text sits beside Send').not.toContain('free');
   if (screen.viewport !== 'desktop') {
-    const bar = await screen.usage.barBox();
+    const card = await screen.usage.box();
     const message = await screen.composer.messageBox();
-    expect(bar.y + bar.height, 'the bar sits above the message box').toBeLessThanOrEqual(message.y + 1);
-    expect(message.y - (bar.y + bar.height), 'the bar sits within 16 px of the message box').toBeLessThanOrEqual(16);
+    expect(card.y + card.height, 'the usage card sits above the message box').toBeLessThanOrEqual(message.y + 1);
+    expect(message.y - (card.y + card.height), 'the usage card sits within 16 px of the message box').toBeLessThanOrEqual(16);
   }
   const before = await screen.composer.messageBox();
-  expect(before.height, 'the message box starts at one line').toBeLessThanOrEqual(48);
+  const lineLimit = await screen.composer.oneLineLimit();
+  expect(before.height, 'the message box starts at one line').toBeLessThan(lineLimit);
   await screen.composer.fill('One\nTwo\nThree\nFour');
   await eventually('the message box grows with the text', () => screen.composer.messageBox(), (box) => box.height > before.height * 2);
   await screen.brief.open();
   expect(await screen.usage.visible(), 'the usage card stays visible while the brief is open').toBe(true);
   expect(await screen.usage.barCount(), 'one bar remains while the brief is open').toBe(1);
+}
+
+async function expectFramePins(screen: DiscoveryPage): Promise<void> {
+  await expectInViewport(screen, 'at the initial scroll');
+  await screen.chat.scrollToTop();
+  await expectInViewport(screen, 'after the chat scrolls to its top');
+}
+
+async function expectInViewport(screen: DiscoveryPage, when: string): Promise<void> {
+  const finish = await screen.progress.finishBox();
+  const send = await screen.sendBox();
+  const message = await screen.composer.messageBox();
+  const usage = await screen.usage.box();
+  for (const [what, box] of [
+    ['Finish Discovery', finish],
+    ['Send', send],
+    ['the message box', message],
+    ['the usage card', usage],
+  ] as const) {
+    expect(box.width, `${what} has width ${when}`).toBeGreaterThan(0);
+    expect(box.height, `${what} has height ${when}`).toBeGreaterThan(0);
+    expect(box.x, `${what} starts inside the viewport ${when}`).toBeGreaterThanOrEqual(-1);
+    expect(box.y, `${what} starts inside the viewport ${when}`).toBeGreaterThanOrEqual(-1);
+    expect(box.x + box.width, `${what} ends inside the viewport ${when}`).toBeLessThanOrEqual(screen.width + 1);
+    expect(box.y + box.height, `${what} ends inside the viewport ${when}`).toBeLessThanOrEqual(screen.height + 1);
+  }
 }
 
 async function expectInside(screen: DiscoveryPage): Promise<void> {

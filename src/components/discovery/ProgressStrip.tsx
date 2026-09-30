@@ -27,15 +27,15 @@ export function ProgressStrip({
   }, []);
   return (
     <>
-      <div ref={sentinel} className="h-px" aria-hidden="true" />
+      <div ref={sentinel} className="h-px shrink-0" aria-hidden="true" />
       <div
         role={SCREEN.progress.role}
         aria-label={SCREEN.progress.name}
-        className="sticky top-16 z-20 -mt-px flex flex-wrap items-center gap-2 bg-background py-2"
+        className="sticky top-0 z-20 -mt-px flex shrink-0 flex-wrap items-center gap-2 bg-background py-2"
       >
-        {compact ? null : <p className="text-sm text-muted-foreground">{projectTitle}</p>}
-        <p className="text-sm font-semibold">{progress.percent}%</p>
-        <p className="text-sm">
+        {compact ? null : <p className="m-0 text-sm text-muted-foreground">{projectTitle}</p>}
+        <p className="m-0 text-sm font-semibold">{progress.percent}%</p>
+        <p className="m-0 text-sm">
           {progress.agreed} of {progress.total} topics agreed
         </p>
         <Button type="button" className="ml-auto" onClick={onOpenReview}>

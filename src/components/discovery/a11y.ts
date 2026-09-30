@@ -120,6 +120,8 @@ export const TEXT = {
   buyFuelNote: "The minimum is $50. Fuel does not add free replies.",
   send: "Send",
   sendPaid: "Send paid reply",
+  notePlaceholder: "Add a note to your answers (optional)",
+  replyPlaceholder: "Reply to ai4good AI",
   usageValues: { daily: "Free today", beta: "Beta", fuel: "Fuel" },
   ack: {
     reviewed: (revision: number) =>

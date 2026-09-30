@@ -39,8 +39,8 @@ function Sections({ brief, onEdit }: { brief: BriefSnapshot; onEdit(questionId: 
 
 export function BriefCard({ brief, onOpen }: { brief: BriefSnapshot; onOpen(): void }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4">
-      <h2 className="text-base font-semibold">{briefHeading(brief)}</h2>
+    <section className="flex min-w-0 shrink-0 flex-col gap-3 rounded-xl border bg-card p-4">
+      <h2 className="m-0 text-base font-semibold">{briefHeading(brief)}</h2>
       <Button type="button" variant="outline" className="h-auto min-h-11 self-start whitespace-normal" onClick={onOpen}>
         {SCREEN.openBrief.name}
       </Button>
@@ -61,7 +61,7 @@ export function BriefSide({
     <aside
       role={SCREEN.briefSide.role}
       aria-label={SCREEN.briefSide.name}
-      className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4"
+      className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border bg-card p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{SCREEN.briefSide.name}</h2>

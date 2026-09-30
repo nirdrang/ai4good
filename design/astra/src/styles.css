@@ -1679,6 +1679,36 @@ hr {
     padding-inline: 17px;
   }
 }
+/* Discovery fills the height under the shell header. The page does not scroll. */
+body:has(.discovery-content) {
+  overflow: hidden;
+}
+.main-content.discovery-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 64px);
+  max-height: calc(100dvh - 64px);
+  overflow: hidden;
+  padding-top: 16px;
+  padding-bottom: 8px;
+  min-width: 0;
+}
+/* The shell gives every paragraph and heading a bottom margin. Inside the frame, the components own the spacing. */
+.discovery-content h1,
+.discovery-content h2,
+.discovery-content h3,
+.discovery-content p {
+  margin: 0;
+}
+.discovery-content > .page-footer {
+  display: none;
+}
+@media (max-width: 700px) {
+  .main-content.discovery-content {
+    height: calc(100dvh - 58px);
+    max-height: calc(100dvh - 58px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

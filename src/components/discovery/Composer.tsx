@@ -7,12 +7,14 @@ export function Composer({
   text,
   canSend,
   paid,
+  placeholder,
   onText,
   onSend,
 }: {
   text: string;
   canSend: boolean;
   paid: boolean;
+  placeholder: string;
   onText(text: string): void;
   onSend(): void;
 }) {
@@ -21,8 +23,18 @@ export function Composer({
   useLayoutEffect(() => {
     const field = fieldRef.current;
     if (!field) return;
+    const style = getComputedStyle(field);
+    const line = Number.parseFloat(style.lineHeight);
+    const pad =
+      Number.parseFloat(style.paddingTop) +
+      Number.parseFloat(style.paddingBottom) +
+      Number.parseFloat(style.borderTopWidth) +
+      Number.parseFloat(style.borderBottomWidth);
+    const oneLine = (Number.isFinite(line) ? line : 0) + (Number.isFinite(pad) ? pad : 0);
     field.style.height = "auto";
-    const next = Math.min(field.scrollHeight, 192);
+    const grown = Math.min(field.scrollHeight, 192);
+    // A long placeholder can inflate scrollHeight. An empty box stays one line.
+    const next = text.length === 0 ? oneLine : Math.max(grown, oneLine);
     field.style.height = `${next}px`;
     setHeight(next);
   }, [text]);
@@ -33,7 +45,7 @@ export function Composer({
     <form
       role={SCREEN.composer.role}
       aria-label={SCREEN.composer.name}
-      className="flex w-full min-w-0 items-start gap-2"
+      className="flex w-full min-w-0 shrink-0 items-start gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         if (canSend) onSend();
@@ -44,7 +56,8 @@ export function Composer({
         aria-label={SCREEN.messageBox.name}
         rows={1}
         value={text}
-        style={height === null ? undefined : { height }}
+        placeholder={placeholder}
+        style={{ height: height ?? undefined, minHeight: 0 }}
         className="min-h-0 min-w-0 flex-1 resize-none overflow-y-auto py-2 text-base leading-5"
         onChange={onChange}
       />
