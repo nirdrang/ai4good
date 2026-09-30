@@ -447,6 +447,21 @@ export function useDiscovery(
     if (current === idleChat) return;
     if (current.status === "submitted" || current.status === "streaming") return;
     const key = panelRef.current?.kind === "file" ? panelRef.current.key : null;
+    // The pause question arrives with the file status, not as a chat message. Keep it in the
+    // transcript above the answer it gets.
+    const waitingFile = filesRef.current.find((item) => item.id === key);
+    if (waitingFile?.origin === "discovery" && waitingFile.status.kind === "waiting") {
+      const question = waitingFile.status.question.text;
+      const asked = current.messages.some((message) =>
+        message.parts.some((part) => part.type === "text" && part.text === question),
+      );
+      if (!asked) {
+        current.messages = [
+          ...current.messages,
+          { id: `ask-${waitingFile.id}`, role: "assistant", parts: [{ type: "text", text: question }] },
+        ];
+      }
+    }
     fileSending.current = true;
     setFileNotice(null);
     try {

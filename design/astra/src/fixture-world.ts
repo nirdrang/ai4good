@@ -666,7 +666,14 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         charged.charge,
       ],
     };
-    next.fileChats[fileId] = [...structuredClone(input.messages), assistant];
+    // The world adds the pause question and the done line itself, so the client's copy lacks them.
+    const stored = next.fileChats[fileId] ?? [];
+    const storedIds = new Set(stored.map((message) => message.id));
+    next.fileChats[fileId] = [
+      ...stored,
+      ...structuredClone(input.messages).filter((message) => !storedIds.has(message.id)),
+      assistant,
+    ];
     commit(next);
     scheduleRead(fileId, from);
     const saved = discoveryFile(state, fileId);

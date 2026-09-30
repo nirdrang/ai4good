@@ -780,6 +780,14 @@ async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
     8_000,
   );
   expect(await screen.modelCalls(), 'Ready adds no model call').toEqual(resumed);
+  const pauseQuestion = 'Are two rows with the same first name the same volunteer?';
+  expect(await chat.text(), 'the answered pause question stays in the file chat').toContain(pauseQuestion);
+  await chat.close();
+  await screen.reload();
+  await screen.files.reopen('volunteer-rota.xlsx');
+  await eventually('the file chat reopens after a reload', () => chat.visible(), (open) => open);
+  expect(await chat.text(), 'the pause question survives a reload').toContain(pauseQuestion);
+  expect(await chat.text(), 'its answer survives a reload').toContain('Yes, usually the same person');
   await chat.close();
   expect(await screen.files.row('volunteer-rota.xlsx'), 'the row shows Ready · 4 facts').toContain('Ready · 4 facts');
   expect(await screen.files.text(), 'one Discovery file counts as 1 of 3 added').toContain('1 of 3 added');
