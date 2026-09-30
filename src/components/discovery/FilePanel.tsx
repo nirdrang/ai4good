@@ -232,27 +232,37 @@ function PanelBody({
   } else {
     body = null;
   }
+  const cancelAtBottom = phone && closeLabel === SCREEN.cancelAdding.name;
   return (
     <>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border p-3">
+      <div className={`flex shrink-0 items-center gap-2 border-b border-border p-3 ${phone ? "flex-nowrap" : "flex-wrap"}`}>
         {phone && mode === "chooser" ? (
-          <Button type="button" variant="outline" className="h-auto min-h-11 max-w-full whitespace-normal" onClick={onClose}>
+          <Button type="button" variant="outline" className="h-auto min-h-11 shrink-0 whitespace-normal" onClick={onClose}>
             {SCREEN.backToChat.name}
           </Button>
         ) : null}
         <div className="min-w-0 flex-1">
           {phone ? (
-            <DialogTitle className="whitespace-normal text-base">{title}</DialogTitle>
+            <DialogTitle className="truncate whitespace-nowrap text-base">{title}</DialogTitle>
           ) : (
             <h2 className="m-0 whitespace-normal text-base font-semibold">{title}</h2>
           )}
-          {mode === "file" && view ? <p className="m-0 text-sm text-muted-foreground">{view.sizeText}</p> : null}
+          {mode === "file" && view ? <p className="m-0 truncate text-sm text-muted-foreground">{view.sizeText}</p> : null}
         </div>
-        <Button type="button" variant="outline" className="h-auto min-h-11 max-w-full whitespace-normal" onClick={onClose}>
-          {closeLabel}
-        </Button>
+        {cancelAtBottom ? null : (
+          <Button type="button" variant="outline" className="h-auto min-h-11 shrink-0 whitespace-normal" onClick={onClose}>
+            {closeLabel}
+          </Button>
+        )}
       </div>
       {body}
+      {cancelAtBottom ? (
+        <div className="shrink-0 border-t border-border p-3">
+          <Button type="button" variant="outline" className="h-auto min-h-11 w-full whitespace-normal" onClick={onClose}>
+            {closeLabel}
+          </Button>
+        </div>
+      ) : null}
     </>
   );
 }
