@@ -6,10 +6,9 @@ import type {
   DiscoveryFile,
   DiscoveryUIMessage,
   DiscoveryUsage,
-  FileChatUIMessage,
   Importance,
 } from "@/lib/discovery-stream";
-import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, SCREEN, TEXT, type QuestionStatus } from "./a11y";
+import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, TEXT, type QuestionStatus } from "./a11y";
 
 /** What the NGO has chosen for one current question but not yet sent. */
 export type Draft =
@@ -99,12 +98,10 @@ export function presentMessages(messages: readonly DiscoveryUIMessage[]): Presen
   });
 }
 
-export type FileBarTone = "reading" | "waiting" | "ready";
+export type FileBarTone = "reading";
 
-/** The file bar colour. Reading stays one working colour. A question warns. Ready is ok. */
-export function fileBarClass(tone: FileBarTone): string {
-  if (tone === "waiting") return "bg-usage-warn";
-  if (tone === "ready") return "bg-usage-ok";
+/** The file bar colour while a read is in progress. */
+export function fileBarClass(_tone: FileBarTone): string {
   return "bg-progress-reading";
 }
 
@@ -124,37 +121,11 @@ export function formatFileSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-const OPENING_CHIPS: Record<string, readonly string[]> = {
-  "volunteer-rota.xlsx": [
-    "Our August rota. Look at who books which shifts",
-    "It shows where Sundays stay empty",
-    "It has phone numbers. Leave them out",
-  ],
-  "sunday-gaps.csv": ["These are the shifts we could not fill", "Look at which kitchen is short"],
-  "kitchen-rules.docx": [
-    "Our volunteer rules. Look at who may take a shift",
-    "Look at how shifts are cancelled",
-  ],
-};
-
-const GENERIC_CHIPS = [
-  "It shows how we work today",
-  "It lists our volunteers or shifts",
-  "Look at all of it",
-] as const;
-
-/** Chips for the opening file question. A known file name has its own list. */
-export function openingChips(fileName: string): readonly string[] {
-  return OPENING_CHIPS[fileName] ?? GENERIC_CHIPS;
-}
-
 function statusText(file: DiscoveryFile): string {
   if (file.origin === "intake") return TEXT.source.intake;
   switch (file.status.kind) {
     case "reading":
       return TEXT.fileStatus.reading(file.status.percent);
-    case "waiting":
-      return TEXT.fileStatus.waiting;
     case "ready":
       return TEXT.fileStatus.ready(file.status.facts);
     case "failed":
@@ -164,14 +135,13 @@ function statusText(file: DiscoveryFile): string {
 
 function percentOf(file: DiscoveryFile): number | null {
   if (file.origin !== "discovery") return null;
-  if (file.status.kind === "reading" || file.status.kind === "waiting") return file.status.percent;
+  if (file.status.kind === "reading") return file.status.percent;
   return null;
 }
 
 function rowTone(file: DiscoveryFile): FileBarTone | null {
   if (file.origin !== "discovery") return null;
   if (file.status.kind === "reading") return "reading";
-  if (file.status.kind === "waiting") return "waiting";
   return null;
 }
 
@@ -199,106 +169,46 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
   };
 }
 
-export type FileChatMessage = { id: string; role: "user" | "assistant"; text: string };
-
-export type FileChatView = {
+export type FileReadView = {
   name: string;
   sizeText: string;
-  messages: FileChatMessage[];
-  chips: readonly string[];
-  draft: string;
-  canAnswer: boolean;
-  busy: boolean;
-  paid: boolean;
   statusText: string;
   percent: number | null;
   tone: FileBarTone | null;
-  closeLabel: string;
-  closeHint: string | null;
-  /** Shown in place of the answer controls after Discovery is confirmed. */
-  finishedNote: string | null;
+  /** The facts line once the read is ready. Null while the read runs. */
+  factText: string | null;
 };
 
-function messageText(message: FileChatUIMessage): string {
-  return message.parts
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
-    .join("\n\n")
-    .trim();
-}
-
-/** What the file panel shows. The pause question and the done line come from the file when the chat does not already have them. */
-export function fileChatView(input: {
-  name: string;
-  sizeBytes: number;
-  file: Extract<DiscoveryFile, { origin: "discovery" }> | null;
-  messages: readonly FileChatUIMessage[];
-  draft: string;
-  busy: boolean;
-  paid: boolean;
-  /** A confirmed Discovery takes no more file-chat answers (contract line 103). */
-  finished: boolean;
-}): FileChatView {
-  const file = input.file;
-  const waiting = file?.status.kind === "waiting" ? file.status : null;
-  const messages: FileChatMessage[] = [];
-  for (const message of input.messages) {
-    if (message.role !== "user" && message.role !== "assistant") continue;
-    const text = messageText(message);
-    if (text.length === 0) continue;
-    messages.push({ id: message.id, role: message.role, text });
+/** The read-only file panel. It shows progress while the read runs, then the facts. */
+export function fileReadView(file: Extract<DiscoveryFile, { origin: "discovery" }>): FileReadView {
+  const factText = file.tookFromIt ? TEXT.review.took(file.tookFromIt) : null;
+  if (file.status.kind === "reading") {
+    return {
+      name: file.name,
+      sizeText: formatFileSize(file.sizeBytes),
+      statusText: TEXT.fileStatus.reading(file.status.percent),
+      percent: file.status.percent,
+      tone: "reading",
+      factText: null,
+    };
   }
-  const shown = messages.map((message) => message.text).join("\n");
-  if (waiting && !shown.includes(waiting.question.text)) {
-    messages.push({ id: `ask-${input.name}`, role: "assistant", text: waiting.question.text });
+  if (file.status.kind === "failed") {
+    return {
+      name: file.name,
+      sizeText: formatFileSize(file.sizeBytes),
+      statusText: file.status.reason,
+      percent: null,
+      tone: null,
+      factText,
+    };
   }
-  if (file?.status.kind === "ready") {
-    const done = TEXT.fileDone(file.status.facts);
-    if (!shown.includes(done)) messages.push({ id: `done-${input.name}`, role: "assistant", text: done });
-  }
-  let statusText: string = TEXT.fileStatus.asking;
-  let percent: number | null = null;
-  let tone: FileBarTone | null = null;
-  let closeLabel: string = SCREEN.cancelAdding.name;
-  let closeHint: string | null = null;
-  if (file?.status.kind === "reading") {
-    statusText = TEXT.fileChatStatus.reading(file.status.percent);
-    percent = file.status.percent;
-    tone = "reading";
-    closeLabel = TEXT.closeAndKeep;
-    closeHint = TEXT.closeReadingHint;
-  } else if (file?.status.kind === "waiting") {
-    statusText = TEXT.fileChatStatus.waiting(file.status.percent);
-    percent = file.status.percent;
-    tone = "waiting";
-    closeLabel = TEXT.closeAndKeep;
-    closeHint = TEXT.closeReadingHint;
-  } else if (file?.status.kind === "ready") {
-    statusText = TEXT.fileStatus.ready(file.status.facts);
-    percent = 100;
-    tone = "ready";
-    closeLabel = TEXT.closeFile;
-    closeHint = TEXT.closeReadyHint;
-  } else if (file?.status.kind === "failed") {
-    statusText = file.status.reason;
-    closeLabel = TEXT.closeFile;
-  }
-  // A staged file and a paused file both offer an answer. Confirmation removes that offer.
-  const answerable = !input.finished && (file === null || waiting !== null);
   return {
-    name: input.name,
-    sizeText: formatFileSize(input.sizeBytes),
-    messages,
-    chips: answerable ? (waiting ? waiting.question.chips : openingChips(input.name)) : [],
-    draft: input.draft,
-    canAnswer: answerable,
-    busy: input.busy,
-    paid: input.paid,
-    statusText,
-    percent,
-    tone,
-    closeLabel,
-    closeHint,
-    finishedNote: input.finished ? TEXT.filesFinished : null,
+    name: file.name,
+    sizeText: formatFileSize(file.sizeBytes),
+    statusText: TEXT.fileStatus.ready(file.status.facts),
+    percent: null,
+    tone: null,
+    factText,
   };
 }
 
@@ -529,16 +439,6 @@ export function briefSections(brief: BriefSnapshot): BriefSectionView[] {
       });
     }
   }
-  for (const suggestion of brief.suggestions) {
-    sections.push({
-      id: suggestion.id,
-      title: suggestion.fileName,
-      status: BRIEF_STATUS.suggestion,
-      text: suggestion.fact,
-      detail: "",
-      questionId: null,
-    });
-  }
   return sections;
 }
 
@@ -717,13 +617,15 @@ export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
 
 export type ReviewTicks = { reviewedRevision: number | null; openGaps: boolean; data: boolean };
 
-/** Finish stays unavailable while an edit is open, and the review tick must match this revision. */
+/** Finish stays unavailable while a file is reading or an edit is open. The review tick must match this revision. */
 export function reviewGate(input: {
   revision: number;
   openCount: number;
   ticks: ReviewTicks;
   editing: boolean;
+  reading: boolean;
 }): { canFinish: boolean; hint: string } {
+  if (input.reading) return { canFinish: false, hint: TEXT.fileStillReading };
   if (input.editing) return { canFinish: false, hint: TEXT.review.gateEditing };
   const reviewed = input.ticks.reviewedRevision === input.revision;
   const gapsOk = input.openCount === 0 || input.ticks.openGaps;

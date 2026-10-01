@@ -16,7 +16,7 @@ function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): vo
             id={`discovery-file-${row.id}`}
             type="button"
             variant="ghost"
-            aria-label={NAME.openFileChat(row.name)}
+            aria-label={NAME.openFile(row.name)}
             className="h-auto min-h-11 min-w-0 flex-1 justify-start whitespace-normal px-1 text-left"
             onClick={() => onOpen(row.id)}
           >
@@ -61,7 +61,7 @@ export function FilesCard({
 }) {
   const view = fileRows(files, funded);
   const countText = view.limitText !== null ? `${view.discoveryCount} of 3 added` : `${view.discoveryCount} added`;
-  // A file chat is an AI reply, and a confirmed Discovery takes no more AI replies (contract line 103).
+  // A confirmed Discovery takes no new file. A saved change reopens it.
   const canAdd = view.canAdd && !finished;
   return (
     <section

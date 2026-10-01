@@ -65,14 +65,6 @@ export type BriefTopic = {
   needsReview?: boolean;
 };
 
-export type FileSuggestion = {
-  id: string;
-  topicId: string;
-  fileId: string;
-  fileName: string;
-  fact: string;
-};
-
 export type BriefSnapshot = {
   revision: number;
   need: { text: string; source: BriefSource };
@@ -80,7 +72,6 @@ export type BriefSnapshot = {
   successMeasure: { text: string; source: BriefSource } | null;
   topics: BriefTopic[];
   questions: BriefQuestion[];
-  suggestions: FileSuggestion[];
   dataTier: { tier: 0 | 1 | 2; reason: string } | null;
   fit: { verdict: "fits" | "declined"; reason: string } | null;
   /** Zero to three. The NGO may remove one, never type one. */
@@ -89,7 +80,6 @@ export type BriefSnapshot = {
 
 export type FileStatus =
   | { kind: "reading"; percent: number }
-  | { kind: "waiting"; percent: number; question: { text: string; chips: string[] } }
   | { kind: "ready"; facts: number }
   | { kind: "failed"; reason: string };
 
@@ -140,20 +130,9 @@ export type DiscoveryDataTypes = {
 
 export type DiscoveryUIMessage = UIMessage<never, DiscoveryDataTypes>;
 
-export type FileChatDataTypes = {
-  /** Read state after this answer. Sent transient. */
-  status: FileStatus;
-  charge: DiscoveryDataTypes["charge"];
-  /** Usage after this answer. Sent transient. */
-  usage: DiscoveryUsage;
-};
-
-export type FileChatUIMessage = UIMessage<never, FileChatDataTypes>;
-
 export type DiscoveryState = {
   project: { title: string; organizationName: string; funded: boolean };
   transcript: DiscoveryUIMessage[];
-  fileChats: Record<string, FileChatUIMessage[]>;
   brief: BriefSnapshot;
   files: DiscoveryFile[];
   usage: DiscoveryUsage;

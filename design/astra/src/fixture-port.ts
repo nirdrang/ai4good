@@ -1,5 +1,6 @@
-import type { DiscoveryPort } from "../../../src/components/discovery/port";
-import { FixtureChatTransport, FixtureFileChatTransport } from "./fixture-transport";
+import type { DiscoveryFile } from "../../../src/lib/discovery-stream";
+import type { DiscoveryPort, Result } from "../../../src/components/discovery/port";
+import { FixtureChatTransport, reportModelCall } from "./fixture-transport";
 import { openFixtureWorld } from "./fixture-world";
 import { SCENARIOS, type Pace, type ScreenScenario } from "./givens";
 
@@ -17,7 +18,12 @@ export function fixturePort(scenario: ScreenScenario, pace: Pace = "test"): Disc
   return {
     load: () => world.load(),
     chat: new FixtureChatTransport(world, pace, scope),
-    fileChat: (target) => new FixtureFileChatTransport(world, target, pace, scope),
+    async addFile(file: File): Promise<Result<DiscoveryFile>> {
+      const blocked = world.fileRefusal(file);
+      if (blocked) return { ok: false, refusal: blocked };
+      await reportModelCall("file-read");
+      return world.addFile(file);
+    },
     subscribe: (listener) => world.subscribe(listener),
     saveBriefEdit: (input) => world.saveBriefEdit(input),
     acceptSuggestion: (input) => world.acceptSuggestion(input),

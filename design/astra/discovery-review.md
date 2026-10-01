@@ -48,10 +48,14 @@ The acceptance tests for the screen drive the shell headless at 1280 and 390 pix
 
 The build differs from the boards in these places. Each difference is a decision, not an open issue:
 
-- The desktop file chat fills the right column, in place of the board's floating panel. The founder chose this at the unit 3 gate.
+- The desktop file panel fills the right column, in place of the board's floating panel. The founder chose this place at the unit 3 gate. The panel is read-only.
 - There is no "Use a sample file" button.
 - The review page section headings show in capitals, as on the Finish board. The page text stays in sentence case.
-- After confirmation, Add a file is disabled, and an open file chat takes no answer. A saved change reopens Discovery.
+- After confirmation, Add a file is disabled. While a file is still being read, Finish Discovery stays unavailable on the review page. A saved change reopens Discovery.
+
+On 2026-10-01 the founder decided that a Discovery file is ingested automatically. The founder said: "It should be automatic ingest process I even debate having to ask the funder anything there and just let it upload and the ingest skill will digest according to the intake and". Asked to choose, the founder chose "Go automatic now".
+
+What left: the file chat, its opening question, the pause question, the "Reading paused" row, the file-chat turn, and the "Suggestion · waiting for you" marker for a file fact. Choosing a file starts the read. The facts enter the brief and are marked as from the file. The read uses no turn and no fuel.
 
 Provisional copy, for the founder to approve or replace:
 

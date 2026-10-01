@@ -175,4 +175,4 @@ export const GIVEN = {
 /** The fixture calls this, when it exists, once per model call it stands in for.
  * The screen test installs it with exposeFunction. Nothing in src/ calls it. */
 export const MODEL_CALL_PROBE = "atFixtureModelCall";
-export type ModelCall = "chat-turn" | "file-chat-turn" | "file-read";
+export type ModelCall = "chat-turn" | "file-read";

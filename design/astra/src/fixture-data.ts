@@ -1,5 +1,4 @@
 import { TEXT } from "../../../src/components/discovery/a11y";
-import { openingChips } from "../../../src/components/discovery/model";
 import type {
   BriefQuestion,
   BriefSnapshot,
@@ -29,8 +28,6 @@ export type FileScript = {
   name: string;
   size: string;
   facts: number;
-  chips: readonly string[];
-  pause: { text: string; chips: readonly string[] } | null;
   fact: string;
   report: string;
 };
@@ -46,36 +43,24 @@ export const FILE_SCRIPTS: readonly FileScript[] = [
     name: "volunteer-rota.xlsx",
     size: "48 KB",
     facts: 4,
-    chips: openingChips("volunteer-rota.xlsx"),
-    pause: {
-      text: "Some rows have only a first name. Are two rows with the same first name the same volunteer?",
-      chips: ["Yes, usually the same person", "No, count them apart", "Not sure"],
-    },
     fact: ROTA_FACT,
-    report: `I finished reading volunteer-rota.xlsx. It shows that ${ROTA_FACT}. Is that right? I add it to your brief when you agree.`,
+    report: `I finished reading volunteer-rota.xlsx, and it shows that ${ROTA_FACT}.`,
   },
   {
     id: "sunday-gaps",
     name: "sunday-gaps.csv",
     size: "6 KB",
     facts: 3,
-    chips: openingChips("sunday-gaps.csv"),
-    pause: {
-      text: "Some rows have no kitchen name. Should I count them as the harbor kitchen?",
-      chips: ["Yes", "No, leave them out", "Not sure"],
-    },
     fact: SUNDAY_FACT,
-    report: `I finished reading sunday-gaps.csv. It shows ${SUNDAY_FACT}. Is that right? I add it to your brief when you agree.`,
+    report: `I finished reading sunday-gaps.csv, and it shows that ${SUNDAY_FACT}.`,
   },
   {
     id: "kitchen-rules",
     name: "kitchen-rules.docx",
     size: "31 KB",
     facts: 5,
-    chips: openingChips("kitchen-rules.docx"),
-    pause: null,
     fact: KITCHEN_FACT,
-    report: `I finished reading kitchen-rules.docx. It says ${KITCHEN_FACT}. Is that right? I add it to your brief when you agree.`,
+    report: `I finished reading kitchen-rules.docx, and it shows that ${KITCHEN_FACT}.`,
   },
 ];
 
@@ -103,10 +88,8 @@ export function scriptForName(name: string): FileScript {
     name,
     size: "1 KB",
     facts: 3,
-    chips: openingChips(name),
-    pause: null,
     fact,
-    report: `I finished reading ${name}. ${fact} Is that right? I add them to your brief when you agree.`,
+    report: `I finished reading ${name}, and it shows that ${fact}`,
   };
 }
 
@@ -413,7 +396,6 @@ function brief(): BriefSnapshot {
     successMeasure: null,
     topics,
     questions,
-    suggestions: [],
     dataTier: null,
     fit: null,
     causeLabels: [],
@@ -607,7 +589,6 @@ function midState(paid: boolean): DiscoveryState {
     successMeasure: null,
     topics,
     questions,
-    suggestions: [],
     dataTier: null,
     fit: null,
     causeLabels: [],
@@ -629,7 +610,6 @@ function midState(paid: boolean): DiscoveryState {
         [FREE_CHARGE],
       ),
     ],
-    fileChats: {},
     brief: snapshot,
     files: [intakeFile()],
     usage: midUsage(paid),
@@ -786,7 +766,6 @@ function finishOpenState(): DiscoveryState {
       message("intake", "user", `${TEXT.source.intake}\n\n${given.need}`),
       message("a4", "assistant", "Two questions are still open. Answer either one when you are ready.", [FREE_CHARGE]),
     ],
-    fileChats: {},
     brief: {
       revision: given.revision,
       need: { text: given.need, source: { kind: "intake" } },
@@ -794,8 +773,7 @@ function finishOpenState(): DiscoveryState {
       successMeasure: null,
       topics,
       questions,
-      suggestions: [],
-      dataTier: null,
+        dataTier: null,
       fit: null,
       causeLabels: [given.label],
     },
@@ -849,7 +827,6 @@ function confirmedState(scenario: "confirmed-tier-2" | "confirmed-tier-1"): Disc
   return {
     project: { title: "Volunteer scheduling", organizationName: "Harbor Community Kitchen", funded: false },
     transcript: [message("intake", "user", `${TEXT.source.intake}\n\n${given.need}`)],
-    fileChats: {},
     brief: {
       revision: given.revision,
       need: { text: given.need, source: { kind: "intake" } },
@@ -869,8 +846,7 @@ function confirmedState(scenario: "confirmed-tier-2" | "confirmed-tier-1"): Disc
           4,
         ),
       ],
-      suggestions: [],
-      dataTier: { tier: given.tier, reason: "The tool keeps contact details." },
+        dataTier: { tier: given.tier, reason: "The tool keeps contact details." },
       fit: { verdict: "fits", reason: "A staff member can keep this tool going by chat." },
       causeLabels: [...given.labels],
     },
@@ -920,7 +896,6 @@ export function seedState(scenario: ScreenScenario): DiscoveryState {
       funded: scenario === "three-files-funded",
     },
     transcript: [intake, opening],
-    fileChats: {},
     brief: snapshot,
     files,
     usage: usage(),

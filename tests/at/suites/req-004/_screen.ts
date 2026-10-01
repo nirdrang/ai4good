@@ -218,7 +218,7 @@ export class DiscoveryPage {
     has: (name: string): Promise<boolean> =>
       this.page.visible([this.filesRoot(), landmark('listitem', name)]),
     reopen: (name: string): Promise<void> =>
-      this.page.click([this.filesRoot(), landmark('button', NAME.openFileChat(name))]),
+      this.page.click([this.filesRoot(), landmark('button', NAME.openFile(name))]),
   };
 
   readonly chooser = {
@@ -404,36 +404,20 @@ export class DiscoveryPage {
     return waitBox(this.page, [landmark(SCREEN.composer.role, SCREEN.composer.name), free], TEXT.send);
   }
 
-  fileChat(name: string) {
-    const root =
-      this.viewport === 'desktop'
-        ? landmark('region', NAME.fileChat(name))
-        : landmark('dialog', NAME.fileChat(name));
+  filePanel(name: string) {
+    const root = this.viewport === 'desktop' ? landmark('region', name) : landmark('dialog', name);
     const button = (label: string): LocatorStep[] => [root, landmark('button', label)];
     return {
       visible: (): Promise<boolean> => this.page.visible([root]),
       text: (): Promise<string> => this.page.text([root]),
-      pick: (label: string): Promise<void> => this.page.click(button(label)),
-      fill: (text: string): Promise<void> =>
-        this.page.fill([root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)], text),
-      answerBox: (): Promise<Box> =>
-        waitBox(this.page, [root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)], SCREEN.fileAnswer.name),
-      answerCount: (): Promise<number> =>
-        this.page.count([root, landmark(SCREEN.fileAnswer.role, SCREEN.fileAnswer.name)]),
+      answerCount: (): Promise<number> => this.page.count([root, { role: 'textbox' as const }]),
       sendCount: (): Promise<number> => this.page.count(button(TEXT.send)),
-      chipCount: (label: string): Promise<number> => this.page.count(button(label)),
-      sendBox: (): Promise<Box> => waitBox(this.page, button(TEXT.send), TEXT.send),
-      chipBox: (label: string): Promise<Box> => waitBox(this.page, button(label), label),
-      buttonBox: (label: string): Promise<Box> => waitBox(this.page, button(label), label),
+      closeBox: (): Promise<Box> => waitBox(this.page, button(TEXT.closeFile), TEXT.closeFile),
+      textBox: (phrase: string, exact = true): Promise<Box> =>
+        waitBox(this.page, [root, { text: phrase, exact }], phrase),
       close: async (): Promise<void> => {
-        const labels = [SCREEN.cancelAdding.name, TEXT.closeAndKeep, TEXT.closeFile];
-        for (const label of labels) {
-          if (!(await this.page.visible(button(label)))) continue;
-          await this.page.click(button(label));
-          await eventually('the file chat closes', () => this.page.visible([root]), (open) => open === false);
-          return;
-        }
-        throw new Error(`the file chat for ${name} has no close control`);
+        await this.page.click(button(TEXT.closeFile));
+        await eventually('the file panel closes', () => this.page.visible([root]), (open) => open === false);
       },
     };
   }

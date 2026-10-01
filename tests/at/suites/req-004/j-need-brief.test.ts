@@ -100,9 +100,6 @@ atTest(
       await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'desktop' }, async (screen) => {
         await expectChangeReopensDiscovery(screen, given);
       });
-      await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'desktop' }, async (screen) => {
-        await expectPausedFileChatLocks(screen, given);
-      });
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -225,7 +222,7 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
 });
 atTest(
   'AT-004.66',
-  'Add a file opens a file chat that asks until the AI is ready',
+  'choosing a file starts the read and the file panel is read-only',
   { surface: 'ui', timeoutMs: { loop: 240_000 } },
   {
     loop: async (ctx) => {
@@ -236,17 +233,11 @@ atTest(
           expect(await screen.files.text(), 'Cancel adds nothing: the count stays 0 of 3 added').toContain('0 of 3 added');
           expect(await screen.files.has('volunteer-rota.xlsx'), 'Cancel adds nothing: volunteer-rota.xlsx is not listed').toBe(false);
           await readRotaUntilReady(screen);
-          await cancelNotesBeforeAnswer(screen);
         });
       }
       await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'narrow' }, async (screen) => {
         await expectFileControlsFit(screen);
       });
-      for (const pace of ['test', 'demo'] as const) {
-        await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop', pace }, async (screen) => {
-          await expectReloadKeepsFileQuestion(screen);
-        });
-      }
     },
     integration: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -258,53 +249,40 @@ atTest(
 );
 atTest(
   'AT-004.67',
-  'file-chat answers are turns and the read is free',
+  'a file read consumes no turn and no fuel',
   { surface: 'ui', timeoutMs: { loop: 180_000 } },
   {
     loop: async (ctx) => {
       for (const viewport of SIZES) {
         await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
-          await answerRotaTwice(screen);
-          const usage = await eventually(
-            'two file answers leave 1 free reply',
-            () => screen.usage.text(),
-            (text) => text.includes('1 left today') && !text.includes('3 left today'),
-          );
-          expect(usage, 'the usage display no longer shows 3 left today').not.toContain('3 left today');
+          const before = await screen.usage.text();
+          expect(before, 'Free today starts at 3 left today').toContain('3 left today');
+          await addRota(screen);
           await eventually(
             'the read reaches Ready · 4 facts',
-            () => screen.fileChat('volunteer-rota.xlsx').text(),
+            () => screen.files.row('volunteer-rota.xlsx'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
-          expect(await screen.usage.text(), 'the read adds no turn').toBe(usage);
-          expect(await screen.modelCalls(), 'two file answers and one read').toEqual([
-            'file-chat-turn',
-            'file-read',
-            'file-chat-turn',
-          ]);
+          expect(await screen.usage.text(), 'adding and reading a file leaves the usage card unchanged').toBe(before);
+          expect(await screen.modelCalls(), 'the read is one file-read and no turn').toEqual(['file-read']);
         });
         await withDiscovery(ctx, { scenario: 'mid-interview-paid', viewport }, async (screen) => {
-          await answerRotaTwice(screen);
-          const usage = await eventually(
-            'two paid file answers show $1.10',
-            () => screen.usage.text(),
-            (text) => text.includes('$1.10') && !text.includes('$1.60') && !text.includes('$0.85'),
-          );
-          expect(usage, 'the paid display is not the balance from before the answers').not.toContain('$1.60');
-          expect(usage, 'the paid display is not a third hold').not.toContain('$0.85');
+          const before = await screen.usage.text();
+          expect(before, 'the paid balance starts at $1.60').toContain('$1.60');
+          await addRota(screen);
           await eventually(
             'the paid read reaches Ready · 4 facts',
-            () => screen.fileChat('volunteer-rota.xlsx').text(),
+            () => screen.files.row('volunteer-rota.xlsx'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
-          expect(await screen.usage.text(), 'the read adds no fuel charge').toBe(usage);
-          expect(await screen.modelCalls(), 'two paid file answers and one read').toEqual([
-            'file-chat-turn',
-            'file-read',
-            'file-chat-turn',
-          ]);
+          const usage = await screen.usage.text();
+          expect(usage, 'the read adds no fuel charge').toBe(before);
+          expect(usage, 'the paid display stays $1.60').toContain('$1.60');
+          expect(usage, 'the read does not charge one hold').not.toContain('$1.10');
+          expect(usage, 'the read does not charge two holds').not.toContain('$0.85');
+          expect(await screen.modelCalls(), 'the paid read is one file-read and no turn').toEqual(['file-read']);
         });
       }
       throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
@@ -327,59 +305,36 @@ atTest(
       const fact = '38 of your 45 volunteers booked at least one shift';
       for (const viewport of SIZES) {
         await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
-          const chat = await openRotaChat(screen);
-          await chat.pick('It shows where Sundays stay empty');
-          await eventually(
-            'the read pauses with a question for you',
-            () => chat.text(),
-            (text) => text.includes('Reading paused at') && text.includes('a question for you'),
-            8_000,
-          );
-          if (viewport !== 'desktop') await chat.close();
+          await addRota(screen);
           const owner = screen.chat.question(given.open[0].question);
           await owner.pick(given.open[0].suggested);
           const during = await screen.composer.send();
           expect(during, 'a main-chat reply during the read does not report 38 of your 45').not.toContain('38 of your 45');
-          if (viewport !== 'desktop') {
-            await screen.files.reopen('volunteer-rota.xlsx');
-            await eventually('the file chat reopens', () => chat.visible(), (open) => open);
-          }
-          const before = await screen.modelCalls();
-          if (viewport === 'desktop') {
-            const saw = sawReadingPercent(screen, 'volunteer-rota.xlsx');
-            await chat.pick('Yes, usually the same person');
-            expect(await saw, 'the row shows Reading… N% while the read continues').toBe(true);
-          } else {
-            await chat.pick('Yes, usually the same person');
-            await chat.close();
-            expect(
-              await sawReadingPercent(screen, 'volunteer-rota.xlsx'),
-              'after the file chat closes, the row shows Reading… N%',
-            ).toBe(true);
-          }
-          const calls = await eventually(
-            'the pause answer is one file-chat turn',
-            () => screen.modelCalls(),
-            (kinds) => kinds.length === before.length + 1,
-          );
-          expect(calls, 'the pause answer does not start a second read').toEqual([...before, 'file-chat-turn']);
+          const duringCalls = await screen.modelCalls();
+          expect(duringCalls, 'the read is one file-read and the reply is one turn').toEqual(['file-read', 'chat-turn']);
           await eventually(
             'the row shows Ready · 4 facts',
             () => screen.files.row('volunteer-rota.xlsx'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
-          expect(await screen.modelCalls(), 'reaching Ready makes no model call').toEqual(calls);
+          expect(await screen.modelCalls(), 'reaching Ready makes no model call').toEqual(duringCalls);
           await screen.composer.fill('What did the file show?');
           const reply = await screen.composer.send();
+          const report = reply.split('\n\n')[0] ?? '';
+          expect(report, 'the report is one sentence').not.toContain('?');
           expect(reply, 'the next reply reports what the file showed').toContain(fact);
-          if (await chat.visible()) await chat.close();
+          expect(reply, 'the reply does not ask if the fact is right').not.toContain('Is that right?');
+          expect(reply, 'the reply does not ask the NGO to agree').not.toContain('when you agree');
           await screen.brief.open();
           const brief = await screen.brief.text();
-          const markerAt = brief.indexOf('Suggestion · waiting for you');
+          const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.xlsx'));
+          const tookAt = brief.indexOf('The AI took from it:');
           const factAt = brief.indexOf(fact);
-          expect(markerAt, 'the brief lists the fact as Suggestion · waiting for you').toBeGreaterThan(-1);
-          expect(factAt, 'the fact follows Suggestion · waiting for you').toBeGreaterThan(markerAt);
+          expect(fromAt, 'the brief marks the fact as from the file').toBeGreaterThan(-1);
+          expect(tookAt, 'the brief says what the AI took from the file').toBeGreaterThan(fromAt);
+          expect(factAt, 'the fact follows the took line').toBeGreaterThan(tookAt);
+          expect(brief, 'a file fact is not waiting for agreement').not.toContain('Suggestion · waiting for you');
         });
       }
       throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
@@ -679,57 +634,15 @@ function sampleFile(name: string): { name: string; mimeType: string; base64: str
   return { name, mimeType: 'text/plain', base64: Buffer.from(name).toString('base64') };
 }
 
-async function openRotaChat(screen: DiscoveryPage) {
+async function addRota(screen: DiscoveryPage): Promise<void> {
   await screen.files.openAdd();
   await screen.files.choose(sampleFile('volunteer-rota.xlsx'));
-  const chat = screen.fileChat('volunteer-rota.xlsx');
-  await eventually('the file chat asks what we should know', () => chat.text(), (text) =>
-    text.includes(TEXT.fileQuestion),
-  );
-  return chat;
-}
-
-async function reloadWhileReading(screen: DiscoveryPage, name: string): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < 8_000) {
-    const row = await screen.files.row(name);
-    if (row.includes('A question for you') || row.includes('Ready')) {
-      throw new Error(`the read left Reading… 35% before the reload: ${row}`);
-    }
-    if (/Reading… 35%/.test(row)) {
-      await screen.reload();
-      return;
-    }
-    await new Promise((resolveWait) => setTimeout(resolveWait, 10));
-  }
-  throw new Error('the read did not show Reading… 35%');
-}
-
-async function expectReloadKeepsFileQuestion(screen: DiscoveryPage): Promise<void> {
-  const name = 'sunday-gaps.csv';
-  const question = 'Some rows have no kitchen name. Should I count them as the harbor kitchen?';
-  const chip = 'No, leave them out';
-  await screen.files.openAdd();
-  await screen.files.choose(sampleFile(name));
-  const chat = screen.fileChat(name);
-  await eventually('the file chat asks what we should know', () => chat.text(), (text) =>
-    text.includes(TEXT.fileQuestion),
-  );
-  await chat.pick('These are the shifts we could not fill');
-  await reloadWhileReading(screen, name);
   await eventually(
-    'a reload during the read still reaches the pause question',
-    () => screen.files.row(name),
-    (text) => text.includes('A question for you'),
-    8_000,
+    'choosing the file starts the read',
+    () => screen.files.row('volunteer-rota.xlsx'),
+    (text) => /Reading… \d+%/.test(text),
   );
-  await screen.files.reopen(name);
-  await eventually('the file chat reopens after the reload', () => chat.visible(), (open) => open);
-  const text = await chat.text();
-  expect(text, 'the pause question is asked after the reload').toContain(question);
-  expect(text, 'the reload does not skip to Ready').not.toContain('Ready · 3 facts');
-  expect(await chat.answerCount(), 'the answer box is present after the reload').toBe(1);
-  expect(await chat.chipCount(chip), 'the pause answer chip is present after the reload').toBe(1);
+  expect(await screen.chooser.visible(), 'the chooser closes when the read starts').toBe(false);
 }
 
 async function expectChooser(screen: DiscoveryPage, finePointer: boolean): Promise<void> {
@@ -743,83 +656,31 @@ async function expectChooser(screen: DiscoveryPage, finePointer: boolean): Promi
 }
 
 async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
-  const chat = await openRotaChat(screen);
-  expect(await chat.text(), 'the file chat offers It shows where Sundays stay empty').toContain(
-    'It shows where Sundays stay empty',
-  );
-  await eventually(
-    'the file chat has an answer box',
-    () => chat.answerBox(),
-    (box) => box.width > 0,
-  );
-  const before = await screen.modelCalls();
-  await chat.pick('It shows where Sundays stay empty');
-  await eventually('the answer starts the read', () => chat.text(), (text) => text.includes('Reading'));
-  const started = await screen.modelCalls();
-  expect(started, 'the answer is one file-chat turn and one read').toEqual([...before, 'file-chat-turn', 'file-read']);
-  await chat.close();
-  await eventually(
-    'closing the file chat does not stop the read: the row shows A question for you',
-    () => screen.files.row('volunteer-rota.xlsx'),
-    (text) => text.includes('A question for you'),
-    8_000,
-  );
+  await addRota(screen);
+  expect(await screen.modelCalls(), 'choosing the file is one file-read and no question').toEqual(['file-read']);
+  const panel = screen.filePanel('volunteer-rota.xlsx');
   await screen.files.reopen('volunteer-rota.xlsx');
-  await eventually('selecting the file reopens its chat', () => chat.visible(), (open) => open);
-  await chat.pick('Yes, usually the same person');
-  const resumed = await eventually(
-    'the next answer is one file-chat turn',
-    () => screen.modelCalls(),
-    (calls) => calls.length === started.length + 1,
-  );
-  expect(resumed, 'the read does not start again').toEqual([...started, 'file-chat-turn']);
+  await eventually('selecting the file opens its panel', () => panel.visible(), (open) => open);
+  const openText = await panel.text();
+  expect(openText, 'the panel shows the file name').toContain('volunteer-rota.xlsx');
+  expect(await panel.answerCount(), 'the file panel has no answer box').toBe(0);
+  expect(await panel.sendCount(), 'the file panel has no Send').toBe(0);
+  await panel.close();
   await eventually(
-    'the file chat shows Ready · 4 facts',
-    () => chat.text(),
+    'closing the panel does not stop the read',
+    () => screen.files.row('volunteer-rota.xlsx'),
     (text) => text.includes('Ready · 4 facts'),
     8_000,
   );
-  expect(await screen.modelCalls(), 'Ready adds no model call').toEqual(resumed);
-  const pauseQuestion = 'Are two rows with the same first name the same volunteer?';
-  expect(await chat.text(), 'the answered pause question stays in the file chat').toContain(pauseQuestion);
-  await chat.close();
-  await screen.reload();
+  expect(await screen.modelCalls(), 'Ready adds no model call').toEqual(['file-read']);
   await screen.files.reopen('volunteer-rota.xlsx');
-  await eventually('the file chat reopens after a reload', () => chat.visible(), (open) => open);
-  expect(await chat.text(), 'the pause question survives a reload').toContain(pauseQuestion);
-  expect(await chat.text(), 'its answer survives a reload').toContain('Yes, usually the same person');
-  await chat.close();
-  expect(await screen.files.row('volunteer-rota.xlsx'), 'the row shows Ready · 4 facts').toContain('Ready · 4 facts');
+  await eventually('the ready file opens again', () => panel.visible(), (open) => open);
+  const readyText = await panel.text();
+  expect(readyText, 'the ready panel shows Ready · 4 facts').toContain('Ready · 4 facts');
+  expect(readyText, 'the ready panel shows the facts').toContain('38 of your 45 volunteers booked at least one shift');
+  expect(await panel.answerCount(), 'the ready panel has no answer box').toBe(0);
+  await panel.close();
   expect(await screen.files.text(), 'one Discovery file counts as 1 of 3 added').toContain('1 of 3 added');
-}
-
-async function cancelNotesBeforeAnswer(screen: DiscoveryPage): Promise<void> {
-  const calls = await screen.modelCalls();
-  await screen.files.openAdd();
-  await screen.files.choose(sampleFile('shift-notes.txt'));
-  const notes = screen.fileChat('shift-notes.txt');
-  await eventually('the second file asks before it is added', () => notes.text(), (text) =>
-    text.includes(TEXT.fileQuestion),
-  );
-  await notes.close();
-  expect(await screen.files.has('shift-notes.txt'), 'Cancel before the first answer adds no file').toBe(false);
-  expect(await screen.files.has('volunteer-rota.xlsx'), 'the first file stays listed').toBe(true);
-  expect(await screen.modelCalls(), 'Cancel before the first answer makes no model call').toEqual(calls);
-}
-
-async function answerRotaTwice(screen: DiscoveryPage): Promise<void> {
-  const chat = await openRotaChat(screen);
-  await chat.pick('It shows where Sundays stay empty');
-  await chat.pick('Yes, usually the same person');
-}
-
-async function sawReadingPercent(screen: DiscoveryPage, name: string): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < 2_500) {
-    if (/Reading… \d+%/.test(await screen.files.row(name))) return true;
-    await new Promise((resolveWait) => setTimeout(resolveWait, 15));
-  }
-  return false;
 }
 
 async function expectFileControlsFit(screen: DiscoveryPage): Promise<void> {
@@ -833,12 +694,18 @@ async function expectFileControlsFit(screen: DiscoveryPage): Promise<void> {
   await expectFullyVisible(screen, 'the sample-data sentence', await screen.chooser.textBox(TEXT.sampleData));
   await expectFullyVisible(screen, 'Back to chat', await screen.chooser.buttonBox(SCREEN.backToChat.name));
   await screen.files.choose(sampleFile('volunteer-rota.xlsx'));
-  const chat = screen.fileChat('volunteer-rota.xlsx');
-  await eventually('the file chat opens at 320 px', () => chat.visible(), (open) => open);
-  await expectFullyVisible(screen, 'Your answer about this file', await chat.answerBox());
-  await expectFullyVisible(screen, 'Send', await chat.sendBox());
-  await expectFullyVisible(screen, 'It shows where Sundays stay empty', await chat.chipBox('It shows where Sundays stay empty'));
-  await expectFullyVisible(screen, 'Cancel adding this file', await chat.buttonBox(SCREEN.cancelAdding.name));
+  await eventually(
+    'choosing the file closes the chooser',
+    () => screen.chooser.visible(),
+    (open) => open === false,
+  );
+  await screen.files.reopen('volunteer-rota.xlsx');
+  const panel = screen.filePanel('volunteer-rota.xlsx');
+  await eventually('the file panel opens at 320 px', () => panel.visible(), (open) => open);
+  expect(await panel.answerCount(), 'the file panel has no answer box').toBe(0);
+  expect(await panel.sendCount(), 'the file panel has no Send').toBe(0);
+  await expectFullyVisible(screen, 'Close', await panel.closeBox());
+  await expectFullyVisible(screen, 'the read status', await panel.textBox('Reading…', false));
 }
 
 async function expectFullyVisible(
@@ -1001,108 +868,40 @@ async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIVEN)['fi
   expect(row, 'the question stays Open').toContain('Open');
   await screen.questions.close();
   const usageBefore = await screen.usage.text();
+  const callsBefore = await screen.modelCalls();
+  await screen.files.openAdd();
+  await screen.files.choose(sampleFile('shift-notes.txt'));
+  await eventually(
+    'the new file shows Reading',
+    () => screen.files.row('shift-notes.txt'),
+    (text) => /Reading… \d+%/.test(text),
+  );
   await screen.review.open();
+  expect(await screen.review.text(), 'Finish stays unavailable while a file is reading').toContain(TEXT.fileStillReading);
+  expect(await screen.review.finishDisabled(), 'Finish Discovery is unavailable while a file is reading').toBe(true);
   await screen.review.tick(TEXT.ack.reviewed(given.revision + 1));
   await screen.review.tick(TEXT.ack.gaps(given.open.length - 1));
   await screen.review.tick(TEXT.ack.data);
+  await eventually(
+    'the read is ready and the hint is gone',
+    () => screen.review.text(),
+    (text) => text.includes('I found three facts in shift-notes.txt') && !text.includes(TEXT.fileStillReading),
+    8_000,
+  );
+  expect(await screen.review.finishDisabled(), 'Finish Discovery is available when the read is ready').toBe(false);
+  const callsAfter = await screen.modelCalls();
+  expect(callsAfter, 'the read is one file-read').toEqual([...callsBefore, 'file-read']);
   await screen.review.finish();
   expect(await screen.review.text(), 'Finish records Discovery finished with open questions').toContain(
     'Discovery finished with open questions',
   );
-  expect(await screen.modelCalls(), 'Finish makes no model call').toEqual([]);
+  expect(await screen.modelCalls(), 'Finish makes no model call').toEqual(callsAfter);
   await screen.review.back();
-  expect(await screen.usage.text(), 'Finish consumes no turn or fuel').toBe(usageBefore);
-  expect(await screen.modelCalls(), 'returning to the chat makes no model call').toEqual([]);
+  expect(await screen.usage.text(), 'Finish and the read consume no turn or fuel').toBe(usageBefore);
+  expect(await screen.modelCalls(), 'returning to the chat makes no model call').toEqual(callsAfter);
   await screen.brief.open();
   expect(await screen.brief.hasEdit(rules.title), 'the accepted section has Edit after confirmation').toBe(true);
   await screen.brief.back();
-}
-
-async function expectPausedFileChatLocks(
-  screen: DiscoveryPage,
-  given: (typeof GIVEN)['finish-open'],
-): Promise<void> {
-  const pausedName = 'sunday-gaps.csv';
-  const pausedQuestion = 'Some rows have no kitchen name. Should I count them as the harbor kitchen?';
-  const pausedChip = 'No, leave them out';
-  const stagedName = 'shift-notes.txt';
-  await screen.review.back();
-  await screen.files.openAdd();
-  await screen.files.choose(sampleFile(pausedName));
-  const paused = screen.fileChat(pausedName);
-  await eventually('the file chat asks what we should know', () => paused.text(), (text) =>
-    text.includes(TEXT.fileQuestion),
-  );
-  await paused.pick('These are the shifts we could not fill');
-  await eventually(
-    'the read pauses with a question',
-    () => paused.text(),
-    (text) => text.includes(pausedQuestion),
-    8_000,
-  );
-  await paused.close();
-  await screen.files.openAdd();
-  await screen.files.choose(sampleFile(stagedName));
-  const staged = screen.fileChat(stagedName);
-  await eventually('the staged file asks before it is added', () => staged.text(), (text) =>
-    text.includes(TEXT.fileQuestion),
-  );
-  expect(await screen.files.has(stagedName), 'a staged file is not in the list before its first answer').toBe(false);
-
-  await screen.review.open();
-  await screen.review.ready();
-  await screen.review.tick(TEXT.ack.reviewed(given.revision));
-  await screen.review.tick(TEXT.ack.gaps(given.open.length));
-  await screen.review.tick(TEXT.ack.data);
-  await screen.review.finish();
-  await screen.review.back();
-
-  await eventually(
-    'a confirmed staged file chat has no answer box',
-    () => staged.answerCount(),
-    (count) => count === 0,
-  );
-  const stagedText = await staged.text();
-  expect(stagedText, 'the staged file chat keeps its question').toContain(TEXT.fileQuestion);
-  expect(stagedText, 'the staged file chat says why answers stopped').toContain(TEXT.filesFinished);
-  expect(await staged.sendCount(), 'a confirmed staged file chat has no Send').toBe(0);
-  expect(await screen.files.has(stagedName), 'confirmation does not commit a staged file').toBe(false);
-  await staged.close();
-  expect(await screen.files.has(stagedName), 'closing a staged file still adds nothing').toBe(false);
-
-  await screen.files.reopen(pausedName);
-  await eventually('the paused file chat reopens', () => paused.visible(), (open) => open);
-  await eventually(
-    'a confirmed paused file chat has no answer box',
-    () => paused.answerCount(),
-    (count) => count === 0,
-  );
-  const locked = await paused.text();
-  expect(locked, 'the paused question stays in the file chat').toContain(pausedQuestion);
-  expect(locked, 'the paused file chat says why answers stopped').toContain(TEXT.filesFinished);
-  expect(await paused.sendCount(), 'a confirmed paused file chat has no Send').toBe(0);
-  expect(await paused.chipCount(pausedChip), 'a confirmed paused file chat has no answer chip').toBe(0);
-  await paused.close();
-
-  const priorityQuestion = 'What should improve first?';
-  const nextAnswer = 'Fewer unfilled shifts';
-  await screen.brief.open();
-  await screen.brief.edit(given.agreed[0].title);
-  const priority = screen.chat.question(priorityQuestion);
-  await eventually('Edit shows the question after confirmation', () => priority.isAsked(), (asked) => asked);
-  await priority.pick(nextAnswer);
-  await priority.saveChange();
-  await eventually('Save change brings the composer back', () => screen.composer.formCount(), (count) => count === 1);
-  await screen.files.reopen(pausedName);
-  await eventually('the paused file chat reopens after the change', () => paused.visible(), (open) => open);
-  await eventually(
-    'Save change brings the answer box back',
-    () => paused.answerCount(),
-    (count) => count === 1,
-  );
-  expect(await paused.chipCount(pausedChip), 'Save change brings the answer chip back').toBe(1);
-  expect(await paused.sendCount(), 'Save change brings Send back').toBe(1);
-  expect(await paused.text(), 'the paused question stays after the change').toContain(pausedQuestion);
 }
 
 async function expectChangeReopensDiscovery(

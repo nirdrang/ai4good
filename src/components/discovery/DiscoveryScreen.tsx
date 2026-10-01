@@ -131,13 +131,10 @@ function Loaded({
     <FileOverlay
       phone={phone}
       mode={discovery.panel?.kind === "file" ? "file" : "chooser"}
-      view={discovery.fileChat}
-      usage={discovery.usage}
+      view={discovery.fileView}
       notice={discovery.fileNotice}
-      onChoose={discovery.chooseFile}
+      onChoose={(file) => void discovery.chooseFile(file)}
       onClose={discovery.closePanel}
-      onDraft={discovery.setFileDraft}
-      onSend={(text) => void discovery.sendFileAnswer(text)}
     />
   ) : null;
   const conversation = (
@@ -220,7 +217,12 @@ function Loaded({
             ) : (
               <>
                 {discovery.panel?.kind === "brief" ? (
-                  <BriefSide brief={discovery.brief} onClose={discovery.closePanel} onEdit={discovery.reopen} />
+                  <BriefSide
+                    brief={discovery.brief}
+                    files={discovery.files}
+                    onClose={discovery.closePanel}
+                    onEdit={discovery.reopen}
+                  />
                 ) : (
                   <BriefCard
                     brief={discovery.brief}
@@ -242,6 +244,7 @@ function Loaded({
       {phone && discovery.panel?.kind === "brief" ? (
         <BriefDialog
           brief={discovery.brief}
+          files={discovery.files}
           usage={<UsageCard usage={discovery.usage} />}
           onClose={discovery.closePanel}
           onEdit={discovery.reopen}

@@ -1,5 +1,5 @@
 import type { ReactNode, Ref } from "react";
-import type { BriefSnapshot } from "@/lib/discovery-stream";
+import type { BriefSnapshot, DiscoveryFile } from "@/lib/discovery-stream";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NAME, SCREEN, TEXT } from "./a11y";
@@ -13,7 +13,31 @@ export function briefHeading(brief: BriefSnapshot): string {
   return `Your live brief · ${TEXT.revision(brief.revision)} · ${progress.agreed} of ${progress.total} agreed`;
 }
 
-function Sections({ brief, onEdit }: { brief: BriefSnapshot; onEdit(questionId: string): void }) {
+function FilesInBrief({ files }: { files: readonly DiscoveryFile[] }) {
+  const taken = files.filter((file) => file.tookFromIt);
+  if (taken.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2 border-t border-border pt-3">
+      <h3 className="text-sm font-semibold">Files</h3>
+      {taken.map((file) => (
+        <div key={file.id} className="flex flex-col gap-1">
+          <p className="text-sm">{TEXT.source.file(file.name)}</p>
+          <p className="text-sm">{TEXT.review.took(file.tookFromIt ?? "")}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function Sections({
+  brief,
+  files,
+  onEdit,
+}: {
+  brief: BriefSnapshot;
+  files: readonly DiscoveryFile[];
+  onEdit(questionId: string): void;
+}) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm">{TEXT.revision(brief.revision)}</p>
@@ -34,6 +58,7 @@ function Sections({ brief, onEdit }: { brief: BriefSnapshot; onEdit(questionId: 
           </section>
         );
       })}
+      <FilesInBrief files={files} />
     </div>
   );
 }
@@ -65,10 +90,12 @@ export function BriefCard({
 
 export function BriefSide({
   brief,
+  files,
   onClose,
   onEdit,
 }: {
   brief: BriefSnapshot;
+  files: readonly DiscoveryFile[];
   onClose(): void;
   onEdit(questionId: string): void;
 }) {
@@ -84,18 +111,20 @@ export function BriefSide({
           {SCREEN.backToChat.name}
         </Button>
       </div>
-      <Sections brief={brief} onEdit={onEdit} />
+      <Sections brief={brief} files={files} onEdit={onEdit} />
     </aside>
   );
 }
 
 export function BriefDialog({
   brief,
+  files,
   usage,
   onClose,
   onEdit,
 }: {
   brief: BriefSnapshot;
+  files: readonly DiscoveryFile[];
   usage: ReactNode;
   onClose(): void;
   onEdit(questionId: string): void;
@@ -110,7 +139,7 @@ export function BriefDialog({
           <DialogTitle className="text-base">{SCREEN.briefFull.name}</DialogTitle>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <Sections brief={brief} onEdit={onEdit} />
+          <Sections brief={brief} files={files} onEdit={onEdit} />
         </div>
         <div className="shrink-0 border-t p-3">{usage}</div>
       </DialogContent>

@@ -8,13 +8,12 @@ import type {
   DiscoveryState,
   DiscoveryUIMessage,
   DiscoveryUsage,
-  FileChatUIMessage,
 } from "@/lib/discovery-stream";
-import { NAME, TEXT } from "./a11y";
+import { NAME } from "./a11y";
 import {
   answerText,
   currentQuestions,
-  fileChatView,
+  fileReadView,
   fileRows,
   messageLead,
   newerBrief,
@@ -23,7 +22,7 @@ import {
   reviewGate,
   reviewSections,
   type Draft,
-  type FileChatView,
+  type FileReadView,
   type ReviewTicks,
 } from "./model";
 import type { DiscoveryPort } from "./port";
@@ -35,13 +34,6 @@ export type DiscoveryPanel =
   | { kind: "file"; key: string };
 
 export type DiscoveryOpener = "brief" | "questions" | "add" | { kind: "file"; fileId: string };
-
-type HeldFileChat = {
-  chat: Chat<FileChatUIMessage>;
-  name: string;
-  staged: boolean;
-  seen: ReadonlySet<string>;
-};
 
 export type DiscoveryController = {
   project: DiscoveryState["project"];
@@ -58,7 +50,7 @@ export type DiscoveryController = {
   reopened: readonly string[];
   pinned: readonly string[];
   panel: DiscoveryPanel | null;
-  fileChat: FileChatView | null;
+  fileView: FileReadView | null;
   fileNotice: string | null;
   highlight: { messageId: string; text: string } | null;
   focus: { id: string; nonce: number } | null;
@@ -72,10 +64,8 @@ export type DiscoveryController = {
   openPanel(panel: "brief" | "questions"): void;
   closePanel(): void;
   openChooser(): void;
-  chooseFile(file: File): void;
+  chooseFile(file: File): Promise<void>;
   openFile(fileId: string): void;
-  setFileDraft(text: string): void;
-  sendFileAnswer(text: string): Promise<void>;
   reopen(questionId: string): void;
   focusQuestion(questionId: string): void;
   viewAnswer(questionId: string): void;
@@ -161,8 +151,6 @@ export function useDiscovery(
   const [reopened, setReopened] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
   const [panel, setPanel] = useState<DiscoveryPanel | null>(null);
-  const [staged, setStaged] = useState<{ key: string; name: string; sizeBytes: number } | null>(null);
-  const [fileDrafts, setFileDrafts] = useState<Record<string, string>>({});
   const [fileNotice, setFileNotice] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<{ messageId: string; text: string } | null>(null);
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
@@ -178,10 +166,9 @@ export function useDiscovery(
   const panelRef = useRef(panel);
   const sending = useRef(false);
   const savingChange = useRef(false);
-  const fileSending = useRef(false);
+  const adding = useRef(false);
   const confirmationRef = useRef(confirmation);
   const shownGeneration = useRef(0);
-  const held = useRef(new Map<string, HeldFileChat>());
   confirmationRef.current = confirmation;
   briefRef.current = brief;
   draftsRef.current = drafts;
@@ -206,22 +193,6 @@ export function useDiscovery(
   const { messages, status, setMessages } = useChat<DiscoveryUIMessage>({ chat });
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-
-  const idleStore = useRef<Chat<FileChatUIMessage> | null>(null);
-  if (idleStore.current === null) {
-    idleStore.current = new Chat<FileChatUIMessage>({
-      id: "file-idle",
-      messages: [],
-      transport: port.fileChat({ kind: "existing", fileId: "idle" }),
-    });
-  }
-  const idleChat = idleStore.current;
-  const fileKey = panel?.kind === "file" ? panel.key : null;
-  const fileEntry = fileKey ? (held.current.get(fileKey) ?? null) : null;
-  const activeFileChat = fileEntry?.chat ?? idleChat;
-  const { messages: fileMessages, status: fileStatus } = useChat<FileChatUIMessage>({ chat: activeFileChat });
-  const fileChatRef = useRef(activeFileChat);
-  fileChatRef.current = activeFileChat;
 
   useEffect(() => {
     if (!active || !returnFocus) return;
@@ -273,30 +244,6 @@ export function useDiscovery(
   }, [port, setMessages]);
 
   useEffect(() => {
-    if (panel?.kind !== "file") return;
-    const entry = held.current.get(panel.key);
-    if (!entry?.staged) return;
-    const created = files.find(
-      (item) => item.origin === "discovery" && item.name === entry.name && !entry.seen.has(item.id),
-    );
-    if (!created || created.origin !== "discovery") return;
-    entry.staged = false;
-    held.current.delete(panel.key);
-    held.current.set(created.id, entry);
-    const oldKey = panel.key;
-    setFileDrafts((draftsNow) => {
-      if (!(oldKey in draftsNow)) return draftsNow;
-      const next = { ...draftsNow };
-      const text = next[oldKey] ?? "";
-      delete next[oldKey];
-      next[created.id] = text;
-      return next;
-    });
-    setStaged((item) => (item?.key === oldKey ? null : item));
-    setPanel({ kind: "file", key: created.id });
-  }, [files, panel]);
-
-  useEffect(() => {
     if (!highlight) return;
     const timer = window.setTimeout(() => setHighlight(null), 2000);
     return () => window.clearTimeout(timer);
@@ -329,159 +276,42 @@ export function useDiscovery(
     });
   }
 
-  function linkedFile(): Extract<DiscoveryFile, { origin: "discovery" }> | null {
-    if (!fileEntry) return null;
-    if (fileKey) {
-      const byId = files.find((item) => item.origin === "discovery" && item.id === fileKey);
-      if (byId && byId.origin === "discovery") return byId;
-    }
-    if (!fileEntry.staged) return null;
-    const created = files.find(
-      (item) => item.origin === "discovery" && item.name === fileEntry.name && !fileEntry.seen.has(item.id),
-    );
-    return created && created.origin === "discovery" ? created : null;
-  }
-
-  function releaseUncommitted(current: DiscoveryPanel | null) {
-    if (current?.kind !== "file") return;
-    const entry = held.current.get(current.key);
-    if (!entry?.staged) return;
-    const committed = filesRef.current.some(
-      (item) => item.origin === "discovery" && item.name === entry.name && !entry.seen.has(item.id),
-    );
-    if (committed) return;
-    held.current.delete(current.key);
-    setStaged((item) => (item?.key === current.key ? null : item));
-    setFileDrafts((draftsNow) => {
-      if (!(current.key in draftsNow)) return draftsNow;
-      const next = { ...draftsNow };
-      delete next[current.key];
-      return next;
-    });
-  }
-
   function remember(opener: DiscoveryOpener) {
     openerRef.current = opener;
   }
 
   function pointAt(questionId: string) {
     setOneAtATime(false);
-    releaseUncommitted(panelRef.current);
     setPanel(null);
     setRestore(null);
     setFocus({ id: questionId, nonce: Date.now() });
   }
 
-  function chooseFile(file: File) {
-    // A staged file commits with its first answer. Confirmation takes no new answer, so it takes no new file.
-    if (confirmationRef.current) return;
-    const key = `new:${file.name}`;
-    if (!held.current.has(key)) {
-      const seen = new Set(
-        filesRef.current.filter((item) => item.origin === "discovery").map((item) => item.id),
-      );
-      const fileChat = new Chat<FileChatUIMessage>({
-        id: `file-new-${file.name}`,
-        messages: [
-          {
-            id: `open-${file.name}`,
-            role: "assistant",
-            parts: [{ type: "text", text: TEXT.fileQuestion }],
-          },
-        ],
-        transport: port.fileChat({ kind: "new", file }),
-        onData: (part) => {
-          if (part.type === "data-usage") setUsage(part.data);
-        },
-      });
-      held.current.set(key, { chat: fileChat, name: file.name, staged: true, seen });
-      setStaged({ key, name: file.name, sizeBytes: file.size });
-    }
+  async function chooseFile(file: File) {
+    if (adding.current) return;
+    adding.current = true;
     setFileNotice(null);
-    setPanel({ kind: "file", key });
+    try {
+      const result = await port.addFile(file);
+      if (!result.ok) {
+        setFileNotice(result.refusal.reason);
+        return;
+      }
+      setPanel(null);
+      const opener = openerRef.current;
+      if (opener) setRestore({ nonce: Date.now(), opener });
+    } finally {
+      adding.current = false;
+    }
   }
 
   function openFile(fileId: string) {
     const file = filesRef.current.find((item) => item.id === fileId && item.origin === "discovery");
     if (!file || file.origin !== "discovery") return;
-    const stagedKey = `new:${file.name}`;
-    const stagedEntry = held.current.get(stagedKey);
-    if (!held.current.has(fileId) && stagedEntry) {
-      stagedEntry.staged = false;
-      held.current.delete(stagedKey);
-      held.current.set(fileId, stagedEntry);
-    }
-    if (!held.current.has(fileId)) {
-      held.current.set(fileId, {
-        name: file.name,
-        staged: false,
-        seen: new Set(filesRef.current.map((item) => item.id)),
-        chat: new Chat<FileChatUIMessage>({
-          id: `file-${fileId}`,
-          messages: structuredClone(initial.fileChats[fileId] ?? []),
-          transport: port.fileChat({ kind: "existing", fileId }),
-          onData: (part) => {
-            if (part.type === "data-usage") setUsage(part.data);
-          },
-        }),
-      });
-    }
     setFileNotice(null);
     remember({ kind: "file", fileId });
     setRestore(null);
     setPanel({ kind: "file", key: fileId });
-  }
-
-  function setFileDraft(text: string) {
-    const key = panelRef.current?.kind === "file" ? panelRef.current.key : null;
-    if (!key) return;
-    setFileDrafts((draftsNow) => ({ ...draftsNow, [key]: text }));
-  }
-
-  async function sendFileAnswer(text: string) {
-    if (confirmationRef.current) return;
-    const trimmed = text.trim();
-    if (trimmed.length === 0) return;
-    if (fileSending.current) return;
-    const current = fileChatRef.current;
-    if (current === idleChat) return;
-    if (current.status === "submitted" || current.status === "streaming") return;
-    const key = panelRef.current?.kind === "file" ? panelRef.current.key : null;
-    // The pause question arrives with the file status, not as a chat message. Keep it in the
-    // transcript above the answer it gets.
-    const waitingFile = filesRef.current.find((item) => item.id === key);
-    if (waitingFile?.origin === "discovery" && waitingFile.status.kind === "waiting") {
-      const question = waitingFile.status.question.text;
-      const asked = current.messages.some((message) =>
-        message.parts.some((part) => part.type === "text" && part.text === question),
-      );
-      if (!asked) {
-        current.messages = [
-          ...current.messages,
-          { id: `ask-${waitingFile.id}`, role: "assistant", parts: [{ type: "text", text: question }] },
-        ];
-      }
-    }
-    fileSending.current = true;
-    setFileNotice(null);
-    try {
-      await current.sendMessage({ text: trimmed });
-      if (current.status === "error") {
-        setFileNotice(parseRefusal(current.error).reason);
-        return;
-      }
-      setFileDrafts((draftsNow) => {
-        const next = { ...draftsNow };
-        if (key) next[key] = "";
-        const liveKey = panelRef.current?.kind === "file" ? panelRef.current.key : null;
-        if (liveKey) next[liveKey] = "";
-        return next;
-      });
-    } catch (error) {
-      setFileNotice(parseRefusal(error).reason);
-    } finally {
-      fileSending.current = false;
-    }
   }
 
   async function send() {
@@ -531,20 +361,11 @@ export function useDiscovery(
     }
   }
 
-  const linked = linkedFile();
-  const fileChat =
-    fileEntry && fileKey
-      ? fileChatView({
-          name: fileEntry.name,
-          sizeBytes: linked?.sizeBytes ?? (staged?.name === fileEntry.name ? staged.sizeBytes : 0),
-          file: linked,
-          messages: fileMessages,
-          draft: fileDrafts[fileKey] ?? "",
-          busy: fileStatus === "submitted" || fileStatus === "streaming",
-          paid: usage.nextReply === "paid",
-          finished: confirmation !== null,
-        })
+  const openFileRecord =
+    panel?.kind === "file"
+      ? files.find((item) => item.id === panel.key && item.origin === "discovery")
       : null;
+  const fileView = openFileRecord && openFileRecord.origin === "discovery" ? fileReadView(openFileRecord) : null;
 
   return {
     project: initial.project,
@@ -561,7 +382,7 @@ export function useDiscovery(
     reopened,
     pinned,
     panel,
-    fileChat,
+    fileView,
     fileNotice,
     highlight,
     focus,
@@ -605,13 +426,11 @@ export function useDiscovery(
       }
     },
     openPanel(next) {
-      releaseUncommitted(panelRef.current);
       remember(next);
       setRestore(null);
       setPanel({ kind: next });
     },
     closePanel() {
-      releaseUncommitted(panelRef.current);
       setFileNotice(null);
       setPanel(null);
       const opener = openerRef.current;
@@ -619,7 +438,6 @@ export function useDiscovery(
     },
     openChooser() {
       if (!fileRows(filesRef.current, initial.project.funded).canAdd) return;
-      releaseUncommitted(panelRef.current);
       remember("add");
       setRestore(null);
       setFileNotice(null);
@@ -627,8 +445,6 @@ export function useDiscovery(
     },
     chooseFile,
     openFile,
-    setFileDraft,
-    sendFileAnswer,
     reopen(questionId) {
       shownGeneration.current += 1;
       setReopened((current) => (current.includes(questionId) ? current : [...current, questionId]));
@@ -642,7 +458,6 @@ export function useDiscovery(
     viewAnswer(questionId) {
       const opener = panelRef.current ? openerRef.current : null;
       const target = answerTarget(briefRef.current, messagesRef.current, questionId);
-      releaseUncommitted(panelRef.current);
       setPanel(null);
       if (target) setHighlight(target);
       if (opener) setRestore({ nonce: Date.now(), opener });
@@ -718,11 +533,13 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
   const open = openForReview(brief);
   const sections = reviewSections(brief);
   const ticks: ReviewTicks = { reviewedRevision, openGaps, data: dataAck };
+  const reading = files.some((file) => file.origin === "discovery" && file.status.kind === "reading");
   const gate = reviewGate({
     revision: brief.revision,
     openCount: open.length,
     ticks,
     editing: editingId !== null,
+    reading,
   });
 
   return {
@@ -817,6 +634,7 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
         openCount: openNow.length,
         ticks: { reviewedRevision, openGaps, data: dataAck },
         editing: editingId !== null,
+        reading: files.some((file) => file.origin === "discovery" && file.status.kind === "reading"),
       });
       if (!ready.canFinish || busy) return;
       setBusy(true);

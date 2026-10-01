@@ -6,12 +6,11 @@ import type {
   Confirmation,
   DiscoveryRequestBody,
   DiscoveryState,
+  DiscoveryFile,
   DiscoveryUIMessage,
   DiscoveryUsage,
-  FileChatUIMessage,
-  FileStatus,
 } from "../../../src/lib/discovery-stream";
-import type { FileChatTarget, Result, ServerChange } from "../../../src/components/discovery/port";
+import type { Result, ServerChange } from "../../../src/components/discovery/port";
 import { nextFileId, nextOpenQuestions, questionForTopic, questionPart, replyKind, scriptForName, seedState } from "./fixture-data";
 import type { Pace, ScreenScenario } from "./givens";
 
@@ -25,16 +24,6 @@ export type AppliedTurn = {
   usage: DiscoveryUsage;
 };
 
-export type AppliedFileAnswer = {
-  fileId: string;
-  assistantId: string;
-  reply: string;
-  charge: Extract<DiscoveryUIMessage["parts"][number], { type: "data-charge" }>;
-  usage: DiscoveryUsage;
-  status: FileStatus;
-  startedRead: boolean;
-};
-
 export type FixtureWorld = {
   load(): Promise<Result<DiscoveryState>>;
   read(): DiscoveryState;
@@ -45,16 +34,14 @@ export type FixtureWorld = {
   askTopic(input: { topicId: string }): Promise<Result<BriefSnapshot>>;
   removeCauseLabel(input: { label: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   finish(input: { revision: number; acks: { reviewed: true; openGaps: boolean; data: true } }): Promise<Result<Confirmation>>;
-  fileBlock(target: FileChatTarget): { kind: string; reason: string } | null;
-  applyFileAnswer(input: {
-    target: FileChatTarget;
-    text: string;
-    messages: FileChatUIMessage[];
-  }): Result<AppliedFileAnswer>;
+  /** Why this file cannot be added. Null when the read can start. */
+  fileRefusal(file: File): { kind: string; reason: string } | null;
+  /** Upload one file and start its read. The value is the created file, with its id. */
+  addFile(file: File): Result<DiscoveryFile>;
 };
 
 function storageKey(scenario: ScreenScenario): string {
-  return `ai4good.discovery.fixture.v1.${scenario}`;
+  return `ai4good.discovery.fixture.v2.${scenario}`;
 }
 
 function isState(value: unknown): value is DiscoveryState {
@@ -65,10 +52,7 @@ function isState(value: unknown): value is DiscoveryState {
     Array.isArray(state.transcript) &&
     Array.isArray(state.files) &&
     typeof state.usage?.allocationMicros === "number" &&
-    typeof state.project?.title === "string" &&
-    state.fileChats !== null &&
-    typeof state.fileChats === "object" &&
-    !Array.isArray(state.fileChats)
+    typeof state.project?.title === "string"
   );
 }
 
@@ -350,8 +334,6 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       // A real change drops the earlier approval. Opening Edit and going back does not.
       next.confirmation = null;
       commit(next, true);
-      // A read that reached its question while Discovery was confirmed asks once the change reopens it.
-      releaseHeldQuestions();
       return { ok: true, value: structuredClone(next.brief) };
     },
     async askTopic(input) {
@@ -407,6 +389,9 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       if (state.confirmation && state.confirmation.revision === input.revision) {
         return { ok: true, value: structuredClone(state.confirmation) };
       }
+      if (state.files.some((file) => file.origin === "discovery" && file.status.kind === "reading")) {
+        return refusal("file-reading", TEXT.fileStillReading);
+      }
       if (input.revision !== state.brief.revision) return stale();
       const open = state.brief.topics.filter((topic) => !topicSettled(topic));
       if (open.length > 0 && !input.acks.openGaps) {
@@ -426,20 +411,18 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       commit({ ...state, confirmation });
       return { ok: true, value: structuredClone(confirmation) };
     },
-    fileBlock,
-    applyFileAnswer,
+    fileRefusal,
+    addFile,
   };
 
   // The read stays in the world, so closing the panel does not stop it.
-  // Test steps stay long enough for the screen host to read "Reading… N%".
-  // Demo steps match the board: 1200 ms to 35%, 1000 ms to the question, 1200 ms to 70%, 2400 ms to ready.
+  // The read does not pause. Test steps stay long enough to show "Reading… N%".
+  // Demo steps: 1200 ms to 35%, 1200 ms to 70%, 2400 ms to ready. The pause value is unused.
   const delay =
     pace === "test"
       ? { to35: 400, pause: 400, to70: 400, ready: 2200 }
       : { to35: 1200, pause: 1000, to70: 1200, ready: 2400 };
   const timers = new Map<string, number[]>();
-  // Reads that reached a question while Discovery was confirmed. They ask when a saved change reopens it.
-  const heldQuestions = new Set<string>();
 
   function clearTimers(fileId: string) {
     const pending = timers.get(fileId);
@@ -469,113 +452,36 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     return true;
   }
 
-  function pauseRead(fileId: string) {
-    const next = structuredClone(state);
-    const file = discoveryFile(next, fileId);
-    if (!file || file.status.kind !== "reading") {
-      heldQuestions.delete(fileId);
-      return;
-    }
-    const pause = scriptForName(file.name).pause;
-    if (!pause) {
-      heldQuestions.delete(fileId);
-      return;
-    }
-    // A finished Discovery stops new questions. The read waits here until a saved change reopens it.
-    if (next.confirmation) {
-      heldQuestions.add(fileId);
-      return;
-    }
-    heldQuestions.delete(fileId);
-    const percent = file.status.percent;
-    file.status = { kind: "waiting", percent, question: { text: pause.text, chips: [...pause.chips] } };
-    const chat = next.fileChats[fileId] ?? [];
-    const asked = chat.some((message) => message.parts.some((part) => part.type === "text" && part.text === pause.text));
-    if (!asked) {
-      next.fileChats[fileId] = [
-        ...chat,
-        { id: `ask-${fileId}`, role: "assistant", parts: [{ type: "text", text: pause.text }] },
-      ];
-    }
-    commit(next);
-  }
-
   function finishRead(fileId: string) {
     const next = structuredClone(state);
     const file = discoveryFile(next, fileId);
     if (!file || file.status.kind !== "reading") return;
     const script = scriptForName(file.name);
     file.status = { kind: "ready", facts: script.facts };
-    file.tookFromIt = script.fact;
-    const suggestionId = `file-${fileId}`;
-    if (!next.brief.suggestions.some((item) => item.id === suggestionId)) {
-      next.brief.suggestions = [
-        ...next.brief.suggestions,
-        { id: suggestionId, topicId: "info", fileId, fileName: file.name, fact: script.fact },
-      ];
-    }
-    next.brief.revision += 1;
-    const done = TEXT.fileDone(script.facts);
-    const chat = next.fileChats[fileId] ?? [];
-    const told = chat.some((message) => message.parts.some((part) => part.type === "text" && part.text === done));
-    if (!told) {
-      next.fileChats[fileId] = [
-        ...chat,
-        { id: `done-${fileId}`, role: "assistant", parts: [{ type: "text", text: done }] },
-      ];
-    }
+    // A confirmed brief does not change. The row can still become ready.
+    if (!next.confirmation) file.tookFromIt = script.fact;
     commit(next);
-  }
-
-  function releaseHeldQuestions() {
-    if (state.confirmation) return;
-    for (const fileId of [...heldQuestions]) {
-      heldQuestions.delete(fileId);
-      pauseRead(fileId);
-    }
-  }
-
-  /** The pause question has no answer yet. The resume line is stored with that answer. */
-  function questionStillOpen(fileId: string): boolean {
-    const file = discoveryFile(state, fileId);
-    if (!file || !scriptForName(file.name).pause) return false;
-    const chat = state.fileChats[fileId] ?? [];
-    return !chat.some((message) =>
-      message.parts.some((part) => part.type === "text" && part.text === TEXT.fileResumeReply),
-    );
   }
 
   function scheduleRead(fileId: string, from: number) {
     clearTimers(fileId);
     const file = discoveryFile(state, fileId);
     if (!file || file.status.kind !== "reading") return;
-    // A reload drops the timers and keeps the percent. The question still pauses when it has no answer.
+    // A reload drops the timers and keeps the percent. The read continues from there.
     if (from < 35) {
       later(fileId, delay.to35, () => {
         if (!setReadingPercent(fileId, 35)) return;
-        if (!questionStillOpen(fileId)) {
-          scheduleRead(fileId, 35);
-          return;
-        }
-        if (state.confirmation) {
-          heldQuestions.add(fileId);
-          return;
-        }
-        later(fileId, delay.pause, () => pauseRead(fileId));
+        scheduleRead(fileId, 35);
       });
       return;
     }
-    if (questionStillOpen(fileId)) {
-      if (state.confirmation) {
-        heldQuestions.add(fileId);
-        return;
-      }
-      later(fileId, delay.pause, () => pauseRead(fileId));
+    if (from < 70) {
+      later(fileId, delay.to70, () => {
+        if (!setReadingPercent(fileId, 70)) return;
+        scheduleRead(fileId, 70);
+      });
       return;
     }
-    later(fileId, delay.to70, () => {
-      setReadingPercent(fileId, 70);
-    });
     later(fileId, delay.ready, () => {
       finishRead(fileId);
     });
@@ -594,102 +500,35 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     return lines.join("\n\n");
   }
 
-  function fileBlock(target: FileChatTarget): { kind: string; reason: string } | null {
-    if (target.kind === "new") {
-      const discoveryCount = state.files.filter((file) => file.origin === "discovery").length;
-      if (!state.project.funded && discoveryCount >= 3) return { kind: "file-limit", reason: TEXT.fileLimit };
-      if (state.files.some((file) => file.origin === "discovery" && file.name === target.file.name)) {
-        return { kind: "duplicate-file", reason: TEXT.fileDuplicate };
-      }
-      return null;
-    }
-    const file = state.files.find((item) => item.id === target.fileId && item.origin === "discovery");
-    if (!file || file.origin !== "discovery" || file.status.kind !== "waiting") {
-      return { kind: "not-waiting", reason: "This file is not waiting for an answer." };
+  function fileRefusal(file: File): { kind: string; reason: string } | null {
+    if (state.confirmation) return { kind: "finished", reason: TEXT.filesFinished };
+    const discoveryCount = state.files.filter((item) => item.origin === "discovery").length;
+    if (!state.project.funded && discoveryCount >= 3) return { kind: "file-limit", reason: TEXT.fileLimit };
+    if (state.files.some((item) => item.origin === "discovery" && item.name === file.name)) {
+      return { kind: "duplicate-file", reason: TEXT.fileDuplicate };
     }
     return null;
   }
 
-  function unavailable(): Result<never> {
-    return refusal(
-      state.usage.betaLeft > 0 ? "daily-limit" : "beta-limit",
-      state.usage.betaLeft > 0
-        ? "Today's free replies are used and the project has no fuel for Discovery."
-        : "All beta free replies are used and the project has no fuel for Discovery.",
-    );
-  }
-
-  function applyFileAnswer(input: {
-    target: FileChatTarget;
-    text: string;
-    messages: FileChatUIMessage[];
-  }): Result<AppliedFileAnswer> {
-    if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
-    const blocked = fileBlock(input.target);
+  function addFile(file: File): Result<DiscoveryFile> {
+    const blocked = fileRefusal(file);
     if (blocked) return refusal(blocked.kind, blocked.reason);
-    const charged = charge(state.usage);
-    if (!charged || charged.charge.type !== "data-charge") return unavailable();
     const next = structuredClone(state);
-    next.usage = charged.usage;
-    let fileId: string;
-    let reply: string;
-    let from = 5;
-    const startedRead = input.target.kind === "new";
-    if (input.target.kind === "new") {
-      fileId = nextFileId(input.target.file.name, next.files.map((item) => item.id));
-      next.files = [
-        ...next.files,
-        {
-          origin: "discovery",
-          id: fileId,
-          name: input.target.file.name,
-          sizeBytes: input.target.file.size,
-          status: { kind: "reading", percent: 5 },
-          tookFromIt: null,
-        },
-      ];
-      reply = TEXT.fileReadingReply;
-    } else {
-      fileId = input.target.fileId;
-      const file = discoveryFile(next, fileId);
-      if (!file || file.status.kind !== "waiting") return refusal("not-waiting", "This file is not waiting for an answer.");
-      from = file.status.percent;
-      file.status = { kind: "reading", percent: from };
-      reply = TEXT.fileResumeReply;
-    }
-    const assistantId = `file-reply-${fileId}-${input.messages.length}`;
-    const assistant: FileChatUIMessage = {
-      id: assistantId,
-      role: "assistant",
-      parts: [
-        { type: "text", text: reply },
-        charged.charge,
-      ],
+    const id = nextFileId(file.name, next.files.map((item) => item.id));
+    const created: DiscoveryFile = {
+      origin: "discovery",
+      id,
+      name: file.name,
+      sizeBytes: file.size,
+      status: { kind: "reading", percent: 5 },
+      tookFromIt: null,
     };
-    // The world adds the pause question and the done line itself, so the client's copy lacks them.
-    const stored = next.fileChats[fileId] ?? [];
-    const storedIds = new Set(stored.map((message) => message.id));
-    next.fileChats[fileId] = [
-      ...stored,
-      ...structuredClone(input.messages).filter((message) => !storedIds.has(message.id)),
-      assistant,
-    ];
+    next.files = [...next.files, created];
     commit(next);
-    scheduleRead(fileId, from);
-    const saved = discoveryFile(state, fileId);
-    if (!saved) return refusal("send-failed", "The reply did not finish.");
-    return {
-      ok: true,
-      value: {
-        fileId,
-        assistantId,
-        reply,
-        charge: charged.charge,
-        usage: structuredClone(state.usage),
-        status: structuredClone(saved.status),
-        startedRead,
-      },
-    };
+    scheduleRead(id, 5);
+    const saved = discoveryFile(state, id);
+    if (!saved) return refusal("send-failed", "The file was not added.");
+    return { ok: true, value: structuredClone(saved) };
   }
 
   for (const file of state.files) {

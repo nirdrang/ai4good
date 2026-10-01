@@ -7,7 +7,6 @@ import type {
   DiscoveryState,
   DiscoveryUIMessage,
   DiscoveryUsage,
-  FileChatUIMessage,
 } from "@/lib/discovery-stream";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; refusal: DiscoveryRefusal };
@@ -21,18 +20,17 @@ export type ServerChange = {
   transcript?: DiscoveryUIMessage[];
 };
 
-export type FileChatTarget = { kind: "new"; file: File } | { kind: "existing"; fileId: string };
-
 /** Everything the Discovery screen reads or writes. No member rewrites or regenerates. */
 export interface DiscoveryPort {
   load(): Promise<Result<DiscoveryState>>;
-  /** One main-chat turn per send. The only model call besides fileChat. */
+  /** One main-chat turn per send. A file read is not a turn. */
   readonly chat: ChatTransport<DiscoveryUIMessage>;
   /**
-   * One file-chat turn per answer. For a new file, the first answer uploads the file, creates it,
-   * charges one turn, and starts the read, together. Refused at the three-file limit when not funded.
+   * Upload one file and start its read. The result carries the created file and its id.
+   * Refused at the three-file limit when the project is not funded, and when the name is already listed.
+   * The read uses no reply, no free turn, and no fuel.
    */
-  fileChat(target: FileChatTarget): ChatTransport<FileChatUIMessage>;
+  addFile(file: File): Promise<Result<DiscoveryFile>>;
   subscribe(listener: (change: ServerChange) => void): () => void;
   saveBriefEdit(input: {
     sectionId: string;
