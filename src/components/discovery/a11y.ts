@@ -46,7 +46,6 @@ export const SCREEN = {
   findVolunteer: { role: "button", name: "Find a volunteer" },
 } as const satisfies Record<string, Landmark>;
 
-/** Names of repeated controls. The argument is the visible text the name is built from. */
 export const NAME = {
   option: (label: string, suggested: boolean) => (suggested ? `${label} Suggested` : label),
   writeOwn: "Write my own",

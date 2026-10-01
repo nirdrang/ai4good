@@ -11,34 +11,28 @@ import type {
 } from "@/lib/discovery-stream";
 import { BRIEF_STATUS, IMPORTANCE, NAME, QUESTION_STATUS, TEXT, type QuestionStatus } from "./a11y";
 
-/** What the NGO has chosen for one current question but not yet sent. */
 export type Draft =
   | { kind: "option"; optionId: string }
   | { kind: "own"; text: string }
   | { kind: "uncertain" };
 
-/** The snapshot with the higher revision wins, whichever path delivered it. */
 export function newerBrief(current: BriefSnapshot, incoming: BriefSnapshot): BriefSnapshot {
   return incoming.revision > current.revision ? incoming : current;
 }
 
-/** Agreed, and not waiting on a changed answer it depends on. */
 export function topicSettled(topic: BriefTopic): boolean {
   return topic.state.kind === "agreed" && topic.needsReview !== true;
 }
 
-/** True when this confirmation approves the brief's current revision. */
 export function confirmationCurrent(brief: BriefSnapshot, confirmation: Confirmation | null): boolean {
   return confirmation !== null && confirmation.revision === brief.revision;
 }
 
-/** Tier 0 and a brief with no tier need no data box. Tier 1 and Tier 2 do. */
 export function dataTierOf(brief: BriefSnapshot): 0 | 1 | 2 {
   const tier = brief.dataTier?.tier;
   return tier === 1 || tier === 2 ? tier : 0;
 }
 
-/** The words Save change stores. Null until the draft is an answer. */
 export function answerText(question: BriefQuestion, draft: Draft | undefined): string | null {
   if (!draft) return null;
   if (draft.kind === "option") {
@@ -51,7 +45,6 @@ export function answerText(question: BriefQuestion, draft: Draft | undefined): s
   return NAME.notSure;
 }
 
-/** Asked questions whose topic is not settled, plus any question Edit reopened. */
 export function currentQuestions(
   brief: BriefSnapshot,
   reopened: readonly string[] = [],
@@ -79,7 +72,6 @@ function paragraphsOf(text: string): string[] {
     .filter((block) => block.length > 0);
 }
 
-/** The first paragraph a person reads in one chat line. */
 export function messageLead(message: DiscoveryUIMessage): string | null {
   for (const part of message.parts) {
     if (part.type !== "text") continue;
@@ -89,7 +81,6 @@ export function messageLead(message: DiscoveryUIMessage): string | null {
   return null;
 }
 
-/** The conversation a person reads. Question parts stay out of the bubbles. */
 export function presentMessages(messages: readonly DiscoveryUIMessage[]): PresentedMessage[] {
   return messages.flatMap((message) => {
     if (message.role !== "user" && message.role !== "assistant") return [];
@@ -112,11 +103,6 @@ export function presentMessages(messages: readonly DiscoveryUIMessage[]): Presen
 
 export type FileBarTone = "reading";
 
-/** The file bar colour while a read is in progress. */
-export function fileBarClass(_tone: FileBarTone): string {
-  return "bg-progress-reading";
-}
-
 export type FileRowView = {
   id: string;
   name: string;
@@ -127,7 +113,6 @@ export type FileRowView = {
   canOpen: boolean;
 };
 
-/** 1 KB is the smallest label. A megabyte keeps one decimal. */
 function formatFileSize(bytes: number): string {
   if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -187,11 +172,9 @@ export type FileReadView = {
   statusText: string;
   percent: number | null;
   tone: FileBarTone | null;
-  /** The facts line once the read is ready. Null while the read runs. */
   factText: string | null;
 };
 
-/** The read-only file panel. It shows progress while the read runs, then the facts. */
 export function fileReadView(file: Extract<DiscoveryFile, { origin: "discovery" }>): FileReadView {
   const factText = file.tookFromIt ? TEXT.review.took(file.tookFromIt) : null;
   if (file.status.kind === "reading") {
@@ -224,7 +207,6 @@ export function fileReadView(file: Extract<DiscoveryFile, { origin: "discovery" 
   };
 }
 
-/** Whole cents stay two digits. A fractional cent stays visible. */
 function formatUsd(micros: number): string {
   const sign = micros < 0 ? "-" : "";
   const abs = Math.abs(micros);
@@ -258,7 +240,6 @@ export function sourceText(source: BriefSource): string {
   }
 }
 
-/** Required topics only. The percent rounds down. */
 export function progressOf(brief: BriefSnapshot): { agreed: number; total: number; percent: number } {
   const required = brief.topics.filter((topic) => topic.required);
   const agreed = required.filter((topic) => topicSettled(topic)).length;
@@ -290,7 +271,6 @@ function draftNote(question: BriefQuestion, draft: Draft): string {
   return NAME.notSure;
 }
 
-/** One row per topic, in checklist order. */
 export function questionRows(
   brief: BriefSnapshot,
   drafts: Readonly<Record<string, Draft>>,
@@ -369,7 +349,6 @@ export type BriefSectionView = {
   questionId: string | null;
 };
 
-/** The need, then each topic. Edit exists only where a question can reopen. */
 export function briefSections(brief: BriefSnapshot): BriefSectionView[] {
   const sections: BriefSectionView[] = [
     {
@@ -472,7 +451,6 @@ function ratio(used: number, total: number): number {
   return used / total;
 }
 
-/** The free fill uses the same limit that sets the free colour: the more consumed of the two. */
 function freeFill(usage: DiscoveryUsage, betaFirst: boolean): number {
   const left = betaFirst ? usage.betaLeft : usage.dailyLeft;
   const grant = betaFirst ? usage.betaGrant : usage.dailyGrant;
@@ -565,7 +543,6 @@ export type OpenReviewItem = {
   suggestion: string | null;
 };
 
-/** Topics that are not agreed, in importance order. An unasked topic still appears. */
 export function openForReview(brief: BriefSnapshot): OpenReviewItem[] {
   const items = brief.topics.flatMap((topic): OpenReviewItem[] => {
     if (topicSettled(topic)) return [];
@@ -594,7 +571,6 @@ export type ReviewSection = {
   editable: boolean;
 };
 
-/** The brief as it stands. An accepted suggestion stays as the person accepted it. */
 export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
   const sections: ReviewSection[] = [
     {
@@ -638,7 +614,6 @@ export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
 
 export type ReviewTicks = {
   reviewedRevision: number | null;
-  /** The open count when the NGO ticked the box. Null when the box is clear. */
   openGapsCount: number | null;
   data: boolean;
 };

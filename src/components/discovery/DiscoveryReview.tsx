@@ -512,7 +512,6 @@ function importanceClass(importance: Importance): string {
   return "bg-muted text-muted-foreground";
 }
 
-/** Hide the jump bar once a quarter of the confirm card is inside the column. */
 function useConfirmInView(root: RefObject<HTMLDivElement | null>, card: RefObject<HTMLDivElement | null>): boolean {
   const [inView, setInView] = useState(false);
   useEffect(() => {

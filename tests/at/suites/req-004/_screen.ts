@@ -91,7 +91,6 @@ function questionGroup(page: ScreenPage, text: string): QuestionGroupObject {
   };
 }
 
-/** The Discovery screen as a person meets it. Locators come from a11y.ts. */
 export class DiscoveryPage {
   constructor(
     private readonly page: ScreenPage,

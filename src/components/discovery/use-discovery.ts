@@ -122,7 +122,6 @@ function answersFromDrafts(
   });
 }
 
-/** True when the draft is still the answer that was sent. */
 function draftStillMatches(draft: Draft | undefined, answer: DiscoveryAnswer): boolean {
   if (!draft) return false;
   if (!answer.certain) return draft.kind === "uncertain";

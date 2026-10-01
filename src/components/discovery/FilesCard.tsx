@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { NAME, SCREEN, TEXT } from "./a11y";
-import { fileBarClass, fileRows, type FileRowView } from "./model";
+import { fileRows, type FileRowView } from "./model";
 
 function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): void }) {
   const nameId = useId();
@@ -33,7 +33,7 @@ function FileRow({ row, onOpen }: { row: FileRowView; onOpen(fileId: string): vo
       {row.percent !== null && row.tone ? (
         <Progress
           className="h-1"
-          indicatorClassName={fileBarClass(row.tone)}
+          indicatorClassName="bg-progress-reading"
           value={row.percent}
           aria-label={NAME.reading(row.name)}
         />

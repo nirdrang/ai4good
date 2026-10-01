@@ -134,7 +134,6 @@ const CONFIRMED = {
   ],
 } as const;
 
-/** The visible inputs of each Given that a body refers to. Expected results stay in the body. */
 export const GIVEN = {
   "first-reply": {
     start: "chat" as Start,

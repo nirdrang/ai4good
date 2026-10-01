@@ -69,7 +69,6 @@ function slug(name: string): string {
   return base.length > 0 ? base : "file";
 }
 
-/** A known file keeps its id. Any other name becomes a slug, with -2 when that id is taken. */
 export function nextFileId(name: string, taken: readonly string[]): string {
   const known = FILE_SCRIPTS.find((item) => item.name === name);
   const base = known?.id ?? slug(name);
@@ -236,7 +235,6 @@ function questionBank(topic: BriefTopic): {
   }
 }
 
-/** A question for one topic. The id is the topic id. This call does not charge a turn. */
 export function questionForTopic(topic: BriefTopic, round: number): BriefQuestion {
   const bank = questionBank(topic);
   return asked(
@@ -252,7 +250,7 @@ export function questionForTopic(topic: BriefTopic, round: number): BriefQuestio
   );
 }
 
-/** Up to two open topics that have no question yet. Booking rules wait while booking is still open. */
+/** Booking rules wait while booking is open. */
 export function nextOpenQuestions(brief: BriefSnapshot, round: number): BriefQuestion[] {
   const booking = brief.topics.find((item) => item.id === "booking");
   const askedTopics = new Set(brief.questions.map((question) => question.topicId));

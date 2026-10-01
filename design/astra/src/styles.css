@@ -1685,7 +1685,6 @@ hr {
     padding-inline: 17px;
   }
 }
-/* Discovery fills the height under the shell header. The page does not scroll. */
 body:has(.discovery-content) {
   overflow: hidden;
 }

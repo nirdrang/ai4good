@@ -84,7 +84,6 @@ export function mimeType(fileName: string): string {
   }
 }
 
-/** Polls `read` until `accept` holds or the time runs out. The error names `what` and the last value. */
 export async function eventually<T>(
   what: string,
   read: () => Promise<T>,

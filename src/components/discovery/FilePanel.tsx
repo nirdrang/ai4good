@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { NAME, SCREEN, TEXT } from "./a11y";
-import { fileBarClass, type FileReadView } from "./model";
+import type { FileReadView } from "./model";
 
 const FULL_SCREEN =
   "inset-0 top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0 sm:rounded-none";
@@ -99,7 +99,7 @@ function PanelBody({
         {view.percent !== null && view.tone ? (
           <Progress
             className="h-1"
-            indicatorClassName={fileBarClass(view.tone)}
+            indicatorClassName="bg-progress-reading"
             value={view.percent}
             aria-label={NAME.reading(view.name)}
           />

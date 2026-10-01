@@ -34,11 +34,8 @@ export type FixtureWorld = {
   askTopic(input: { topicId: string }): Promise<Result<BriefSnapshot>>;
   removeCauseLabel(input: { label: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   finish(input: { revision: number; acks: { reviewed: true; openGaps: boolean; data: boolean } }): Promise<Result<Confirmation>>;
-  /** Add fuel. Free replies stay as they are. The shell is the only caller. */
   buyFuel(amountMicros: number): DiscoveryUsage;
-  /** Why this file cannot be added. Null when the read can start. */
   fileRefusal(file: File): { kind: string; reason: string } | null;
-  /** Upload one file and start its read. The value is the created file, with its id. */
   addFile(file: File): Result<DiscoveryFile>;
 };
 
@@ -78,7 +75,6 @@ function allRequiredAgreed(brief: BriefSnapshot): boolean {
   return required.length > 0 && required.every((topic) => topicSettled(topic));
 }
 
-/** A changed answer reopens these topics when they already have an answer. */
 const DEPENDENTS: Record<string, readonly string[]> = {
   priority: ["measure"],
   booking: ["rules"],
@@ -107,7 +103,6 @@ function replyText(certain: string[], uncertain: boolean): string {
   return "I read your note. The open questions stay in the chat.";
 }
 
-/** One stored person line. The text comes from the request. The id matches the line the chat showed. */
 function userLineFrom(request: DiscoveryRequestBody, messages: DiscoveryUIMessage[]): DiscoveryUIMessage {
   const text = [...request.answers.map((answer) => answer.text), request.message]
     .filter((item) => item.length > 0)
@@ -180,7 +175,6 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
     return brief.topics.find((item) => item.id === sectionId)?.title ?? sectionId;
   }
 
-  /** One person line. No assistant reply and no charge. The id is the new revision. */
   function appendPersonLine(snapshot: DiscoveryState, revision: number, text: string): string {
     const id = `you-${revision}`;
     snapshot.transcript.push({ id, role: "user", parts: [{ type: "text", text }] });
@@ -465,11 +459,10 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
 
   // The read stays in the world, so closing the panel does not stop it.
   // The read does not pause. Test steps stay long enough to show "Reading… N%".
-  // Demo steps: 1200 ms to 35%, 1200 ms to 70%, 2400 ms to ready. The pause value is unused.
   const delay =
     pace === "test"
-      ? { to35: 400, pause: 400, to70: 400, ready: 2200 }
-      : { to35: 1200, pause: 1000, to70: 1200, ready: 2400 };
+      ? { to35: 400, to70: 400, ready: 2200 }
+      : { to35: 1200, to70: 1200, ready: 2400 };
   const timers = new Map<string, number[]>();
 
   function clearTimers(fileId: string) {
