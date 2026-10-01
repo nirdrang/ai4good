@@ -5,16 +5,23 @@ description: Drive the real ai4good surface on the local Supabase stack (auth, e
 
 # verify-ai4good
 
-The user-facing surface today is the API, not a screen. `src/routes/index.tsx` renders a
-placeholder heading only. A user touches: Supabase Auth (email and password signup with
-mandatory email confirmation; Google and GitHub OAuth are configured, but consent is a human
-browser step no agent performs), fourteen edge functions under `supabase/functions/`, and the
-Postgres rows they write. The functions fall into five groups: signup and organisations
-(`complete-signup`, `create-organization`, `update-organization`, `set-organization-profile`),
-tenant reads (`organization-dashboard`, `project-workspace`, `public-project`), platform-admin
-operations (`transfer-organization-contact`, `set-escalation-contact`, `set-account-lifecycle`,
-`set-organization-vetting`), the Discovery allowance (`discovery-allowance`), and the project
-need intake (`need-intake`, `project-need`). The registry in
+The user-facing surface today is mostly the API. `src/routes/index.tsx` renders a
+placeholder heading only, and one page, `/discovery/:organizationId/:projectId`, is a bare
+Discovery chat (`features/discovery-chat-page.md`). The fixture-built Discovery screen in
+`src/components/discovery/` is mounted by no route yet; it runs only in the design shell
+under `design/astra/`, and its own acceptance tests drive it there. A user touches: Supabase Auth
+(email and password signup with mandatory email confirmation; Google and GitHub OAuth are
+configured, but consent is a human browser step no agent performs), eighteen edge functions
+under `supabase/functions/`, and the Postgres rows they write. The functions fall into six
+groups: signup and organisations (`complete-signup`, `create-organization`,
+`update-organization`, `set-organization-profile`), tenant reads (`organization-dashboard`,
+`project-workspace`, `public-project`), platform-admin operations
+(`transfer-organization-contact`, `set-escalation-contact`, `set-account-lifecycle`,
+`set-organization-vetting`, `set-organization-discovery`), the project need intake
+(`need-intake`, `project-need`), and Discovery (`discovery-allowance`, `discovery-message`,
+`discovery-conversation`, `discovery-scope`). `discovery-message` and `discovery-scope` call
+the model and need `ANTHROPIC_API_KEY` in `supabase/functions/.env`; without it their success
+paths are unreachable and only their refusals can be driven. The registry in
 `supabase/functions/_shared/write-routes.ts` is the authority for which account types each
 write route admits. Verification drives HTTP and reads the database. The acceptance suite
 (`bun run at:verify`) is a separate, loop-tier thing; it does not replace a live drive and a
@@ -92,7 +99,7 @@ the migration count, and `GET /auth/v1/health` answering 200. A report or transc
 name a key writes `sb_secret_REDACTED`. The same string already sits on `main` in three earlier
 items, so the block fires on new occurrences only.
 
-Four shipped drives cover the map between them; run them from the repo root, one at a time,
+Six shipped drives cover the map between them; run them from the repo root, one at a time,
 each with an optional evidence directory as its only argument:
 
 ```
@@ -100,7 +107,13 @@ bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts [outDir]       # s
 bun .claude/skills/verify-ai4good/scripts/drive-vetting.ts [outDir]          # profile, allowance, admin vetting, unvet
 bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]      # need start, save, attach, submit, snapshot
 bun .claude/skills/verify-ai4good/scripts/drive-access-and-admin.ts [outDir] # volunteer gate, organisations, tenant reads, admin operations
+bun .claude/skills/verify-ai4good/scripts/drive-discovery-refusals.ts [outDir] # Discovery read, refusals, scope refusals, the switch; no provider key
+bun .claude/skills/verify-ai4good/scripts/drive-discovery.ts [outDir]        # Discovery sends, stream, cancel, switch, fuel, drain; NEEDS the provider key
 ```
+
+`drive-discovery.ts` spends real provider credits. Run it only when
+`supabase/functions/.env` holds `ANTHROPIC_API_KEY`; otherwise run
+`drive-discovery-refusals.ts`.
 
 The recipe the first one implements, for custom drives. `live-stack.ts` sends this protocol:
 
@@ -127,7 +140,8 @@ The recipe the first one implements, for custom drives. `live-stack.ts` sends th
    revoked from every key. Tables: `accounts`, `organizations`, `org_memberships`,
    `acknowledgments`, `volunteer_profiles`, `projects`, `audit_events`,
    `org_escalation_contacts`, `org_vetting`, `discovery_spend`, `need_intakes`,
-   `notification_events`, `notification_deliveries`. The audit table is append-only by
+   `notification_events`, `notification_deliveries`, `discovery_turns`, `discovery_scopes`,
+   `cause_labels`. The audit table is append-only by
    trigger: an update, delete or truncate raises SQLSTATE 42501.
 
 Per-feature recipes and refusal cases are in [`features/`](features/README.md).
@@ -162,7 +176,7 @@ this stack. Evidence is never cleanup's to delete — `loop/verify-evidence/` su
 
 ## Helpers
 
-All four run with `bun` from the repo root. The optional first argument is the evidence
+All six drives run with `bun` from the repo root. The optional first argument is the evidence
 directory, resolved against the repo root. Exit 0 with every check PASS, exit 1 otherwise; the
 redacted `transcript.json` is written either way. Each one runs the Doctor checks first and
 stops with exit 1 when the stack is down, the mail catcher is unreachable, or the edge runtime
@@ -181,6 +195,13 @@ on PATH.
   GitHub gate refusals, create and update organisation with their refusals, the three tenant
   reads including the byte-identical 404s and the token-free public page, the catalog posture,
   and the three admin operations with their audit rows and the append-only proof.
+- [`scripts/drive-discovery-refusals.ts`](scripts/drive-discovery-refusals.ts) — past NGO
+  signup and a submitted need: the conversation read and its 404, the `discovery-message`
+  refusals decided before any model call, the `discovery-scope` refusals and label
+  pass-through, and the platform-admin Discovery switch with its audit rows. No provider key.
+- [`scripts/drive-discovery.ts`](scripts/drive-discovery.ts) — past NGO signup: a JSON send, a
+  streamed send, a cancelled send, the conversation read, the Discovery switch, a funded
+  project with no fuel, and a drained allowance. Needs the provider key and spends credits.
 - [`scripts/prepare-chat-page.ts`](scripts/prepare-chat-page.ts) — email signup, confirmation,
   NGO completion, a submitted need, and the chat page URL printed as JSON; `--drain` spends
   the daily grant through JSON sends until the zero-credit refusal.

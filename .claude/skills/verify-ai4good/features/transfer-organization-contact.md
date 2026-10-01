@@ -60,10 +60,10 @@ in "Shared mechanics" in `README.md`.
 - After the deactivating transfer, as A, call `update-organization` on any organization: expect
   403 `account-deactivated`.
 
-The shipped drive `scripts/drive-access-and-admin.ts` covers the non-deactivating transfer and
-the replay refusal. It does not cover the deactivating transfer (`deactivated` true,
-`remaining_seats` empty), the NGO caller's 403, `transferee-no-account`, or the post-transfer
-`account-deactivated` refusal.
+The shipped drive `scripts/drive-access-and-admin.ts` covers one transfer and the replay
+refusal. Its check accepts either outcome: it computes from the remaining seats whether A is
+deactivated and checks the audit row and A's lifecycle against that. It does not cover the NGO
+caller's 403, `transferee-no-account`, or the post-transfer `account-deactivated` refusal.
 
 ## What proves it
 
@@ -81,7 +81,9 @@ select occurred_at, event_kind, actor_label, subject_account_id, subject_org_id,
 Before the transfer the organization already holds one `org_role_changed` row, reason
 `membership granted`, from signup completion. Expect the three new rows above for the
 deactivating transfer, with `detail.deactivated` true and `detail.remaining_seats` `[]`.
-Expect two new rows for the non-deactivating one. Append-only: `update public.audit_events set
+Expect two new rows for the non-deactivating one. The rows of one transfer share one
+`occurred_at` (one transaction) and their ids are random, so the query's order is not the write
+order. Identify each row by `event_kind`. Append-only: `update public.audit_events set
 reason = 'x' where id = '<row>';` answers SQLSTATE `42501` "public.audit_events is
 append-only: UPDATE is refused". `delete` answers the same for DELETE.
 

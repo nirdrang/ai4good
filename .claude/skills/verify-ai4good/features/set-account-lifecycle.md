@@ -17,11 +17,15 @@ is idempotent. A deactivated account keeps its sign-in, but every write route re
 - Any account type can be the subject: NGO, volunteer, or another platform administrator.
 - Effect on the deactivated account: every write route answers 403
   `{"ok": false, "kind": "account-deactivated", "reason": "this account is deactivated, so it
-  may perform no write"}`. The write routes are `complete-signup`, `create-organization`,
-  `update-organization`, `set-organization-profile`, `project-need`, `discovery-allowance`,
-  `set-organization-vetting` and the three admin routes. The gate judges deactivation before
-  type and before presence. The reads (`organization-dashboard`, `project-workspace`,
-  `need-intake`) still answer: no read policy names the lifecycle. The Auth session stays
+  may perform no write"}`. The write routes are every row of `WRITE_ROUTES` in
+  `supabase/functions/_shared/write-routes.ts`, thirteen today: `complete-signup`,
+  `create-organization`, `update-organization`, `set-organization-profile`, `project-need`,
+  `discovery-allowance`, `discovery-message`, `discovery-scope`, and the five platform-admin
+  routes (`set-organization-vetting`, `transfer-organization-contact`,
+  `set-escalation-contact`, `set-account-lifecycle`, `set-organization-discovery`). The gate
+  judges deactivation before type and before presence. The reads (`organization-dashboard`,
+  `project-workspace`, `need-intake`, `discovery-conversation`, `public-project`) are not
+  write routes and run no lifecycle gate; no read policy names the lifecycle. The Auth session stays
   valid. Nothing in the tree touches `auth.users` or sessions on deactivation. No Auth hook is
   configured, and the password grant still issues tokens.
 - Refusals decided at the edge, all `{ok: false, kind, reason}`. 400 `invalid-request` for a
