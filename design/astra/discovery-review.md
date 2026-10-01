@@ -1,6 +1,6 @@
 # Discovery design review — revision 12
 
-Date: 2026-09-29. Author: Claude, on revision 11. Status: approved by the founder for desktop on 2026-09-29; the shared mock does not show revision 12 yet.
+Date: 2026-09-29. Author: Claude, on revision 11. Status: approved by the founder for desktop on 2026-09-29; the shared mock shows revision 12 on fixtures since 2026-10-01 (see "Revision 12 built on fixtures").
 
 Open [the Discovery fixture](http://127.0.0.1:4310/#discovery).
 This review covers Discovery and its scope confirmation. Other screens retain their own review status.
@@ -37,7 +37,37 @@ Change order 012 lists each ruling in the founder's words and the contract edits
 - Finish is one review page. Open questions come first, with an importance tag and a suggestion to accept. The brief follows as it stands; each section can be edited in place, which is free, makes a new revision, and clears the review checkbox. Finish makes no model call. The Discovery document holds the need, not the technical scope. There is no AI rewrite.
 
 Verification: each board works in Play on the canvas. The file-chat flow and turn counting were also checked in a scripted run of the board logic.
-The shared mock in `design/astra/src` is not updated. Phase 2 of the Discovery screen item carries this revision into the mock and runs the acceptance tests against it.
+
+## Revision 12 built on fixtures
+
+Date: 2026-10-01. Author: Claude, with Grok as the feature writer. Status: waiting for the founder's review.
+
+The real Discovery components now live in `src/components/discovery/`. The shared mock mounts them on fixture data, so [the Discovery fixture](http://127.0.0.1:4310/?scenario=first-reply&pace=demo#discovery) shows revision 12. The scenario names are in `design/astra/src/givens.ts`.
+
+The acceptance tests for the screen drive the shell headless at 1280 and 390 pixels, in light and dark. Codex explored the shell as an NGO person in eight rounds. It reported 23 issues, and all 23 are fixed. The eighth round reported no new issue. The reports and screenshots are in `loop/items/AI4DEV-180/evidence/unit5/`.
+
+The build differs from the boards in these places. Each difference is a decision, not an open issue:
+
+- The desktop file panel fills the right column, in place of the board's floating panel. The founder chose this place at the unit 3 gate. The panel is read-only.
+- There is no "Use a sample file" button.
+- The review page section headings show in capitals, as on the Finish board. The page text stays in sentence case.
+- After confirmation, Add a file is disabled. While a file is still being read, Finish Discovery stays unavailable on the review page. A saved change reopens Discovery.
+
+On 2026-10-01 the founder decided that a Discovery file is ingested automatically. The founder said: "It should be automatic ingest process I even debate having to ask the funder anything there and just let it upload and the ingest skill will digest according to the intake and". Asked to choose, the founder chose "Go automatic now".
+
+What left: the file chat, its opening question, the pause question, the "Reading paused" row, the file-chat turn, and the "Suggestion · waiting for you" marker for a file fact. Choosing a file starts the read. The facts enter the brief and are marked as from the file. The read uses no turn and no fuel.
+
+Provisional copy, for the founder to approve or replace:
+
+- "You changed Main priority: Fewer unfilled shifts" and "You used the suggestion for Booking rules: Weekly shift limit". These are the chat lines for a saved change and an accepted suggestion.
+- "Discovery is finished, so files cannot be added. Change an answer to reopen it."
+- The ready reply and the finish invitation that replaces the message box.
+- The data-tier sentences and the fit sentences on the Discovery document.
+- Tier 0 shows no data box. Finish does not need one.
+- Tier 1 keeps: "Our NGO takes responsibility for data access and keeps only the personal information this tool needs."
+- Tier 2 uses: "Our NGO keeps real sensitive data out of the build. The volunteer and the AI work only with fake or anonymized records."
+- The line under the Tier 1 and Tier 2 box stays: "In practice: your NGO decides who can see volunteer details, and the tool stores only what “Information handled” lists."
+- "The reply cost changed. Review the usage card, then send again."
 
 ## Revision 11: highlight the selected scenario
 

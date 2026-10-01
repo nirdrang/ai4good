@@ -9,20 +9,20 @@ matrix default efforts. The earlier customized sheets are kept beside this file 
 `pstack-models.md.bak-*`.
 
 feature, refactoring: grok:grok-4.7@xhigh
-bug-fix: codex:gpt-5.6-sol@max
+bug-fix: codex:gpt-6.1-sol@max
 perf-issue: codex:gpt-6-astra@medium
 hillclimb: codex:gpt-6-astra@high
 judgment and prose: claude:fable@medium
-hardest tasks: codex:gpt-6-astra@medium
+hardest tasks: codex:gpt-6-astra@high
 how explorer: grok:grok-4.7@xhigh
 how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
-arena runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
-arena cross-judge pool: codex:gpt-6-astra@medium, grok:grok-4.7@xhigh, claude:opus@medium
+arena runners: codex:gpt-6.1-sol@max, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
+arena cross-judge pool: codex:gpt-6.1-sol@max, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: grok:grok-4.7@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
-interrogate reviewers: codex:gpt-6-astra@medium, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
+interrogate reviewers: codex:gpt-6.1-sol@max, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -33,6 +33,33 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### GPT-6.1 Sol at max in four seats, astra up one step on hardest tasks, 2026-10-01
+
+By founder ruling and not by measurement. Written by hand: the fork's model matrix has no row for
+gpt-6.1-sol, so the setup skill refuses it. Codex refused gpt-6.1-sol for this ChatGPT account on
+2026-09-30 and accepted it on 2026-10-01. It is not in the local Codex model list, so no list
+confirms that it takes `max`. Codex does not report the model it served, so a receipt shows only
+the requested name.
+
+- `bug-fix` moves from gpt-5.6-sol at max to gpt-6.1-sol at max. No row uses gpt-5.6-sol now.
+- `hardest tasks` moves from astra at medium to astra at high.
+- The astra lane in `arena runners`, `arena cross-judge pool` and `interrogate reviewers` moves
+  from astra at medium to gpt-6.1-sol at max.
+- `architect runners` is not changed. It keeps astra at medium, so the two runner rows are no
+  longer identical.
+
+To undo `bug-fix`:
+
+    codex:gpt-5.6-sol@max
+
+To undo `hardest tasks`:
+
+    codex:gpt-6-astra@medium
+
+To undo the lane in `arena runners`, `arena cross-judge pool` and `interrogate reviewers`:
+
+    codex:gpt-6-astra@medium
 
 ### Grok 4.7, fable at medium, and opus steps down, 2026-09-29
 
