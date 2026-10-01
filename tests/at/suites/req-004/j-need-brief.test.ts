@@ -72,6 +72,20 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
       expect(calls, 'three replies are three model calls').toEqual(['chat-turn', 'chat-turn', 'chat-turn']);
       expect(await screen.modelCalls(), 'the ready state adds no model call').toEqual(calls);
     });
+    await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop', pace: 'demo' }, async (screen) => {
+      const first = GIVEN['first-reply'];
+      await screen.chat.question(first.questions.priority).pick(first.suggested);
+      await screen.composer.fill('note before send');
+      const pending = screen.composer.send();
+      await eventually(
+        'the sent note is in the chat',
+        () => screen.chat.yourText(),
+        (text) => text.includes('note before send'),
+      );
+      await screen.composer.fill('typed while the reply streams');
+      await pending;
+      expect(await screen.composer.value(), 'text typed during the reply stays').toBe('typed while the reply streams');
+    });
   },
   integration: async () => {
     throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -99,6 +113,24 @@ atTest(
       });
       await withDiscovery(ctx, { scenario: 'finish-open', viewport: 'desktop' }, async (screen) => {
         await expectChangeReopensDiscovery(screen, given);
+      });
+      await withDiscovery(ctx, { scenario: 'finish-tier-0', viewport: 'desktop' }, async (screen) => {
+        const tier0 = GIVEN['finish-tier-0'];
+        await screen.review.ready();
+        const text = await screen.review.text();
+        expect(text, 'Tier 0 shows no ordinary data box').not.toContain(TEXT.ack.data);
+        expect(text, 'Tier 0 shows no sensitive data box').not.toContain(TEXT.ack.dataSensitive);
+        await screen.review.tick(TEXT.ack.reviewed(tier0.revision));
+        await screen.review.tick(TEXT.ack.gaps(tier0.open.length));
+        expect(await screen.review.finishDisabled(), 'Tier 0 can finish without a data box').toBe(false);
+        await screen.review.finish();
+        expect(await screen.review.text(), 'Tier 0 finishes').toContain('Discovery finished');
+      });
+      await withDiscovery(ctx, { scenario: 'finish-tier-2', viewport: 'desktop' }, async (screen) => {
+        await screen.review.ready();
+        const text = await screen.review.text();
+        expect(text, 'Tier 2 shows the fake-records sentence').toContain(TEXT.ack.dataSensitive);
+        expect(text, 'Tier 2 keeps the In practice line').toContain('In practice:');
       });
     },
     integration: async () => {
@@ -404,6 +436,7 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
       await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
         expect(await screen.questions.row(given.agreed[0].question), 'an agreed question shows Answered').toContain('Answered');
         expect(await screen.questions.row(given.notSure.question), 'an unsure question shows Not sure').toContain('Not sure');
+        expect(await screen.questions.viewCount(given.notSure.question), 'a Not sure row has no View').toBe(0);
         expect(await screen.questions.row(given.open[0].question), 'an open question shows Open').toContain('Open');
         expect(await screen.questions.row(given.next.question), 'a later question shows Coming next').toContain('Coming next');
         await screen.questions.close();
@@ -505,6 +538,16 @@ atTest(
         );
         expect(after, 'Free today drops by one').toContain('2 of 10');
         expect(after, 'Beta drops by one').toContain('17 of 50');
+      });
+      await withDiscovery(ctx, { scenario: 'daily-empty', viewport: 'desktop' }, async (screen) => {
+        const text = await screen.usage.text();
+        expect(text, 'Free today is used up').toContain('0 of 10');
+        expect(text, 'Beta replies remain').toContain('18 of 50');
+        expect(text, 'no fuel is available').toContain('$0.00');
+        expect(text, 'Buy fuel shows when the next reply is not free').toContain(TEXT.buyFuel);
+        expect(text, 'the note names the $50 minimum').toContain(TEXT.buyFuelNote);
+        await screen.usage.buyFuel();
+        await eventually('Buy fuel opens the fuel page', () => screen.fuel.visible(), (open) => open);
       });
     },
     integration: async () => {
@@ -915,6 +958,8 @@ async function expectChangeReopensDiscovery(
   await screen.review.tick(TEXT.ack.gaps(given.open.length));
   await screen.review.tick(TEXT.ack.data);
   await screen.review.finish();
+  await eventually('the sidebar shows Discovery done', () => screen.steps.done('Discovery'), (done) => done);
+  expect(await screen.steps.done('Discovery review'), 'the sidebar shows Discovery review done').toBe(true);
   const calls = await screen.modelCalls();
   await screen.review.back();
   await eventually('confirmation replaces the composer', () => screen.composer.formCount(), (count) => count === 0);
@@ -975,6 +1020,8 @@ async function expectChangeReopensDiscovery(
   expect(await screen.review.ticked(TEXT.ack.reviewed(given.revision + 1)), 'the review tick is clear').toBe(false);
   expect(await screen.review.ticked(TEXT.ack.data), 'the data acknowledgment is clear').toBe(false);
   expect(await screen.review.finishDisabled(), 'Finish Discovery needs the acknowledgments again').toBe(true);
+  await eventually('a change removes the Discovery check', () => screen.steps.done('Discovery'), (done) => done === false);
+  expect(await screen.steps.done('Discovery review'), 'a change removes the Discovery review check').toBe(false);
 }
 
 async function expectDocument(

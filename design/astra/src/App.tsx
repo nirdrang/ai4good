@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
-  ChevronRight,
   ClipboardList,
   FlaskConical,
   FolderOpen,
@@ -19,17 +18,12 @@ import {
 import manifest from "../screens.json";
 import designPreviewUrl from "../design-review-preview.html?url";
 import { Badge, Button, PageTitle, routeSchema, type Route, type ScreenProps } from "./components";
-import {
-  applyScenario,
-  initialState,
-  readState,
-  refreshDay,
-  scenarios,
-  storageKey,
-  type MockState,
-} from "./model";
+import { initialState, readState, refreshDay, storageKey, type MockState } from "./model";
 import { DiscoveryReview, DiscoveryScreen, type DiscoveryPort } from "@/components/discovery";
+import { confirmationCurrent } from "@/components/discovery/model";
+import type { DiscoveryState } from "@/lib/discovery-stream";
 import { fixturePort, fixtureSelection } from "./fixture-port";
+import { openFixtureWorld } from "./fixture-world";
 import { ProjectBuild } from "./ProjectBuild";
 import { Dashboard, Funding, Intake, Projects, Publish } from "./screens";
 
@@ -38,7 +32,6 @@ function readRoute(): Route {
 }
 
 function Review({ state, setState, navigate, notify }: ScreenProps) {
-  const [scenario, setScenario] = useState("normal");
   const [resetting, setResetting] = useState(false);
   const [notes, setNotes] = useState(() => {
     try {
@@ -153,64 +146,6 @@ function Review({ state, setState, navigate, notify }: ScreenProps) {
         </div>
         <aside>
           <section className="panel">
-            <h2>Review a fixture state</h2>
-            <p className="small muted">
-              The assistant replies are scripted for the volunteer scheduling example. There are no
-              model, database, or payment calls.
-            </p>
-            <label className="field">
-              Discovery state
-              <select
-                data-testid="fixture-scenario"
-                value={scenario}
-                onChange={(e) => setScenario(e.target.value)}
-              >
-                {scenarios.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button
-              testId="apply-fixture-scenario"
-              variant="primary"
-              className="full-width"
-              onClick={() => {
-                setState((current) => applyScenario(current, scenario));
-                navigate("discovery");
-                notify(
-                  scenario === "almost-finished" || scenario === "ready-to-finish"
-                    ? "Sample Discovery conversation loaded for completion review."
-                    : "Fixture state applied. Your conversation remains available.",
-                );
-              }}
-            >
-              Apply and open Discovery
-              <ChevronRight size={15} />
-            </Button>
-            {state.usage.reserved > 0 && (
-              <Button
-                testId="settle-fixture-usage"
-                className="full-width"
-                onClick={() => {
-                  setState((current) => ({
-                    ...current,
-                    usage: { ...current.usage, reserved: 0, spent: current.usage.spent + 46_000 },
-                  }));
-                  notify("Sample usage settled: $0.040 AI usage + $0.006 fee.");
-                }}
-              >
-                Settle pending sample usage
-              </Button>
-            )}
-            <p className="small muted">
-              Funding presets reopen the sample brief and reset sample balances. The daily reset and
-              reference file presets preserve the other values. Completion presets load a separate
-              sample conversation. No real project data changes.
-            </p>
-          </section>
-          <section className="panel">
             <h2>Start the sample again</h2>
             <p className="small muted">
               Reset the project, answers, usage, and sample purchases. Your review notes stay saved.
@@ -261,10 +196,12 @@ function DiscoveryRoutes({
   route,
   port,
   navigate,
+  onBuyFuel,
 }: {
   route: Route;
   port: DiscoveryPort;
   navigate: (next: Route) => void;
+  onBuyFuel: () => void;
 }) {
   const [returnFocus, setReturnFocus] = useState<{ questionId: string; nonce: number } | null>(null);
   const nonce = useRef(0);
@@ -279,6 +216,7 @@ function DiscoveryRoutes({
           active={showChat}
           returnFocus={returnFocus}
           onOpenReview={() => navigate("discovery-review")}
+          onBuyFuel={onBuyFuel}
         />
       </div>
       {route === "discovery-review" ? (
@@ -309,10 +247,7 @@ export default function App() {
     } catch {
       stored = null;
     }
-    const next =
-      stored === "dark" ? true : stored === "light" ? false : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.classList.toggle("dark", next);
-    return next;
+    return stored === "dark" ? true : stored === "light" ? false : window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
   useEffect(() => {
     try {
@@ -358,10 +293,24 @@ export default function App() {
   }
   const props = { state, setState, navigate, notify: setNotice };
   const selection = fixtureSelection();
+  const world = useMemo(
+    () => openFixtureWorld(selection.scenario, selection.pace),
+    [selection.scenario, selection.pace],
+  );
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryState>(() => world.read());
+  const cameFrom = useRef<Route>("discovery");
   const discoveryPort = useMemo(
     () => fixturePort(selection.scenario, selection.pace),
     [selection.scenario, selection.pace],
   );
+  useEffect(() => {
+    setDiscoveryState(world.read());
+    return world.subscribe(() => setDiscoveryState(world.read()));
+  }, [world]);
+  useEffect(() => {
+    if (route === "discovery" || route === "discovery-review") cameFrom.current = route;
+  }, [route]);
+  const discoveryDone = confirmationCurrent(discoveryState.brief, discoveryState.confirmation);
   useEffect(() => {
     const restorePreview = () => setState(readState().state);
     window.addEventListener("ai4good:preview-restored", restorePreview);
@@ -460,18 +409,32 @@ export default function App() {
             ))}
             <p className="nav-label project-nav-label">CURRENT PROJECT</p>
             <div className="nav-project-name">{state.intake.title || "New project"}</div>
-            {projectNav.map((item) => (
-              <a
-                key={item.route}
-                href={`#${item.route}`}
-                data-testid={`nav-${item.route}`}
-                aria-current={route === item.route ? "page" : undefined}
-                className={`project-nav ${route === item.route ? "active" : ""}`}
-              >
-                <span className="nav-step">{item.step}</span>
-                {item.label}
-              </a>
-            ))}
+            {projectNav.map((item) => {
+              const done =
+                item.route === "intake"
+                  ? state.phase !== "intake"
+                  : item.route === "discovery" || item.route === "discovery-review"
+                    ? discoveryDone
+                    : false;
+              return (
+                <a
+                  key={item.route}
+                  href={`#${item.route}`}
+                  data-testid={`nav-${item.route}`}
+                  aria-current={route === item.route ? "page" : undefined}
+                  className={`project-nav ${route === item.route ? "active" : ""}`}
+                >
+                  <span
+                    className={done ? "nav-step nav-step-done" : "nav-step"}
+                    role={done ? "img" : undefined}
+                    aria-label={done ? `${item.label}, done` : undefined}
+                  >
+                    {done ? <Check size={12} aria-hidden="true" /> : item.step}
+                  </span>
+                  {item.label}
+                </a>
+              );
+            })}
             <p className="nav-label project-nav-label">VOLUNTEER PREVIEW</p>
             <a href={designPreviewUrl} target="_blank" rel="noreferrer" data-testid="nav-design">
               <ClipboardList size={18} />
@@ -511,7 +474,7 @@ export default function App() {
               {warning}
             </div>
           )}
-          {route === "dashboard" && <Dashboard {...props} />}
+          {route === "dashboard" && <Dashboard {...props} discovery={discoveryState} />}
           {route === "projects" && <Projects {...props} />}
           {route === "intake" && <Intake {...props} />}
           {(route === "discovery" || route === "discovery-review") && (
@@ -520,10 +483,21 @@ export default function App() {
               route={route}
               port={discoveryPort}
               navigate={navigate}
+              onBuyFuel={() => navigate("funding")}
             />
           )}
           {route === "publish" && <Publish {...props} port={discoveryPort} />}
-          {route === "funding" && <Funding {...props} />}
+          {route === "funding" && (
+            <Funding
+              usage={discoveryState.usage}
+              navigate={navigate}
+              notify={setNotice}
+              returnTo={discoveryDone ? "discovery-review" : cameFrom.current}
+              onPurchase={(amountMicros) => {
+                world.buyFuel(amountMicros);
+              }}
+            />
+          )}
           {route === "build" && <ProjectBuild notify={setNotice} />}
           {route === "review" && <Review {...props} />}
           <footer className="page-footer">

@@ -134,11 +134,11 @@ export function Conversation({
             }
           >
             <h2 className="sr-only">{name}</h2>
-            {message.paragraphs.map((paragraph) => {
+            {message.paragraphs.map((paragraph, index) => {
               const current = highlight?.messageId === message.id && highlight.text === paragraph;
               return (
                 <p
-                  key={paragraph}
+                  key={`${message.id}-p-${index}`}
                   aria-current={current ? "true" : undefined}
                   className={
                     current
@@ -150,8 +150,8 @@ export function Conversation({
                 </p>
               );
             })}
-            {message.filed.map((title) => (
-              <p key={title} className="mt-2 text-sm">
+            {message.filed.map((title, index) => (
+              <p key={`${message.id}-f-${index}`} className="mt-2 text-sm">
                 {TEXT.added}: {title}
               </p>
             ))}

@@ -1,7 +1,6 @@
 import type { ChatTransport, UIMessageChunk } from "ai";
 import type { DiscoveryRequestBody, DiscoveryUIMessage } from "../../../src/lib/discovery-stream";
-import { TEXT } from "../../../src/components/discovery/a11y";
-import { allRequiredAgreed, type AppliedTurn, type FixtureWorld } from "./fixture-world";
+import { type AppliedTurn, type FixtureWorld } from "./fixture-world";
 import { MODEL_CALL_PROBE, type ModelCall, type Pace } from "./givens";
 
 function refusalError(kind: string, reason: string): Error {
@@ -19,7 +18,10 @@ function requestOf(body: unknown): DiscoveryRequestBody {
   if (typeof value.projectId !== "string" || value.projectId.length === 0) {
     throw refusalError("invalid-request", "The reply needs a project.");
   }
-  if (value.mode !== "answer" && value.mode !== "ask") {
+  if (value.mode !== "answer") {
+    throw refusalError("invalid-request", "The reply needs a project.");
+  }
+  if (value.expectedCharge !== "free" && value.expectedCharge !== "paid") {
     throw refusalError("invalid-request", "The reply needs a project.");
   }
   if (typeof value.message !== "string" || !Array.isArray(value.answers)) {
@@ -42,6 +44,7 @@ function requestOf(body: unknown): DiscoveryRequestBody {
     projectId: value.projectId,
     message: value.message,
     mode: value.mode,
+    expectedCharge: value.expectedCharge,
     answers: value.answers,
   };
 }
@@ -122,23 +125,11 @@ export class FixtureChatTransport implements ChatTransport<DiscoveryUIMessage> {
     options: Parameters<ChatTransport<DiscoveryUIMessage>["sendMessages"]>[0],
   ): Promise<ReadableStream<UIMessageChunk>> {
     const request = requestOf({ ...(options.body as object | undefined), ...this.scope });
-    const current = this.world.read();
-    if (allRequiredAgreed(current.brief) && request.answers.length === 0) {
-      throw refusalError("discovery-ready", TEXT.readyInvite);
-    }
-    if (current.usage.nextReply === "unavailable") {
-      throw refusalError(
-        current.usage.betaLeft > 0 ? "daily-limit" : "beta-limit",
-        current.usage.betaLeft > 0
-          ? "Today's free replies are used and the project has no fuel for Discovery."
-          : "All beta free replies are used and the project has no fuel for Discovery.",
-      );
-    }
-    await reportModelCall("chat-turn");
     await pause(this.pace === "demo" ? 650 : 20, options.abortSignal);
     if (options.abortSignal?.aborted) throw new DOMException("The request was stopped.", "AbortError");
     const turned = this.world.applyTurn({ messages: options.messages, request });
     if (!turned.ok) throw refusalError(turned.refusal.kind, turned.refusal.reason);
+    await reportModelCall("chat-turn");
     return streamTurn(this.pace, options.abortSignal, turned.value);
   }
 

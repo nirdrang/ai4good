@@ -147,12 +147,13 @@ export type DiscoveryAnswer = {
   certain: boolean;
 };
 
-/** The request body beside the NGO's message. "ask" asks the AI about the open question and answers nothing. */
+/** The request body beside the NGO's message. The charge is the mode the Send button showed. */
 export type DiscoveryRequestBody = {
   organizationId: string;
   projectId: string;
   message: string;
-  mode: "answer" | "ask";
+  mode: "answer";
+  expectedCharge: "free" | "paid";
   answers: DiscoveryAnswer[];
 };
 

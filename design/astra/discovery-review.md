@@ -63,6 +63,11 @@ Provisional copy, for the founder to approve or replace:
 - "Discovery is finished, so files cannot be added. Change an answer to reopen it."
 - The ready reply and the finish invitation that replaces the message box.
 - The data-tier sentences and the fit sentences on the Discovery document.
+- Tier 0 shows no data box. Finish does not need one.
+- Tier 1 keeps: "Our NGO takes responsibility for data access and keeps only the personal information this tool needs."
+- Tier 2 uses: "Our NGO keeps real sensitive data out of the build. The volunteer and the AI work only with fake or anonymized records."
+- The line under the Tier 1 and Tier 2 box stays: "In practice: your NGO decides who can see volunteer details, and the tool stores only what “Information handled” lists."
+- "The reply cost changed. Review the usage card, then send again."
 
 ## Revision 11: highlight the selected scenario
 

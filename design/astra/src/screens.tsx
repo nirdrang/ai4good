@@ -11,7 +11,8 @@ import {
   X,
 } from "lucide-react";
 import type { DiscoveryPort } from "@/components/discovery";
-import type { DiscoveryState } from "@/lib/discovery-stream";
+import { confirmationCurrent } from "@/components/discovery/model";
+import type { DiscoveryState, DiscoveryUsage } from "@/lib/discovery-stream";
 import {
   Badge,
   Button,
@@ -20,19 +21,19 @@ import {
   PageTitle,
   Stages,
   phaseLabel,
+  type Route,
   type ScreenProps,
 } from "./components";
-import { funding, invalidateApproval, usd } from "./model";
+import { invalidateApproval, usd } from "./model";
 
-export function Dashboard({ state, navigate }: ScreenProps) {
+export function Dashboard({
+  state,
+  navigate,
+  discovery,
+}: ScreenProps & { discovery: DiscoveryState }) {
   const submitted = state.phase === "under-review";
-  const next = submitted
-    ? "publish"
-    : state.confirmation
-      ? "publish"
-      : state.phase === "intake"
-        ? "intake"
-        : "discovery";
+  const finished = confirmationCurrent(discovery.brief, discovery.confirmation);
+  const next = submitted || finished ? "publish" : state.phase === "intake" ? "intake" : "discovery";
   return (
     <>
       <PageTitle
@@ -60,14 +61,14 @@ export function Dashboard({ state, navigate }: ScreenProps) {
           <small>
             {submitted
               ? "You're up to date"
-              : state.confirmation
-                ? "Submit your confirmed scope"
+              : finished
+                ? "Find a volunteer match"
                 : "Continue shaping your first version"}
           </small>
         </div>
         <div className="summary-stat">
           <span>Project fuel available</span>
-          <strong>{usd(funding(state).available + state.usage.nextGate)}</strong>
+          <strong>{usd(discovery.usage.availableMicros)}</strong>
           <small>Free Discovery turns are used first</small>
         </div>
       </div>
@@ -110,8 +111,8 @@ export function Dashboard({ state, navigate }: ScreenProps) {
                 <h3>
                   {submitted
                     ? "A person reviews your scope"
-                    : state.confirmation
-                      ? "Send your scope for review"
+                    : finished
+                      ? "Find a volunteer match"
                       : state.phase === "intake"
                         ? "Tell us about the need"
                         : "Shape the first version"}
@@ -420,7 +421,8 @@ export function Publish({ state, setState, navigate, notify, port }: ScreenProps
       live = false;
     };
   }, [port]);
-  const confirmation = discovery?.confirmation ?? null;
+  const confirmation =
+    discovery && confirmationCurrent(discovery.brief, discovery.confirmation) ? discovery.confirmation : null;
   return (
     <>
       <PageTitle
@@ -519,10 +521,23 @@ export function Publish({ state, setState, navigate, notify, port }: ScreenProps
   );
 }
 
-export function Funding({ state, setState, navigate, notify }: ScreenProps) {
+export function Funding({
+  usage,
+  navigate,
+  notify,
+  onPurchase,
+  returnTo,
+}: {
+  usage: DiscoveryUsage;
+  navigate: (next: Route) => void;
+  notify: (message: string) => void;
+  onPurchase: (amountMicros: number) => void;
+  returnTo: Route;
+}) {
   const [amount, setAmount] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [receipt, setReceipt] = useState<number | null>(null);
+  const [purchases, setPurchases] = useState<{ id: number; amount: number }[]>([]);
   return (
     <>
       <PageTitle eyebrow="Your project / Fuel" title="Fuel for your project">
@@ -536,16 +551,8 @@ export function Funding({ state, setState, navigate, notify }: ScreenProps) {
             const value = Number(amount);
             if (!Number.isFinite(value) || value < 50 || !agreed) return;
             const micros = Math.round(value * 1_000_000);
-            setState((current) => ({
-              ...current,
-              usage: current.confirmation
-                ? { ...current.usage, nextGate: current.usage.nextGate + micros }
-                : { ...current.usage, allocation: current.usage.allocation + micros },
-              purchases: [
-                ...current.purchases,
-                { id: current.purchases.length + 1, amount: micros },
-              ],
-            }));
+            onPurchase(micros);
+            setPurchases((current) => [...current, { id: current.length + 1, amount: micros }]);
             setReceipt(micros);
             setAmount("");
             setAgreed(false);
@@ -612,33 +619,29 @@ export function Funding({ state, setState, navigate, notify }: ScreenProps) {
           <Button
             testId="fuel-return-to-project"
             variant="quiet"
-            onClick={() => navigate(state.confirmation ? "discovery-review" : "discovery")}
+            onClick={() => navigate(returnTo)}
           >
             <Next>Return to your project</Next>
           </Button>
         </form>
         <aside className="panel fuel-overview">
           <h2>Current project fuel</h2>
-          <p className="large-balance">{usd(funding(state).available + state.usage.nextGate)}</p>
+          <p className="large-balance">{usd(usage.availableMicros)}</p>
           <dl className="balance-list">
             <div>
               <dt>Available in Discovery</dt>
-              <dd>{usd(funding(state).available)}</dd>
-            </div>
-            <div>
-              <dt>Next stage</dt>
-              <dd>{usd(state.usage.nextGate)}</dd>
+              <dd>{usd(usage.availableMicros)}</dd>
             </div>
             <div>
               <dt>Usage pending</dt>
-              <dd>{usd(state.usage.reserved)}</dd>
+              <dd>{usd(usage.reservedMicros)}</dd>
             </div>
           </dl>
           <hr />
           <h3>Recent sample purchases</h3>
-          {state.purchases.length ? (
+          {purchases.length ? (
             <ul className="purchase-list">
-              {state.purchases.map((p) => (
+              {purchases.map((p) => (
                 <li key={p.id}>
                   <span>Sample top-up {p.id}</span>
                   <strong>{usd(p.amount)}</strong>

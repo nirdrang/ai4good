@@ -244,6 +244,15 @@ export class DiscoveryPage {
     barBox: (): Promise<Box> => waitBox(this.page, [this.usageRoot(), { role: 'img' }], 'the usage bar'),
     box: (): Promise<Box> => waitBox(this.page, [this.usageRoot()], 'the usage card'),
     labelBox: (label: string): Promise<Box> => waitBox(this.page, [this.usageRoot(), { text: label }], label),
+    buyFuel: (): Promise<void> => this.page.click([this.usageRoot(), landmark('button', TEXT.buyFuel)]),
+  };
+
+  readonly fuel = {
+    visible: (): Promise<boolean> => this.page.visible([landmark('heading', 'Fuel for your project')]),
+  };
+
+  readonly steps = {
+    done: (label: string): Promise<boolean> => this.page.visible([{ role: 'img', name: `${label}, done` }]),
   };
 
   readonly questions = {
@@ -258,6 +267,10 @@ export class DiscoveryPage {
     view: async (question: string): Promise<void> => {
       const root = await this.questionsRoot();
       await this.page.click([root, landmark('listitem', question), landmark('button', NAME.viewRow(question))]);
+    },
+    viewCount: async (question: string): Promise<number> => {
+      const root = await this.questionsRoot();
+      return this.page.count([root, landmark('listitem', question), landmark('button', NAME.viewRow(question))]);
     },
     close: async (): Promise<void> => {
       if (this.viewport === 'desktop') return;

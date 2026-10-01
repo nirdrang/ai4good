@@ -33,7 +33,9 @@ export type FixtureWorld = {
   acceptSuggestion(input: { topicId: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   askTopic(input: { topicId: string }): Promise<Result<BriefSnapshot>>;
   removeCauseLabel(input: { label: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
-  finish(input: { revision: number; acks: { reviewed: true; openGaps: boolean; data: true } }): Promise<Result<Confirmation>>;
+  finish(input: { revision: number; acks: { reviewed: true; openGaps: boolean; data: boolean } }): Promise<Result<Confirmation>>;
+  /** Add fuel. Free replies stay as they are. The shell is the only caller. */
+  buyFuel(amountMicros: number): DiscoveryUsage;
   /** Why this file cannot be added. Null when the read can start. */
   fileRefusal(file: File): { kind: string; reason: string } | null;
   /** Upload one file and start its read. The value is the created file, with its id. */
@@ -88,21 +90,31 @@ function hasAnswer(topic: BriefTopic): boolean {
 }
 
 function markDependents(brief: BriefSnapshot, topicId: string) {
-  for (const id of DEPENDENTS[topicId] ?? []) {
-    const topic = brief.topics.find((item) => item.id === id);
-    if (!topic || !hasAnswer(topic)) continue;
-    topic.needsReview = true;
-  }
+  const ids = new Set(DEPENDENTS[topicId] ?? []);
+  if (ids.size === 0) return;
+  brief.topics = brief.topics.map((topic) => {
+    if (!ids.has(topic.id) || !hasAnswer(topic)) return topic;
+    return { ...topic, needsReview: true };
+  });
 }
 
-function replyText(request: DiscoveryRequestBody, certain: string[], uncertain: boolean): string {
-  if (request.mode === "ask") return "The open questions stay in the chat. Answer them when you are ready.";
+function replyText(certain: string[], uncertain: boolean): string {
   if (certain.length > 0 && uncertain) {
     return `I added this to your brief: ${certain.join(", ")}. One answer stays open. I will not invent it.`;
   }
   if (certain.length > 0) return `I added this to your brief: ${certain.join(", ")}.`;
   if (uncertain) return "That stays open in your brief. I will not invent an answer.";
   return "I read your note. The open questions stay in the chat.";
+}
+
+/** One stored person line. The text comes from the request. The id matches the line the chat showed. */
+function userLineFrom(request: DiscoveryRequestBody, messages: DiscoveryUIMessage[]): DiscoveryUIMessage {
+  const text = [...request.answers.map((answer) => answer.text), request.message]
+    .filter((item) => item.length > 0)
+    .join("\n\n");
+  const last = messages.length > 0 ? messages[messages.length - 1] : undefined;
+  const id = last?.role === "user" ? last.id : `you-${messages.length}`;
+  return { id, role: "user", parts: [{ type: "text", text }] };
 }
 
 function charge(usage: DiscoveryUsage): { usage: DiscoveryUsage; charge: DiscoveryUIMessage["parts"][number] } | null {
@@ -124,7 +136,18 @@ function charge(usage: DiscoveryUsage): { usage: DiscoveryUsage; charge: Discove
   return { usage: next, charge: part };
 }
 
+const worlds = new Map<string, FixtureWorld>();
+
 export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"): FixtureWorld {
+  const key = `${scenario}:${pace}`;
+  const cached = worlds.get(key);
+  if (cached) return cached;
+  const created = createFixtureWorld(scenario, pace);
+  worlds.set(key, created);
+  return created;
+}
+
+function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld {
   // The seed itself is not stored, so a code change reseeds until the NGO sends.
   let state = loadStored(scenario) ?? seedState(scenario);
   const listeners = new Set<(change: ServerChange) => void>();
@@ -145,6 +168,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       files: state.files,
       brief: state.brief,
       usage: state.usage,
+      confirmation: state.confirmation,
       ...(transcript ? { transcript: state.transcript } : {}),
     });
   }
@@ -181,8 +205,16 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     },
     applyTurn({ messages, request }) {
       if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
+      if (request.mode !== "answer") return refusal("invalid-request", "The reply needs a project.");
       if (allRequiredAgreed(state.brief) && request.answers.length === 0) {
         return refusal("discovery-ready", TEXT.readyInvite);
+      }
+      const actual = replyKind(state.usage);
+      if (request.expectedCharge !== "free" && request.expectedCharge !== "paid") {
+        return refusal("invalid-request", "The reply needs a project.");
+      }
+      if (actual !== "unavailable" && request.expectedCharge !== actual) {
+        return refusal("mode-changed", TEXT.modeChanged);
       }
       const charged = charge(state.usage);
       if (!charged) {
@@ -193,46 +225,46 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
             : "All beta free replies are used and the project has no fuel for Discovery.",
         );
       }
-      const user = messages[messages.length - 1];
-      const answerMessageId = user?.role === "user" ? user.id : null;
-      const round = messages.filter((message) => message.role === "assistant").length + 1;
+      const userLine = userLineFrom(request, messages);
+      const round = state.transcript.filter((message) => message.role === "assistant").length + 1;
       let brief = state.brief;
       const certain: { id: string; title: string; text: string }[] = [];
+      const changedIds: string[] = [];
       let uncertain = false;
       let changed = false;
-      if (request.mode === "answer") {
-        const topics = brief.topics.map((topic) => {
-          const answer = request.answers.find((item) => {
-            const question = brief.questions.find((entry) => entry.id === item.questionId);
-            return question?.topicId === topic.id;
-          });
-          if (!answer) return topic;
-          const question = brief.questions.find((entry) => entry.id === answer.questionId);
-          if (!question) return topic;
-          changed = true;
-          if (answer.certain) {
-            certain.push({ id: topic.id, title: topic.title, text: answer.text });
-            return {
-              ...topic,
-              needsReview: false,
-              state: {
-                kind: "agreed" as const,
-                answer: answer.text,
-                source: { kind: "chat" as const, round },
-                answerMessageId,
-              },
-            };
-          }
-          uncertain = true;
+      const topics = brief.topics.map((topic) => {
+        const answer = request.answers.find((item) => {
+          const question = brief.questions.find((entry) => entry.id === item.questionId);
+          return question?.topicId === topic.id;
+        });
+        if (!answer) return topic;
+        const question = brief.questions.find((entry) => entry.id === answer.questionId);
+        if (!question) return topic;
+        changed = true;
+        changedIds.push(topic.id);
+        if (answer.certain) {
+          certain.push({ id: topic.id, title: topic.title, text: answer.text });
           return {
             ...topic,
             needsReview: false,
-            state: { kind: "not-sure" as const, questionId: question.id, help: question.uncertaintyHelp },
+            state: {
+              kind: "agreed" as const,
+              answer: answer.text,
+              source: { kind: "chat" as const, round },
+              answerMessageId: userLine.id,
+            },
           };
-        });
-        if (changed) brief = { ...brief, revision: brief.revision + 1, topics };
-      }
-      const added = request.mode === "answer" ? nextOpenQuestions(brief, round) : [];
+        }
+        uncertain = true;
+        return {
+          ...topic,
+          needsReview: false,
+          state: { kind: "not-sure" as const, questionId: question.id, help: question.uncertaintyHelp },
+        };
+      });
+      if (changed) brief = { ...brief, revision: brief.revision + 1, topics };
+      for (const id of changedIds) markDependents(brief, id);
+      const added = nextOpenQuestions(brief, round);
       if (added.length > 0) {
         brief = {
           ...brief,
@@ -240,23 +272,22 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
           revision: changed ? brief.revision : brief.revision + 1,
         };
       }
-      const stillOpen = brief.topics.some((topic) => topic.state.kind === "open" || topic.needsReview === true);
+      const stillOpen = brief.topics.some((topic) => !topicSettled(topic));
       let replyBody = replyText(
-        request,
         certain.map((item) => item.text),
         uncertain,
       );
-      if (request.mode === "answer" && added.length > 0) {
+      if (added.length > 0) {
         replyBody = `${replyBody} ${added.map((question) => question.text).join(" ")}`;
       }
       if (allRequiredAgreed(brief)) {
         replyBody = `${replyBody} ${TEXT.readyReply}`;
-      } else if (request.mode === "answer" && !stillOpen) {
+      } else if (!stillOpen) {
         replyBody = `${replyBody} Nothing is left to ask. Select Finish Discovery.`;
       }
-      const report = pendingReports(messages);
+      const report = pendingReports(state.transcript);
       const reply = report.length > 0 ? `${report}\n\n${replyBody}` : replyBody;
-      const assistantId = `reply-${messages.length}`;
+      const assistantId = `reply-${state.transcript.length + 1}`;
       const parts: DiscoveryUIMessage["parts"] = [
         { type: "text", text: reply },
         ...(certain.length > 0
@@ -266,7 +297,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         ...brief.questions
           .filter((question) => {
             const topic = brief.topics.find((item) => item.id === question.topicId);
-            return topic !== undefined && topic.state.kind !== "agreed";
+            return topic !== undefined && !topicSettled(topic);
           })
           .map(questionPart),
       ];
@@ -275,7 +306,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         ...state,
         brief,
         usage: charged.usage,
-        transcript: [...structuredClone(messages), assistant],
+        transcript: [...state.transcript, userLine, assistant],
       };
       commit(next);
       return {
@@ -351,6 +382,7 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       return { ok: true, value: structuredClone(next.brief) };
     },
     async acceptSuggestion(input) {
+      if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
       if (input.baseRevision !== state.brief.revision) return stale();
       const next = structuredClone(state);
       const topic = next.brief.topics.find((item) => item.id === input.topicId);
@@ -370,11 +402,13 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
         source: { kind: "accepted-suggestion" },
         answerMessageId: lineId,
       };
+      markDependents(next.brief, topic.id);
       next.brief.revision = revision;
       commit(next, true);
       return { ok: true, value: structuredClone(next.brief) };
     },
     async removeCauseLabel(input) {
+      if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
       if (input.baseRevision !== state.brief.revision) return stale();
       if (!state.brief.causeLabels.includes(input.label)) {
         return { ok: true, value: structuredClone(state.brief) };
@@ -397,6 +431,10 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
       if (open.length > 0 && !input.acks.openGaps) {
         return refusal("open-gaps", "Open questions stay in the brief unless you accept them.");
       }
+      const tier = state.brief.dataTier?.tier ?? 0;
+      if ((tier === 1 || tier === 2) && !input.acks.data) {
+        return refusal("data-ack", "Tick the data box before you finish.");
+      }
       const confirmation: Confirmation = {
         revision: input.revision,
         approver: "Sam Taylor",
@@ -413,6 +451,16 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
     },
     fileRefusal,
     addFile,
+    buyFuel(amountMicros) {
+      if (!Number.isFinite(amountMicros) || amountMicros <= 0) return structuredClone(state.usage);
+      const next = structuredClone(state);
+      const added = Math.round(amountMicros);
+      next.usage.availableMicros += added;
+      next.usage.allocationMicros += added;
+      next.usage.nextReply = replyKind(next.usage);
+      commit(next);
+      return structuredClone(next.usage);
+    },
   };
 
   // The read stays in the world, so closing the panel does not stop it.

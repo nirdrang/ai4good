@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { IMPORTANCE, NAME, SCREEN, TEXT } from "./a11y";
 import { DiscoveryDocument } from "./DiscoveryDocument";
-import { fileTookLine, type OpenReviewItem, type ReviewSection } from "./model";
+import { confirmationCurrent, dataTierOf, fileTookLine, type OpenReviewItem, type ReviewSection } from "./model";
 import type { DiscoveryPort } from "./port";
 import { useIsPhone } from "./use-is-phone";
 import { useDiscoveryReview, type DiscoveryReviewController } from "./use-discovery";
@@ -57,7 +57,9 @@ function Loaded({
 }) {
   const phone = useIsPhone();
   const review = useDiscoveryReview(port, initial);
-  if (review.confirmation) return <Finished review={review} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
+  if (confirmationCurrent(review.brief, review.confirmation)) {
+    return <Finished review={review} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
+  }
   if (phone) return <PhoneReview review={review} onBackToChat={onBackToChat} />;
   return <DesktopReview review={review} onBackToChat={onBackToChat} />;
 }
@@ -288,6 +290,16 @@ function OpenItem({
           </Button>
         </div>
       </div>
+      {review.acceptError[item.topicId] ? (
+        <p role="alert" className="text-sm">
+          {review.acceptError[item.topicId]}
+        </p>
+      ) : null}
+      {review.askError[item.topicId] ? (
+        <p role="alert" className="text-sm">
+          {review.askError[item.topicId]}
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -407,6 +419,11 @@ function CauseBlock({ review }: { review: DiscoveryReviewController }) {
                 >
                   ×
                 </Button>
+                {review.labelError[label] ? (
+                  <p role="alert" className="text-sm">
+                    {review.labelError[label]}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -420,14 +437,22 @@ function CauseBlock({ review }: { review: DiscoveryReviewController }) {
 function ConfirmCard({ review }: { review: DiscoveryReviewController }) {
   const open = review.open.length;
   const reviewed = review.ticks.reviewedRevision === review.brief.revision;
+  const tier = dataTierOf(review.brief);
+  const dataSentence = tier === 2 ? TEXT.ack.dataSensitive : tier === 1 ? TEXT.ack.data : null;
   return (
     <section aria-label={SCREEN.confirmation.name} className="flex min-w-0 flex-col gap-3 rounded-xl border border-border p-4">
       <h2 className="text-base font-semibold">{SCREEN.finish.name}</h2>
       <p className="text-sm">{TEXT.review.confirmLead}</p>
       <Ack sentence={TEXT.ack.reviewed(review.brief.revision)} checked={reviewed} onChange={review.setReviewed} />
-      {open > 0 ? <Ack sentence={TEXT.ack.gaps(open)} checked={review.ticks.openGaps} onChange={review.setOpenGaps} /> : null}
-      <Ack sentence={TEXT.ack.data} checked={review.ticks.data} onChange={review.setData} />
-      <p className="text-xs text-muted-foreground">{TEXT.review.dataPractice}</p>
+      {open > 0 ? (
+        <Ack sentence={TEXT.ack.gaps(open)} checked={review.ticks.openGapsCount === open} onChange={review.setOpenGaps} />
+      ) : null}
+      {dataSentence ? (
+        <>
+          <Ack sentence={dataSentence} checked={review.ticks.data} onChange={review.setData} />
+          <p className="text-xs text-muted-foreground">{TEXT.review.dataPractice}</p>
+        </>
+      ) : null}
       <Button
         type="button"
         aria-disabled={!review.gate.canFinish}

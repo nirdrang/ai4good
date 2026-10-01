@@ -12,7 +12,9 @@ import type {
 import { NAME } from "./a11y";
 import {
   answerText,
+  confirmationCurrent,
   currentQuestions,
+  dataTierOf,
   fileReadView,
   fileRows,
   messageLead,
@@ -120,6 +122,14 @@ function answersFromDrafts(
   });
 }
 
+/** True when the draft is still the answer that was sent. */
+function draftStillMatches(draft: Draft | undefined, answer: DiscoveryAnswer): boolean {
+  if (!draft) return false;
+  if (!answer.certain) return draft.kind === "uncertain";
+  if (answer.choice === "custom") return draft.kind === "own" && draft.text.trim() === answer.text;
+  return draft.kind === "option" && draft.optionId === answer.choice;
+}
+
 function answerTarget(
   brief: BriefSnapshot,
   messages: readonly DiscoveryUIMessage[],
@@ -168,8 +178,10 @@ export function useDiscovery(
   const savingChange = useRef(false);
   const adding = useRef(false);
   const confirmationRef = useRef(confirmation);
+  const usageRef = useRef(usage);
   const shownGeneration = useRef(0);
   confirmationRef.current = confirmation;
+  usageRef.current = usage;
   briefRef.current = brief;
   draftsRef.current = drafts;
   composerRef.current = composerText;
@@ -232,6 +244,7 @@ export function useDiscovery(
       const incomingBrief = change.brief;
       if (incomingBrief) setBrief((current) => newerBrief(current, incomingBrief));
       if (change.usage) setUsage(change.usage);
+      if ("confirmation" in change) setConfirmation(change.confirmation ?? null);
       const incomingTranscript = change.transcript;
       if (incomingTranscript) {
         setMessages((current) => {
@@ -314,8 +327,17 @@ export function useDiscovery(
     setPanel({ kind: "file", key: fileId });
   }
 
+  async function refreshAfterModeChange() {
+    const loaded = await port.load();
+    if (!loaded.ok) return;
+    setUsage(loaded.value.usage);
+    setBrief((current) => newerBrief(current, loaded.value.brief));
+    setConfirmation(loaded.value.confirmation);
+    setFiles(loaded.value.files);
+  }
+
   async function send() {
-    if (confirmationRef.current) return;
+    if (confirmationCurrent(briefRef.current, confirmationRef.current)) return;
     if (sending.current) return;
     if (chat.status === "submitted" || chat.status === "streaming") return;
     const open = currentQuestions(briefRef.current, reopenedRef.current).filter(
@@ -329,6 +351,8 @@ export function useDiscovery(
     const text = [...answers.map((answer) => answer.text), note]
       .filter((item) => item.length > 0)
       .join("\n\n");
+    const expectedCharge = usageRef.current.nextReply === "paid" ? "paid" : "free";
+    const before = structuredClone(messagesRef.current);
     sending.current = true;
     try {
       await chat.sendMessage(
@@ -337,25 +361,35 @@ export function useDiscovery(
           body: {
             message: note,
             mode: "answer",
+            expectedCharge,
             answers,
           },
         },
       );
       if (chat.status === "error") {
-        setRefusal(parseRefusal(chat.error));
+        setMessages(before);
+        const parsed = parseRefusal(chat.error);
+        if (parsed.kind === "mode-changed") await refreshAfterModeChange();
+        setRefusal(parsed);
         return;
       }
-      const sent = new Set(answers.map((answer) => answer.questionId));
+      const keptOpen = answers.filter((answer) => !draftStillMatches(draftsRef.current[answer.questionId], answer));
+      const keptIds = new Set(keptOpen.map((answer) => answer.questionId));
       setDrafts((current) => {
         const next = { ...current };
-        for (const id of sent) delete next[id];
+        for (const answer of answers) {
+          if (draftStillMatches(next[answer.questionId], answer)) delete next[answer.questionId];
+        }
         return next;
       });
-      setReopened((current) => current.filter((id) => !sent.has(id)));
-      setComposerText("");
+      setReopened((current) => current.filter((id) => keptIds.has(id) || !answers.some((answer) => answer.questionId === id)));
+      setComposerText((current) => (current.trim() === note ? "" : current));
       setRefusal(null);
     } catch (error) {
-      setRefusal(parseRefusal(error));
+      setMessages(before);
+      const parsed = parseRefusal(error);
+      if (parsed.kind === "mode-changed") await refreshAfterModeChange();
+      setRefusal(parsed);
     } finally {
       sending.current = false;
     }
@@ -410,7 +444,6 @@ export function useDiscovery(
           setRefusal(result.refusal);
           return;
         }
-        const loaded = await port.load();
         setBrief((current) => newerBrief(current, result.value));
         setDrafts((current) => {
           const next = { ...current };
@@ -419,7 +452,6 @@ export function useDiscovery(
         });
         setReopened((current) => current.filter((id) => id !== questionId));
         setPinned((current) => current.filter((id) => id !== questionId));
-        if (loaded.ok) setConfirmation(loaded.value.confirmation);
         setRefusal(null);
       } finally {
         savingChange.current = false;
@@ -489,6 +521,9 @@ export type DiscoveryReviewController = {
   draft: string;
   editError: string | null;
   finishError: string | null;
+  acceptError: Readonly<Record<string, string>>;
+  askError: Readonly<Record<string, string>>;
+  labelError: Readonly<Record<string, string>>;
   changed: readonly string[];
   gate: { canFinish: boolean; hint: string };
   setReviewed(checked: boolean): void;
@@ -510,16 +545,19 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
   const [usage, setUsage] = useState(initial.usage);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(initial.confirmation);
   const [reviewedRevision, setReviewedRevision] = useState<number | null>(null);
-  const [openGaps, setOpenGaps] = useState(false);
+  const [openGapsCount, setOpenGapsCount] = useState<number | null>(null);
   const [dataAck, setDataAck] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [editBase, setEditBase] = useState(initial.brief.revision);
   const [editError, setEditError] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<Record<string, string>>({});
+  const [askError, setAskError] = useState<Record<string, string>>({});
+  const [labelError, setLabelError] = useState<Record<string, string>>({});
   const [changed, setChanged] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
   const briefRef = useRef(brief);
+  const busyRef = useRef(false);
   briefRef.current = brief;
 
   useEffect(() => {
@@ -527,20 +565,33 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
       if (change.brief) setBrief((current) => newerBrief(current, change.brief as BriefSnapshot));
       if (change.files) setFiles(change.files);
       if (change.usage) setUsage(change.usage);
+      if ("confirmation" in change) setConfirmation(change.confirmation ?? null);
     });
   }, [port]);
 
   const open = openForReview(brief);
   const sections = reviewSections(brief);
-  const ticks: ReviewTicks = { reviewedRevision, openGaps, data: dataAck };
+  const ticks: ReviewTicks = { reviewedRevision, openGapsCount, data: dataAck };
   const reading = files.some((file) => file.origin === "discovery" && file.status.kind === "reading");
+  const dataRequired = dataTierOf(brief) !== 0;
   const gate = reviewGate({
     revision: brief.revision,
     openCount: open.length,
     ticks,
     editing: editingId !== null,
     reading,
+    dataRequired,
   });
+
+  function hold(): boolean {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    return true;
+  }
+
+  function release() {
+    busyRef.current = false;
+  }
 
   return {
     project: initial.project,
@@ -555,12 +606,17 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
     draft,
     editError,
     finishError,
+    acceptError,
+    askError,
+    labelError,
     changed,
     gate,
     setReviewed(checked) {
       setReviewedRevision(checked ? briefRef.current.revision : null);
     },
-    setOpenGaps,
+    setOpenGaps(checked) {
+      setOpenGapsCount(checked ? openForReview(briefRef.current).length : null);
+    },
     setData: setDataAck,
     beginEdit(sectionId, text) {
       setEditingId(sectionId);
@@ -575,80 +631,138 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
       setEditError(null);
     },
     async saveEdit(title) {
-      if (!editingId || busy) return;
-      const current = reviewSections(briefRef.current).find((section) => section.id === editingId);
-      if (current && current.text === draft) {
+      if (!editingId || !hold()) return;
+      try {
+        const current = reviewSections(briefRef.current).find((section) => section.id === editingId);
+        if (current && current.text === draft) {
+          setEditingId(null);
+          setDraft("");
+          setEditError(null);
+          return;
+        }
+        const result = await port.saveBriefEdit({ sectionId: editingId, text: draft, baseRevision: editBase });
+        if (!result.ok) {
+          setEditError(result.refusal.reason);
+          if (result.refusal.kind === "stale-revision") setEditBase(briefRef.current.revision);
+          return;
+        }
+        setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+        setChanged((list) => [...list, title]);
         setEditingId(null);
         setDraft("");
         setEditError(null);
-        return;
+      } catch (error) {
+        setEditError(error instanceof Error ? error.message : "The edit did not save.");
+      } finally {
+        release();
       }
-      setBusy(true);
-      const result = await port.saveBriefEdit({ sectionId: editingId, text: draft, baseRevision: editBase });
-      setBusy(false);
-      if (!result.ok) {
-        setEditError(result.refusal.reason);
-        if (result.refusal.kind === "stale-revision") setEditBase(briefRef.current.revision);
-        return;
-      }
-      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
-      setChanged((list) => [...list, title]);
-      setEditingId(null);
-      setDraft("");
-      setEditError(null);
     },
     async askTopic(topicId) {
-      const result = await port.askTopic({ topicId });
-      if (!result.ok) {
-        setFinishError(result.refusal.reason);
+      if (!hold()) return null;
+      try {
+        const result = await port.askTopic({ topicId });
+        if (!result.ok) {
+          setAskError((current) => ({ ...current, [topicId]: result.refusal.reason }));
+          return null;
+        }
+        setAskError((current) => {
+          const next = { ...current };
+          delete next[topicId];
+          return next;
+        });
+        const nextBrief = newerBrief(briefRef.current, result.value);
+        setBrief(nextBrief);
+        return result.value.questions.find((question) => question.topicId === topicId)?.id ?? null;
+      } catch (error) {
+        setAskError((current) => ({
+          ...current,
+          [topicId]: error instanceof Error ? error.message : "The question did not open.",
+        }));
         return null;
+      } finally {
+        release();
       }
-      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
-      return topicId;
     },
     async accept(topicId, title) {
-      if (busy) return;
-      setBusy(true);
-      const result = await port.acceptSuggestion({ topicId, baseRevision: briefRef.current.revision });
-      setBusy(false);
-      if (!result.ok) {
-        setFinishError(result.refusal.reason);
-        return;
+      if (!hold()) return;
+      try {
+        const result = await port.acceptSuggestion({ topicId, baseRevision: briefRef.current.revision });
+        if (!result.ok) {
+          setAcceptError((current) => ({ ...current, [topicId]: result.refusal.reason }));
+          return;
+        }
+        setAcceptError((current) => {
+          const next = { ...current };
+          delete next[topicId];
+          return next;
+        });
+        setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+        setChanged((list) => [...list, title]);
+      } catch (error) {
+        setAcceptError((current) => ({
+          ...current,
+          [topicId]: error instanceof Error ? error.message : "The suggestion was not accepted.",
+        }));
+      } finally {
+        release();
       }
-      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
-      setChanged((list) => [...list, title]);
     },
     async removeLabel(label) {
-      const result = await port.removeCauseLabel({ label, baseRevision: briefRef.current.revision });
-      if (!result.ok) {
-        setFinishError(result.refusal.reason);
-        return;
+      if (!hold()) return;
+      try {
+        const result = await port.removeCauseLabel({ label, baseRevision: briefRef.current.revision });
+        if (!result.ok) {
+          setLabelError((current) => ({ ...current, [label]: result.refusal.reason }));
+          return;
+        }
+        setLabelError((current) => {
+          const next = { ...current };
+          delete next[label];
+          return next;
+        });
+        setBrief((currentBrief) => newerBrief(currentBrief, result.value));
+      } catch (error) {
+        setLabelError((current) => ({
+          ...current,
+          [label]: error instanceof Error ? error.message : "The label was not removed.",
+        }));
+      } finally {
+        release();
       }
-      setBrief((currentBrief) => newerBrief(currentBrief, result.value));
     },
     async finish() {
       const latest = briefRef.current;
       const openNow = openForReview(latest);
+      const tier = dataTierOf(latest);
       const ready = reviewGate({
         revision: latest.revision,
         openCount: openNow.length,
-        ticks: { reviewedRevision, openGaps, data: dataAck },
+        ticks: { reviewedRevision, openGapsCount, data: dataAck },
         editing: editingId !== null,
         reading: files.some((file) => file.origin === "discovery" && file.status.kind === "reading"),
+        dataRequired: tier !== 0,
       });
-      if (!ready.canFinish || busy) return;
-      setBusy(true);
-      const result = await port.finish({
-        revision: latest.revision,
-        acks: { reviewed: true, openGaps: openNow.length > 0 ? openGaps : false, data: true },
-      });
-      setBusy(false);
-      if (!result.ok) {
-        setFinishError(result.refusal.reason);
-        return;
+      if (!ready.canFinish || !hold()) return;
+      try {
+        const result = await port.finish({
+          revision: latest.revision,
+          acks: {
+            reviewed: true,
+            openGaps: openNow.length > 0 ? openGapsCount === openNow.length : false,
+            data: tier === 0 ? false : dataAck,
+          },
+        });
+        if (!result.ok) {
+          setFinishError(result.refusal.reason);
+          return;
+        }
+        setConfirmation(result.value);
+        setFinishError(null);
+      } catch (error) {
+        setFinishError(error instanceof Error ? error.message : "Discovery did not finish.");
+      } finally {
+        release();
       }
-      setConfirmation(result.value);
-      setFinishError(null);
     },
   };
 }

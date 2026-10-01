@@ -7,7 +7,7 @@ import { Composer } from "./Composer";
 import { Conversation } from "./Conversation";
 import { FileOverlay } from "./FilePanel";
 import { FilesCard } from "./FilesCard";
-import { answerText, currentQuestions, progressOf, questionRows } from "./model";
+import { answerText, confirmationCurrent, currentQuestions, progressOf, questionRows } from "./model";
 import type { DiscoveryPort } from "./port";
 import { ProgressStrip } from "./ProgressStrip";
 import { questionCountLine, QuestionsCard, QuestionsDialog } from "./QuestionsCard";
@@ -18,11 +18,13 @@ import { UsageCard } from "./UsageCard";
 export function DiscoveryScreen({
   port,
   onOpenReview,
+  onBuyFuel,
   active = true,
   returnFocus = null,
 }: {
   port: DiscoveryPort;
   onOpenReview(): void;
+  onBuyFuel?: () => void;
   active?: boolean;
   returnFocus?: { questionId: string; nonce: number } | null;
 }) {
@@ -47,7 +49,16 @@ export function DiscoveryScreen({
   }, [port]);
   if (failure) return <p role="alert">{failure}</p>;
   if (!loaded) return <p>Loading Discovery.</p>;
-  return <Loaded port={port} initial={loaded} onOpenReview={onOpenReview} active={active} returnFocus={returnFocus} />;
+  return (
+    <Loaded
+      port={port}
+      initial={loaded}
+      onOpenReview={onOpenReview}
+      onBuyFuel={onBuyFuel}
+      active={active}
+      returnFocus={returnFocus}
+    />
+  );
 }
 
 function tagFor(
@@ -75,12 +86,14 @@ function Loaded({
   port,
   initial,
   onOpenReview,
+  onBuyFuel,
   active,
   returnFocus,
 }: {
   port: DiscoveryPort;
   initial: DiscoveryState;
   onOpenReview(): void;
+  onBuyFuel?: () => void;
   active: boolean;
   returnFocus: { questionId: string; nonce: number } | null;
 }) {
@@ -102,25 +115,26 @@ function Loaded({
     return () => window.clearTimeout(timer);
   }, [discovery.restore]);
   const confirmation = discovery.confirmation;
+  const finished = confirmationCurrent(discovery.brief, confirmation);
   const asked = currentQuestions(discovery.brief, discovery.reopened);
-  const questions =
-    confirmation === null
-      ? asked
-      : asked.filter(
-          (question) => discovery.reopened.includes(question.id) || discovery.pinned.includes(question.id),
-        );
+  const questions = finished
+    ? asked.filter(
+        (question) => discovery.reopened.includes(question.id) || discovery.pinned.includes(question.id),
+      )
+    : asked;
   const progress = progressOf(discovery.brief);
   const readyToFinish =
-    confirmation === null && questions.length === 0 && progress.total > 0 && progress.agreed === progress.total;
+    !finished && questions.length === 0 && progress.total > 0 && progress.agreed === progress.total;
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
-  const rows = questionRows(discovery.brief, discovery.drafts);
+  const messageIds = new Set(discovery.messages.map((message) => message.id));
+  const rows = questionRows(discovery.brief, discovery.drafts, messageIds);
   const showFile = discovery.panel?.kind === "chooser" || discovery.panel?.kind === "file";
   const files = (
     <FilesCard
       files={discovery.files}
       funded={discovery.project.funded}
-      finished={confirmation !== null}
+      finished={finished}
       dense={showFile && !phone}
       addRef={addOpenerRef}
       onAdd={discovery.openChooser}
@@ -152,8 +166,7 @@ function Loaded({
       tail={phone ? files : null}
       onPick={discovery.pick}
       offerSave={(questionId) =>
-        discovery.reopened.includes(questionId) ||
-        (confirmation !== null && discovery.pinned.includes(questionId))
+        discovery.reopened.includes(questionId) || (finished && discovery.pinned.includes(questionId))
       }
       onSave={(questionId) => void discovery.saveChange(questionId)}
       canSave={(questionId) => {
@@ -165,7 +178,7 @@ function Loaded({
       onNext={discovery.nextQuestion}
     />
   );
-  const composer = confirmation ? (
+  const composer = finished && confirmation ? (
     <div className="flex flex-col gap-1">
       <p className="m-0 text-sm font-semibold">{confirmation.acceptedGaps.length > 0 ? TEXT.finishedOpen : TEXT.finished}</p>
       <p className="m-0 text-sm">{TEXT.finishedClosed}</p>
@@ -201,7 +214,7 @@ function Loaded({
           onOpenBrief={() => discovery.openPanel("brief")}
           onOpenQuestions={() => discovery.openPanel("questions")}
           conversation={conversation}
-          usage={discovery.panel?.kind === "brief" ? null : <UsageCard usage={discovery.usage} dock />}
+          usage={discovery.panel?.kind === "brief" ? null : <UsageCard usage={discovery.usage} dock onBuyFuel={onBuyFuel} />}
           composer={composer}
         />
       ) : (
@@ -236,7 +249,7 @@ function Loaded({
               </>
             )}
             {files}
-            <UsageCard usage={discovery.usage} dense={showFile} />
+            <UsageCard usage={discovery.usage} dense={showFile} onBuyFuel={onBuyFuel} />
           </div>
         </div>
       )}
@@ -245,7 +258,7 @@ function Loaded({
         <BriefDialog
           brief={discovery.brief}
           files={discovery.files}
-          usage={<UsageCard usage={discovery.usage} />}
+          usage={<UsageCard usage={discovery.usage} onBuyFuel={onBuyFuel} />}
           onClose={discovery.closePanel}
           onEdit={discovery.reopen}
         />

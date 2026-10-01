@@ -135,7 +135,10 @@ export const TEXT = {
     gaps: (open: number) =>
       `I understand that ${open === 1 ? "1 question" : `${open} questions`} remain open. I choose to finish Discovery anyway and keep them in the brief.`,
     data: "Our NGO takes responsibility for data access and keeps only the personal information this tool needs.",
+    dataSensitive:
+      "Our NGO keeps real sensitive data out of the build. The volunteer and the AI work only with fake or anonymized records.",
   },
+  modeChanged: "The reply cost changed. Review the usage card, then send again.",
   finished: "Discovery finished",
   finishedOpen: "Discovery finished with open questions",
   finishedClosed: "Discovery is finished. No further reply is charged.",

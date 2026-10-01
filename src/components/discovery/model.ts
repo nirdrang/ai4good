@@ -3,6 +3,7 @@ import type {
   BriefSnapshot,
   BriefSource,
   BriefTopic,
+  Confirmation,
   DiscoveryFile,
   DiscoveryUIMessage,
   DiscoveryUsage,
@@ -24,6 +25,17 @@ export function newerBrief(current: BriefSnapshot, incoming: BriefSnapshot): Bri
 /** Agreed, and not waiting on a changed answer it depends on. */
 export function topicSettled(topic: BriefTopic): boolean {
   return topic.state.kind === "agreed" && topic.needsReview !== true;
+}
+
+/** True when this confirmation approves the brief's current revision. */
+export function confirmationCurrent(brief: BriefSnapshot, confirmation: Confirmation | null): boolean {
+  return confirmation !== null && confirmation.revision === brief.revision;
+}
+
+/** Tier 0 and a brief with no tier need no data box. Tier 1 and Tier 2 do. */
+export function dataTierOf(brief: BriefSnapshot): 0 | 1 | 2 {
+  const tier = brief.dataTier?.tier;
+  return tier === 1 || tier === 2 ? tier : 0;
 }
 
 /** The words Save change stores. Null until the draft is an answer. */
@@ -282,6 +294,7 @@ function draftNote(question: BriefQuestion, draft: Draft): string {
 export function questionRows(
   brief: BriefSnapshot,
   drafts: Readonly<Record<string, Draft>>,
+  messageIds: ReadonlySet<string>,
 ): QuestionRow[] {
   return brief.topics.map((topic) => {
     const question = brief.questions.find((item) => item.topicId === topic.id) ?? null;
@@ -304,7 +317,7 @@ export function questionRows(
         status: "answered",
         note: topic.state.answer,
         canAnswer: false,
-        canView: true,
+        canView: topic.state.answerMessageId !== null && messageIds.has(topic.state.answerMessageId),
       };
     }
     if (topic.state.kind === "not-sure") {
@@ -315,7 +328,7 @@ export function questionRows(
         status: "notSure",
         note: topic.needsReview === true ? BRIEF_STATUS.needsReview : "Stays open in your brief",
         canAnswer: false,
-        canView: true,
+        canView: false,
       };
     }
     if (question) {
@@ -459,6 +472,14 @@ function ratio(used: number, total: number): number {
   return used / total;
 }
 
+/** The free fill uses the same limit that sets the free colour: the more consumed of the two. */
+function freeFill(usage: DiscoveryUsage, betaFirst: boolean): number {
+  const left = betaFirst ? usage.betaLeft : usage.dailyLeft;
+  const grant = betaFirst ? usage.betaGrant : usage.dailyGrant;
+  if (grant <= 0) return 0;
+  return Math.min(1, Math.max(0, left / grant));
+}
+
 export type UsageView = {
   headline: string;
   values: { daily: string; beta: string; fuel: string };
@@ -512,7 +533,7 @@ export function usageView(usage: DiscoveryUsage, resetLocalTime: string): UsageV
       fuel,
     },
     bar: {
-      free: usage.dailyGrant > 0 ? Math.min(1, Math.max(0, usage.dailyLeft / usage.dailyGrant)) : 0,
+      free: freeFill(usage, betaConsumed > dailyConsumed),
       fuel:
         usage.allocationMicros > 0
           ? Math.min(1, Math.max(0, usage.availableMicros / usage.allocationMicros))
@@ -615,7 +636,12 @@ export function reviewSections(brief: BriefSnapshot): ReviewSection[] {
   return sections;
 }
 
-export type ReviewTicks = { reviewedRevision: number | null; openGaps: boolean; data: boolean };
+export type ReviewTicks = {
+  reviewedRevision: number | null;
+  /** The open count when the NGO ticked the box. Null when the box is clear. */
+  openGapsCount: number | null;
+  data: boolean;
+};
 
 /** Finish stays unavailable while a file is reading or an edit is open. The review tick must match this revision. */
 export function reviewGate(input: {
@@ -624,12 +650,14 @@ export function reviewGate(input: {
   ticks: ReviewTicks;
   editing: boolean;
   reading: boolean;
+  dataRequired: boolean;
 }): { canFinish: boolean; hint: string } {
   if (input.reading) return { canFinish: false, hint: TEXT.fileStillReading };
   if (input.editing) return { canFinish: false, hint: TEXT.review.gateEditing };
   const reviewed = input.ticks.reviewedRevision === input.revision;
-  const gapsOk = input.openCount === 0 || input.ticks.openGaps;
-  if (reviewed && gapsOk && input.ticks.data) {
+  const gapsOk = input.openCount === 0 || input.ticks.openGapsCount === input.openCount;
+  const dataOk = !input.dataRequired || input.ticks.data;
+  if (reviewed && gapsOk && dataOk) {
     return { canFinish: true, hint: TEXT.review.gateReady(input.revision) };
   }
   return { canFinish: false, hint: TEXT.review.gateIdle };

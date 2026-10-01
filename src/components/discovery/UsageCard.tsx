@@ -18,13 +18,15 @@ export function UsageCard({
   usage,
   dock = false,
   dense = false,
+  onBuyFuel,
 }: {
   usage: DiscoveryUsage;
   dock?: boolean;
   dense?: boolean;
+  onBuyFuel?: () => void;
 }) {
   const view = usageView(usage, usage.nextResetAt ? resetClock(usage.nextResetAt) : "");
-  const freeUsedUp = usage.dailyLeft === 0 && usage.betaLeft === 0;
+  const showBuyFuel = usage.nextReply !== "free";
   const body = dense
     ? "flex flex-col gap-1 p-2"
     : dock
@@ -58,9 +60,9 @@ export function UsageCard({
             </span>
           </p>
           <p className={dense || dock ? "m-0 text-xs text-muted-foreground" : "m-0 text-sm text-muted-foreground"}>{view.footer}</p>
-          {freeUsedUp ? (
+          {showBuyFuel ? (
             <div className="flex flex-col items-start gap-1">
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" onClick={onBuyFuel}>
                 {TEXT.buyFuel}
               </Button>
               <p className="m-0 text-sm text-muted-foreground">{TEXT.buyFuelNote}</p>

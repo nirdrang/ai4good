@@ -14,6 +14,9 @@ export const SCENARIOS = [
   "three-files-unfunded",
   "three-files-funded",
   "finish-open",
+  "finish-tier-0",
+  "finish-tier-2",
+  "daily-empty",
   "confirmed-tier-2",
   "confirmed-tier-1",
 ] as const;
@@ -160,6 +163,9 @@ export const GIVEN = {
     funded: true,
   },
   "finish-open": FINISH_OPEN,
+  "finish-tier-0": FINISH_OPEN,
+  "finish-tier-2": FINISH_OPEN,
+  "daily-empty": { start: "chat" as Start },
   "confirmed-tier-2": {
     ...CONFIRMED,
     tier: 2 as const,

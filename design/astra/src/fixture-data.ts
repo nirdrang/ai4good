@@ -632,7 +632,7 @@ function tookFile(name: string, took: string, origin: "intake" | "discovery"): D
   };
 }
 
-function finishOpenState(): DiscoveryState {
+function finishOpenState(tier: 0 | 1 | 2): DiscoveryState {
   const given = GIVEN["finish-open"];
   const priority = given.agreed[0];
   const booking = given.agreed[1];
@@ -773,7 +773,13 @@ function finishOpenState(): DiscoveryState {
       successMeasure: null,
       topics,
       questions,
-        dataTier: null,
+      dataTier:
+        tier === 0
+          ? null
+          : {
+              tier,
+              reason: tier === 2 ? "The tool keeps health information." : "The tool keeps contact details.",
+            },
       fit: null,
       causeLabels: [given.label],
     },
@@ -864,9 +870,31 @@ function confirmedState(scenario: "confirmed-tier-2" | "confirmed-tier-1"): Disc
   };
 }
 
+function dailyEmptyState(): DiscoveryState {
+  const state = midState(false);
+  const usage: DiscoveryUsage = {
+    dailyLeft: 0,
+    dailyGrant: 10,
+    betaLeft: 18,
+    betaGrant: 50,
+    availableMicros: 0,
+    reservedMicros: 0,
+    allocationMicros: 10_000_000,
+    settledMicros: 0,
+    holdMicros: 250_000,
+    nextResetAt: "2026-09-30T00:00:00.000Z",
+    nextReply: "unavailable",
+  };
+  usage.nextReply = replyKind(usage);
+  return { ...state, usage };
+}
+
 export function seedState(scenario: ScreenScenario): DiscoveryState {
-  if (scenario === "finish-open") return finishOpenState();
+  if (scenario === "finish-open") return finishOpenState(1);
+  if (scenario === "finish-tier-0") return finishOpenState(0);
+  if (scenario === "finish-tier-2") return finishOpenState(2);
   if (scenario === "confirmed-tier-2" || scenario === "confirmed-tier-1") return confirmedState(scenario);
+  if (scenario === "daily-empty") return dailyEmptyState();
   if (scenario === "mid-interview" || scenario === "mid-interview-paid") return midState(scenario === "mid-interview-paid");
   const snapshot = brief();
   const three =

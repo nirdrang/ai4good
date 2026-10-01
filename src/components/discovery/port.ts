@@ -18,6 +18,8 @@ export type ServerChange = {
   usage?: DiscoveryUsage;
   /** Chat lines saved with a brief edit or an accepted suggestion. No AI reply. */
   transcript?: DiscoveryUIMessage[];
+  /** The confirmation after the change. Null when Discovery is open. */
+  confirmation?: Confirmation | null;
 };
 
 /** Everything the Discovery screen reads or writes. No member rewrites or regenerates. */
@@ -43,6 +45,6 @@ export interface DiscoveryPort {
   removeCauseLabel(input: { label: string; baseRevision: number }): Promise<Result<BriefSnapshot>>;
   finish(input: {
     revision: number;
-    acks: { reviewed: true; openGaps: boolean; data: true };
+    acks: { reviewed: true; openGaps: boolean; data: boolean };
   }): Promise<Result<Confirmation>>;
 }

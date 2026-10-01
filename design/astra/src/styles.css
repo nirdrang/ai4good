@@ -287,6 +287,12 @@ hr {
   color: var(--primary-foreground);
   border-color: var(--primary);
 }
+.nav-step-done,
+.active .nav-step-done {
+  color: var(--positive);
+  background: transparent;
+  border-color: var(--positive);
+}
 .sidebar-footer {
   margin-top: auto;
   padding: 28px 8px 0;
