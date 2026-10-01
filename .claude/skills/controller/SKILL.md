@@ -37,7 +37,7 @@ to "a session works where it was launched", and it exists only for this hand-off
 | `/controller AI4DEV-19 cloud` | the same, but the mechanic is a cloud session started with `claude --cloud`. The session stays in the main folder. |
 | `/controller done AI4DEV-19` | the lead merged. Steer the board: confirm Done, clear the held item, fold upward, judge the filing candidates (phase C). The lead invokes this itself as its last closing step. |
 | `/controller AI4DEV-3` | a PARENT. A subtree run (founder ruling 2026-09-03: "parent and children for a beefy run"). List the children with short labels and state. The run takes every open, unblocked child. Blocked, Done, and Cancelled children stay out and are named. If no child is startable, stop and say so. Otherwise start the parent (phase B): one branch, one worktree, one brief with one unit per child, one pull request. |
-| `/controller AI4DEV-19` on an item already started | a RESUME (founder 2026-09-09: "i want to have /controller such that on new session ready to process the brief it will do all the required steps"). The item is In Progress, its branch exists on origin, and `loop/items/<item>/brief.md` is on that branch. Do no validation, no claim, no brief. If the worktree under `.claude/worktrees/<item>` is missing, `git fetch origin` and `git worktree add .claude/worktrees/<item> <branch>`; if present, `git -C <worktree> pull --ff-only`. Then the local hand-over of phase B step 9: `EnterWorktree`, the transition line, the exact instruction, stop. A new session launched in the main folder reaches the brief this way. |
+| `/controller AI4DEV-19` on an item already started | a RESUME (founder 2026-09-09: "i want to have /controller such that on new session ready to process the brief it will do all the required steps"). The item is In Progress, its branch exists on origin, and `loop/items/<item>/brief.md` is on that branch. Do no validation, no claim, no brief. If the worktree under `.claude/worktrees/<item>` is missing, `git fetch origin` and `git worktree add .claude/worktrees/<item> <branch>`; if present, `git -C <worktree> pull --ff-only`. Then the local hand-over of phase B step 9: `EnterWorktree`, the transition line, the exact instruction, stop. For an item a project skill claims, invoke that skill instead of printing the instruction. A new session launched in the main folder reaches the brief this way. |
 | `/controller AI4PM-12` | a requirement. Apply the requirement states below. |
 | `/controller` | recommend and wait: In Progress first, then open leaves and parents whose open children are leaves, then a new requirement. Top three, one-line reasons, wait. |
 
@@ -53,6 +53,25 @@ closes only the parent. Each extra unit gets a Unit block in the brief, and `/co
 done` closes it from the merge commit like any unit. An extra unit must be a leaf, open,
 unblocked, and under the same requirement root as the parent. A dev root that holds parents
 is never the parent of a run.
+
+**UI screens** (founder 2026-09-30 and 2026-10-01). A UI screen is one parent item with three
+children, one for each stage. Run them in this order; each child blocks the next one. Each
+stage has its own branch, and its merge closes it. Title each child by its stage, for example
+`Screen design: Discovery`.
+
+1. **Screen design.** The screen is designed on a Claude Design canvas with the founder. Codex
+   plays the screen's user and reviews every interaction until all works. Then the PRD gets
+   the contract changes and big additions, and the acceptance tests are written. The
+   `ui-design` skill claims this item and runs it, not poteto-mode (step 9, "An item a
+   project skill claims").
+2. **Screen build.** pstack builds the real components on sample data, to the canvas copy in
+   `design/canvas/<screen>/`. The pending acceptance tests turn green at the loop tier, and
+   Codex reviews the running screen as its user. poteto-mode runs it.
+3. **Screen wiring.** pstack builds the backend and replaces the sample-data transport with
+   the real one. The acceptance tests pass at the integration tier, and `verify-ai4good`
+   drives the screen. poteto-mode runs it.
+
+`design/ui-way-of-work.md` holds the rules for screen build and screen wiring.
 
 Requirement states: no decomposition file → propose writing `loop/decomp/req-0NN.md` as the
 work. Merged but unclaimed → materialise the dev tree: `loop/work/materialize.ps1` reads the
@@ -106,6 +125,18 @@ falsely In Progress.
    > `/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.`
    > The lead merges when CI is green and you say "merge", then hands the board back to
    > `/controller done`.
+
+   **An item a project skill claims** (founder 2026-10-01: "Controller on a screen design
+   should be able to utilize it without me typing it", and "it shouldn't be explicit
+   frontmatter of the ui design should suffice"). Before the hand-over, read the
+   `description` of each skill under `.claude/skills/`. If one says that the controller
+   invokes it for this kind of item, that skill runs the item instead of poteto-mode. Move
+   into the worktree and print the transition line the same way, then invoke that skill with
+   the Skill tool and the argument `loop/items/<item>/brief.md`. Do not print the poteto-mode
+   instruction. Write the brief's ask as one line: `Follow the <skill> skill. It opens the
+   pull request and closes the item.` If two skills claim the item, or a claim is unclear,
+   ask the founder with `AskUserQuestion`. An item a skill claims runs locally, not in a
+   cloud session.
 
    The founder runs the mechanic here and talks to it directly. You have no further part in
    the item. To run the mechanic in a different session, the founder opens that session in
@@ -216,7 +247,6 @@ Then close the item as the Closing section says.
 
 Fill every field from the board and the repository. A field you cannot fill means the item is
 not ready. Say which field, and stop.
-
 ## While the mechanic runs
 
 A local mechanic is this session: the founder and the lead talk directly, and the controller
