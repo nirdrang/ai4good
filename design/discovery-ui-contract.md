@@ -95,7 +95,7 @@ Existing human review holds and data responsibilities remain separate. A missing
 If a manual edit or AI reply is in progress, the active button explains how to save, cancel, or stop before review.
 
 The review page then shows the current brief as it stands, each section with its source and an Edit. Saving an edit is free, creates a new revision, and clears the review acknowledgment. There is no AI rewrite, and opening the review makes no model call.
-The NGO supplies the existing acknowledgments and selects **Finish Discovery**, which stays unavailable while an edit is open.
+The NGO supplies the existing acknowledgments and selects **Finish Discovery**, which stays unavailable while an edit is open or while a file is still being read. The page says so in plain words (founder decision 2026-10-01).
 If gaps remain, require an explicit acknowledgment that the NGO chooses to finish with those gaps open. That checkbox appears only while questions remain open.
 That action records the revision, actor, time, and accepted gaps with their reasons. Confirmation survives reload.
 It carries available paid funds once under the existing funding rules.
@@ -171,7 +171,7 @@ Free turns never become dollars. The prototype's former per-gate free grants do 
 | Fit declined or reopened | Preserve the existing decline, oversight, and admin-overturn rules. |
 
 The AI cannot sign off for the NGO. The server checks role, project access, and brief revision.
-Reading, manual editing, review, confirmation, file attachment, and the file read cost no AI turn. Each NGO answer in a file chat is one turn (revision 12).
+Reading, manual editing, review, confirmation, file attachment, and the file read cost no AI turn. A file read is not a turn (founder decision 2026-10-01: a Discovery file is ingested automatically).
 
 ## Usability rules from the NGO critique
 
@@ -185,7 +185,8 @@ The rules below stay inside the sections above. They say how the screen presents
 ### Progress and finishing
 
 - Before the first answer, the progress panel lists the open topics and offers review and completion with those topics open.
-- Finish Discovery is always an enabled primary button. Missing information appears in the review instead of disabling it.
+- Finish Discovery in the progress panel is always an enabled primary button. Missing information appears in the review instead of disabling it.
+- A file that is still being read keeps Finish Discovery unavailable on the review page. The page says so. The progress button still opens the review (founder decision 2026-10-01).
 - After the progress panel scrolls out of view, a compact strip stays at the top of the page.
   The strip shows the percentage, the agreed topic count, and the same enabled Finish Discovery action.
 - When the questions are complete, the finish invitation points to Finish Discovery. It does not add a second finish button.
@@ -252,7 +253,7 @@ Stream format: each `data-question` part also carries `recommendation` and `unce
 
 ### Claude revision 12, 2026-09-29
 
-The founder approved revision 12 for desktop on 2026-09-29 and accepted these rule changes. The design is on the Claude Design canvas "Discovery brief side panel", boards Interview, Finish, and Phone. Change order 012 records each ruling. Phone versions of the file chat, the Questions card, and the review page are designed in phase 2 with the mock.
+The founder approved revision 12 for desktop on 2026-09-29 and accepted these rule changes. The design is on the Claude Design canvas "Discovery brief side panel", boards Interview, Finish, and Phone. Change order 012 records each ruling. Phone versions of the file panel, the Questions card, and the review page are designed in phase 2 with the mock.
 
 Composer and questions:
 
@@ -264,13 +265,15 @@ Composer and questions:
 Files:
 
 - The first AI reply asks for files while the project has fewer than three Discovery files, and points to Add a file.
-- Add a file opens a panel beside the main chat with a drop area and Choose a file, which opens the device's file picker. It lists the accepted types and says to use sample or redacted data that ai4good and the volunteer will see.
-- The chosen file's chat asks one question: what should we know about this file, with suggested answers and free text.
-  The answer starts the read. If the AI needs more to finish, the read pauses and it asks in the file chat until the read is complete.
-- Each NGO answer in the file chat is one reply. The read itself is free.
-- The NGO can close the file chat during the read. The file row shows Reading with progress, A question for you, then Ready with the number of facts. Selecting the file reopens its chat.
-- The next AI reply in the main chat says what the file showed and asks the NGO to confirm. A file fact enters the brief only after the NGO agrees.
-- There is no "AI can read" switch; every uploaded file is read. At most three Discovery files while the project is not funded; intake files do not count.
+- Add a file opens a panel beside the main chat with a drop area and Choose a file, which opens the device's file picker. It lists the accepted types and says to use sample or redacted data that ai4good and the volunteer will see. Cancel adds nothing.
+- Choosing or dropping a file starts the read at once. No question comes first. The panel closes. The founder decided this on 2026-10-01: a Discovery file is ingested automatically.
+- The file appears in Your files as Reading with a percent, then Ready with the number of facts. The read never pauses. The read never asks a question.
+- Selecting the file opens a read-only panel in the same place. It shows the file name, the size, the read progress, and the facts when the read is ready. It has no answer box. Closing the panel does not stop the read. Focus returns to the control that opened the panel.
+- A read uses no reply, no free turn, and no fuel. The usage card does not change.
+- When the read finishes, its facts enter the brief. The brief marks them as coming from that file. A file fact does not agree a topic. The NGO agrees topics in the chat.
+- The next main-chat reply says, in one sentence, what the file showed. It asks nothing about the file.
+- Finish Discovery on the review page stays unavailable while a file is still being read. After confirmation, Add a file stays disabled.
+- There is no "AI can read" switch. Every uploaded file is read. At most three Discovery files while the project is not funded. Intake files do not count.
 
 ### Open minor findings
 

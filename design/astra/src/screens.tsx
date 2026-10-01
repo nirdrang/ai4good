@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
-  CheckCircle2,
   Clock3,
   FileText,
   Leaf,
@@ -11,6 +10,9 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import type { DiscoveryPort } from "@/components/discovery";
+import { confirmationCurrent } from "@/components/discovery/model";
+import type { DiscoveryState, DiscoveryUsage } from "@/lib/discovery-stream";
 import {
   Badge,
   Button,
@@ -19,21 +21,19 @@ import {
   PageTitle,
   Stages,
   phaseLabel,
+  type Route,
   type ScreenProps,
 } from "./components";
-import { confirmBrief, discoveryGaps, funding, invalidateApproval, regenerateScope, usd } from "./model";
-import { briefReady, questions, discoveryDataTier } from "./questions";
-import { DiscoveryScope } from "./DiscoveryScope";
+import { invalidateApproval, usd } from "./model";
 
-export function Dashboard({ state, navigate }: ScreenProps) {
+export function Dashboard({
+  state,
+  navigate,
+  discovery,
+}: ScreenProps & { discovery: DiscoveryState }) {
   const submitted = state.phase === "under-review";
-  const next = submitted
-    ? "publish"
-    : state.confirmation
-      ? "publish"
-      : state.phase === "intake"
-        ? "intake"
-        : "discovery";
+  const finished = confirmationCurrent(discovery.brief, discovery.confirmation);
+  const next = submitted || finished ? "publish" : state.phase === "intake" ? "intake" : "discovery";
   return (
     <>
       <PageTitle
@@ -61,14 +61,14 @@ export function Dashboard({ state, navigate }: ScreenProps) {
           <small>
             {submitted
               ? "You're up to date"
-              : state.confirmation
-                ? "Submit your confirmed scope"
+              : finished
+                ? "Find a volunteer match"
                 : "Continue shaping your first version"}
           </small>
         </div>
         <div className="summary-stat">
           <span>Project fuel available</span>
-          <strong>{usd(funding(state).available + state.usage.nextGate)}</strong>
+          <strong>{usd(discovery.usage.availableMicros)}</strong>
           <small>Free Discovery turns are used first</small>
         </div>
       </div>
@@ -111,8 +111,8 @@ export function Dashboard({ state, navigate }: ScreenProps) {
                 <h3>
                   {submitted
                     ? "A person reviews your scope"
-                    : state.confirmation
-                      ? "Send your scope for review"
+                    : finished
+                      ? "Find a volunteer match"
                       : state.phase === "intake"
                         ? "Tell us about the need"
                         : "Shape the first version"}
@@ -390,319 +390,39 @@ export function Intake({ state, setState, navigate, notify }: ScreenProps) {
   );
 }
 
-export function Scope({ state, setState, navigate, notify }: ScreenProps) {
-  const [agreed, setAgreed] = useState(false);
-  const [dataAgreed, setDataAgreed] = useState(false);
-  const [gapsAgreed, setGapsAgreed] = useState(false);
-  const [rewriteReason, setRewriteReason] = useState("");
-  useEffect(() => {
-    setAgreed(false);
-    setDataAgreed(false);
-    setGapsAgreed(false);
-  }, [state.revision]);
-  const tier = discoveryDataTier(state.answers);
-  const all = questions(state.answers);
-  const ready = briefReady(state.answers);
-  const gaps = discoveryGaps(state);
-  const isConfirmed = state.confirmation?.revision === state.revision;
-  return (
-    <>
-      <PageTitle
-        eyebrow="Your project / Discovery · last step"
-        title="Does this describe what you need?"
-        action={
-          <Badge tone={isConfirmed ? "green" : "neutral"}>
-            {isConfirmed ? "Confirmed by you" : `Draft · revision ${state.revision}`}
-          </Badge>
-        }
-      >
-        Review the decisions, then confirm this version to finish Discovery. This uses no AI turns.
-      </PageTitle>
-      <Stages current={isConfirmed ? 2 : 1} />
-      {gaps.length > 0 && (
-        <section className="callout warning discovery-gap-review" aria-labelledby="discovery-gaps-title" data-testid="brief-open-questions">
-          <h2 id="discovery-gaps-title">
-            {isConfirmed ? "Finished with open questions" : "Important information is still missing"}
-          </h2>
-          <p>
-            {isConfirmed
-              ? "Your NGO chose to finish with these questions open. They remain in the brief for project review and volunteer matching."
-              : "You can still finish Discovery. Review what is missing and acknowledge it below, or return to the conversation."}
-          </p>
-          <ul>
-            {gaps.map((gap) => <li key={gap.id}><strong>{gap.title}.</strong> {gap.reason}</li>)}
-          </ul>
-          <p className="small">Finishing records your decision. It does not turn an unanswered question into an agreed answer.</p>
-        </section>
-      )}
-      <div className="form-grid">
-        <div className="panel scope-document" data-testid="scope-document">
-          <p className="eyebrow">Harbor Community Kitchen</p>
-          <h2>{state.intake.title || "Your project"}</h2>
-          <div className="scope-section">
-            <h3>The need</h3>
-            <p>{state.intake.need}</p>
-          </div>
-          <div className="scope-section">
-            <h3>Who it helps</h3>
-            <p>{state.intake.users}</p>
-          </div>
-          <div className="scope-section">
-            <h3>Your decisions</h3>
-            <dl className="scope-decisions">
-              {all.map((q) => (
-                <div key={q.id}>
-                  <dt>{q.title}</dt>
-                  <dd>
-                    {state.answers[q.id]?.certain ? (
-                      state.answers[q.id]?.text
-                    ) : (
-                      <span className="amber-text">Still an open question</span>
-                    )}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          <div className="scope-section">
-            <label className="field">
-              First version summary
-              <textarea
-                data-testid="scope-summary"
-                rows={4}
-                readOnly={state.phase === "under-review"}
-                value={
-                  state.summary ??
-                  `A small scheduling tool for ${state.intake.users.toLowerCase()} ${state.intake.outcome}`
-                }
-                onChange={(event) =>
-                  setState((current) => ({
-                    ...invalidateApproval(current),
-                    summary: event.target.value,
-                  }))
-                }
-              />
-            </label>
-          </div>
-          <div className="scope-section">
-            <h3>Outside the first version</h3>
-            <ul className="plain-list">
-              <li>Payroll and payment collection</li>
-              <li>Live integrations with other systems</li>
-              <li>Using real sensitive records during build</li>
-            </ul>
-          </div>
-          <DiscoveryScope state={state} setState={setState} />
-          <section className="scope-section">
-            <details>
-              <summary>The draft needs a rewrite</summary>
-              <p>
-                Tell us what the draft gets wrong. Up to three rewrites use no turns or paid fuel.
-              </p>
-              {state.regenerationReview ? (
-                <p className="callout warning" role="status">
-                  Human review requested. Your reason and conversation stay with the project. The
-                  sample request sends no notification.
-                </p>
-              ) : (
-                <>
-                  <label className="field">
-                    What needs to change?
-                    <textarea
-                      data-testid="scope-rewrite-reason"
-                      rows={2}
-                      value={rewriteReason}
-                      onChange={(event) => setRewriteReason(event.target.value)}
-                    />
-                  </label>
-                  <p className="small muted">
-                    {Math.max(0, 3 - state.regenerations.length)} of 3 free rewrites remaining.
-                  </p>
-                  <Button
-                    testId="regenerate-scope"
-                    disabled={
-                      !rewriteReason.trim() ||
-                      !ready ||
-                      state.condition === "declined" ||
-                      state.phase === "under-review"
-                    }
-                    onClick={() => {
-                      setState((current) => regenerateScope(current, rewriteReason));
-                      setRewriteReason("");
-                      notify(
-                        state.regenerations.length < 3
-                          ? "Draft rewritten. Reason recorded. No turn or fuel used."
-                          : "Sample review request recorded. No real notification was sent.",
-                      );
-                    }}
-                  >
-                    {state.regenerations.length < 3
-                      ? "Rewrite this draft · free"
-                      : "Request human review"}
-                  </Button>
-                </>
-              )}
-              {state.regenerations.length > 0 && (
-                <ul className="plain-list">
-                  {state.regenerations.map((entry) => (
-                    <li key={entry.revision}>
-                      Revision {entry.revision}: {entry.reason}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
-          </section>
-        </div>
-        {!isConfirmed && (
-          <div className="scope-jump">
-            <Button
-              testId="jump-to-confirmation"
-              variant="primary"
-              className="full-width"
-              onClick={() => {
-                const panel = document.getElementById("confirm-discovery");
-                panel?.scrollIntoView({ block: "start", behavior: "smooth" });
-                panel?.focus({ preventScroll: true });
-              }}
-            >
-              <Next>Ready? Go to Finish Discovery</Next>
-            </Button>
-          </div>
-        )}
-        <aside className="confirmation-aside">
-          <section className="panel confirmation-panel" id="confirm-discovery" tabIndex={-1}>
-            {isConfirmed && (
-              <span className="project-icon">
-                <CheckCircle2 size={24} />
-              </span>
-            )}
-            <h2>{isConfirmed ? "Discovery is finished" : "Finish Discovery"}</h2>
-            {isConfirmed ? (
-              <>
-                <p data-testid="brief-confirmation">
-                  {state.confirmation?.actor} confirmed revision {state.confirmation?.revision}.
-                </p>
-                <p className="small muted">
-                  {state.confirmation && new Date(state.confirmation.at).toLocaleString()}
-                </p>
-                <p>
-                  Next: find a volunteer. Submit your project for review. After approval, ai4good
-                  coordinates a match. PRD work follows volunteer consent and funding.
-                </p>
-                <p className="small muted" data-testid="fuel-transfer-receipt">
-                  {usd(state.usage.nextGate)} of available fuel is set aside for the next stage.
-                  Free turns are not money.
-                </p>
-                <Button
-                  testId="continue-to-publish"
-                  variant="primary"
-                  className="full-width"
-                  onClick={() => navigate("publish")}
-                >
-                  <Next>Find a volunteer</Next>
-                </Button>
-              </>
-            ) : (
-              <>
-                <p>You decide whether this is the right first version for your organisation.</p>
-                {(state.condition === "declined" || state.regenerationReview) && (
-                  <p className="callout warning">
-                    A person must resolve the existing project hold before confirmation. Missing answers alone do not block finishing.
-                  </p>
-                )}
-                <label className="checkbox-field">
-                  <input
-                    data-testid="brief-acknowledgment"
-                    type="checkbox"
-                    checked={agreed}
-                    onChange={(e) => setAgreed(e.target.checked)}
-                  />
-                  <span>
-                    I have reviewed revision {state.revision}. It describes the first version we
-                    need.
-                  </span>
-                </label>
-                {gaps.length > 0 && (
-                  <label className="checkbox-field">
-                    <input
-                      data-testid="open-questions-acknowledgment"
-                      type="checkbox"
-                      checked={gapsAgreed}
-                      onChange={(event) => setGapsAgreed(event.target.checked)}
-                    />
-                    <span>I understand that {gaps.length} {gaps.length === 1 ? "question remains" : "questions remain"} open. I choose to finish Discovery anyway and keep them in the brief.</span>
-                  </label>
-                )}
-                {tier > 0 && (
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      data-testid="data-responsibility-acknowledgment"
-                      checked={dataAgreed}
-                      onChange={(event) => setDataAgreed(event.target.checked)}
-                    />
-                    <span>
-                      {tier === 2
-                        ? "I will use fictional or anonymized records during build. Our NGO connects real data after handoff."
-                        : "Our NGO takes responsibility for data access and keeps only the personal information this tool needs."}
-                    </span>
-                  </label>
-                )}
-                {tier > 0 && (
-                  <p className="small muted checkbox-help" data-testid="data-responsibility-help">
-                    {tier === 2
-                      ? "In practice: the volunteer builds and tests with made-up records. Your team adds the real records after handoff."
-                      : "In practice: your NGO decides who can see volunteer details, and the tool stores only what “Information handled” lists."}
-                  </p>
-                )}
-                <Button
-                  testId="confirm-brief"
-                  variant="primary"
-                  className="full-width"
-                  disabled={
-                    !agreed ||
-                    (gaps.length > 0 && !gapsAgreed) ||
-                    Boolean(state.regenerationReview) ||
-                    (tier > 0 && !dataAgreed) ||
-                    state.condition === "declined"
-                  }
-                  onClick={() => {
-                    setState((current) => confirmBrief(current, { acceptOpenQuestions: gapsAgreed }));
-                    notify(
-                      gaps.length
-                        ? "Discovery finished with open questions recorded. Next: submit your project for volunteer matching."
-                        : "Discovery finished. Your approved brief is saved. Next: submit your project for volunteer matching.",
-                    );
-                  }}
-                >
-                  Confirm and finish Discovery
-                  <Check size={15} />
-                </Button>
-              </>
-            )}
-            <Button
-              testId="return-to-discovery"
-              className="full-width"
-              variant="quiet"
-              onClick={() => navigate("discovery")}
-            >
-              Back to Discovery
-            </Button>
-          </section>
-          <p className="small muted aside-note">
-            Confirmation records your approval of this scope. It does not promise delivery or a
-            price.
-          </p>
-        </aside>
-      </div>
-    </>
-  );
+function confirmedBriefLines(discovery: DiscoveryState): string[] {
+  const brief = discovery.brief;
+  const lines = [brief.need.text];
+  if (brief.usersToday) lines.push(brief.usersToday.text);
+  for (const topic of brief.topics) {
+    if (topic.state.kind === "agreed") lines.push(`${topic.title}: ${topic.state.answer}`);
+  }
+  if (brief.successMeasure) lines.push(brief.successMeasure.text);
+  for (const gap of discovery.confirmation?.acceptedGaps ?? []) lines.push(`${gap.title}: ${gap.reason}`);
+  return lines;
 }
 
-export function Publish({ state, setState, navigate, notify }: ScreenProps) {
+export function Publish({ state, setState, navigate, notify, port }: ScreenProps & { port: DiscoveryPort }) {
   const [agreed, setAgreed] = useState(false);
+  const [discovery, setDiscovery] = useState<DiscoveryState | null>(null);
   const submitted = state.phase === "under-review";
+  useEffect(() => {
+    let live = true;
+    port.load().then(
+      (result) => {
+        if (!live || !result.ok) return;
+        setDiscovery(result.value);
+      },
+      () => {
+        /* The screen keeps the loading line. */
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [port]);
+  const confirmation =
+    discovery && confirmationCurrent(discovery.brief, discovery.confirmation) ? discovery.confirmation : null;
   return (
     <>
       <PageTitle
@@ -713,21 +433,25 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
           ? "A person reviews your project before it becomes public. After approval, ai4good coordinates a volunteer match."
           : "Submit your approved scope for review. After approval, ai4good helps find a volunteer. PRD work follows volunteer consent and funding."}
       </PageTitle>
-      <Stages current={state.confirmation ? 2 : 1} />
+      <Stages current={confirmation ? 2 : 1} />
       <div className="review-layout">
         <section className="panel publish-card">
           <span className="large-status">
             {submitted ? <Clock3 size={30} /> : <ShieldCheck size={30} />}
           </span>
           <Badge tone={submitted ? "amber" : "green"}>
-            {submitted
-              ? "Under review"
-              : state.confirmation
-                ? "Scope confirmed"
-                : "Scope not confirmed"}
+            {submitted ? "Under review" : !discovery ? "Loading Discovery" : confirmation ? "Scope confirmed" : "Scope not confirmed"}
           </Badge>
-          <h2>{state.intake.title || "Your project"}</h2>
-          <p>{state.intake.outcome}</p>
+          <h2>{confirmation && discovery ? discovery.project.title : state.intake.title || "Your project"}</h2>
+          {confirmation && discovery ? (
+            confirmedBriefLines(discovery).map((line, index) => (
+              <p key={`${index}:${line}`} style={{ whiteSpace: "pre-wrap" }}>
+                {line}
+              </p>
+            ))
+          ) : (
+            <p>{state.intake.outcome}</p>
+          )}
           <div className="publish-checks">
             <p>
               <Check size={16} />
@@ -758,7 +482,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
             </div>
           ) : (
             <>
-              {!state.confirmation && (
+              {discovery && !confirmation && (
                 <p className="callout warning">
                   Confirm your Discovery brief before submitting this project.
                 </p>
@@ -768,7 +492,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
                   data-testid="publish-acknowledgment"
                   type="checkbox"
                   checked={agreed}
-                  disabled={!state.confirmation}
+                  disabled={!confirmation}
                   onChange={(e) => setAgreed(e.target.checked)}
                 />
                 <span>
@@ -778,7 +502,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
               <Button
                 testId="submit-for-review"
                 variant="primary"
-                disabled={!state.confirmation || !agreed}
+                disabled={!confirmation || !agreed}
                 onClick={() => {
                   setState((current) => ({ ...current, phase: "under-review" }));
                   notify("The sample project is now under review.");
@@ -788,7 +512,7 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
               </Button>
             </>
           )}
-          <Button testId="publish-view-scope" variant="quiet" onClick={() => navigate("scope")}>
+          <Button testId="publish-view-scope" variant="quiet" onClick={() => navigate("discovery-review")}>
             View your scope
           </Button>
         </section>
@@ -797,10 +521,23 @@ export function Publish({ state, setState, navigate, notify }: ScreenProps) {
   );
 }
 
-export function Funding({ state, setState, navigate, notify }: ScreenProps) {
+export function Funding({
+  usage,
+  navigate,
+  notify,
+  onPurchase,
+  returnTo,
+}: {
+  usage: DiscoveryUsage;
+  navigate: (next: Route) => void;
+  notify: (message: string) => void;
+  onPurchase: (amountMicros: number) => void;
+  returnTo: Route;
+}) {
   const [amount, setAmount] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [receipt, setReceipt] = useState<number | null>(null);
+  const [purchases, setPurchases] = useState<{ id: number; amount: number }[]>([]);
   return (
     <>
       <PageTitle eyebrow="Your project / Fuel" title="Fuel for your project">
@@ -814,16 +551,8 @@ export function Funding({ state, setState, navigate, notify }: ScreenProps) {
             const value = Number(amount);
             if (!Number.isFinite(value) || value < 50 || !agreed) return;
             const micros = Math.round(value * 1_000_000);
-            setState((current) => ({
-              ...current,
-              usage: current.confirmation
-                ? { ...current.usage, nextGate: current.usage.nextGate + micros }
-                : { ...current.usage, allocation: current.usage.allocation + micros },
-              purchases: [
-                ...current.purchases,
-                { id: current.purchases.length + 1, amount: micros },
-              ],
-            }));
+            onPurchase(micros);
+            setPurchases((current) => [...current, { id: current.length + 1, amount: micros }]);
             setReceipt(micros);
             setAmount("");
             setAgreed(false);
@@ -890,33 +619,29 @@ export function Funding({ state, setState, navigate, notify }: ScreenProps) {
           <Button
             testId="fuel-return-to-project"
             variant="quiet"
-            onClick={() => navigate(state.confirmation ? "scope" : "discovery")}
+            onClick={() => navigate(returnTo)}
           >
             <Next>Return to your project</Next>
           </Button>
         </form>
         <aside className="panel fuel-overview">
           <h2>Current project fuel</h2>
-          <p className="large-balance">{usd(funding(state).available + state.usage.nextGate)}</p>
+          <p className="large-balance">{usd(usage.availableMicros)}</p>
           <dl className="balance-list">
             <div>
               <dt>Available in Discovery</dt>
-              <dd>{usd(funding(state).available)}</dd>
-            </div>
-            <div>
-              <dt>Next stage</dt>
-              <dd>{usd(state.usage.nextGate)}</dd>
+              <dd>{usd(usage.availableMicros)}</dd>
             </div>
             <div>
               <dt>Usage pending</dt>
-              <dd>{usd(state.usage.reserved)}</dd>
+              <dd>{usd(usage.reservedMicros)}</dd>
             </div>
           </dl>
           <hr />
           <h3>Recent sample purchases</h3>
-          {state.purchases.length ? (
+          {purchases.length ? (
             <ul className="purchase-list">
-              {state.purchases.map((p) => (
+              {purchases.map((p) => (
                 <li key={p.id}>
                   <span>Sample top-up {p.id}</span>
                   <strong>{usd(p.amount)}</strong>

@@ -37,7 +37,10 @@
       "status": "accepted-for-implementation",
       "reviewRevision": 12,
       "revisionAuthor": "Claude",
-      "reviewDocument": "design/astra/discovery-review.md"
+      "reviewDocument": "design/astra/discovery-review.md",
+      "implementation": "src/components/discovery/",
+      "implementationStatus": "built-on-fixtures-awaiting-founder-review",
+      "explorerEvidence": "loop/items/AI4DEV-180/evidence/unit5/"
     },
     {
       "id": "scope",

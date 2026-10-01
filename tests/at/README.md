@@ -1,12 +1,13 @@
 # `tests/at` — the acceptance-test tree, and its own type-check
 
-## Two tsconfigs, on purpose
+## Four tsconfigs, on purpose
 
 | file | covers | what it is |
 |---|---|---|
 | `/tsconfig.json` | `src/**`, `vite.config.ts`, `eslint.config.js` | Lovable's application build: TanStack Start, JSX, DOM libs, bundler resolution |
 | `/tests/at/tsconfig.json` | everything under `tests/at` | this tree: Node-side, no DOM, `types: ["node"]`, `.ts` import specifiers, `strict` |
 | `/.claude/skills/verify-ai4good/scripts/tsconfig.json` | the verify drive scripts | extends the acceptance config so the drive and `live-stack.ts` cannot disagree |
+| `/design/astra/tsconfig.json` | the fixture shell and the Discovery screen it mounts | extends the app config, with the `@/` alias pointed at `src/` |
 
 They are **not** one widened `include`, and the separation is not stylistic:
 
@@ -22,12 +23,12 @@ They are **not** one widened `include`, and the separation is not stylistic:
 
 ## `bun run typecheck`
 
-Runs **all three** projects and fails if **any** fails.
+Runs **all four** projects and fails if **any** fails.
 
 It is a small wrapper (`tests/at/typecheck.ts`), not `tsc -p a && tsc -p b`, because `&&` stops at
 the first failure: an error in the app config would prevent the acceptance-test check from ever
 starting, and a command that says nothing at all about `tests/at` reads exactly like one that found
-it clean. All three projects are always launched; the exit code is the aggregate.
+it clean. All four projects are always launched; the exit code is the aggregate.
 
 The wrapper lives here rather than in a repo-level `scripts/` because AI4DEV-24's allowed paths
 stopped at `tests/at/**` and `package.json`. If a `scripts/` directory is ever added, this is a

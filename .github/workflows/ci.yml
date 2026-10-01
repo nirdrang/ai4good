@@ -107,7 +107,7 @@ jobs:
             exit 0
           fi
           code=$(printf '%s\n' "$files" \
-            | grep -E '^(src|supabase|tests|\.github)/|^package\.json$|^bun\.lock|^tsconfig|^vitest' || true)
+            | grep -E '^(src|supabase|tests|\.github)/|^package\.json$|^bun\.lock|^tsconfig|^vitest|^design/astra/' || true)
           if [ -n "$code" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "code territory touched - the full suite runs:"
@@ -166,6 +166,11 @@ jobs:
             fi
           done
           exit $status
+
+      - name: Install Chromium for the screen tests
+        if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
+        shell: bash
+        run: bunx playwright-core install --with-deps chromium
 
       - name: Verify every declared requirement at the loop tier
         if: github.event_name != 'pull_request' || steps.scope.outputs.code == 'true'
