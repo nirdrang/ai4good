@@ -2,7 +2,8 @@
 
 An NGO admin's organization holds a daily grant of Discovery credits: 10 while unverified, 30
 once founder-vetted. The Discovery agent reads the remaining credits before a turn and debits
-them after one. The day is the UTC calendar day, taken after the organization row is locked.
+them after one. The day is the UTC calendar day, taken after a share lock on the organization
+row.
 `remaining` is never stored; it is `granted − spent`. The route creates no conversation and no
 agent turn — it is the ledger only.
 
@@ -44,10 +45,12 @@ Refusals, in decision order after the write gate (502 `refused` unreadable stand
 
 - 400 `invalid-request` for an `organizationId` missing or blank. 400 `invalid-request` for a
   non-uuid id (shape check before the standing read). 400 `invalid-request` for an `action` not
-  `read` or `debit`. 400 `invalid-request` for a read that carries `credits`.
+  `read` or `debit`.
 - 409 `no-such-organisation`: a well-formed id no organization carries.
 - 403 `not-a-member` (no seat in the target) or `not-an-admin` (a `member` seat, which no product
   path writes).
+- 400 `invalid-request` for a read that carries `credits`. It comes after the membership check,
+  so a non-member's read with `credits` gets 403.
 - 400 `invalid-credit-amount`: a debit whose `credits` is missing, not an integer, zero or
   negative.
 - 409 `email-unverified`, `daily-allowance-exhausted`, `debit-exceeds-remaining` from the
@@ -87,4 +90,7 @@ database's `remaining` disagrees. For the refusals, `kind` plus the row unchange
 - A read on a day with no row shows the current tier's grant; a read after a vet shows the
   greater of the stored mark and the tier. A downgrade never lowers today's `granted`.
 - `discovery_spend` revokes every privilege from `service_role`; read it over `DB_URL`.
+- `spent` also shrinks: a Discovery turn reserves credits and its settle releases the unused
+  ones to the same day row (`discovery_spend_release`, see `discovery-message.md`). A debit
+  through this route only grows it.
 - `credits` must be a JSON number that is an integer; a numeric string is `invalid-credit-amount`.

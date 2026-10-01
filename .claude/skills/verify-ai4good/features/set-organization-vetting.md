@@ -27,7 +27,7 @@ discovery-allowance.md).
   recorded only for emailed registration documents"). Only metadata is stored, never a document.
 - Admin-only: an NGO or volunteer caller is refused 403 `not-a-platform-admin` by the write gate,
   with a reason that names platform administrators.
-- Nothing is delivered. No worker function is deployed (the fourteen functions under
+- Nothing is delivered. No worker function is deployed (the functions under
   `supabase/functions/` include none). So the two deliveries stay `pending` and no vetting email
   reaches Mailpit.
 - The grant high-water mark: a vet writes today's `discovery_spend` row with `granted = 30`

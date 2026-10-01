@@ -1,8 +1,10 @@
 # Set organization Discovery (platform admin per-NGO switch)
 
 A platform administrator switches Discovery off or on for one organisation. The write is
-audited. There is no notification. The next reserve on that organisation reads the switch
-under the organisation lock and refuses `discovery-disabled`.
+audited. There is no notification. The next Discovery reserve and the next scope begin on
+that organisation read the switch under a share lock on the organisation row and refuse
+`discovery-disabled`. The switch is read before `email-unverified`, so an unverified admin
+of a disabled organisation sees `discovery-disabled`.
 
 ## Sub-features
 
@@ -40,7 +42,12 @@ Refusals, in decision order after the write gate (502 `refused` unreadable stand
 
 A later Discovery send on a disabled organisation answers 409 `discovery-disabled`. The
 sentence names the stored reason and says a platform admin switched Discovery off for this
-organisation. Another organisation is untouched.
+organisation. Another organisation is untouched. A verified caller's send counts tokens
+before the reserve, so without a provider key it answers 502 first; prove the send refusal
+with `scripts/drive-discovery.ts`. `discovery-scope` `generate` answers the same 409 with no
+credential. `scripts/drive-discovery-refusals.ts` drives the switch, both refusals as far as
+the stack allows, and the audit readback. A repeat disable with a different reason answers
+`changed: false` and keeps the first reason.
 
 Readback over `DB_URL`:
 

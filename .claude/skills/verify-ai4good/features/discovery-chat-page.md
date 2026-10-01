@@ -11,6 +11,19 @@ printed `apiUrl` must equal the page's `VITE_SUPABASE_URL`. Open
 `http://localhost:8080` with `bun run dev`. Sign in on the page with the printed email
 and password.
 
+Every step below sends a message, so every step needs the provider key in
+`supabase/functions/.env` (the deployed `discovery-message` reads `ANTHROPIC_API_KEY`).
+Without it a send answers 502 at token counting and the page shows that reason; the page is
+then unreachable for this drive. `prepare-chat-page.ts` without `--drain` still runs without
+the key. The page uses its own chat on `@/lib/discovery-chat`. It does not use the fixture-built
+Discovery screen in `src/components/discovery/`, which no route mounts yet.
+
+Refusals the page shows with their `kind` in small print, besides the zero-credit one:
+`invalid-request` (empty or over 4000 characters), `need-not-in-discovery`, `no-such-project`,
+`not-an-admin`, `discovery-disabled`. When a stopped turn has not settled within the 20-second
+poll, the page shows a notice that the turn is still settling, or that the stopped message did
+not reach Discovery.
+
 ## Drive
 
 1. A real turn streams. Type a short project fact and press Send. Expect the status word

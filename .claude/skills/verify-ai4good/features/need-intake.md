@@ -8,7 +8,9 @@ submitted text and files is kept, even as the admin keeps editing afterward.
 ## Sub-features
 
 - NGO admin caller, `start`: a new project and its need row are created together, in the
-  `draft` stage, with no description and the base file-disclosure notice.
+  `draft` stage, with no description and the base file-disclosure notice. `start` needs the
+  account's platform terms acknowledgment (written by `complete-signup`); without it, 409
+  `platform-acknowledgment-missing`. `save`, `attach` and `submit` do not check it.
 - NGO admin caller, `save`: a partial patch (title, description, urgency) is applied. An
   identical save is a no-op (`changed: false`, the same `updatedAt`). Whitespace-only text
   collapses to `null`.
@@ -25,14 +27,21 @@ submitted text and files is kept, even as the admin keeps editing afterward.
   required acknowledgment text both come from `REFERENCE_FILE_DISCLOSURE` in
   `supabase/functions/_shared/need-intake-copy.ts`. The classification is monotonic: clearing or
   rewriting `tier2_classified_at` is refused by a database trigger (SQLSTATE `42501`).
-- Read-only caller, `need-intake`: any signed-in caller with standing reads the need back by
-  project id; an unauthenticated call is refused with 401.
+- Read-only caller, `need-intake`: an organisation member or a platform administrator reads the
+  need back by project id. Row-level security decides; the read checks no account type. Any
+  other caller, and an unknown project, gets the tenant 404 `{ok: false, reason: "no such thing
+  is visible to this caller"}` with no `kind`. A non-uuid id is 400 with no `kind`. An
+  unauthenticated call is refused with 401.
 - Public project page: a project with an intake — draft or submitted — is never public. It
   stays 404 on `public-project` regardless of stage, until a separate publication rule (owned by
   another requirement) says otherwise.
-- Refusals: a caller with no matching need in its own organisation (a different NGO's project,
-  or a stale project id) is refused `no-such-need`. A malformed field (for example a project id
-  that is not a uuid) is refused `invalid-request`.
+- Write refusals on `project-need`, after the common write gate (403 `not-an-ngo-account` among
+  them): 403 `not-a-member` or `not-an-admin` for the target organisation. 400 `invalid-name` for
+  an empty or whitespace title on `start` or `save`. 400 `invalid-request` for a non-uuid project
+  id, an unknown body, `patch` or `file` key, an urgency other than `soon`, `this_quarter` or
+  `no_deadline`, or a `byteSize` that is not a positive integer. 409 `no-such-need` for a caller
+  with no matching need in its own organisation (a different NGO's project, or a stale project
+  id). The read side never answers `no-such-need`; see the read bullet above.
 
 ## How to get to it (user POV)
 
@@ -74,7 +83,9 @@ files at the moment of submit. That row is unchanged by any later edit.
 ## Gotchas
 
 - `description` is kept verbatim, leading/trailing whitespace and line breaks included. Only an
-  all-whitespace string collapses to `null`, which is what the submission gate checks.
+  all-whitespace string collapses to `null`, which is what the submission gate checks. The
+  title is trimmed.
+- `causeLabels` on the need stays `[]` until a scope commit writes it (`discovery-scope.md`).
 - The Tier-2 classification is set directly over SQL in this drive (`update ... set
   tier2_classified_at = now()`), because the classifier is a separate, unbuilt operator surface.
   See `create-organization.md`'s note on driving what the surface can produce itself. Here no

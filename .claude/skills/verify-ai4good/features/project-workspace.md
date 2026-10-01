@@ -57,7 +57,9 @@ select tgname from pg_trigger
  where tgrelid = 'public.projects'::regclass and not tgisinternal;
 ```
 
-Expect `projects_seat_holds_a_volunteer` among the triggers. For the seat rule, run over
+Expect `projects_seat_holds_a_volunteer` and `projects_single_developer_seat` among the
+triggers. The second refuses re-pointing an occupied seat at a different account (SQLSTATE
+`42501`). For the seat rule, run over
 `DB_URL` `update public.projects set assigned_volunteer_id = '<ngo account id>' where id =
 '<project>';`. Expect SQLSTATE `42501` with the message "projects refuses assignment: the
 developer seat admits volunteer accounts only". The row is unchanged.
