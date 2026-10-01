@@ -8,13 +8,13 @@ import { briefSections, progressOf } from "./model";
 const FULL_SCREEN =
   "inset-0 top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0 sm:rounded-none";
 
-export function briefHeading(brief: BriefSnapshot): string {
+function briefHeading(brief: BriefSnapshot): string {
   const progress = progressOf(brief);
   return `Your live brief · ${TEXT.revision(brief.revision)} · ${progress.agreed} of ${progress.total} agreed`;
 }
 
 function FilesInBrief({ files }: { files: readonly DiscoveryFile[] }) {
-  const taken = files.filter((file) => file.tookFromIt);
+  const taken = files.filter((file): file is DiscoveryFile & { tookFromIt: string } => Boolean(file.tookFromIt));
   if (taken.length === 0) return null;
   return (
     <section className="flex flex-col gap-2 border-t border-border pt-3">
@@ -22,7 +22,7 @@ function FilesInBrief({ files }: { files: readonly DiscoveryFile[] }) {
       {taken.map((file) => (
         <div key={file.id} className="flex flex-col gap-1">
           <p className="text-sm">{TEXT.source.file(file.name)}</p>
-          <p className="text-sm">{TEXT.review.took(file.tookFromIt ?? "")}</p>
+          <p className="text-sm">{TEXT.review.took(file.tookFromIt)}</p>
         </div>
       ))}
     </section>

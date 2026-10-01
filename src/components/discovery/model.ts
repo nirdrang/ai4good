@@ -128,7 +128,7 @@ export type FileRowView = {
 };
 
 /** 1 KB is the smallest label. A megabyte keeps one decimal. */
-export function formatFileSize(bytes: number): string {
+function formatFileSize(bytes: number): string {
   if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
@@ -225,7 +225,7 @@ export function fileReadView(file: Extract<DiscoveryFile, { origin: "discovery" 
 }
 
 /** Whole cents stay two digits. A fractional cent stays visible. */
-export function formatUsd(micros: number): string {
+function formatUsd(micros: number): string {
   const sign = micros < 0 ? "-" : "";
   const abs = Math.abs(micros);
   const whole = Math.trunc(abs / 1_000_000);
@@ -461,7 +461,7 @@ export type UsageTone = "green" | "yellow" | "red";
  * Colour from the unrounded consumed fraction.
  * 0.8 and 0.95 stay yellow; the next fraction above 0.95 is red.
  */
-export function gaugeTone(consumed: number): UsageTone {
+function gaugeTone(consumed: number): UsageTone {
   if (consumed > 0.95) return "red";
   if (consumed >= 0.8) return "yellow";
   return "green";

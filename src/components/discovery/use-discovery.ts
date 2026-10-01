@@ -562,7 +562,8 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
 
   useEffect(() => {
     return port.subscribe((change) => {
-      if (change.brief) setBrief((current) => newerBrief(current, change.brief as BriefSnapshot));
+      const incomingBrief = change.brief;
+      if (incomingBrief) setBrief((current) => newerBrief(current, incomingBrief));
       if (change.files) setFiles(change.files);
       if (change.usage) setUsage(change.usage);
       if ("confirmation" in change) setConfirmation(change.confirmation ?? null);

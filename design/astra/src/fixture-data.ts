@@ -37,7 +37,7 @@ const ROTA_FACT =
 const SUNDAY_FACT = "14 empty Sunday shifts this year, most of them in August at the harbor kitchen";
 const KITCHEN_FACT = "volunteers must be 16 or older and finish a hygiene course before their first shift";
 
-export const FILE_SCRIPTS: readonly FileScript[] = [
+const FILE_SCRIPTS: readonly FileScript[] = [
   {
     id: "volunteer-rota",
     name: "volunteer-rota.xlsx",

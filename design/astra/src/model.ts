@@ -15,7 +15,7 @@ export type Answer = z.infer<typeof answerSchema>;
 const answersSchema = z.record(questionId, answerSchema);
 export type Answers = z.infer<typeof answersSchema>;
 
-export const stateSchema = z.object({
+const stateSchema = z.object({
   version: z.literal(1),
   phase: z.enum(["intake", "discovery", "scoped", "under-review"]),
   intake: z.object({ title: z.string(), need: z.string(), users: z.string(), outcome: z.string() }),

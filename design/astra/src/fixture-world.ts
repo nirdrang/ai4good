@@ -73,7 +73,7 @@ function refusal(kind: string, reason: string): Result<never> {
   return { ok: false, refusal: { kind, reason } };
 }
 
-export function allRequiredAgreed(brief: BriefSnapshot): boolean {
+function allRequiredAgreed(brief: BriefSnapshot): boolean {
   const required = brief.topics.filter((topic) => topic.required);
   return required.length > 0 && required.every((topic) => topicSettled(topic));
 }
