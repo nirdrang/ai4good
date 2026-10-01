@@ -54,24 +54,37 @@ done` closes it from the merge commit like any unit. An extra unit must be a lea
 unblocked, and under the same requirement root as the parent. A dev root that holds parents
 is never the parent of a run.
 
-**UI screens** (founder 2026-09-30 and 2026-10-01). A UI screen is one parent item with three
-children, one for each stage. Run them in this order; each child blocks the next one. Each
-stage has its own branch, and its merge closes it. Title each child by its stage, for example
-`Screen design: Discovery`.
+**UI screens** (founder 2026-09-30 and 2026-10-01). A UI screen is one deliverable in the
+requirement's manifest, marked `[ui-screen: <screen>]` in its heading. It has exactly three
+leaves, one for each stage, each blocked by the one before it:
+
+```
+### D8 — Discovery screen [ui-screen: discovery]
+  leaves:
+  - L1 Screen design · blocked-by: —
+  - L2 Screen build · blocked-by: L1
+  - L3 Screen wiring · verify: AT-004.61,62,… · blocked-by: L2
+```
 
 1. **Screen design.** The screen is designed on a Claude Design canvas with the founder. Codex
    plays the screen's user and reviews every interaction until all works. Then the PRD gets
-   the contract changes and big additions, and the acceptance tests are written. The
-   `ui-design` skill claims this item and runs it, not poteto-mode (step 9, "An item a
-   project skill claims").
-2. **Screen build.** pstack builds the real components on sample data, to the canvas copy in
-   `design/canvas/<screen>/`. The pending acceptance tests turn green at the loop tier, and
-   Codex reviews the running screen as its user. poteto-mode runs it.
-3. **Screen wiring.** pstack builds the backend and replaces the sample-data transport with
-   the real one. The acceptance tests pass at the integration tier, and `verify-ai4good`
-   drives the screen. poteto-mode runs it.
+   the contract changes and big additions, and the acceptance tests are written. Their ids go in
+   the `verify:` field of the screen wiring leaf: the list of tests that leaf must turn green. The `ui-design` skill claims this item and runs it,
+   not poteto-mode (step 9, "An item a project skill claims").
+2. **Screen build.** poteto-mode builds the real components with the app's own UI stack,
+   including the Vercel AI SDK, to the canvas copy in `design/canvas/<screen>/`. Only the data
+   is a mock: a fixture transport gives sample data. The pending acceptance tests turn green at the loop
+   tier, and Codex reviews the running screen as its user.
+3. **Screen wiring.** poteto-mode builds the backend and replaces the sample-data transport
+   with the real one. The acceptance tests pass at the integration tier. The `verify-ai4good`
+   skill gets a feature file for the screen and drives it.
 
-`design/ui-way-of-work.md` holds the rules for screen build and screen wiring.
+When you materialize the dev tree, create all three leaves at once, under the deliverable's
+parent, with the blocking relations. Title them `Screen design: <Screen>`, `Screen build:
+<Screen>`, and `Screen wiring: <Screen>`, with the leaf code as a suffix. Write each leaf's
+text from `screen-stages.md` in this folder. Each stage has its own branch, and its merge
+closes it. When a stage starts, its brief reads from the repository what the earlier stage
+produced: the canvas copy, the review record, and the test ids in the manifest's `verify:` field.
 
 Requirement states: no decomposition file → propose writing `loop/decomp/req-0NN.md` as the
 work. Merged but unclaimed → materialise the dev tree: `loop/work/materialize.ps1` reads the

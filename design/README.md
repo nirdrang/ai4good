@@ -1,7 +1,7 @@
 # Design sources
 
 A screen goes through three stages: screen design on a canvas, screen build on sample data, and screen wiring.
-The `ui-design` skill, in `.claude/skills/ui-design/`, holds screen design. [The UI way of work](ui-way-of-work.md) holds the overview, screen build, and screen wiring.
+The `ui-design` skill, in `.claude/skills/ui-design/`, holds screen design. The controller skill materializes the three stages and holds the steps of screen build and screen wiring.
 
 | Location | Purpose |
 | --- | --- |

@@ -225,7 +225,7 @@ Change it with `/setup-pstack-project`, never with the plugin's `/setup-pstack` 
 ---
 ## Project-Specific Guidelines
 
-- **A screen goes through three stages (founder 2026-09-30): screen design, screen build, screen wiring.** Design on a Claude Design canvas with an agent operating it, then the real components on sample data through pstack, then the backend and the wiring through pstack. Screen design is the `ui-design` skill; `design/ui-way-of-work.md` holds the overview, screen build, and screen wiring. The controller skill states the sequence. New screens are not designed in `design/astra/`; it is the sample-data shell for screen build and keeps its earlier review records. Lovable does not build screens (founder 2026-09-30).
+- **A screen goes through three stages (founder 2026-09-30): screen design, screen build, screen wiring.** Design on a Claude Design canvas with an agent operating it, then the real components on sample data through pstack, then the backend and the wiring through pstack. Screen design is the `ui-design` skill. The controller skill materializes the three stages from the manifest and gives screen build and screen wiring their steps (`.claude/skills/controller/screen-stages.md`). New screens are not designed in `design/astra/`; it is the sample-data shell for screen build and keeps its earlier review records. Lovable does not build screens (founder 2026-09-30).
 - **UI never touches the DB directly.** UI code must always go through an edge function — never call the database directly from UI code.
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

@@ -38,6 +38,12 @@ Verify commands: <exact commands>            ← pinned at pull (the manifest re
 Every P0 AT-id of this requirement appears in exactly one leaf's verify set (bijection).
 ```
 
+**A UI screen deliverable** (founder 2026-10-01) carries `[ui-screen: <screen>]` in its heading and
+has exactly three leaves: screen design, screen build, screen wiring, each blocked by the one
+before it. Only the screen wiring leaf has a `verify:` field, the list of tests it must turn green. The
+screen design stage writes the screen's acceptance tests and puts their ids there. The controller skill's "UI screens" paragraph says how the three
+leaves are materialized.
+
 ## Pipeline per batch (same rhythm as the AT batches)
 
 draft (deliverable-first, from the AT coverage maps) → ONE codex critique round

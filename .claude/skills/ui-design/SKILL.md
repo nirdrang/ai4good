@@ -35,7 +35,7 @@ If the controller started you, read `loop/items/<item>/brief.md`. If the founder
 7. **Write the acceptance tests for screen build and screen wiring.** For each behavior of the complete screen, add or amend a test in `.taskmaster/docs/acceptance/at-req-0NN.md`, in the file's own form: what the user does and what the user sees, bound to the `data-testid` handles.
    - Register each new id as a pending stub in `tests/at/suites/`, and declare it pending in `tests/at/expected/`.
    - Do not delete a green test that the design made wrong. Mark it to move or retire in screen wiring.
-   - Update the decomposition manifest, `loop/decomp/req-0NN.md`.
+   - Add the new ids to the `verify:` field of the screen wiring leaf in the screen's deliverable, in `loop/decomp/req-0NN.md`. That field lists the tests the leaf must turn green.
    - Check with `loop/decomp/check-tree.ps1`, `bun run at:check <req>`, and `bun run at:verify <req> --tier loop --expect`.
 8. **Save and close.**
    - Download the boards and `canvas.json` from the published canvas into `design/canvas/<screen>/project/`. Screen build uses this copy as its target.
@@ -56,4 +56,4 @@ The Codex review does not run the acceptance tests, and the acceptance tests do 
 
 ## What a design item needs
 
-The item text says that the item is the screen design stage of the screen, and names the screen and its requirement ids.
+The controller writes the item text from `.claude/skills/controller/screen-stages.md` when it materializes the screen. The text names the screen, its requirement ids, and its deliverable in the manifest.

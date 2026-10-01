@@ -33,6 +33,20 @@ Other choices, from options the design session gave:
 - poteto-mode does not run screen design (2026-10-01).
 - The Codex review runs on GPT-6.1 Sol: at `xhigh` from 2026-09-30, at `high` from 2026-10-01.
 
+## Where each layer of a screen lives
+
+| Layer | Holds | Where |
+| --- | --- | --- |
+| Requirements | What must exist | `.taskmaster/docs/prd-mvp.md`, from `loop/out/pure-s*.md` |
+| Screen rules | Rules every screen obeys, and one row per screen | `design/ui-ux-instructions.md` |
+| Screen contract | The detailed behavior of one screen | `design/<screen>-ui-contract.md` |
+| Acceptance tests | The checks that prove the coded screen | `.taskmaster/docs/acceptance/`, `tests/at/` |
+| Complete design | The canvas the founder agreed | the canvas artifact, and its copy in `design/canvas/<screen>/` |
+| Screen code | The real components | `src/components/<screen>/` |
+| Backend | Edge functions and the database | `supabase/` |
+
+Each layer comes from the layer above it. If a layer below disagrees, fix the layer above first, then copy the change down. Never fix the screen code to disagree with the complete design, and never fix the design to disagree with the requirement.
+
 ## Rules for each step
 
 **Step 1, the first screens.**
@@ -61,6 +75,15 @@ Discovery was the first screen designed on a canvas: 26 rounds, 2026-09-27 to 20
 - The approved canvas lost the test handles that earlier Discovery designs had.
 - The design item and the approval item were on different branches, so the merge could not close the approval item. Each stage has its own branch and item.
 - The founder approved desktop first, and the phone moved to screen build cleanly.
+
+## Retired practices
+
+These were the UI way of work until 2026-09-30. The document that described them, `design/ui-way-of-work.md`, is in git history.
+- Lovable built each screen from Claude Design exports. pstack writes the screen code now.
+- Exports in `design/screens/` were the build input. They stay as a baseline only.
+- `design/astra/` was a design place. It is the sample-data shell for screen build, and it keeps its earlier review records.
+- Change orders went to the design project through `put_conversation`. A change order stays the record when a requirement change reaches a screen from outside a design session.
+- A separate design-track worktree pushed to main directly. Each stage uses its own branch and a pull request.
 
 ## Canvas tool facts
 
