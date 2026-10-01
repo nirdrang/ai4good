@@ -412,7 +412,7 @@ export default function App() {
             {projectNav.map((item) => {
               const done =
                 item.route === "intake"
-                  ? state.phase !== "intake"
+                  ? state.phase !== "intake" || discoveryDone
                   : item.route === "discovery" || item.route === "discovery-review"
                     ? discoveryDone
                     : false;
@@ -422,13 +422,10 @@ export default function App() {
                   href={`#${item.route}`}
                   data-testid={`nav-${item.route}`}
                   aria-current={route === item.route ? "page" : undefined}
+                  aria-label={done ? `${item.label}, done` : undefined}
                   className={`project-nav ${route === item.route ? "active" : ""}`}
                 >
-                  <span
-                    className={done ? "nav-step nav-step-done" : "nav-step"}
-                    role={done ? "img" : undefined}
-                    aria-label={done ? `${item.label}, done` : undefined}
-                  >
+                  <span className={done ? "nav-step nav-step-done" : "nav-step"}>
                     {done ? <Check size={12} aria-hidden="true" /> : item.step}
                   </span>
                   {item.label}

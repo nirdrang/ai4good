@@ -252,7 +252,7 @@ export class DiscoveryPage {
   };
 
   readonly steps = {
-    done: (label: string): Promise<boolean> => this.page.visible([{ role: 'img', name: `${label}, done` }]),
+    done: (label: string): Promise<boolean> => this.page.visible([{ role: 'link', name: `${label}, done` }]),
   };
 
   readonly questions = {
