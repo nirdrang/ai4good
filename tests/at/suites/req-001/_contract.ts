@@ -347,7 +347,16 @@ export type WriteSubject =
       readonly credits?: number;
     }
   | { readonly route: 'discovery-message'; readonly message: string }
-  | { readonly route: 'discovery-scope'; readonly organizationId: string; readonly projectId: string; readonly action: 'generate' };
+  | { readonly route: 'discovery-scope'; readonly organizationId: string; readonly projectId: string; readonly action: 'generate' }
+  | {
+      readonly route: 'discovery-brief';
+      readonly organizationId: string;
+      readonly projectId: string;
+      readonly action: 'edit';
+      readonly sectionId: string;
+      readonly text: string;
+      readonly baseRevision: number;
+    };
 
 export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
 

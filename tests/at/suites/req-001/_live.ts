@@ -1072,6 +1072,14 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           });
           return answer.ok ? { ok: true } : answer.refusal;
         },
+        'discovery-brief': async () => {
+          if (subject.route !== 'discovery-brief') throw new Error('unreachable');
+          const answer = await postWrite('discovery-brief', session, {
+            organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action,
+            sectionId: subject.sectionId, text: subject.text, baseRevision: subject.baseRevision,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
       };
       return attempts[subject.route]();
     },

@@ -193,6 +193,7 @@
 
 import { decideDiscoveryMessage, type DiscoveryReserveArgs } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { decideDiscoveryScope, type DiscoveryScopeArgs } from '../../../../supabase/functions/_shared/scope.ts';
+import { decideDiscoveryBrief, type DiscoveryBriefCommitArgs } from '../../../../supabase/functions/_shared/discovery-brief-write.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -781,6 +782,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   };
   const DISCOVERY_SCOPE: WriteRouteSpec<DiscoveryScopeArgs, AccountWriteRouteInput> = {
     name: 'discovery-scope', target: organizationIdField, decide: decideDiscoveryScope,
+  };
+  const DISCOVERY_BRIEF: WriteRouteSpec<DiscoveryBriefCommitArgs, AccountWriteRouteInput> = {
+    name: 'discovery-brief', target: organizationIdField, decide: decideDiscoveryBrief,
   };
 
   /** The mirror of `public.append_audit_event`; the live adapter is the oracle. */
@@ -1823,6 +1827,20 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             DISCOVERY_SCOPE,
             session,
             { organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
+        },
+        'discovery-brief': async () => {
+          if (subject.route !== 'discovery-brief') throw new Error('unreachable');
+          const run = runWrite(
+            DISCOVERY_BRIEF,
+            session,
+            {
+              organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action,
+              sectionId: subject.sectionId, text: subject.text, baseRevision: subject.baseRevision,
+            },
             null,
           );
           if (!run.ok) return run;
