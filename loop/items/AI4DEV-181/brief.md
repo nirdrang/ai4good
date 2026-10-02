@@ -145,10 +145,14 @@ Then close the item as the Closing section says.
   would otherwise run on your model.
 - A writer that dies after finishing its work is recovered by running the pin and committing
   the finished tree, not by rerunning the writer.
-- The model credential: `discovery-message` and `discovery-scope` read `ANTHROPIC_API_KEY` from
-  `supabase/functions/.env`. On 2026-10-02 no checkout on this machine has that file, so every
-  provider path is unreachable until the founder adds the key. The verify-ai4good drive
-  `drive-discovery-refusals.ts` runs without it.
+- The model credential: `discovery-message` and `discovery-scope` read `ANTHROPIC_API_KEY` and
+  `DISCOVERY_MODEL` from `supabase/functions/.env` (git-ignored). The founder keeps both in the
+  main folder's `.env.local`; on 2026-10-02 the controller copied the two lines into this
+  worktree's `supabase/functions/.env`. Use Haiku for debugging at this stage (founder
+  2026-10-02: "Make sure to use haiku for cost optimized debug at this stage"):
+  `DISCOVERY_MODEL=claude-haiku-4-5-20251001`. Never print the key or commit the file.
 - The local stack's edge runtime serves the checkout it was started from (Doctor in the
-  verify-ai4good skill). On 2026-10-02 it serves `.claude/worktrees/verify-maint`; restart it
-  from this worktree (`bun run db:stop`, then `bun run db:start`) before any live drive.
+  verify-ai4good skill). On 2026-10-02 the controller restarted it from this worktree, and
+  `drive-discovery.ts` passed 27 of 27 checks on Haiku (`served_model` =
+  `claude-haiku-4-5-20251001`). Restart it from this worktree again if another checkout
+  starts it.
