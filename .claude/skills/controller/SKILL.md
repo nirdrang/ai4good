@@ -209,8 +209,8 @@ and put in its text what the unit landed, its commit, and the remaining context 
 second question for any decision the next unit needs from the founder. If the answer is
 `Continue`, start the next unit. If the answer is either compact option, make sure the resume
 note holds the second answer, then end the turn and start nothing. Say in one line: "If nothing
-happens in a few seconds, type /compact." A session started with `loop/work/claude-gated.ps1`
-compacts and starts the next unit by itself; a plain session waits for the founder.
+happens in a few seconds, type /compact." The project's `self-compact-gate` plugin
+compacts and starts the next unit by itself; a session without it waits for the founder.
 Send lookups that do not depend on each other together in one message. Each message is one
 step, and each step re-reads the whole conversation.
 Send a question whose answer is a fact or a short list to a subagent: where something is,

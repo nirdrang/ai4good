@@ -1,6 +1,4 @@
 {
-  "model": "fable",
-  "effortLevel": "medium",
   "env": {
     "CLAUDE_CODE_PROMPT_CACHE_TTL": "1h"
   },
@@ -12,6 +10,7 @@
       "PowerShell(git push origin --delete:*)"
     ]
   },
+  "model": "fable",
   "hooks": {
     "PreToolUse": [
       {
@@ -48,6 +47,10 @@
     "type": "command",
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1\""
   },
+  "enabledPlugins": {
+    "pstack@open-pstack-nirdrang": true,
+    "self-compact-gate@ai4good-local": true
+  },
   "extraKnownMarketplaces": {
     "open-pstack": {
       "source": {
@@ -60,9 +63,13 @@
         "source": "github",
         "repo": "nirdrang/open-pstack"
       }
+    },
+    "ai4good-local": {
+      "source": {
+        "source": "directory",
+        "path": "C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work"
+      }
     }
   },
-  "enabledPlugins": {
-    "pstack@open-pstack-nirdrang": true
-  }
+  "effortLevel": "medium"
 }
