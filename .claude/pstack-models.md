@@ -12,16 +12,16 @@ feature, refactoring: grok:grok-4.7@xhigh
 bug-fix: codex:gpt-6.1-sol@max
 perf-issue: codex:gpt-6-astra@medium
 hillclimb: codex:gpt-6-astra@high
-judgment and prose: claude:fable@medium
-hardest tasks: codex:gpt-6-astra@high
+judgment and prose: claude:opus@high
+hardest tasks: codex:gpt-6.1-sol@max
 how explorer: grok:grok-4.7@xhigh
-how explainer: claude:opus@medium
+how explainer: claude:opus@high
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6.1-sol@max, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
 arena cross-judge pool: codex:gpt-6.1-sol@max, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: grok:grok-4.7@xhigh
-architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
+architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
 interrogate reviewers: codex:gpt-6.1-sol@max, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
@@ -33,6 +33,34 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Opus at high in two seats, sol on hardest tasks, a fifth architect lane, 2026-10-02
+
+By founder ruling and not by measurement. Written by hand, for the same reason as the entry below.
+The local Codex model list on 2026-10-02 shows gpt-6.1-sol and gpt-6-astra, and both list `high`
+and `max` as efforts.
+
+- `judgment and prose` moves from fable at medium to opus at high. The seat changes family. After
+  this change fable holds only its lane in `arena runners` and `architect runners`.
+- `how explainer` moves from opus at medium to opus at high.
+- `hardest tasks` moves from astra at high to gpt-6.1-sol at max. The seat changes model, not
+  only effort. Astra still holds `perf-issue`, `hillclimb`, and its lane in `architect runners`.
+- `architect runners` gains a fifth lane, gpt-6.1-sol at high. The four existing lanes are
+  unchanged, so `arena runners` and `architect runners` now differ in two lanes.
+
+To undo `judgment and prose`:
+
+    claude:fable@medium
+
+To undo `how explainer`:
+
+    claude:opus@medium
+
+To undo `hardest tasks`:
+
+    codex:gpt-6-astra@high
+
+To undo `architect runners`: delete the fifth descriptor from the row.
 
 ### GPT-6.1 Sol at max in four seats, astra up one step on hardest tasks, 2026-10-01
 
