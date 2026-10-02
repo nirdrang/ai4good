@@ -9,20 +9,20 @@ matrix default efforts. The earlier customized sheets are kept beside this file 
 `pstack-models.md.bak-*`.
 
 feature, refactoring: grok:grok-4.7@xhigh
-bug-fix: codex:gpt-6.1-sol@max
-perf-issue: codex:gpt-6-astra@medium
-hillclimb: codex:gpt-6-astra@high
+bug-fix: codex:gpt-6.1-sol@high
+perf-issue: codex:gpt-6.1-sol@high
+hillclimb: claude:opus@medium
 judgment and prose: claude:opus@high
-hardest tasks: codex:gpt-6.1-sol@max
+hardest tasks: claude:opus@high
 how explorer: grok:grok-4.7@xhigh
-how explainer: claude:opus@high
+how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
-arena runners: codex:gpt-6.1-sol@max, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
-arena cross-judge pool: codex:gpt-6.1-sol@max, grok:grok-4.7@xhigh, claude:opus@medium
+arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
+arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: grok:grok-4.7@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
-interrogate reviewers: codex:gpt-6.1-sol@max, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
+interrogate reviewers: codex:gpt-6.1-sol@high, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -33,6 +33,42 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Sol down to high everywhere, opus takes hillclimb and hardest tasks, 2026-10-02, second change
+
+By founder ruling and not by measurement. Written by hand, for the same reason as the entries below.
+
+- `bug-fix` moves from gpt-6.1-sol at max to gpt-6.1-sol at high.
+- `perf-issue` moves from astra at medium to gpt-6.1-sol at high.
+- `hillclimb` moves from astra at high to opus at medium. The seat changes family.
+- `hardest tasks` moves from gpt-6.1-sol at max to opus at high. The seat changes family.
+- `how explainer` moves from opus at high to opus at medium.
+- The sol lane in `arena runners`, `arena cross-judge pool` and `interrogate reviewers` moves
+  from max to high. No row uses sol at max now.
+
+After this change astra holds only its lane in `architect runners`. The muse lane in
+`interrogate reviewers` stays at xhigh: opencode lists minimal, low, medium, high and xhigh as
+its variants on 2026-10-02, and no max.
+
+To undo `bug-fix`, and the sol lane on the three panel rows:
+
+    codex:gpt-6.1-sol@max
+
+To undo `perf-issue`:
+
+    codex:gpt-6-astra@medium
+
+To undo `hillclimb`:
+
+    codex:gpt-6-astra@high
+
+To undo `hardest tasks`:
+
+    codex:gpt-6.1-sol@max
+
+To undo `how explainer`:
+
+    claude:opus@high
 
 ### Opus at high in two seats, sol on hardest tasks, a fifth architect lane, 2026-10-02
 
