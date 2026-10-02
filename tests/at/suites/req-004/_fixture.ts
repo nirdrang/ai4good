@@ -539,6 +539,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           org_id: need.value.need.organizationId, assigned_volunteer_id: null }] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: structuredClone(turns.get(projectId) ?? []) }),
         discoveryScopesOf: async () => ({ ok: true, rows: structuredClone(scopes.get(projectId) ?? []) }),
+        discoveryBriefOf: async () => ({ ok: true, value: { revision: null, document: null, confirmation: null, lines: [] } }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);

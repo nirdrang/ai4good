@@ -1,4 +1,5 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
+import { briefViewFromRead, type BriefSnapshot, type Confirmation, type PersonLine } from './discovery-brief.ts';
 import { billingTargetFor, DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, DECLINE_OFF_TOPIC_TOOL, discoverySystemPrompt, guardrailSettingsFor, parseElicitation, RECORD_ELICITATION_TOOL, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
@@ -204,10 +205,16 @@ export type DiscoveryConversationView = {
   projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null;
   scopes: ScopeView[]; scope: ScopeView | null;
 };
-export type DiscoveryConversationAnswer = { status: 200; body: { ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null } }
-  | typeof TENANT_NOT_FOUND | typeof TENANT_READ_FAILED;
+export type DiscoveryConversationAnswer = {
+  status: 200;
+  body: {
+    ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null;
+    brief: BriefSnapshot | null; confirmation: Confirmation | null; lines: PersonLine[];
+  };
+} | typeof TENANT_NOT_FOUND | typeof TENANT_READ_FAILED;
 export async function conversationAnswer(
-  reads: Pick<CallerReads, 'project' | 'discoveryTurnsOf' | 'discoveryAllowance' | 'discoveryScopesOf'>, projectId: string,
+  reads: Pick<CallerReads, 'project' | 'discoveryTurnsOf' | 'discoveryAllowance' | 'discoveryScopesOf' | 'discoveryBriefOf'>,
+  projectId: string,
 ): Promise<DiscoveryConversationAnswer> {
   const project = await reads.project(projectId);
   if (!project.ok) return TENANT_READ_FAILED;
@@ -217,14 +224,18 @@ export async function conversationAnswer(
   if (!rows.ok) return TENANT_READ_FAILED;
   const scopeRows = await reads.discoveryScopesOf(projectId);
   if (!scopeRows.ok) return TENANT_READ_FAILED;
+  const briefRead = await reads.discoveryBriefOf(projectId);
+  if (!briefRead.ok) return TENANT_READ_FAILED;
   const allowance = await reads.discoveryAllowance(source.org_id);
   try {
     const turns = [...rows.rows].sort((a, b) => a.seq - b.seq).map(turnViewFromSql);
     const elicitation = turns.filter((turn) => turn.elicitation !== null).at(-1)?.elicitation ?? null;
     const scopes = [...scopeRows.rows].sort((a, b) => a.version - b.version).map(scopeViewFromSql);
     const scope = scopes.find((row) => row.status === 'current') ?? null;
+    const view = briefViewFromRead(briefRead.value);
     return { status: 200, body: { ok: true, conversation: { projectId, turns, elicitation, scopes, scope },
-      allowance: allowance.ok ? renderDiscoveryAllowance(allowance.value) : null } };
+      allowance: allowance.ok ? renderDiscoveryAllowance(allowance.value) : null,
+      brief: view.brief, confirmation: view.confirmation, lines: view.lines } };
   } catch {
     return TENANT_READ_FAILED;
   }
