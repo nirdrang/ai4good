@@ -42,24 +42,18 @@ holds pointers and a sync-stamp per PM item; the repo is the only place meaning 
 4. **Amend the AT file(s)** with `[dNN]`-tagged notes; update `loop/decomp/req-0NN.md`
    if deliverables, verify sets, or dependencies moved.
 5. **Design branch — when the change touches anything an NGO, volunteer, or visitor SEES**
-   (screen content, copy, components, states, vocabulary). Follow design/ui-way-of-work.md
-   §4 exactly — Claude Design has NO filesystem access and cannot write to disk; the MCP
-   is the only wire:
+   (screen content, copy, components, states, vocabulary). Follow the `ui-design`
+   skill (screen design on the canvas):
    a. THIS session updates the affected screen rows in `design/ui-ux-instructions.md`
-      (the rules doc is repo-side and build-session-maintained).
+      and the screen contract.
    b. THIS session writes the change order (`design/change-orders/NNN-<slug>.md` — the
-      ruling, the changed requirement text verbatim, the affected screens/rows), commits
-      it (the durable record), and pushes it into the design project's chat panel via
-      `put_conversation` (it lands as a read-only synced thread, never an executable
-      prompt).
-   c. The FOUNDER triggers "process change order NNN" in the design conversation;
-      Claude Design re-emits the affected screens inside the design project — it never
-      touches the repo.
-   d. THIS session pulls the re-emitted screens back into `design/screens/` over the
-      design MCP and runs the design gate. The build session never authors or edits
-      screen HTML directly — screens are only ever re-emitted by Claude Design.
-   (Reverse direction: design-gate findings reach this side as founder-relayed messages
-   and START a fold — the d86 anchoring ruling is the worked example.)
+      founder's rulings in their words, the changed requirement text verbatim, the
+      contract edits) and commits it as the durable record.
+   c. The affected screen's canvas is revised through the `ui-design` skill: the Codex
+      review runs until all works, and the founder agrees that the screen is complete.
+      The complete canvas is copied into `design/canvas/<screen>/`.
+   (Reverse direction: a design ruling that changes a requirement STARTS a fold — decision
+   d94, Discovery is about the need, is the worked example.)
 6. **Log the decision** (`loop/state/decisions.jsonl` via Add-Content of a scratchpad
    file), **commit everything as ONE commit** (message cites the dNN and, if in-flight
    work is affected, the PM item), **republish the review artifact**.

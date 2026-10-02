@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Finish Discovery</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a;background:#ffffff}
+a{color:#0f172a}a:hover{color:#334155}
+button{font:inherit;color:inherit}
+.ghost:hover{background:#f1f5f9}
+.edit:hover{background:#f1f5f9;border-color:#94a3b8}
+.grow{field-sizing:content;max-height:200px}
+h3{margin:0;font-size:13px;letter-spacing:0.04em;text-transform:uppercase;color:#64748b}
+</style>
+</helmet>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #ffffff; overflow: hidden">
+<div style="height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 32px; border-bottom: 1px solid #e2e8f0">
+<span style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em">ai4good</span>
+<span style="width: 1px; height: 22px; background: #e2e8f0"></span>
+<span style="font-size: 14px; color: #64748b">Harbor Community Kitchen</span>
+</div>
+
+<sc-if value="{{ isReview }}" hint-placeholder-val="{{ true }}">
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; padding: 24px 32px">
+<article aria-labelledby="doc-title" style="min-height: 0; overflow: auto; padding: 24px 32px 32px; border: 1px solid #e2e8f0; border-radius: 12px">
+<div style="font-size: 12px; color: #64748b">Your project / Discovery · review before you finish</div>
+<div style="display: flex; align-items: baseline; gap: 10px; margin: 2px 0 4px">
+<h1 id="doc-title" style="margin: 0; font-size: 22px; flex-grow: 1">Volunteer scheduling · your Discovery document</h1>
+<span style="padding: 2px 8px; border-radius: 10px; background: #f1f5f9; font-size: 12px">Revision {{ version }}</span>
+</div>
+<p style="margin: 0 0 18px; font-size: 13px; color: #64748b">This is your brief as it stands, in your words. Edit any section before you finish. Nothing here is rewritten by the AI.</p>
+<sc-if value="{{ hasChange }}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0 0 16px; padding: 8px 12px; border-radius: 8px; background: #eff6ff; font-size: 13px; color: #1e3a8a">{{ changeNote }}</p>
+</sc-if>
+
+<sc-if value="{{ hasOpen }}" hint-placeholder-val="{{ true }}">
+<section aria-labelledby="open-title" style="margin-bottom: 22px; padding: 14px 16px; border: 1px solid #fcd34d; border-radius: 12px; background: #fffbeb">
+<h2 id="open-title" style="margin: 0 0 2px; font-size: 15px">{{ openTitle }}</h2>
+<p style="margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: #475569">You can finish with them open. They stay in this document for the ai4good team and the volunteer.</p>
+<sc-for list="{{ openRows }}" as="q" hint-placeholder-count="2">
+<div style="display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-top: 1px solid #fde68a">
+<div style="flex-grow: 1">
+<div style="font-size: 14px; font-weight: 600">{{ q.title }} <span style="margin-left: 4px; padding: 1px 8px; border-radius: 10px; background: {{ q.tagBg }}; color: {{ q.tagFg }}; font-size: 11px; font-weight: 600">{{ q.group }}</span></div>
+<div style="font-size: 13px; line-height: 1.55; color: #475569">{{ q.why }}</div>
+<div style="margin-top: 2px; font-size: 13px; color: #1e3a8a">Suggested: {{ q.suggested }}</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; flex-shrink: 0">
+<button type="button" onClick="{{ q.accept }}" style="min-height: 34px; padding: 0 12px; border: 1px solid #0f172a; border-radius: 8px; background: #0f172a; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Use the suggestion</button>
+<a href="Interview.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none">Answer in the chat</a>
+</div>
+</div>
+</sc-for>
+</section>
+</sc-if>
+
+<sc-for list="{{ sections }}" as="sec" hint-placeholder-count="6">
+<section style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px">
+<h3 style="flex-grow: 1">{{ sec.title }}</h3>
+<sc-if value="{{ sec.fromAnswer }}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; color: #94a3b8">{{ sec.source }}</span></sc-if>
+<sc-if value="{{ sec.canEdit }}" hint-placeholder-val="{{ true }}">
+<button type="button" class="edit" onClick="{{ sec.edit }}" aria-label="Edit {{ sec.title }}" style="display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; font-size: 12px; font-weight: 600; cursor: pointer">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>
+Edit</button>
+</sc-if>
+</div>
+<sc-if value="{{ sec.reading }}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; font-size: 14px; line-height: 1.65; white-space: pre-line">{{ sec.text }}</p>
+</sc-if>
+<sc-if value="{{ sec.editing }}" hint-placeholder-val="{{ false }}">
+<textarea class="grow" rows="3" aria-label="{{ sec.title }}" value="{{ draft }}" onChange="{{ onDraft }}" style="display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #0f172a; border-radius: 10px; resize: none; font: inherit; font-size: 14px; line-height: 22px; outline: none"></textarea>
+<div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px">
+<button type="button" class="ghost" onClick="{{ cancelEdit }}" style="min-height: 34px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Cancel</button>
+<button type="button" onClick="{{ saveEdit }}" style="min-height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: #0f172a; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Save</button>
+</div>
+<div style="margin-top: 4px; font-size: 12px; color: #64748b; text-align: right">Saving makes a new revision. Editing is free.</div>
+</sc-if>
+</section>
+</sc-for>
+
+<section style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9">
+<h3 style="margin-bottom: 6px">Your files</h3>
+<div style="font-size: 13px; line-height: 1.6">
+<div><strong>intake-notes.pdf</strong> · from intake. The AI took from it: three kitchens, 45 volunteers, the Sunday gaps.</div>
+<div><strong>volunteer-rota.xlsx</strong> · August rota. The AI took from it: 38 volunteers booked at least one shift, 20 regulars filled most shifts, shifts are 4 hours.</div>
+</div>
+</section>
+<section style="font-size: 13px"><h3 style="margin-bottom: 6px">Cause</h3>
+<sc-if value="{{ hasLabel }}" hint-placeholder-val="{{ true }}">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 14px; background: #f1f5f9">food security
+<button type="button" class="ghost" onClick="{{ removeLabel }}" aria-label="Remove the label food security" style="width: 26px; height: 26px; border: 0; border-radius: 50%; background: transparent; cursor: pointer">×</button></span>
+<span style="margin-left: 8px; color: #64748b">The AI chose this label. You can remove it, but not type a new one.</span>
+</sc-if>
+<sc-if value="{{ noLabel }}" hint-placeholder-val="{{ false }}"><span style="color: #64748b">No cause label.</span></sc-if>
+</section>
+</article>
+
+<aside style="min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px">
+<section aria-labelledby="confirm-title" style="padding: 18px; border: 1px solid #e2e8f0; border-radius: 12px">
+<h2 id="confirm-title" style="margin: 0 0 6px; font-size: 16px">Finish Discovery</h2>
+<p style="margin: 0 0 12px; font-size: 13px; color: #334155">You decide whether this is the right first version for your organisation.</p>
+<label style="display: flex; gap: 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.5; cursor: pointer"><input type="checkbox" checked="{{ c1 }}" onChange="{{ toggle1 }}" style="margin-top: 3px"><span>I have reviewed revision {{ version }}. It describes the first version we need.</span></label>
+<sc-if value="{{ hasOpen }}" hint-placeholder-val="{{ true }}">
+<label style="display: flex; gap: 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.5; cursor: pointer"><input type="checkbox" checked="{{ c2 }}" onChange="{{ toggle2 }}" style="margin-top: 3px"><span>I understand that {{ openCount }} remain open. I choose to finish Discovery anyway and keep them in the brief.</span></label>
+</sc-if>
+<label style="display: flex; gap: 10px; font-size: 13px; line-height: 1.5; cursor: pointer"><input type="checkbox" checked="{{ c3 }}" onChange="{{ toggle3 }}" style="margin-top: 3px"><span>Our NGO takes responsibility for data access and keeps only the personal information this tool needs.</span></label>
+<p style="margin: 4px 0 14px 26px; font-size: 12px; color: #64748b">In practice: your NGO decides who can see volunteer details, and the tool stores only what “Information handled” lists.</p>
+<button type="button" onClick="{{ confirm }}" aria-disabled="{{ notReady }}" style="width: 100%; min-height: 48px; border: 0; border-radius: 10px; background: {{ confirmBg }}; color: #ffffff; font-size: 15px; font-weight: 700; cursor: pointer">Finish Discovery</button>
+<p style="margin: 8px 0 0; font-size: 12px; color: #64748b">{{ confirmHint }}</p>
+</section>
+<section style="padding: 16px 18px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; line-height: 1.55; color: #334155">
+<h2 style="margin: 0 0 4px; font-size: 14px; color: #0f172a">What happens next</h2>
+ai4good reviews your project, then helps you find a volunteer. The technical plan, the tools and who builds what, is written later in the PRD step, after a volunteer agrees.
+<a href="Interview.dc.html" style="display: flex; align-items: center; justify-content: center; margin-top: 12px; min-height: 40px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none">Back to the chat</a>
+</section>
+</aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+<div style="flex-grow: 1; display: flex; align-items: center; justify-content: center">
+<section style="width: 520px; padding: 28px; border: 1px solid #e2e8f0; border-radius: 16px">
+<div style="width: 44px; height: 44px; margin-bottom: 12px; border-radius: 50%; background: #dcfce7; color: #166534; display: flex; align-items: center; justify-content: center">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+</div>
+<h2 style="margin: 0 0 6px; font-size: 18px">{{ doneTitle }}</h2>
+<p style="margin: 0 0 6px; font-size: 13px; line-height: 1.6; color: #334155">You confirmed revision {{ version }} of your Discovery document. {{ doneOpen }}</p>
+<p style="margin: 0 0 18px; font-size: 12px; color: #64748b">Next: find a volunteer. ai4good reviews your project first. The PRD step, where the technical plan is written, starts after a volunteer agrees and your project is funded.</p>
+<button type="button" style="width: 100%; min-height: 44px; border: 0; border-radius: 8px; background: #0f172a; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer">Find a volunteer</button>
+<button type="button" onClick="{{ restart }}" style="width: 100%; margin-top: 8px; min-height: 36px; border: 0; background: transparent; color: #64748b; font-size: 12px; cursor: pointer">Restart this example</button>
+</section>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.fresh();
+  }
+  fresh() {
+    return {
+      step: 'review', version: 6, accepted: {}, c1: false, c2: false, c3: false, label: true,
+      editing: null, draft: '', changed: [],
+      text: {
+        need: 'Harbor Community Kitchen runs three kitchens with 45 volunteers. Scheduling shifts takes the coordinators about four and a half hours a week, by phone and on a spreadsheet. We need a simple way for volunteers to book their own shifts, and for coordinators to book shifts for volunteers who call.',
+        users: 'Volunteers call or text a coordinator to take a shift. Many are over 60, and some have no smartphone.\nCoordinators keep the rota in a spreadsheet and phone volunteers to fill empty shifts, mostly on Sundays.\nThe operations lead manages access to our other tools.',
+        priority: 'Less coordination time',
+        booking: 'Volunteers book themselves, and coordinators book for anyone who calls',
+        owner: 'Our operations lead',
+        measure: 'Scheduling takes two hours a week, down from four and a half. The operations lead checks this after the first month.'
+      }
+    };
+  }
+  questions() {
+    return [
+      { id: 'info', title: 'Information handled', group: 'Needed before build', tagBg: '#ffedd5', tagFg: '#c2410c', why: 'This decides which volunteer details the tool keeps, and how carefully they must be protected.', suggested: 'Name and phone only' },
+      { id: 'rules', title: 'Booking rules', group: 'A suggestion exists', tagBg: '#dbeafe', tagFg: '#1d4ed8', why: 'Without a limit, one volunteer can take every shift.', suggested: 'A weekly shift limit' }
+    ];
+  }
+  renderVals() {
+    const s = this.state;
+    const open = this.questions().filter((q) => !s.accepted[q.id]);
+    const n = open.length;
+    const bump = (label, patch) => this.setState({ ...patch, version: this.state.version + 1, c1: false, changed: [...this.state.changed, label] });
+    const defs = [
+      { id: 'need', title: 'The need', source: 'from your intake and the chat' },
+      { id: 'users', title: 'Who uses it, and what they do today', source: 'from the chat' },
+      { id: 'priority', title: 'Main priority', source: 'chat, round 1' },
+      { id: 'booking', title: 'Who books shifts', source: 'chat, round 2' },
+      { id: 'owner', title: 'Who looks after the tool', source: 'chat, round 5' },
+      { id: 'measure', title: 'How you will know it works', source: 'chat, round 4' }
+    ];
+    const accepted = this.questions().filter((q) => s.accepted[q.id]).map((q) => ({ id: 'acc-' + q.id, title: q.title, source: 'suggestion you accepted', text: q.suggested, fixed: true }));
+    const sections = [...defs.map((d) => ({ ...d, text: s.text[d.id] })), ...accepted].map((d) => {
+      const editing = s.editing === d.id;
+      return {
+        title: d.title, text: d.text, source: d.source, fromAnswer: true,
+        canEdit: !d.fixed && !editing, reading: !editing, editing,
+        edit: () => this.setState({ editing: d.id, draft: d.text })
+      };
+    });
+    const ready = s.c1 && (n === 0 || s.c2) && s.c3 && !s.editing;
+    return {
+      isReview: s.step === 'review', isDone: s.step === 'done',
+      version: s.version,
+      hasChange: s.changed.length > 0,
+      changeNote: 'Revision ' + s.version + ' · you changed: ' + s.changed.join(', ') + '. Tick the review box again for this revision.',
+      hasOpen: n > 0,
+      openTitle: n === 1 ? '1 question is still open' : n + ' questions are still open',
+      openRows: open.map((q) => ({ ...q, accept: () => bump(q.title, { accepted: { ...this.state.accepted, [q.id]: true } }) })),
+      openCount: n === 1 ? '1 question' : n + ' questions',
+      sections,
+      draft: s.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      cancelEdit: () => this.setState({ editing: null, draft: '' }),
+      saveEdit: () => {
+        const st = this.state;
+        const id = st.editing;
+        const next = (st.draft || '').trim();
+        if (!id) return;
+        if (!next || next === st.text[id]) { this.setState({ editing: null, draft: '' }); return; }
+        bump(defs.find((d) => d.id === id).title, { editing: null, draft: '', text: { ...st.text, [id]: next } });
+      },
+      hasLabel: s.label, noLabel: !s.label,
+      removeLabel: () => this.setState({ label: false }),
+      c1: s.c1, c2: s.c2, c3: s.c3,
+      toggle1: () => this.setState({ c1: !this.state.c1 }),
+      toggle2: () => this.setState({ c2: !this.state.c2 }),
+      toggle3: () => this.setState({ c3: !this.state.c3 }),
+      confirmBg: ready ? '#15803d' : '#86a893',
+      notReady: ready ? 'false' : 'true',
+      confirmHint: s.editing ? 'Save or cancel your edit first.' : (ready ? 'Finishing is free. It records your name, the time, and revision ' + s.version + '.' : 'Tick the boxes above to finish. Finishing is free.'),
+      confirm: () => { if (ready) this.setState({ step: 'done' }); },
+      doneTitle: n === 0 ? 'Discovery finished' : 'Discovery finished with open questions',
+      doneOpen: n === 0 ? 'Every question has an answer.' : (n === 1 ? 'The open question stays' : 'The ' + n + ' open questions stay') + ' in it for the ai4good team and the volunteer.',
+      restart: () => this.setState(this.fresh())
+    };
+  }
+}
+</script>
+</body>
+</html>
