@@ -87,10 +87,20 @@ finish, `discovery-file`, and the existing auth). `subscribe` polls `load` while
 once after each write. The route mounts `DiscoveryScreen` and `DiscoveryReview` behind the existing
 sign-in.
 
-## Open acceptance constraint (for the founder)
+**Model adapter (founder 2026-10-02).** `anthropic-messages.ts` becomes one of two adapters behind
+the existing `MessagesPort`: Anthropic Messages, and an OpenAI-compatible chat-completions adapter.
+Env picks one: `DISCOVERY_PROVIDER` (`anthropic` or `openai-compatible`), `DISCOVERY_MODEL`,
+`DISCOVERY_BASE_URL`, `DISCOVERY_API_KEY`, `DISCOVERY_REASONING_EFFORT`. Debug and integration use
+`space-bunny-free` at `low` on `https://opencode.ai/zen/v1` (probe: forced tool, text first,
+streams tool arguments, free). Each adapter streams the forced `reply` tool's `text` field and
+returns the parsed tool input. With one credit per turn, `countTokens` before reserve is removed;
+the reserve sizes nothing but the output cap.
 
-The section J screen bodies assert scripted model text and a paid balance that a real backend
-cannot produce: the reply copy, "38 of your 45 volunteers" from a spreadsheet the test uploads as
-a few text bytes, an exact fact count, and a $1.60 fuel balance while fuel is a stub. All five
-candidates and the judge flagged it. The founder decides how the integration tier proves the
-screen (see decisions.tsv).
+## How the tests prove it (founder 2026-10-02: two levels)
+
+- **Loop tier, fixture shell:** the section J bodies keep every exact-copy assertion.
+- **Integration tier, real route:** the same bodies run with seeded worlds and the real model; a
+  tier flag switches copy that only a script can produce to state checks (answer saved, revision
+  raised, one credit used, file read and its facts in the brief, confirmation recorded, refusals by
+  kind). Steps that need a fuel balance stay loop-only until a fuel feature exists, declared so in
+  `tests/at/expected/req-004.json`.

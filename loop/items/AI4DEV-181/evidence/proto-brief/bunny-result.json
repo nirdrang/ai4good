@@ -1,0 +1,78 @@
+[
+  {
+    "turn": 1,
+    "stream": true,
+    "ms": 5865,
+    "firstArgMs": 2494,
+    "chunks": 26,
+    "textFirst": true,
+    "ok": true,
+    "asked": [
+      "priority",
+      "booking"
+    ],
+    "agreed": [],
+    "usage": {
+      "prompt_tokens": 759,
+      "completion_tokens": 344,
+      "total_tokens": 1103,
+      "prompt_tokens_details": {
+        "cached_tokens": 128
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 7
+      }
+    }
+  },
+  {
+    "turn": 2,
+    "stream": false,
+    "ms": 2862,
+    "textFirst": true,
+    "ok": true,
+    "asked": [
+      "booking"
+    ],
+    "agreed": [
+      "priority"
+    ],
+    "usage": {
+      "prompt_tokens": 1131,
+      "completion_tokens": 248,
+      "total_tokens": 1379,
+      "prompt_tokens_details": {
+        "cached_tokens": 128
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 29
+      }
+    }
+  },
+  {
+    "turn": 3,
+    "stream": true,
+    "ms": 4301,
+    "firstArgMs": 1261,
+    "chunks": 26,
+    "textFirst": true,
+    "ok": true,
+    "asked": [
+      "measure",
+      "owner"
+    ],
+    "agreed": [
+      "booking"
+    ],
+    "usage": {
+      "prompt_tokens": 1384,
+      "completion_tokens": 342,
+      "total_tokens": 1726,
+      "prompt_tokens_details": {
+        "cached_tokens": 1024
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 6
+      }
+    }
+  }
+]
