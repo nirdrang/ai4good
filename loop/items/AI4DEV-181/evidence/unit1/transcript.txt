@@ -1,0 +1,9 @@
+PASS (seed) the operator inserted the opening brief at revision 1 — rows 1
+PASS (edit) an edit answers revision 2 — status 200 revision 2 lines you-2 kind  reason 
+PASS (accept) accepting the priority suggestion answers revision 3 — status 200 revision 3 lines you-2,you-3 kind  reason 
+PASS (finish) finish keeps revision 3 and records the confirmation — status 200 revision 3 confirmation 3 kind  reason 
+PASS (edit-again) a later edit answers revision 4 and the confirmation is no longer current — status 200 revision 4 confirmation null lines you-2,you-3,you-4 kind  reason 
+PASS (chain) the stored revisions are 1, 2, 3, 4 and the confirmation history is revision 3 — revisions 1,2,3,4 confirmations 3
+PASS (stale) a stale base answers stale-revision and carries revision 4 — status 409 kind stale-revision brief 4 reason The brief changed. Review the latest revision.
+PASS (read) the conversation returns the brief, an empty current confirmation and the person lines beside the conversation — status 200 revision 4 confirmation null lines you-2,you-3,you-4
+RESULT pass
