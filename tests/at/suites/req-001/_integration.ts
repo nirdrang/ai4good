@@ -165,7 +165,7 @@ async function registerConfirmAndSignIn(
 }
 
 const SERVICE_ROLE_SELECT = new Set(['accounts', 'org_memberships']);
-const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer', 'viewer_discovery_allowance']);
+const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer', 'viewer_discovery_allowance', 'viewer_discovery_brief']);
 const PUBLIC_PAGE_KEYS = ['ok', 'organizationName', 'projectId', 'projectName'];
 
 async function assertTenantCatalog(sut: Awaited<ReturnType<Ctx['open']>>['sut']): Promise<void> {
