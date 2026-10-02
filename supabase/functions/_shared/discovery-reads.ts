@@ -24,5 +24,6 @@ export type DiscoveryReads = {
   discoveryTurnsOf(projectId: string): Promise<ReadResult<DiscoveryTurnSqlRow>>;
   discoveryScopesOf(projectId: string): Promise<ReadResult<ScopeSqlRow>>;
   discoveryAllowance(organizationId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;
+  discoveryBriefOf(projectId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;
 };
 export type CallerReads = TenantReads & NeedReads & DiscoveryReads;

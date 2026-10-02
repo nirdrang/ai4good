@@ -30,6 +30,7 @@
  */
 
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
+import { staleBriefDetail } from './discovery-brief.ts';
 import * as discoveryStream from './discovery-stream.ts';
 import type { CallerReads, ReadResult } from './tenant-reads.ts';
 import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
@@ -266,7 +267,7 @@ export function callerIp(request: Request): string | null {
  */
 type RpcOutcome =
   | { ok: true; value: unknown }
-  | { ok: false; status: number; message: string; details: string | null; code: string | null };
+  | { ok: false; status: number; message: string; details: string | null; hint: string | null; code: string | null };
 
 /**
  * Call one `public.` function, with the service role, in ONE round trip.
@@ -301,20 +302,30 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
     // generic one — those functions raise sentences precisely so a caller can act on them.
     let message = text;
     let details: string | null = null;
+    let hint: string | null = null;
     let code: string | null = null;
     try {
-      const body = JSON.parse(text) as { message?: unknown; details?: unknown; code?: unknown };
+      const body = JSON.parse(text) as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
       if (typeof body.message === 'string') message = body.message;
       if (typeof body.details === 'string') details = body.details;
+      if (typeof body.hint === 'string') hint = body.hint;
       if (typeof body.code === 'string') code = body.code;
     } catch {
       // A non-JSON body from PostgREST means something other than a raised exception went wrong;
       // the raw text is then the most informative thing available.
     }
-    return { ok: false, status: response.status, message, details, code };
+    return { ok: false, status: response.status, message, details, hint, code };
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+/** A raised exception. `stale-revision` carries the current brief in the hint. */
+function rpcRefusal(outcome: Extract<RpcOutcome, { ok: false }>): Response {
+  const status = rpcRefusalStatus(outcome);
+  const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
+  const stale = kind === 'stale-revision' ? staleBriefDetail(outcome.hint) : null;
+  return json({ ok: false, kind, reason: outcome.message, ...(stale ?? {}) }, status);
 }
 
 /** One round trip for type, lifecycle, role-in-target, the organisation's seat and the subject. */
@@ -373,11 +384,7 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     }
 
     let outcome = await callDatabaseFunction(rpc, decision.args);
-    if (!outcome.ok) {
-      const status = rpcRefusalStatus(outcome);
-      const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
-      return json({ ok: false, kind, reason: outcome.message }, status);
-    }
+    if (!outcome.ok) return rpcRefusal(outcome);
 
     if (spec.settle?.stream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {
       const settle = spec.settle;
@@ -425,11 +432,7 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
       const acted = await spec.settle.act(outcome.value, decision.args);
       if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', 502);
       outcome = await callDatabaseFunction(spec.settle.rpc, acted.args);
-      if (!outcome.ok) {
-        const status = rpcRefusalStatus(outcome);
-        const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
-        return json({ ok: false, kind, reason: outcome.message }, status);
-      }
+      if (!outcome.ok) return rpcRefusal(outcome);
       if (acted.failure !== null) return refusal(acted.failure, 502);
     }
     return json({ ok: true, ...(spec.render ? spec.render(outcome.value) : {}) }, 200);
@@ -460,6 +463,16 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
       restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&order=seq`, { headers }),
     discoveryScopesOf: (projectId) =>
       restJson(`${base}/discovery_scopes?project_id=eq.${encodeURIComponent(projectId)}&order=version`, { headers }),
+    discoveryBriefOf: async (projectId) => {
+      const response = await fetch(`${base}/rpc/viewer_discovery_brief`, {
+        method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ p_project_id: projectId }),
+      });
+      const text = await response.text();
+      if (!response.ok) return { ok: false, detail: text };
+      try { return { ok: true, value: JSON.parse(text) }; }
+      catch { return { ok: false, detail: text }; }
+    },
     discoveryAllowance: async (organizationId) => {
       const response = await fetch(`${base}/rpc/viewer_discovery_allowance`, {
         method: 'POST', headers: { ...headers, 'content-type': 'application/json' },

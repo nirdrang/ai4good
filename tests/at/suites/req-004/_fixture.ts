@@ -513,6 +513,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
         discoveryScopesOf: async () => ({ ok: true, rows: visible ? structuredClone(scopes.get(request.projectId) ?? []) : [] }),
+        discoveryBriefOf: async () => ({ ok: true, value: { revision: null, document: null, confirmation: null, lines: [] } }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);

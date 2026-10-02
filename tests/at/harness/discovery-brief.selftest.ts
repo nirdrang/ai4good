@@ -9,6 +9,9 @@ import {
   type Confirmation,
   type FinishInput,
 } from '../../../supabase/functions/_shared/discovery-brief.ts';
+import { decideDiscoveryBrief, prepareDiscoveryBrief } from '../../../supabase/functions/_shared/discovery-brief-write.ts';
+import type { Caller } from '../../../supabase/functions/_shared/caller.ts';
+import type { AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
 
 const NEED = 'We coordinate 45 volunteers across three community kitchens.';
 
@@ -254,4 +257,70 @@ it('records a file fact on an optional topic and never agrees a required one', (
     facts: [{ sectionId: 'measure', text: 'Two hours' }],
   });
   expect(requiredOnly.kind).toBe('unchanged');
+});
+
+const ORG_ID = '22222222-2222-4222-8222-222222222222';
+const PROJECT_ID = '11111111-1111-4111-8111-111111111111';
+const CALLER: Caller = { id: 'account-1', githubHandle: null, emailVerified: true };
+
+function briefInput(body: Record<string, unknown>): AccountWriteRouteInput {
+  return {
+    caller: CALLER,
+    standing: {
+      kind: 'account', accountType: 'ngo', lifecycle: 'active', orgRole: 'admin',
+      orgExists: true, orgSeatAccountId: null, subject: null,
+    },
+    body, target: ORG_ID, subject: null, ip: null,
+  };
+}
+
+function storedBrief(version: BriefVersion, confirmation: Record<string, unknown> | null = null) {
+  return { revision: version.revision, document: version.document, confirmation, lines: [] as unknown[] };
+}
+
+it('shapes an edit for the commit and leaves a stale base for the database to refuse', async () => {
+  const refused = decideDiscoveryBrief(briefInput({ organizationId: ORG_ID, action: 'edit' }));
+  expect(refused).toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
+  const version = openingDocument({ need: NEED });
+  const decided = decideDiscoveryBrief(briefInput({
+    projectId: PROJECT_ID, action: 'edit', sectionId: 'need', text: 'A shorter need.', baseRevision: 1,
+  }));
+  expect(decided.ok).toBe(true);
+  if (!decided.ok) return;
+  const prepared = await prepareDiscoveryBrief(CALLER, decided.args, {
+    discoveryBriefOf: async () => ({ ok: true, value: storedBrief(version) }),
+  });
+  expect(prepared.ok).toBe(true);
+  if (!prepared.ok) return;
+  expect(prepared.args.p_base_revision).toBe(1);
+  expect(prepared.args.p_document?.need.text).toBe('A shorter need.');
+  expect(prepared.args.p_person_line?.id).toBe('you-2');
+  expect(prepared.args.p_confirmation).toBeNull();
+  expect(prepared.args).not.toHaveProperty('clientBase');
+  const stale = await prepareDiscoveryBrief(CALLER, { ...decided.args, clientBase: 4 }, {
+    discoveryBriefOf: async () => ({ ok: true, value: storedBrief(version) }),
+  });
+  expect(stale.ok).toBe(true);
+  if (!stale.ok) return;
+  expect(stale.args.p_base_revision).toBe(4);
+  expect(stale.args.p_document).toBeNull();
+});
+
+it('refuses a suggestion on a finished brief before it compares the base revision', async () => {
+  const version = openingDocument({ need: NEED });
+  const decided = decideDiscoveryBrief(briefInput({
+    projectId: PROJECT_ID, action: 'accept', topicId: 'priority', baseRevision: 9,
+  }));
+  expect(decided.ok).toBe(true);
+  if (!decided.ok) return;
+  const finished = await prepareDiscoveryBrief(CALLER, decided.args, {
+    discoveryBriefOf: async () => ({ ok: true, value: storedBrief(version, {
+      revision: 1, actor_name: 'sam@example.com', confirmed_at: '2026-10-02T12:00:00.000Z', accepted_gaps: [],
+    }) }),
+  });
+  expect(finished).toMatchObject({ ok: false, kind: 'finished', status: 409, reason: BRIEF_REASONS.finished });
+  const missing = await prepareDiscoveryBrief(CALLER, decided.args, {
+    discoveryBriefOf: async () => ({ ok: true, value: { revision: null, document: null, confirmation: null, lines: [] } }),
+  });
+  expect(missing).toMatchObject({ ok: false, kind: 'invalid-request', status: 409, reason: 'Discovery has no brief yet.' });
 });
