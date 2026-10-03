@@ -1,0 +1,5 @@
+{
+  "name": "self-compact-gate",
+  "description": "Unit-gate compaction: Continue, Run /compact or Fast compact.",
+  "version": "1.0.0"
+}

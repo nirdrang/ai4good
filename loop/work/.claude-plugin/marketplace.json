@@ -1,0 +1,15 @@
+{
+  "name": "ai4good-local",
+  "owner": {
+    "name": "Nir Drang"
+  },
+  "description": "Project-only plugins for ai4good.",
+  "plugins": [
+    {
+      "name": "self-compact-gate",
+      "source": "./self-compact-gate",
+      "description": "Unit-gate compaction: Continue, Run /compact or Fast compact.",
+      "version": "1.0.0"
+    }
+  ]
+}
