@@ -1,38 +1,3 @@
-/**
- * The expected-state declaration — what `bun run at:verify req-0NN --tier <tier> --expect` checks
- * the run against.
- *
- * WHY THIS EXISTS: without it `at:verify` exits 1 whenever any acceptance id is red, and REQ-016
- * legitimately has honest reds waiting on later capability slices. So the command cannot gate
- * anything — a machine cannot tell "the declared greens plus the declared honest reds" from
- * "something broke", and every claim of green is a human reading a table. A declaration makes the
- * expected state a committed, machine-checked contract instead.
- *
- * TWO RULES DO THE WORK, and both are deliberately harsh:
- *
- *   1. A RED THAT TURNED GREEN IS A FAILURE. The declaration is the contract, so improving reality
- *      means updating the contract in the same change. Without that rule the gate cannot tell
- *      improvement from drift, which is the whole point.
- *
- *   2. A DECLARED RED IS MATCHED BY SHAPE, NOT BY SUBSTRING. A free substring cannot establish
- *      that a red has its declared CAUSE: `H3 fault injection` as a substring also matches
- *      `Error: H3 fault injection: fixture reset failed`, so a brand-new harness defect would
- *      satisfy the declaration. Each declared red therefore names its kind, and the first line the
- *      harness prints is REBUILT from the declaration and compared exactly. A red whose detail
- *      fits neither shape is undeclarable — and therefore a failure. That is deliberate: a red we
- *      cannot describe exactly is a red we do not understand.
- *
- * KNOWN, ACCEPTED TRADE-OFF (rule 2): the rebuilt lines below duplicate message text owned by
- * `pending.ts`. Deriving them by constructing the error classes would track
- * a wording change silently; duplicating them means a wording change breaks declarations loudly,
- * with a diff naming the id. That is the correct failure direction. Machine-readable capability
- * codes emitted before redaction are the better long-term answer and belong to the slice that owns
- * `pending.ts`.
- *
- * Every function here except `loadTierExpectation` is pure, so the comparison rules are unit
- * testable without spawning anything.
- */
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -40,14 +5,10 @@ import { REPO_ROOT } from './check.ts';
 import type { PendingPhase } from './registry.ts';
 import type { IdRow, ProcessOutcome } from './runner.ts';
 
-/* ------------------------------------------------------------------------------- the schema */
-
-/** A red we can describe exactly. Anything else is undeclarable, and so a failure. */
 export type RedDeclaration =
   | { kind: 'capability-pending'; capabilities: string[] }
   | { kind: 'pending'; phase: PendingPhase };
 
-/** One tier's declaration: the ids that MUST be green, and the ids that MUST be red, with why. */
 export interface TierExpectation {
   green: string[];
   red: Record<string, RedDeclaration>;
@@ -58,14 +19,8 @@ export interface ExpectedManifest {
   tiers: Record<string, TierExpectation>;
 }
 
-/** Exactly the three fields this module reads off a runner report row. */
 export type ReportedRow = Pick<IdRow, 'id' | 'status' | 'detail'>;
 
-/**
- * The vitest report's own arithmetic AND its per-file entries. Typed `unknown` on purpose: this
- * describes someone else's JSON file, so every field is validated at runtime rather than asserted
- * at compile time.
- */
 export interface ReportTotals {
   numTotalTests?: unknown;
   numPassedTests?: unknown;
@@ -76,7 +31,6 @@ export interface ReportTotals {
   testResults?: unknown;
 }
 
-/** One test FILE in the report. A failure that no test claims is visible here and nowhere else. */
 interface ReportSuiteFile {
   name?: unknown;
   status?: unknown;
@@ -86,32 +40,19 @@ interface ReportSuiteFile {
 
 const TIERS = ['loop', 'integration', 'drill'];
 
-/** The same grammar `registry.ts` enforces at the `atTest` call site. */
 const AT_ID = /^AT-\d{3}(?:\.\d+)*\.\d+[a-z]?$/;
 
-/**
- * What `redact()` in the runner leaves behind when it rewrites something secret-shaped. A
- * declaration may never contain one — see `parseRedDeclaration` — and a detail that contains one
- * fails closed at comparison time, because the sentinel identifies nothing.
- */
 const REDACTION_SENTINEL = /<redacted(?:-[a-z]+)?>/;
 
-/** Pinned to the type, so a phase renamed in registry.ts is a compile error here, not a dud rule. */
 const PENDING_PHASES = ['harness-missing', 'sut-missing', 'tier-unset'] as const satisfies readonly PendingPhase[];
 
-/* --------------------------------------------------------------------------------- locating */
-
-/** Declarations live under the DATA root, so `AT_REPO_ROOT` redirects them with everything else. */
 export function expectedManifestPath(requirement: string): string {
   return join(REPO_ROOT, 'tests', 'at', 'expected', `req-${requirement}.json`);
 }
 
-/** The path as it reads in a message — stable across machines, which matters for the selftests. */
 function manifestLabel(requirement: string): string {
   return `tests/at/expected/req-${requirement}.json`;
 }
-
-/* -------------------------------------------------------------------------------- validating */
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -136,18 +77,12 @@ function parseRedDeclaration(label: string, atId: string, value: unknown): RedDe
       if (typeof name !== 'string' || name.trim() === '') {
         throw new Error(`${where} has a capability name that is not a non-empty string`);
       }
-      // The harness joins names with ", ", so a name containing a comma is ambiguous against the
-      // joined line: ["a, b"] and ["a", "b"] produce the same text, and the declaration would no
-      // longer say which capabilities are pending.
       if (name.includes(',')) {
         throw new Error(
           `${where} has a capability name containing a comma (${JSON.stringify(name)}) — names are joined with ", ", ` +
             `so a comma makes one name indistinguishable from two`,
         );
       }
-      // A redaction sentinel identifies nothing: it is what the runner prints INSTEAD of a
-      // secret-shaped value, so declaring one would match any capability whose name happened to be
-      // redacted. Refuse it rather than let a declaration become a wildcard.
       if (REDACTION_SENTINEL.test(name)) {
         throw new Error(
           `${where} declares the redaction sentinel ${JSON.stringify(name)}, which identifies no capability — ` +
@@ -180,11 +115,7 @@ function parseTierExpectation(label: string, tier: string, value: unknown): Tier
   const red = value.red;
   if (!isPlainObject(red)) throw new Error(`${where} needs a "red" object`);
 
-  // A NULL-PROTOTYPE map, not `{}`. `JSON.parse` happily produces an own `__proto__` key, and
-  // assigning that key onto an ordinary object invokes the prototype setter instead of creating a
-  // property — so the declaration would vanish from `Object.keys` and slip past both the AT-id
-  // grammar check below and the bijection check. With no prototype there is no setter to hit: the
-  // key is stored, then refused as a malformed AT id, which is what a reader would expect.
+  // JSON.parse creates an own `__proto__` key; assigning it onto `{}` hits the prototype setter and drops the entry.
   const declared: TierExpectation = { green: green as string[], red: Object.create(null) as Record<string, RedDeclaration> };
   for (const [atId, declaration] of Object.entries(red)) {
     declared.red[atId] = parseRedDeclaration(label, atId, declaration);
@@ -196,7 +127,6 @@ function parseTierExpectation(label: string, tier: string, value: unknown): Tier
   return declared;
 }
 
-/** Text → validated manifest. PURE. Throws with a precise message on any malformation. */
 export function parseExpectedManifest(text: string, requirement: string): ExpectedManifest {
   const label = manifestLabel(requirement);
 
@@ -209,7 +139,6 @@ export function parseExpectedManifest(text: string, requirement: string): Expect
 
   if (!isPlainObject(raw)) throw new Error(`${label} must be a JSON object`);
 
-  // The `requirement` field has no other purpose than this copy/paste guard.
   if (raw.requirement !== requirement) {
     throw new Error(`${label} declares requirement ${JSON.stringify(raw.requirement)} but req-${requirement} is being verified`);
   }
@@ -219,14 +148,12 @@ export function parseExpectedManifest(text: string, requirement: string): Expect
 
   const manifest: ExpectedManifest = { requirement, tiers: {} };
   for (const [tier, value] of Object.entries(tiers)) {
-    // A typo'd tier key would otherwise surface as the much vaguer "no declaration for this tier".
     if (!TIERS.includes(tier)) throw new Error(`${label} declares an unknown tier ${JSON.stringify(tier)} — expected ${TIERS.join(' | ')}`);
     manifest.tiers[tier] = parseTierExpectation(label, tier, value);
   }
   return manifest;
 }
 
-/** The tier's declaration, or throw naming the tiers that ARE declared. PURE. */
 export function tierExpectation(manifest: ExpectedManifest, tier: string): TierExpectation {
   const declared = manifest.tiers[tier];
   if (!declared) {
@@ -239,10 +166,6 @@ export function tierExpectation(manifest: ExpectedManifest, tier: string): TierE
   return declared;
 }
 
-/**
- * The declared ids and the acceptance file's P0 ids must be in exact bijection. PURE.
- * A manifest that forgets an id must never silently pass — that id would simply not be checked.
- */
 export function declarationBijectionProblems(expectation: TierExpectation, acceptanceIds: string[]): string[] {
   const redIds = Object.keys(expectation.red);
   const declared = [...expectation.green, ...redIds];
@@ -267,29 +190,12 @@ export function declarationBijectionProblems(expectation: TierExpectation, accep
   return problems;
 }
 
-/* --------------------------------------------------------------------------- matching a red */
-
-/**
- * The text a declared red MUST produce, rebuilt from the declaration. PURE.
- *
- * `capability-pending` rebuilds the WHOLE first line, mirroring `CapabilityPending` in
- * pending.ts (`CAPABILITY PENDING — <names joined by ", ">`, `name = 'CapabilityPending'`)
- * through vitest's `"<name>: <message>"` serialisation.
- *
- * `pending` rebuilds only the anchored PREFIX, mirroring `AtPending` in registry.ts
- * (`<atId> PENDING [<phase>] — <detail>`). The tail is free by construction and must stay free:
- * `sut-missing` carries a string the suite supplies, and `harness-missing` embeds a
- * module-resolution message that differs by machine and checkout path — a declaration that could
- * never be written on a second machine is not a stricter rule, it is a broken one. Class, id and
- * phase are still all matched exactly, from position 0.
- */
 export function declaredDetail(atId: string, red: RedDeclaration): string {
   return red.kind === 'capability-pending'
     ? `CapabilityPending: CAPABILITY PENDING — ${red.capabilities.join(', ')}`
     : `AtPending: ${atId} PENDING [${red.phase}] — `;
 }
 
-/** Does this reported detail carry exactly the declared shape? PURE. */
 export function detailMatches(atId: string, red: RedDeclaration, detail: string): boolean {
   const expected = declaredDetail(atId, red);
   return red.kind === 'capability-pending' ? detail === expected : detail.startsWith(expected);
@@ -299,9 +205,6 @@ function describeRed(red: RedDeclaration): string {
   return red.kind === 'capability-pending' ? `capability-pending: ${red.capabilities.join(', ')}` : `pending: ${red.phase}`;
 }
 
-/* ---------------------------------------------------------------------------- the comparison */
-
-/** Every way the reported ids deviate from the declaration, one line per offending id. PURE. */
 export function expectationDeviations(rows: ReportedRow[], unexpected: string[], expectation: TierExpectation): string[] {
   const deviations: string[] = [];
   const seen = new Set<string>();
@@ -316,7 +219,6 @@ export function expectationDeviations(rows: ReportedRow[], unexpected: string[],
       continue;
     }
     if (!red && !declaredGreen) {
-      // Unreachable once the bijection check has run; kept so a future caller cannot skip it.
       deviations.push(`${row.id} — reported but not declared`);
       continue;
     }
@@ -332,9 +234,6 @@ export function expectationDeviations(rows: ReportedRow[], unexpected: string[],
       continue;
     }
     if (red && row.status === 'red' && REDACTION_SENTINEL.test(row.detail)) {
-      // Fail closed. The detail was rewritten because part of it looked secret-shaped, so the line
-      // no longer identifies anything and no declaration can honestly match it — including one
-      // that declares the sentinel itself, which the parser already refuses.
       deviations.push(
         `${row.id} — this red's detail was redacted, so it cannot be matched exactly and the id is undeclarable ` +
           `until the detail no longer contains a secret-shaped token: ${row.detail}`,
@@ -359,29 +258,12 @@ export function expectationDeviations(rows: ReportedRow[], unexpected: string[],
   return deviations;
 }
 
-/**
- * Every way the RUN ITSELF is not fully accounted for by the declaration. PURE.
- *
- * WHY THE ID COMPARISON IS NOT ENOUGH: with reds declared, vitest necessarily exits non-zero, so
- * the process's exit code stops carrying information and an extra failure hides behind an expected
- * one. The id parser only sees tests whose titles carry an AT id, so an untagged `it()` that fails
- * is invisible to it — but not to the report's own arithmetic. Every failing, passing, pending and
- * todo test must add up against the declaration; anything unaccounted for is a failure.
- *
- * KNOWN RESIDUAL GAP, stated exactly (it was measured, not reasoned about): a hook that throws in
- * a file which ALSO contains a failing test is serialised identically to a healthy run of that
- * file — same file status, same counts, same `success` — so while a red is declared in that same
- * file, such a failure is invisible here. A hook that throws in a file whose tests all passed IS
- * caught, by `suiteFileDeviations`. Closing the remainder needs a reporter-side envelope, which is
- * filed, not built here.
- */
+// vitest's JSON report serialises a throwing hook in a file that also holds a failing test identically to a healthy run of that file.
 export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOutcome, expectation: TierExpectation): string[] {
   const green = expectation.green.length;
   const red = Object.keys(expectation.red).length;
   const deviations: string[] = [];
 
-  // A launch failure always fails, whatever the declaration says. No message text is quoted: the
-  // code is enough to diagnose a spawn failure, and this module does no redaction of its own.
   if (run.error) {
     const err = run.error as NodeJS.ErrnoException;
     deviations.push(`the test process could not be launched (${err.code ?? 'spawn error'})`);
@@ -406,8 +288,6 @@ export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOut
   if (!Array.isArray(totals.testResults)) {
     unusable.push('the report carries no usable testResults array, so suite-level failures cannot be accounted for');
   }
-  // Comparing against a field that is missing would be arithmetic on nonsense: report the unusable
-  // fields and stop. Under --expect that is a failure, never a skipped check.
   if (unusable.length) return [...deviations, ...unusable];
 
   const total = counts.numTotalTests as number;
@@ -440,7 +320,6 @@ export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOut
     );
   }
 
-  // With no red declared the process's own exit is still the plain rule it has always been.
   if (red === 0 && !run.error && run.status !== 0) {
     const how = run.status === null ? `was killed by signal ${run.signal}` : `exited ${run.status}`;
     deviations.push(`the test process ${how} while the declaration declares no red`);
@@ -451,7 +330,6 @@ export function reportAccountingDeviations(totals: ReportTotals, run: ProcessOut
   return deviations;
 }
 
-/** The file's own name, without the directory — report paths are temporary in the selftests. */
 function suiteFileLabel(name: unknown): string {
   const text = typeof name === 'string' ? name : '';
   const base = text.split(/[\\/]/).pop();
@@ -467,24 +345,7 @@ function firstLineOf(text: string, limit = 200): string {
   return line.length > limit ? `${line.slice(0, limit)}…` : line;
 }
 
-/**
- * Failures that belong to a FILE rather than to any test — and which the test counts above cannot
- * see, because they change no test's status.
- *
- * Measured, not assumed (vitest 4.1.10's JSON reporter):
- *   - a file that fails to import produces an extra `testResults` entry with `status: "failed"`,
- *     ZERO assertion results and a non-empty `message`, while every declared count stays exactly
- *     as declared;
- *   - a file whose `afterAll` throws is reported `status: "failed"` with its assertions unchanged,
- *     so it is caught here whenever that file's tests all passed.
- *
- * The rule is the one Kimi's invariant intends — a failed suite containing no failed test is a
- * collection or hook failure — applied at FILE level, which is the level where it is actually
- * true. The aggregate `numFailedTestSuites` counts `describe` blocks as well as files, so
- * `numFailedTestSuites <= numFailedTests` does NOT hold on a healthy run: REQ-016 reports 6 failed
- * suites for 4 failed tests (3 files plus their 3 describes). Applying it literally would fail the
- * real declaration.
- */
+// vitest's JSON reporter: a file that fails to import adds a `failed` testResults entry with zero assertions; the aggregate numFailedTestSuites also counts describe blocks.
 function suiteFileDeviations(files: ReportSuiteFile[]): string[] {
   const deviations: string[] = [];
 
@@ -510,12 +371,6 @@ function suiteFileDeviations(files: ReportSuiteFile[]): string[] {
   return deviations;
 }
 
-/* ---------------------------------------------------------------------------------- the I/O */
-
-/**
- * Read, validate and select one tier's declaration — the single call the runner makes, performing
- * every refusal in order so that a bad declaration stops the run before any test is run.
- */
 export function loadTierExpectation(requirement: string, tier: string, acceptanceIds: string[]): TierExpectation {
   const file = expectedManifestPath(requirement);
 

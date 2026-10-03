@@ -1,7 +1,3 @@
-/**
- * Caller-bound tenant reads for the live adapter. Spread into `createLiveAdapter`.
- */
-
 import {
   authPost,
   functionPostRaw,

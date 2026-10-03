@@ -1,11 +1,3 @@
-/**
- * Oracle for `org-vetting.ts`'s two shipped permissibility decisions.
- *
- * Driving the module directly is how this tree asserts a shipped decision with no
- * acceptance id behind it. An acceptance body that called either function and went
- * green would claim a publish route or a checkout this tree does not have.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -7,7 +7,6 @@ export type Allowance = {
   remaining: number;
 };
 
-/** Consumed fields of DiscoveryTurnView (supabase/functions/_shared/discovery-turn.ts). */
 export type DiscoveryTurn = {
   id: string;
   seq: number;
@@ -18,7 +17,6 @@ export type DiscoveryTurn = {
 
 export type Refusal = { kind: string | null; reason: string };
 
-/** The subset of the SDK's UIMessage the page seeds useChat with; assignable to it. */
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";

@@ -1,25 +1,3 @@
-/**
- * REQ-002's source-arm floor: types, tree readers, and the small text helpers the arms share.
- *
- * Precedent: `tests/at/suites/req-001/_source-scan.ts` and
- * `tests/at/suites/req-016/_source-scan.ts`. The arms run at both tiers. File names in this
- * folder start with an underscore and do not end in `.test.ts`, so `at:check` does not read
- * them. Each oracle returns a problem list; empty is the assertion. Each THROWS rather than
- * returning nothing when it could not read what it claims to have read: a negative from a
- * broken instrument is indistinguishable from a true absence unless the instrument says so.
- *
- * WHAT THESE ARE NOT. They are naming and statement oracles over text. A disguised surface
- * named `review-desk.tsx` escapes them, exactly as it escapes any static check. The realistic
- * regression is somebody adding the thing under its ordinary name, and that is what these
- * turn into a red in the same run.
- *
- * The four arm families import this file. They are `_source-vetting.ts` (the vet is manual,
- * single-writer, unscheduled, no KYC surface, no third vetted state), `_source-documents.ts`
- * (no document content is stored or returned), `_source-pins.ts` (grants, debit sentences,
- * email-unverified sentence, notice channel set), and `_source-absences.ts` (founder-vetted
- * wording, no Discovery wallet, no publish flow).
- */
-
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -60,7 +38,6 @@ export function lineOf(text: string, index: number): number {
   return text.slice(0, index).split('\n').length;
 }
 
-/** Split an identifier or phrase into lowercase word tokens. One splitter for every arm. */
 export function words(raw: string): string[] {
   return raw
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')

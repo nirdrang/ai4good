@@ -1,17 +1,3 @@
-/**
- * Tests OF the harness, not tests run BY it.
- *
- * These deliberately live outside `tests/at/suites/` and depend on nothing that AI4DEV-3 has not
- * built yet: no fixtures, no clock, no vendor sims, no `createHarness`. They import the runner's
- * pure pieces and spawn a real child process, so they run today, on a machine with no stack and
- * no Docker. Run them with `bun run at:selftest`.
- *
- * The leak test is the important one: it proves that a secret sitting in this process's
- * environment — which is exactly where bun puts everything in `.env` and `.env.local` — does not
- * reach a child. That property is not visible in a diff, only in a spawned process's own view of
- * its environment, so it is asserted against a real child rather than against the code.
- */
-
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,15 +10,11 @@ import { REPO_ROOT } from './check.ts';
 import { bunExecutable, childEnv } from './local-stack.ts';
 import { cleanupRun, runVerdict, type IdRow } from './runner.ts';
 
-/** Names a developer following `.env.example` could plausibly have sitting in `.env.local`. */
 const SENTINELS = {
   AT_LEAK_SENTINEL_SERVICE_ROLE: 'sentinel-service-role-value',
   SUPABASE_SERVICE_ROLE_KEY: 'sentinel-hosted-service-role',
   ANTHROPIC_API_KEY: 'sentinel-provider-key',
   STRIPE_SECRET_KEY: 'sentinel-stripe-key',
-  // The judge is parked. Its credential still must not reach a child: the allowlist must not
-  // pass AT_JUDGE_API_KEY. Named here so the property is proven against a real child rather
-  // than read off the allowlist's source.
   AT_JUDGE_API_KEY: 'sentinel-judge-key',
 };
 
@@ -55,12 +37,8 @@ describe('the child environment is allowlisted, so credentials cannot leak into 
     let seen: string[];
     try {
       const child = spawnSync(
-        // bun, not this process's executable: under vitest the worker is node, and the whole
-        // point of the probe is that the CHILD is the kind of process the runner launches.
         bunExecutable(),
         ['--no-env-file', '-e', 'console.log(JSON.stringify(Object.keys(process.env)))'],
-        // cwd is the repo root ON PURPOSE: that is where `.env` lives, so this also proves the
-        // child does not load it for itself.
         { cwd: REPO_ROOT, env: childEnv({ AT_TIER: 'loop' }), encoding: 'utf8' },
       );
       expect(child.error, 'the probe child could not be launched').toBeUndefined();
@@ -71,7 +49,6 @@ describe('the child environment is allowlisted, so credentials cannot leak into 
     }
 
     for (const name of Object.keys(SENTINELS)) expect(seen, `${name} reached the child process`).not.toContain(name);
-    // Names that exist only in the tracked .env: their presence would mean bun loaded the file.
     for (const name of ['SUPABASE_PROJECT_ID', 'SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_URL']) {
       expect(seen, `${name} reached the child — the env file was loaded`).not.toContain(name);
     }
@@ -103,11 +80,6 @@ describe('a non-zero test process is a failure even when every row is green', ()
 
 describe('the integration tier runs only from the real checkout', () => {
   it('refuses when AT_REPO_ROOT redirects the data root — before the lock, the config read and any CLI call', () => {
-    // A COMPLETE disposable tree, so both preflights PASS and the refusal under test is the first
-    // thing the integration branch says, rather than a bijection error standing in front of it.
-    // Nothing else is planted: no supabase/config.toml, so a runner that read the config before
-    // refusing would say "config.toml" instead, and a lock directory that does not exist
-    // afterwards proves the lock was never reached.
     const root = mkdtempSync(join(tmpdir(), 'at-data-root-'));
     try {
       mkdirSync(join(root, '.taskmaster', 'docs', 'acceptance'), { recursive: true });
@@ -135,10 +107,6 @@ describe('the integration tier runs only from the real checkout', () => {
 
 describe('the lifetime pin is a preflight: decidable from two files on disk, so it refuses before the lock', () => {
   it('exits 3 naming both numbers, creates no lock file, and carries no stack advice', () => {
-    // THE REAL TREE'S config.toml IS EDITED AND RESTORED, the way the migrations selftest plants a
-    // file in the real tree: the integration tier refuses every other root before it reads a config,
-    // so the only config this runner can read is this one. The edit is one number on one line; the
-    // restore is byte-exact and asserted.
     const file = join(REPO_ROOT, 'supabase', 'config.toml');
     const original = readFileSync(file);
     const text = original.toString('utf8');
@@ -172,7 +140,6 @@ describe('the lifetime pin is a preflight: decidable from two files on disk, so 
 describe('the stack lock is released even when the report directory cannot be removed', () => {
   it('reports the cleanup failure and releases anyway', () => {
     let released = false;
-    // A path containing a NUL byte cannot be removed and cannot be swallowed by `force`.
     cleanupRun('C:\\at-verify\0broken', { release: () => (released = true) });
     expect(released, 'a failing report cleanup stranded the stack lock').toBe(true);
   });

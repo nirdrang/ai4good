@@ -1,5 +1,3 @@
-/** The write-route inventory, the caller's standing, the lifecycle gate and the gate-then-decide pipeline. */
-
 import {
   ACCOUNT_TYPES,
   ngoOnlyActionAllowed,
@@ -11,12 +9,10 @@ import { parseOrgRole, type OrgRole } from './memberships.ts';
 import type { Caller } from './caller.ts';
 import type { CallerReads } from './tenant-reads.ts';
 
-/** Where a route lives. A stand-in has no deployed function; the fixture drives the gate over it. */
 export type RouteSurface =
   | { readonly kind: 'edge'; readonly rpc: string }
   | { readonly kind: 'stand-in'; readonly reason: string };
 
-/** What the caller must be. The exemption carries its reason IN THE TYPE, so nothing is a bare flag. */
 export type RouteStanding =
   | { readonly kind: 'account-required'; readonly admits: readonly AccountType[] }
   | { readonly kind: 'account-absent-by-design'; readonly reason: string };
@@ -143,13 +139,11 @@ export function parseWriteRefusalKind(raw: unknown): WriteRefusalKind {
   return (WRITE_REFUSAL_KINDS as readonly string[]).includes(candidate) ? (candidate as WriteRefusalKind) : 'refused';
 }
 
-/** The account a route names beside the caller â€” the transferee, for the contact transfer. */
 export type SubjectStanding = {
   readonly accountType: AccountType;
   readonly lifecycle: AccountLifecycle;
 };
 
-/** `unreadable` is a third state: a read that did not happen is not a judgement about the caller. */
 export type WriteStanding =
   | { readonly kind: 'no-account' }
   | { readonly kind: 'unreadable'; readonly detail: string }
@@ -157,16 +151,12 @@ export type WriteStanding =
       readonly kind: 'account';
       readonly accountType: AccountType;
       readonly lifecycle: AccountLifecycle;
-      /** the caller's role in the TARGET organisation, or null â€” never a role held elsewhere */
       readonly orgRole: OrgRole | null;
       readonly orgExists: boolean;
-      /** the organisation's single seat holder, which the transfer compares against */
       readonly orgSeatAccountId: string | null;
-      /** the subject account a route names; null when it names none or the account has no row */
       readonly subject: SubjectStanding | null;
     };
 
-/** The `account` member of `WriteStanding`, after the gate has admitted an account-required route. */
 export type AccountStanding = Extract<WriteStanding, { kind: 'account' }>;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -183,10 +173,6 @@ function unreadable(detail: string): WriteStanding {
   return { kind: 'unreadable', detail };
 }
 
-/**
- * The answer of `public.write_standing`, judged. FAIL-CLOSED: every shape this function does not
- * recognise is `unreadable` â€” never `no-account`, and never an account with a guessed field.
- */
 export function parseWriteStanding(raw: unknown): WriteStanding {
   if (!isRecord(raw)) return unreadable('the standing answer is not an object');
   if (raw.account === null) return { kind: 'no-account' };
@@ -239,7 +225,6 @@ export type WriteRouteInput = {
   readonly ip: string | null;
 };
 
-/** An account-required route's input: the gate has already proved the standing is the account variant. */
 export type AccountWriteRouteInput = WriteRouteInput & { readonly standing: AccountStanding };
 
 export type WriteRouteDecision<Args> =
@@ -262,7 +247,6 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   readonly name: WriteRouteName;
   readonly target?: (body: Record<string, unknown>) => string | null;
   readonly subject?: (body: Record<string, unknown>) => string | null;
-  /** the outgoing account id, when a route names one; `writeRoute` shape-checks it like target and subject */
   readonly from?: (body: Record<string, unknown>) => string | null;
   readonly decide: (input: Input) => WriteRouteDecision<Args>;
   readonly prepare?: (caller: Caller, args: Args, reads: CallerReads) => Promise<WriteRouteDecision<Args>>;
@@ -284,58 +268,46 @@ export function refuseWrite<Args>(kind: WriteRefusalKind, status: number, reason
   return { ok: false, kind, reason, status };
 }
 
-/**
- * A PostgREST refusal is a raised exception when `code` is a five-character SQLSTATE; anything else
- * is transport or a gateway page, not a judgement, and answers 502.
- */
 export function rpcRefusalStatus(outcome: { code: string | null }): 409 | 502 {
   return typeof outcome.code === 'string' && /^[0-9A-Z]{5}$/.test(outcome.code) ? 409 : 502;
 }
 
-/** A request field as a trimmed non-empty string, or null â€” the shape every selector answers with. */
 export function stringField(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
 }
 
-/** A request field as a trimmed UUID string, or null. */
 export function uuidField(value: unknown): string | null {
   const trimmed = stringField(value);
   return trimmed !== null && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed) ? trimmed : null;
 }
 
-/** A whole number, or null. */
 export function integerField(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value)) return null;
   return value;
 }
 
-/** A boolean, or null. */
 export function booleanField(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
-/** An ISO-8601 timestamp string, or null. */
 export function timestampField(value: unknown): string | null {
   const raw = stringField(value);
   if (raw === null) return null;
   return Number.isNaN(Date.parse(raw)) ? null : raw;
 }
 
-/** A UTC calendar day `YYYY-MM-DD`, or null. A longer ISO instant is accepted by its date prefix. */
 export function isoDay(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const match = /^(\d{4}-\d{2}-\d{2})/.exec(value);
   return match ? match[1] : null;
 }
 
-/** The organisation a request targets, read from the one field every organisation-scoped route uses. */
 export function organizationIdField(body: Record<string, unknown>): string | null {
   return stringField(body.organizationId);
 }
 
-/** The kind a type mismatch carries, DERIVED from `admits` so there is no second field to sync. */
 export function typeRefusalKind(admits: readonly AccountType[]): WriteRefusalKind {
   if (admits.length === 1 && admits[0] === 'platform_admin') return 'not-a-platform-admin';
   if (admits.length === 1 && admits[0] === 'ngo') return 'not-an-ngo-account';
@@ -351,7 +323,6 @@ function typeRefusalReason(admits: readonly AccountType[], accountType: AccountT
   return `this action is available to ${who} only â€” the caller's account is of type ${JSON.stringify(accountType)}`;
 }
 
-/** Deactivation is judged before type and before presence, so a deactivated caller is told it is deactivated and nothing else. */
 export function writeGateDecision(name: WriteRouteName, standing: WriteStanding): WriteRouteDecision<'admitted'> {
   const route = WRITE_ROUTES[name];
   if (standing.kind === 'unreadable') {

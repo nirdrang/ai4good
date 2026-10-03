@@ -1,15 +1,3 @@
-/**
- * REQ-002's document-content source arm: no document content is stored or returned.
- *
- * Shared posture (throws rather than report an absence the instrument could not measure;
- * naming oracles over text): `_source-scan.ts`.
- *
- * WHAT THIS IS NOT. It is a type-and-name oracle. A jsonb or text column holding a base64 PDF
- * escapes it. A download screen named `file-desk.tsx` escapes it. Rejecting attachments and
- * storing only metadata cannot prove a document was deleted from the founder's mailbox; this
- * oracle does not look at a mailbox and does not treat `registration_copies_deleted` as proof.
- */
-
 import {
   lineOf,
   loadProductSurfaces,
@@ -64,9 +52,6 @@ function namedDocumentReturn(name: string, where: string): string | null {
   return DOCUMENT_RETURN_NAME.test(name) ? `${where} ${name} names a document-content route` : null;
 }
 
-/**
- * AT-002.16's structural half: no column holds document bytes, and no route returns a document.
- */
 export function scanDocumentContentSinks(input: DocumentContentSinkInput): string[] {
   if (input.files.length === 0) {
     throw new Error('scanDocumentContentSinks found no product source. Refusing to report an absence.');

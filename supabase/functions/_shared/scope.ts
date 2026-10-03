@@ -248,7 +248,6 @@ export function scopeMoneyProblems(markdown: string): string[] {
   return problems;
 }
 
-/** The text the model wrote on its own; the title and the user stories carry the NGO's words, so the money check leaves them out. */
 export function scopeModelText(scope: Scope): string {
   return [
     scope.summary,

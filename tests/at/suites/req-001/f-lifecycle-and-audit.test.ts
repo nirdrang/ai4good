@@ -1,8 +1,3 @@
-/**
- * AT-REQ-001 sections G and H — the lifecycle gate on every write, the single-dev invariant, the
- * append-only audit, and sign-in rate limiting.
- */
-
 import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import {
@@ -21,24 +16,11 @@ import {
 } from './_integration.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import { auditAppendOnlyProblems } from './_policy-scan.ts';
-// THE SHIPPED AUTHORITY STATEMENT, imported rather than restated — the acknowledgment-identity leaf
-// makes name, title and attestation mandatory on EVERY completion, and the deployed validation
-// refuses any attestation that is not this statement word for word.
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 
-/** The version string of the ToS + Platform Promise text this file's one written body accepts. */
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
-/** The address the acknowledgment records — every completion here carries one. */
 const CLIENT_IP = '203.0.113.7';
-/** The password every email/password registration in this file uses. */
 const PASSWORD = 'correct horse battery staple';
-/**
- * AT-001.19's three fields, carried by every completion here.
- *
- * All three completions in this file must SUCCEED — they are AT-001.32's Given, not its act — so
- * each one carries the identity the shared validation now requires. Nothing here grades the
- * identity fields; that is the acknowledgment-identity leaf's own three ids.
- */
 const SIGNER = {
   signerName: 'Dana Okonkwo',
   signerTitle: 'Executive Director',
@@ -182,10 +164,6 @@ atTest(
     default: async ({ open }) => {
       const { w, sut } = await open();
 
-      // THE GIVEN IS OPERATOR-PROVISIONED, AND THAT IS STATED RATHER THAN HIDDEN. No product path
-      // creates a project or attaches a volunteer in this tree, at either tier; building one to
-      // reach this criterion's Given would be landing another requirement's surface early. What is
-      // under test is the REFUSAL of the second attach.
       const ngo = await sut.registerWithEmailPassword(w.email('project-owner-32'), PASSWORD);
       const ngoCompletion = await sut.completeSignup(
         ngo,
@@ -215,9 +193,6 @@ atTest(
       expect(secondCompletion, 'the second volunteer could not complete signup').toMatchObject({ ok: true });
       if (!secondCompletion.ok) return;
 
-      // A project with an assigned volunteer — the criterion's Given, in two steps so that the
-      // freshly created project is seen with its seat FREE. One nullable field holds the developer,
-      // so there is no collaborator seat for a second one to occupy.
       const project = await sut.createProjectAsOperator(ngoCompletion.organizationId, 'Riverside Shelter Website 32');
       expect(project.assignedVolunteerId, 'a freshly created project already carries a developer').toBeNull();
       const assigned = await sut.assignVolunteerAsOperator(project.id, firstCompletion.accountId);
@@ -226,20 +201,16 @@ atTest(
         assignedVolunteerId: firstCompletion.accountId,
       });
 
-      // THE ACT UNDER TEST.
       const secondAttach = await sut.assignVolunteerAsOperator(project.id, secondCompletion.accountId);
       expect(secondAttach.ok, 'a second volunteer was attached to a project that already has one').toBe(false);
       if (secondAttach.ok) return;
       expect(secondAttach.kind, 'the second attach was refused for a reason other than the seat being taken').toBe('seat-occupied');
 
-      // AND IT WROTE NOTHING: the seat still holds the FIRST volunteer.
       expect(await sut.projectAssignment(project.id), 'the refused attach changed the project seat').toMatchObject({
         id: project.id,
         assignedVolunteerId: firstCompletion.accountId,
       });
 
-      // THE CONTROL — the same call with the SAME volunteer is not refused, so the guard is about a
-      // second developer rather than about writing to the column at all.
       const again = await sut.assignVolunteerAsOperator(project.id, firstCompletion.accountId);
       expect(
         again,

@@ -1,7 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright-core";
 
-// usage: node capture.mjs <port> <outDir>
 const [port, outDir] = process.argv.slice(2);
 const url = `http://127.0.0.1:${port}/#discovery`;
 const out = outDir.endsWith("/") || outDir.endsWith("\\") ? outDir : `${outDir}/`;

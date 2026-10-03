@@ -1,29 +1,3 @@
-/**
- * The runner, driven END TO END as a black box.
- *
- * WHY THIS EXISTS SEPARATELY from `runner.selftest.ts`: that file tests the runner's pure pieces —
- * `analyzeReportedTests`, `bijectionProblems`, `runVerdict` — by calling them with hand-built
- * inputs. That is worth having, and it is not the same claim. The claim a gate actually depends on
- * is "the ASSEMBLED runner, given a suite in a particular state, exits with this code and reports
- * this per id", and the assembly is where a false green hides: a preflight whose result is
- * computed and not acted on, a report that is parsed but whose exit code is dropped, a
- * registration file the child writes somewhere the parent does not read. Every one of those passes
- * a unit test of the pure function and fails the whole product.
- *
- * So each case below plants a COMPLETE disposable tree — its own acceptance file, its own suite,
- * its own vitest config — points the runner at it with `AT_REPO_ROOT`, and asserts the exit code
- * and the report line for the id. The trees are disposable because the situations are deliberately
- * broken (an acceptance file that yields no P0 ids, a suite claiming an id nothing registers, a
- * test that reports twice), and the runner's own tests must not be able to damage the repository
- * they are checking. `node_modules` still resolves from the real checkout, so the child runs the
- * pinned vitest and the fixture suites import the REAL harness registry by absolute file URL —
- * these are tests of the harness, not of a copy of it.
- *
- * The non-loop safety sequence (stack lock, local-stack proof, reset, migration proof) is NOT
- * touched here: every case runs at the loop tier, which by design takes no lock, starts no Docker
- * and touches no database.
- */
-
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -36,21 +10,10 @@ import { bunExecutable, childEnv } from './local-stack.ts';
 
 const RUNNER = join(INSTALL_ROOT, 'tests', 'at', 'harness', 'runner.ts');
 
-/** The real registry, addressed absolutely — a fixture suite registers through it, not a copy. */
 const REGISTRY_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 'registry.ts')).href;
 
-/**
- * A vitest config for the disposable tree. Deliberately a plain object rather than
- * `defineConfig`: the tree has no `node_modules` of its own, and `defineConfig` is an identity
- * function, so importing `vitest/config` from a temp directory would buy nothing and could fail.
- */
 const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
 
-/**
- * A minimal fixture adapter WITHOUT its self-declaring literal, so the two cases below can supply a
- * wrong one or none at all. `open()` in a fixture suite reaches a real world through the real
- * harness — it is the same seam `harness/index.ts` loads for REQ-016.
- */
 const ADAPTER_BODY = `export function createFixtureAdapter({ worlds }) {
   return {
     sut: { probe: { ping: async () => 'pong' } },
@@ -60,27 +23,10 @@ const ADAPTER_BODY = `export function createFixtureAdapter({ worlds }) {
 }
 `;
 
-/**
- * The adapter as a well-formed suite writes it: the body, plus the literal saying which requirement
- * it is.
- *
- * It declares its own requirement because the real `loadAdapter()` checks that literal against the
- * requirement it was asked to load, and throws when they disagree. These trees are not in
- * `suite-adapters.ts`'s type map and do not need to be — the check compares what the adapter says
- * about itself against what was requested, which needs no map.
- */
 function fixtureAdapter(requirement: string): string {
   return `export const requirement = 'req-${requirement}';\n${ADAPTER_BODY}`;
 }
 
-/**
- * Preamble every fixture suite shares: vitest, plus the real registry bound to the probe sut.
- *
- * The requirement is a parameter because `atTest` now refuses an id whose requirement disagrees
- * with the binding's — the guard that stops a suite driving one implementation while the type-check
- * described another. These suites are never type-checked (they live outside every tsconfig) but
- * they ARE executed, so the run-time half applies to them exactly as it does to a real suite.
- */
 function suitePreamble(requirement: string): string {
   return (
     `import { describe, expect, it } from 'vitest';\n` +
@@ -93,20 +39,10 @@ interface RunnerOutcome {
   status: number | null;
   stdout: string;
   stderr: string;
-  /** everything the runner emitted, for assertions that do not care which stream it came from */
   output: string;
-  /** the report row for an id: `green` / `red` / `missing` plus its detail */
   row(atId: string): { status: string; detail: string } | null;
 }
 
-/**
- * Plant a tree, run the real runner against it at the loop tier, remove the tree.
- *
- * `acceptance` is the whole acceptance file, because its FORMATTING is under test in one of the
- * cases; `files` are the suite's files, written verbatim, because what a call site looks like in
- * source is under test in another; `adapter` is the whole `_fixture.ts`, because what the adapter
- * SAYS IT IS is under test in two more.
- */
 function runAgainstTree(
   requirement: string,
   acceptance: string,
@@ -178,8 +114,6 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
   });
 
   it('refuses an id whose only registration is a call site that never runs', () => {
-    // The call site is statically visible — so the bijection checker is satisfied — and never
-    // executes, so nothing registers at runtime. A bare `it()` supplies the passing green.
     const source =
       suitePreamble('902') +
       `describe('title only', () => {\n` +
@@ -190,8 +124,6 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
       'b-title-only.test.ts': source,
     });
 
-    // The static scan MUST see the unreachable call site, otherwise this case is testing the
-    // bijection checker's blindness rather than the runtime-registration requirement.
     expect(run.output, `the preflight did not accept the statically visible call site\n${run.output}`).not.toContain(
       'preflight refused',
     );
@@ -223,11 +155,6 @@ describe('the assembled runner, on a suite that passes for the wrong reason', ()
 
 describe('the assembled runner refuses to run at all when the preflight cannot be satisfied', () => {
   it('refuses an acceptance file whose formatting yields zero P0 ids', () => {
-    // The id is in the file; the P0 marking the parser looks for is not. Nothing else about this
-    // tree is wrong — the suite claims no id either — so the ONLY thing standing between this run
-    // and a perfect "0 P0: 0 green, 0 red" report over nothing at all is the zero-id refusal.
-    // That is deliberate: the case has to isolate that one guard, or it would keep passing on the
-    // strength of a different problem.
     const run = runAgainstTree('904', `- **AT-904.01 (P1)** — marked P1, so this file carries no P0 at all\n`, {
       'd-zero-ids.test.ts':
         `import { describe, expect, it } from 'vitest';\n` +
@@ -263,30 +190,8 @@ describe('the assembled runner refuses to run at all when the preflight cannot b
   });
 });
 
-/**
- * THE ADAPTER'S SELF-DECLARED REQUIREMENT, EXERCISED THROUGH ITS FAILING PATH.
- *
- * `loadAdapter()` in `harness/index.ts` compares the literal a fixture module exports against the
- * requirement it was asked to load, and throws naming both. Both Gate 2 reviewers found the same
- * hole in the evidence rather than in the code: every synthetic adapter in these selftests carried
- * the CORRECT literal, so deleting that check left all of them green. A guard nobody has watched
- * fail is exactly the false-green shape this item exists to remove, so it is watched here.
- *
- * These cases are black-box on purpose — the real runner, a real child process, a real dynamic
- * import — because the claim being made is that a mislabelled adapter cannot reach a passing test,
- * not merely that a comparison in a function returns false.
- *
- * They are the run-time half of a pair. The compile-time half is the map entry in
- * `suite-adapters.ts`, whose constraint rejects a module whose literal disagrees with its key.
- * Neither covers the other: the map cannot see a tree reached through `AT_REPO_ROOT`, and the
- * run-time check cannot see a typo in a type map.
- */
 describe('the assembled runner holds a fixture adapter to the requirement it declares', () => {
   it('refuses an adapter that declares a different requirement, naming both values', () => {
-    // Everything else about this tree is well-formed: the acceptance file carries the id, the suite
-    // registers it, the body opens a world and asserts a real observation. The ONLY thing wrong is
-    // that the adapter says it is req-999 while the run asked for req-907 — so a green here would
-    // mean the suite's types were read off one module while another drove the run.
     const run = runAgainstTree(
       '907',
       p0('AT-907.01', 'a well-formed test against an adapter that says it is a different suite'),
@@ -307,16 +212,11 @@ describe('the assembled runner holds a fixture adapter to the requirement it dec
     const row = run.row('AT-907.01');
     expect(row, `no report row for AT-907.01\n${run.output}`).not.toBeNull();
     expect(row!.status).toBe('red');
-    // BOTH real values, because a message naming only one of them cannot be acted on: the reader
-    // has to know which module was loaded AND what it claims to be to tell which name is wrong.
     expect(row!.detail, `the failure did not name what the adapter declares\n${run.output}`).toContain('req-999');
     expect(row!.detail, `the failure did not name what was loaded\n${run.output}`).toContain('req-907');
   });
 
   it('refuses an adapter that declares no requirement at all', () => {
-    // The missing-field case is separate because a guard that switches itself off when a field is
-    // absent is the same hole arriving through the door marked convenience — and it would pass the
-    // case above, which only exercises a literal that is present and wrong.
     const run = runAgainstTree(
       '908',
       p0('AT-908.01', 'a well-formed test against an adapter that names no requirement'),
@@ -346,8 +246,6 @@ describe('the assembled runner holds a fixture adapter to the requirement it dec
 
 describe('the assembled runner reports a genuinely good suite as good', () => {
   it('exits zero and reports green for a suite that opens a world and asserts something real', () => {
-    // The positive control. Without it every assertion above is satisfied by a runner that fails
-    // everything, which is a useless gate in the other direction.
     const run = runAgainstTree('906', p0('AT-906.01', 'a well-formed single test'), {
       'f-good.test.ts':
         suitePreamble('906') +

@@ -1,8 +1,3 @@
-/**
- * The audited contact transfer, lost-access recovery, the escalation contact, and who may run the
- * transfer.
- */
-
 import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import {

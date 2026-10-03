@@ -1,11 +1,3 @@
-/**
- * REQ-002's pin source arms: a value or a sentence identical in two languages. The grants,
- * the three debit sentences, the email-unverified sentence, and the notice channel set.
- *
- * Shared posture (throws rather than report an absence the instrument could not measure):
- * `_source-scan.ts`.
- */
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -40,7 +32,6 @@ export type GrantPinInput = {
   grantFunctionSql: string;
 };
 
-/** SQL arms of `public.discovery_daily_grant`. */
 export function parseGrantFunctionArms(sql: string): { unverified: number; vetted: number } {
   if (!GRANT_FUNCTION_HEAD.test(sql)) {
     throw new Error(
@@ -59,7 +50,6 @@ export function parseGrantFunctionArms(sql: string): { unverified: number; vette
   return { vetted: Number(vetted[1]), unverified: Number(unverified[1]) };
 }
 
-/** Every disagreement between the pinned registry, the TypeScript constants, and the SQL grant. */
 export function scanGrantPins(input: GrantPinInput): string[] {
   const arms = parseGrantFunctionArms(input.grantFunctionSql);
   const problems: string[] = [];
@@ -183,7 +173,6 @@ function parseRaiseArgs(tail: string): { args: string[]; using: string } | null 
   return { args, using };
 }
 
-/** Every P0001 debit raise inside `public.discovery_allowance`. Throws when the function cannot be read. */
 export function parseDebitRefusalRaises(sql: string): DebitRefusalRaise[] {
   if (!ALLOWANCE_FUNCTION_HEAD.test(sql)) {
     throw new Error(
@@ -268,12 +257,10 @@ function extractExportedFunction(source: string, name: string): string {
   throw new Error(`parseTypescriptSentenceRenderer could not read the body of ${name}. Refusing to report agreement.`);
 }
 
-/** The exported TypeScript exhausted renderer. */
 export function parseTypescriptExhaustedRenderer(source: string): string {
   return extractExportedFunction(source, 'dailyAllowanceExhaustedReason');
 }
 
-/** The exported TypeScript oversize-debit renderer. */
 export function parseTypescriptExceedsRemainingRenderer(source: string): string {
   return extractExportedFunction(source, 'debitExceedsRemainingReason');
 }
@@ -321,7 +308,6 @@ function checkNoNumeral(format: string, label: string, problems: string[]): void
   if (/\d/.test(format)) problems.push(`the SQL ${label} sentence contains a numeric literal`);
 }
 
-/** Every disagreement between a TypeScript debit renderer and its SQL raise. Compares every arm. */
 export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
   const raises = parseDebitRefusalRaises(input.allowanceFunctionSql);
   const unverified = findRaise(
@@ -463,7 +449,6 @@ export type EmailUnverifiedSentenceInput = {
   typescriptRendererSource: string;
 };
 
-/** The email-unverified raise inside `public.discovery_allowance`. Throws when it cannot be read. */
 export function parseEmailUnverifiedRaise(sql: string): DebitRefusalRaise {
   if (!ALLOWANCE_FUNCTION_HEAD.test(sql)) {
     throw new Error(
@@ -498,12 +483,10 @@ export function parseEmailUnverifiedRaise(sql: string): DebitRefusalRaise {
   return found[0];
 }
 
-/** The exported TypeScript email-unverified renderer. */
 export function parseTypescriptEmailUnverifiedRenderer(source: string): string {
   return extractExportedFunction(source, 'emailUnverifiedReason');
 }
 
-/** Every disagreement between the TypeScript email-unverified renderer and its SQL raise. */
 export function scanEmailUnverifiedSentence(input: EmailUnverifiedSentenceInput): string[] {
   if (input.typescriptRendererSource.trim() === '') {
     throw new Error(
@@ -548,15 +531,6 @@ export function emailUnverifiedSentenceProblems(): string[] {
   });
 }
 
-/**
- * The vetting definer refuses a notice whose channels are not the decision class default, and it
- * names that set in SQL. The shipped taxonomy names the same set in TypeScript. Two places, one
- * rule, so this arm pins them the way the grant arm pins the grants.
- *
- * WHY THE SET IS IN SQL AT ALL. The definer must refuse a caller list the taxonomy did not
- * authorise, before any write, and a definer cannot read a TypeScript module. The alternative was
- * to trust the caller, which is the hole the design named and this run closed.
- */
 const DEFINER_AUTHORIZED_CHANNELS = /v_authorized\s*:=\s*'(\[[^']*\])'::jsonb/i;
 
 export function scanNoticeChannelPin(input: { definerSql: string; taxonomyChannels: readonly string[] }): string[] {

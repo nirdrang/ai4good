@@ -67,7 +67,6 @@ export function Conversation({
   const intentRef = useRef(true);
   const adjustingRef = useRef(false);
   const openedAt = useRef(lastAssistantId);
-  // intentRef is the follow flag from before this reply was painted.
   intentRef.current = followRef.current;
   const presented = presentMessages(messages);
   useLayoutEffect(() => {
@@ -113,7 +112,6 @@ export function Conversation({
     if (current instanceof HTMLElement) current.scrollIntoView({ block: "nearest" });
   }, [highlight]);
   return (
-    // The log is the containing block. A screen-reader heading must not stretch the page.
     <div
       ref={scroller}
       role={SCREEN.conversation.role}

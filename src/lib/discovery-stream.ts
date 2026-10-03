@@ -1,10 +1,5 @@
 import type { UIMessage } from "ai";
 
-// The Discovery chat stream: what one reply carries beside its text.
-// Screen design: design/discovery-ui-contract.md. The Astra mock's fixture transport emits
-// exactly these parts today; the discovery-message function must emit them for the wired screen.
-// Amounts are integer millionths of a US dollar.
-
 export type SuggestedAnswer = { id: string; label: string; answer: string };
 
 export type Importance = "needed" | "suggested" | "later";

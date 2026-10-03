@@ -1,7 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { chromium } from "playwright-core";
 
-// usage: node capture-usage.mjs <port> <outDir>
 const [port, outDir] = process.argv.slice(2);
 const url = `http://127.0.0.1:${port}/#discovery`;
 const out = /[\\/]$/.test(outDir) ? outDir : `${outDir}/`;
@@ -53,7 +52,7 @@ for (const [tag, viewport] of [["desktop", { width: 1366, height: 900 }], ["phon
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log("pageerror", e.message));
   await page.goto(url);
-  await answerAndSend(page); // start mid-conversation with one free reply used
+  await answerAndSend(page);
 
   for (const [name, id] of states) {
     await scenario(page, id);

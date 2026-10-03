@@ -1,15 +1,3 @@
-/**
- * THE STATIC HALF of the tenant catalog guard — a text oracle over `supabase/migrations/*.sql`.
- *
- * CI runs the loop tier only, so a live catalog check over `pg_class` would never run after merge.
- * This module is the half that does: every `public` table is declared tenant-isolated or
- * unreachable-by-client-roles, and later statements overlay earlier ones, including drop, disable,
- * alter, and force. A grant that is not modelled is refused outright so the overlay cannot lie.
- *
- * THE CATALOG IS THE GUARD'S EXPECTATION, not a source of truth. Nothing derives from it.
- * Precedent: `_source-scan.ts`. No sentinel, fault, vendor stand-in or fixture world.
- */
-
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -77,7 +65,6 @@ function readSingleQuote(sql: string, i: number): { text: string; next: number }
   return { text: out, next: n };
 }
 
-/** Split SQL into statements, dropping comments, respecting dollar quotes and strings. */
 export function splitSqlStatements(sql: string): string[] {
   const statements: string[] = [];
   let current = '';
@@ -256,10 +243,6 @@ function recordPolicyUsing(
   }
 }
 
-/**
- * Apply later statements over earlier ones and return every catalog problem.
- * Throws when the files contain no `create table public.<t>`.
- */
 export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyProblem[] {
   const tables = new Set<string>();
   const rls = new Set<string>();

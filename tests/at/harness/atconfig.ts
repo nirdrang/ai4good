@@ -1,34 +1,8 @@
-/**
- * The at-config registry — the single source for every pinned number the acceptance tests read.
- *
- * WHY: a threshold copied into a test body is a second source of truth. When the founder
- * re-tunes a value, a hard-coded copy keeps asserting the old one and the suite goes green on
- * a stale promise. Every configured number lives here; no test may hard-code one.
- *
- * `value: null` means the number is NOT pinned anywhere yet — the requirement names the knob
- * but no figure exists. A test that reads a null must fail loudly rather than substitute a
- * guess: an invented threshold is worse than a red.
- *
- * `provisional: true` marks a value that is not founder-settled — either flagged PROVISIONAL
- * where it is stated, or an open decision (OD-4, OD-7). Provisional values are usable; they
- * are expected to move.
- *
- * Sources are cited per entry. Adding a number here without a source is not allowed.
- */
-
 export interface AtConfigEntry {
-  /** plain-words name of the thing being pinned */
   name: string;
-  /**
-   * The pinned figure, or null when no figure has been pinned anywhere. Booleans are pinned
-   * values too: whether a guard coalesces is configuration in exactly the way a cap is, and a
-   * test that hard-coded the switch would go stale the same way a hard-coded number does.
-   */
   value: number | boolean | null;
   unit: string;
-  /** not founder-settled — flagged PROVISIONAL at its source, or an open decision */
   provisional?: true;
-  /** where the figure comes from, and what would settle it */
   source: string;
 }
 
@@ -170,14 +144,6 @@ export const AT_CONFIG = {
     provisional: true,
     source: 'OD-4 (open decision) — the substantive-request threshold for binding checks; founder to pin',
   },
-  /*
-   * The thread-comment anti-spam guard. These three are TEST PINS, not product promises:
-   * AT-016.08 supplies its own configuration ("Given a TEST-PINNED guard configuration — an
-   * explicit cap/window/coalescing fixture") and says in the same breath that "production values
-   * remain unstandardized". REQ-015 names the guard and pins no figure, so there is nothing
-   * upstream to read. They live here anyway, because the alternative is the test body hard-coding
-   * them, and a re-tune would then have to be chased through test source.
-   */
   threadCommentNotificationsMaxPerWindow: {
     name: 'thread-comment notifications delivered to one recipient inside one anti-spam window',
     value: 2,
@@ -199,13 +165,6 @@ export const AT_CONFIG = {
     provisional: true,
     source: 'AT-016.08 — TEST-PINNED by the acceptance criterion itself ("an explicit cap/window/coalescing fixture")',
   },
-  /*
-   * The local Auth service's access-token lifetime. A HARNESS pin over a CONFIGURATION value: the
-   * number lives in `supabase/config.toml` and the running stack reads it at start; this entry is
-   * the one place the suites read it from — the loop fixture's clock and the integration bodies'
-   * real waits follow the same number, so a re-tune is one edit here and one on the config line,
-   * and the config comment cites this entry back.
-   */
   accessTokenLifetimeSeconds: {
     name: 'lifetime of an access token issued by the local Auth service (jwt_expiry)',
     value: 120,

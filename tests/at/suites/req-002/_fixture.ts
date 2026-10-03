@@ -1,13 +1,3 @@
-/**
- * REQ-002's fixture adapter — the loop tier's binding of the organisation system under test.
- *
- * Members this unit lands run the shipped decisions over in-memory storage. Provisioning reuses
- * the auth suite's factory so an NGO is what signup leaves. What a loop-tier green means: the
- * shipped vetting decision and the aggregate shape are right. What it does not mean: that any
- * migration, policy or deployed function behaves. That is the integration tier's claim, in
- * `_live.ts`.
- */
-
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import type { Caller } from '../../../../supabase/functions/_shared/caller.ts';
 import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
@@ -448,9 +438,6 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       args.p_action === 'vet' ? new Date(clock.now()).toISOString() : (existing?.vettedAt ?? new Date(clock.now()).toISOString());
     const record = recordFromArgs(args, args.p_account_id, vettedAt, existing);
     vetting.set(record.organizationId, record);
-    // The mark takes the HIGHER of the tier before this action and the tier after it. An unvet on a
-    // day with no row yet would otherwise write the unverified grant and take away credits the
-    // organisation already held today, which the founder's ruling of 2026-09-09 forbids.
     applyGrantMark(record.organizationId, (existing?.vetted ?? false) || record.vetted, utcDay);
     const audit: VettingAuditRow = {
       id: `vet-audit-${auditSerial++}`,

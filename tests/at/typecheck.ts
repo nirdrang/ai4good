@@ -1,35 +1,10 @@
-/**
- * `bun run typecheck` — the standard type-check, over four projects.
- *
- * WHY THIS IS NOT `tsc -p a && tsc -p b`: `&&` stops at the first failure, so an error in the app
- * config would prevent the acceptance-test check from ever starting. A command that says nothing at
- * all about `tests/at` reads exactly like one that found it clean — which is the same false-green
- * shape this item exists to remove. All four projects are always launched; the exit code is the
- * aggregate.
- *
- * WHY IT LIVES HERE rather than in a repo-level `scripts/`: that is its natural home, but AI4DEV-24's
- * allowed paths are `tests/at/**`, `package.json` and its own item directory, and reaching outside
- * them would breach the item's scope boundary.
- */
-
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** The repository root, resolved from THIS file, so the result never depends on the caller's cwd. */
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-/**
- * The PINNED compiler, by path — never `bun x tsc`, and never `require.resolve('typescript')`.
- *
- * Both of those can silently run a compiler that is not this project's. `bun x` falls back to
- * fetching the package from the registry when it is not installed locally, and `require.resolve`
- * was measured resolving to a globally cached TypeScript 7.0.2 rather than the pinned 5.9.3. A
- * type-check performed by an unknown compiler version is not the check anyone thinks they ran, and
- * silent toolchain drift is exactly what this file exists to stop — so a missing compiler is a loud
- * failure, never a quiet substitution.
- */
 export function pinnedTsc(root: string): string {
   const tsc = join(root, 'node_modules', 'typescript', 'bin', 'tsc');
   if (!existsSync(tsc)) {
@@ -63,9 +38,6 @@ function main(): number {
       stdio: 'inherit',
     });
 
-    // A compiler that could not be started, and a run killed by a signal (status null), are both
-    // failures. Neither may be reported as a pass — and each says WHY, because "typecheck failed"
-    // with no reason sends the reader hunting for a type error that does not exist.
     if (result.error) {
       console.error(`${project}: the compiler could not be started — ${result.error.message}`);
       failures.push(project);

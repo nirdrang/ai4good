@@ -225,7 +225,6 @@ function Loaded({
           </div>
           <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden">
             {showFile ? (
-              // A floating panel would cover Send. A modal would hide the main chat during a read.
               fileOverlay
             ) : (
               <>
