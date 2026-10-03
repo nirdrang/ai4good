@@ -1,6 +1,6 @@
 # Resume note for AI4DEV-181 (Discovery wired to backend)
 
-Rewritten at the unit 2 gate, 2026-10-03.
+Rewritten at the unit 3 gate, 2026-10-03.
 
 ## Where the run is
 
@@ -26,11 +26,17 @@ Rewritten at the unit 2 gate, 2026-10-03.
   `opening`) and `20261003120100` (reply turn, one SQL usage function, one credit, refusals
   `finished`, `discovery-ready`, `mode-changed`, `daily-limit`, replay by `userMessageId`). The
   persisted screen message is `assistant_ui`; `assistant_message` stays text.
-- **A temporary old path remains:** a request without reply mode still uses `record_elicitation`
-  and the token-priced reserve, so the old req-004 suites stay as declared. The screen's usage type
-  still carries the beta fields (the server copies the daily grant into them). Tests on the old
-  contract per the writer: AT-004.01, .02, .03a, .03b, .04, .06, .08, .10, .12, .14, .15, .46, .47,
-  .48, .72. Record in `evidence/unit2/writer-output.md`.
+- **Unit 3 (usage) is merged on the item branch** (writer codex gpt-6.1-sol high, 52 min; grok
+  answered 402, balance exhausted, and the founder chose the substitute for this unit). Decision
+  d95: one credit per reply, no beta counter anywhere (PRD, REQ-002, REQ-004, acceptance text with
+  `[d95]` notes), daily grant 10, or 30 vetted. Change order `design/change-orders/013-discovery-one-credit-no-beta.md`.
+  `DiscoveryUsage` lost `betaLeft`/`betaGrant`; the old request path, `record_elicitation` and the
+  token-priced free turn are deleted; migration `20261003120200_discovery_daily_reply_only.sql`
+  drops the four token-pricing columns of `discovery_turns`. Report:
+  `evidence/unit3/writer2-output.md` and the committed `evidence/unit3/writer-output.md`.
+- **Open from unit 3:** the Discovery canvas still shows a beta row; its revision belongs to the
+  design stage (doc-sync step 5c), not this item. The review artifact was not republished.
+- Grok no longer loads Linear or Claude Design: `.grok/config.toml` (commit `e96d8d6`).
 - Checks at the unit 2 gate (lead, stack started from this worktree): live proof
   `evidence/unit2/prove.ts` 6 of 6 on space-bunny-free; typecheck 0; at:selftest 494; at:check
   req-001 and req-004 0; loop req-004 44 green; integration req-001 29, req-002 19, req-003 10,
@@ -39,7 +45,22 @@ Rewritten at the unit 2 gate, 2026-10-03.
   (`DISCOVERY_PROVIDER=openai-compatible`, `DISCOVERY_MODEL=space-bunny-free`, base URL, key,
   `DISCOVERY_REASONING_EFFORT=low`) beside the Anthropic key.
 
-## Next: unit 3 (usage)
+- Checks at the unit 3 gate (lead, stack started from this worktree): typecheck 0; at:selftest 495;
+  at:check req-001, req-002, req-004 0; loop req-001 33, req-002 20, req-004 44; integration req-001
+  29, req-002 19, req-003 10, req-004 17, req-016 12, all matching; assemble-pure -Check 0;
+  check-tree 0; unit 2 live proof 6 of 6.
+
+## Next: unit 4 (files)
+
+Per plan.md and design.md "Files": the `discovery-files` bucket, the `discovery-file` upload edge
+function (multipart; refusals `finished`, `file-limit` three while not funded with intake excluded,
+`duplicate-file`), `discovery_files` and `discovery_file_parts`, the read in
+`EdgeRuntime.waitUntil` (no question, never pauses, free, not a turn), stored digests in parts,
+facts into the brief through `evolveBrief` with source `file`, digests in later turns, `load`
+re-dispatching a read whose heartbeat is older than five minutes, AT-032.13 registered. Units 5 and
+6 follow plan.md.
+
+## Unit 3 scope, as decided at the unit 2 gate
 
 Founder at the unit 2 gate, 2026-10-03: "Remove old path (Recommended)". Unit 3 rewrites the REQ-004
 acceptance text to one credit per reply with no beta counter, moves the 15 old-contract tests
