@@ -48,7 +48,8 @@ export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
     reservedMicros: row.reserved_micros, actualMicros: row.actual_micros, overrunMicros: row.overrun_micros,
     inputTokens: row.input_tokens, outputTokens: row.output_tokens, stopReason: row.stop_reason,
     servedModel: row.served_model, openedAt: row.opened_at, settledAt: row.settled_at,
-    offTopic: row.off_topic === true, assistantUi: row.assistant_ui ?? null,
+    offTopic: row.off_topic === true,
+    ...(row.assistant_ui != null ? { assistantUi: row.assistant_ui } : {}),
   };
 }
 export type DiscoveryTurnView = ReturnType<typeof turnViewFromSql>;
