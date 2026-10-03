@@ -256,7 +256,11 @@ it('records a file fact on an optional topic and never agrees a required one', (
     fileName: 'volunteer-rota.xlsx',
     facts: [{ sectionId: 'measure', text: 'Two hours' }],
   });
-  expect(requiredOnly.kind).toBe('unchanged');
+  expect(requiredOnly.kind).toBe('changed');
+  if (requiredOnly.kind === 'changed') {
+    expect(requiredOnly.brief.document.topics.measure!.state.kind).toBe('open');
+    expect(requiredOnly.brief.document.fileFacts).toMatchObject([{ sectionId: 'measure', text: 'Two hours', source: { kind: 'file' } }]);
+  }
 });
 
 const ORG_ID = '22222222-2222-4222-8222-222222222222';

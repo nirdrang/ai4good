@@ -14,7 +14,12 @@ function requestBody(request: DiscoveryModelRequest, stream: boolean): Record<st
     model: servedModel(),
     messages: [
       { role: 'system', content: request.system.map((block) => block.text).join('\n\n') },
-      ...request.messages,
+      ...request.messages.map((message, index) => index === request.messages.length - 1 && request.images?.length
+        ? { role: message.role, content: [
+            { type: 'text', text: message.content },
+            ...request.images.map((image) => ({ type: 'image_url', image_url: { url: `data:${image.mediaType};base64,${image.data}` } })),
+          ] }
+        : message),
     ],
     max_tokens: request.maxTokens,
     tools: request.tools.map((tool) => ({
@@ -39,7 +44,7 @@ async function post(request: DiscoveryModelRequest, stream: boolean, signal?: Ab
       'content-type': 'application/json',
     },
     body: JSON.stringify(requestBody(request, stream)),
-    signal,
+    signal: signal ?? AbortSignal.timeout(120_000),
   });
 }
 

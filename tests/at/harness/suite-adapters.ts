@@ -23,6 +23,7 @@ export type AdapterModules = CheckedAdapterModules<{
   'req-003': typeof import('../suites/req-003/_fixture.ts');
   'req-004': typeof import('../suites/req-004/_fixture.ts');
   'req-016': typeof import('../suites/req-016/_fixture.ts');
+  'req-032': typeof import('../suites/req-032/_fixture.ts');
 }>;
 
 export type SuiteId = keyof AdapterModules & string;

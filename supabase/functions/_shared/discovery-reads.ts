@@ -1,6 +1,7 @@
 import type { NeedReads } from './need-intake.ts';
 import type { ScopeSqlRow } from './scope.ts';
 import type { ReadResult, TenantReads } from './tenant-reads.ts';
+import type { FileRow } from './discovery-files.ts';
 
 export type DiscoveryTurnSqlRow = {
   id: string; project_id: string; org_id: string; seq: number; status: 'open' | 'settled' | 'failed' | 'abandoned';
@@ -21,6 +22,7 @@ export type DiscoveryTurnSqlRow = {
 };
 
 export type DiscoveryReads = {
+  discoveryFilesOf?(projectId: string): Promise<ReadResult<FileRow>>;
   discoveryTurnsOf(projectId: string): Promise<ReadResult<DiscoveryTurnSqlRow>>;
   discoveryScopesOf(projectId: string): Promise<ReadResult<ScopeSqlRow>>;
   discoveryAllowance(organizationId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;

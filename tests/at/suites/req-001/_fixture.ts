@@ -1116,6 +1116,13 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           if (!run.ok) return run;
           return { ok: true };
         },
+        'discovery-file': async () => {
+          if (subject.route !== 'discovery-file') throw new Error('unreachable');
+          const { decideDiscoveryFile } = await import('../../../../supabase/functions/_shared/discovery-file-write.ts');
+          const run = runWrite({ name: 'discovery-file', target: organizationIdField, decide: decideDiscoveryFile }, session,
+            { organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action, file: { id: subject.fileId } }, null);
+          return run.ok ? { ok: true } : run;
+        },
         'discovery-brief': async () => {
           if (subject.route !== 'discovery-brief') throw new Error('unreachable');
           const run = runWrite(

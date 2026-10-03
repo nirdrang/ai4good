@@ -12,7 +12,12 @@ const systemFor = (request: DiscoveryModelRequest) => request.system.map((block)
 const servedModel = () => Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL;
 const paramsFor = (request: DiscoveryModelRequest) => ({
   model: servedModel(), max_tokens: request.maxTokens, system: systemFor(request),
-  messages: request.messages, tools: request.tools,
+  messages: request.messages.map((message, index) => index === request.messages.length - 1 && request.images?.length
+    ? { role: message.role, content: [
+        { type: 'text' as const, text: message.content },
+        ...request.images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.data } })),
+      ] }
+    : message), tools: request.tools,
   ...(request.toolChoice ? { tool_choice: request.toolChoice } : {}),
   ...(servedModel() === DISCOVERY_CLIENT_MODEL ? { output_config: { effort: request.effort } } : {}),
   betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const,

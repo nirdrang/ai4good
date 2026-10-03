@@ -791,6 +791,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           });
           return answer.ok ? { ok: true } : answer.refusal;
         },
+        'discovery-file': async () => {
+          if (subject.route !== 'discovery-file') throw new Error('unreachable');
+          const answer = await postWrite('discovery-file', session, subject);
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
         'discovery-brief': async () => {
           if (subject.route !== 'discovery-brief') throw new Error('unreachable');
           const answer = await postWrite('discovery-brief', session, {

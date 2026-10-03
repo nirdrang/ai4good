@@ -590,6 +590,9 @@ verify_jwt = true
 [functions.discovery-brief]
 verify_jwt = true
 
+[functions.discovery-file]
+verify_jwt = true
+
 [functions.discovery-scope]
 verify_jwt = true
 

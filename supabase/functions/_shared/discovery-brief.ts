@@ -71,6 +71,7 @@ export type BriefDocument = {
   fit: BriefFit | null;
   causeLabels: string[];
   removedCauseLabels: string[];
+  fileFacts?: { text: string; sectionId: string; source: Extract<BriefSource, { kind: 'file' }> }[];
 };
 
 export type BriefVersion = { revision: number; document: BriefDocument };
@@ -608,6 +609,12 @@ function applyFileFacts(version: BriefVersion, command: Extract<BriefCommand, { 
   let changedDocument = false;
   for (const fact of command.facts) {
     if (fact.sectionId === 'need') continue;
+    if (fact.sectionId !== 'usersToday' && fact.sectionId !== 'successMeasure' && !document.topics[fact.sectionId]) continue;
+    const recorded = document.fileFacts ?? [];
+    if (!recorded.some((item) => item.sectionId === fact.sectionId && item.text === fact.text && item.source.fileId === command.fileId)) {
+      document.fileFacts = [...recorded, { ...fact, source }];
+      changedDocument = true;
+    }
     if (fact.sectionId === 'usersToday' || fact.sectionId === 'successMeasure') {
       const next = sectionFromFile(document[fact.sectionId], fact.text, source);
       if (!next) continue;

@@ -15,17 +15,20 @@ import { needIntakeAnswer } from './need-intake.ts';
 import type { Caller } from './caller.ts';
 import { isRecord, refuseWrite, stringField, uuidField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 import type { Decision } from './accounts.ts';
+import { fileDigestContext, fileReport, type FileRow } from './discovery-files.ts';
 
 export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
 export type DiscoveryModelRequest = {
   model: string; maxTokens: number; effort: 'low'; system: SystemBlock[];
-  tools: readonly (RecordScopeTool | ReplyTool)[];
+  tools: readonly { name: string; description: string; input_schema: Record<string, unknown> }[];
+  images?: { mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }[];
   toolChoice?: { type: 'tool'; name: string };
   messages: { role: 'user' | 'assistant'; content: string }[];
   reply?: {
     messageId: string; opening: boolean; discoveryFileCount: number;
     answers: DiscoveryAnswer[]; topicIds: string[]; userMessageId: string;
+    fileReports?: string;
   };
 };
 export type DiscoveryModelAnswer =
@@ -262,19 +265,24 @@ async function prepareReply(
     ?? openingDocument({ need: need.body.need.description ?? need.body.need.title }).document.topicOrder;
   const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
   const opening = args.p_settings.mode === 'opening';
-  const discoveryFileCount = 0;
+  const files = reads.discoveryFilesOf ? await reads.discoveryFilesOf(args.p_project_id) : { ok: true as const, rows: [] as FileRow[] };
+  if (!files.ok) throw new Error(files.detail);
+  const discoveryFileCount = files.rows.length;
+  const shown = settled.map((turn) => turn.assistant_message ?? '').join('\n');
+  const fileReports = files.rows.filter((file) => file.status === 'read' && !shown.includes(fileReport(file))).map(fileReport).join('\n\n');
   const request: DiscoveryModelRequest = {
     model: port.model, maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: replySystemPrompt({
       title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
       reference_files: need.body.need.referenceFiles.map((file) => file.fileName),
     }, topicIds, skills, args.p_settings.expected_charge !== 'paid'),
-    messages: [...contextMessagesFrom(settled), { role: 'user', content: args.p_message }],
+    messages: [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }],
     tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },
     reply: {
       messageId: args.p_settings.assistant_message_id ?? crypto.randomUUID(),
       opening, discoveryFileCount, answers: args.p_settings.answers ?? [], topicIds,
       userMessageId: args.p_settings.user_message_id ?? '',
+      fileReports,
     },
   };
   return { ok: true, args: {
@@ -319,7 +327,7 @@ export function replyStreamHead(value: unknown, args: DiscoveryReserveArgs): {
   const opening = billing === 'opening' || prepared?.reply?.opening === true;
   return {
     messageId, textId: 'reply', replay: null,
-    prefix: replyPrefix(opening, prepared?.reply?.discoveryFileCount ?? 0),
+    prefix: replyPrefix(opening, prepared?.reply?.discoveryFileCount ?? 0) + (prepared?.reply?.fileReports ? `${prepared.reply.fileReports}\n\n` : ''),
   };
 }
 
@@ -358,6 +366,7 @@ async function actReply(
     discoveryFileCount: prepared.reply.discoveryFileCount,
   });
   if (!plan.ok) return failed(JSON.stringify({ kind: 'invalid-request', reason: 'the reply could not be read' }));
+  if (prepared.reply.fileReports) plan.text = `${plan.prefix}${prepared.reply.fileReports}\n\n${plan.text.slice(plan.prefix.length)}`;
   const usage = screenUsage(isRecord(value) ? value.usage : null);
   if (usage === null) return failed('Discovery usage could not be read');
   const tail = replyTail({

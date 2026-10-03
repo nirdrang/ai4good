@@ -27,7 +27,7 @@ const BYPASS =
 const BYPASS_TEST = /\/rest\/v1\/|createClient|\.rpc\(|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/;
 const CONSTRUCTOR = 'Deno.serve(writeRoute(';
 const NAME_LITERAL = /\bname:\s*['"]([^'"]+)['"]/;
-const EDGE_ALLOWED_FUNCTIONS = ['callDatabaseFunction', 'publicProjectReads', 'callerReads'];
+const EDGE_ALLOWED_FUNCTIONS = ['callDatabaseFunction', 'publicProjectReads', 'callerReads', 'discoveryFileWorker'];
 
 function dirOf(file: RouteFile): string {
   return file.name.replace(/\\/g, '/').replace(/\/index\.ts$/, '');

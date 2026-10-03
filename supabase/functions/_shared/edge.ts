@@ -154,6 +154,24 @@ function settledRefusal(value: unknown): string | null {
   return JSON.stringify({ kind: value.kind, reason: value.reason });
 }
 
+export function discoveryFileWorker() {
+  const key = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
+  const headers = { apikey: key, authorization: `Bearer ${key}` };
+  const objectUrl = (projectId: string, fileId: string) => `${requireEnv('SUPABASE_URL')}/storage/v1/object/discovery-files/${projectId}/${fileId}`;
+  return {
+    commit: async (fileId: string, action: string, payload: Record<string, unknown>) => {
+      const result = await callDatabaseFunction('discovery_file_read', { p_file_id: fileId, p_action: action, p_payload: payload });
+      if (!result.ok) throw new Error(result.message);
+      return result.value;
+    },
+    download: (projectId: string, fileId: string) => fetch(objectUrl(projectId, fileId), { headers }),
+    upload: (projectId: string, fileId: string, file: File) => fetch(objectUrl(projectId, fileId), {
+      method: 'POST', headers: { ...headers, 'content-type': file.type }, body: file,
+    }),
+    removeUpload: (projectId: string, fileId: string) => fetch(objectUrl(projectId, fileId), { method: 'DELETE', headers }),
+  };
+}
+
 function rpcRefusal(outcome: Extract<RpcOutcome, { ok: false }>): Response {
   const status = rpcRefusalStatus(outcome);
   const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : 'refused';
@@ -193,7 +211,7 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     const caller = await resolveCaller(request, SUPABASE_URL, ANON_KEY);
     if (!caller) return refusal(`authenticate before calling ${spec.name}`, 401);
 
-    const body = await readJsonBody(request);
+    const body = await (spec.readBody ?? readJsonBody)(request);
     if (!body.ok) return refusal(body.reason, 400);
 
     const target = spec.target ? spec.target(body.value) : null;
@@ -215,7 +233,10 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     }
 
     let outcome = await callDatabaseFunction(rpc, decision.args);
-    if (!outcome.ok) return rpcRefusal(outcome);
+    if (!outcome.ok) {
+      await spec.commitRefused?.(decision.args);
+      return rpcRefusal(outcome);
+    }
 
     if (spec.settle?.stream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {
       const settle = spec.settle;
@@ -310,6 +331,16 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
   const headers = { apikey: anonKey, Authorization: authorization, Accept: 'application/json' };
   const base = `${supabaseUrl.replace(/\/$/, '')}/rest/v1`;
   return {
+    discoveryFilesOf: async (projectId) => {
+      const response = await fetch(`${base}/rpc/viewer_discovery_files`, {
+        method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ p_project_id: projectId }),
+      });
+      const text = await response.text();
+      if (!response.ok) return { ok: false, detail: text };
+      try { return { ok: true, rows: JSON.parse(text) }; }
+      catch { return { ok: false, detail: text }; }
+    },
     discoveryTurnsOf: (projectId) =>
       restJson(`${base}/discovery_turns?project_id=eq.${encodeURIComponent(projectId)}&order=seq`, { headers }),
     discoveryScopesOf: (projectId) =>

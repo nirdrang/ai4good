@@ -69,6 +69,10 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'discovery_brief_commit' },
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
+  'discovery-file': {
+    surface: { kind: 'edge', rpc: 'discovery_file_commit' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
   'discovery-scope': {
     surface: { kind: 'edge', rpc: 'discovery_scope_begin' },
     standing: { kind: 'account-required', admits: ['ngo'] },
@@ -124,6 +128,11 @@ export const WRITE_REFUSAL_KINDS = [
   'stale-revision',
   'finished',
   'file-reading',
+  'file-limit',
+  'duplicate-file',
+  'file-too-large',
+  'unsupported-file-type',
+  'no-such-file',
   'open-gaps',
   'data-ack',
   'unknown-section',
@@ -245,6 +254,8 @@ export type SettleActResult = {
 };
 export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
+  readonly readBody?: (request: Request) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string }>;
+  readonly commitRefused?: (args: Args) => Promise<void>;
   readonly target?: (body: Record<string, unknown>) => string | null;
   readonly subject?: (body: Record<string, unknown>) => string | null;
   readonly from?: (body: Record<string, unknown>) => string | null;

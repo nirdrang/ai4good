@@ -69,7 +69,7 @@ export function screenFile(row: FileRow) {
 
 export function fileReport(row: FileRow): string {
   const facts = row.digest?.facts.map((fact) => fact.text.replace(/[\r\n]+/g, ' ')).join('; ');
-  return facts ? `From ${row.name}: ${facts}` : `I read ${row.name} and found no facts relevant to this need.`;
+  return facts ? `I finished reading ${row.name}, and it shows that ${facts}` : `I finished reading ${row.name} and found no facts relevant to this need.`;
 }
 
 export function fileDigestContext(files: readonly FileRow[]) {
