@@ -1,0 +1,7 @@
+[mcp_servers.linear]
+command = "none"
+enabled = false
+
+[mcp_servers.claude-design]
+command = "none"
+enabled = false
