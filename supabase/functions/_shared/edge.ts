@@ -1,34 +1,3 @@
-/**
- * The plumbing every function under `supabase/functions/` needs: read the environment, answer with
- * JSON, establish WHO is calling, and reach the database.
- *
- * It is deliberately separate from `accounts.ts`. That module holds the DECISIONS and is imported by
- * the acceptance adapter, which puts it inside a strict TypeScript program with `types: ["node"]`
- * and no Deno global — so it may contain no I/O and no `Deno` reference. This file is the opposite
- * half: nothing but I/O, Deno-only, and imported by no test. Merging the two would drag `Deno` into
- * the acceptance program and the whole shared-logic arrangement with it.
- *
- * NO TYPE-CHECKER COVERS THIS FILE, and that is stated rather than hoped. `bun run typecheck` runs
- * over the root project (whose `include` is `src/**` plus two config files) and the `tests/at`
- * project (whose `include` is `tests/at/**` plus whatever those files import). Neither reaches an
- * edge-function entry point or this module. What covers them instead is that they are served and
- * exercised against the live stack — weaker in some ways and stronger in others, and named honestly
- * either way. At this tree's head that evidence is `loop/items/AI4DEV-58/proof-local.txt`: 9 checks,
- * 8 passed, 0 failed, 1 skipped, driving `complete-signup` through the deployed function for both
- * account types. The one skip is the GitHub handshake, because no GitHub OAuth app exists for this
- * project; the Google handshake is unproved for the same reason. `loop/items/AI4DEV-57/proof-local.txt`
- * is retained for the ONE thing only it still covers: `create-organization`, which was exercised
- * there and is untouched by this leaf. Its completion-path and schema evidence is SUPERSEDED — it
- * predates this migration and called a `complete_signup` that no longer exists.
- *
- * ONE IMPORT CROSSES INTO THE PURE HALF: `callerFromAuthAnswer` from `./caller.ts`. That direction
- * is the safe one and the arrangement is unchanged by it — a Deno-only file may import a pure one,
- * while the reverse would drag `Deno` into the strict acceptance program. The judgement about WHO
- * is calling belongs on the pure side, where a test can reach it; this file keeps the round trip
- * that asks. (The import used to be `extractGithubHandle` from `./github.ts`; the caller module now
- * makes that call, so this file names one pure module instead of two.)
- */
-
 import { callerFromAuthAnswer, type Caller } from './caller.ts';
 import * as discoveryStream from './discovery-stream.ts';
 import type { CallerReads, ReadResult } from './tenant-reads.ts';
@@ -60,26 +29,6 @@ export function requireEnv(...names: string[]): string {
   throw new Error(`none of ${names.join(', ')} is set in this function's environment`);
 }
 
-/**
- * WHAT A BROWSER IS ALLOWED TO SEND, and why this list is exactly this list.
- *
- * A signup from the app's own origin is a cross-origin authenticated JSON request, so the browser
- * sends a preflight first and refuses to make the real call unless the answer permits the method
- * and every header. `supabase-js`'s `functions.invoke` sends `authorization`, `apikey`,
- * `content-type` and `x-client-info`; omitting any one of them fails the preflight, and the failure
- * surfaces in the browser as a network error with no reason attached.
- *
- * THE ORIGIN IS `*` DELIBERATELY, and it is not a shortcut. An allow-list would need the deployed
- * app origins, which are not knowable from this tree — inventing one would be a guess wearing the
- * costume of a security control. Every function under `supabase/functions/` shares this header;
- * only `public-project` authenticates nothing. Authenticated functions read the `Authorization`
- * header and none of them reads a cookie, so a hostile page that reaches one carries no ambient
- * authority; it would have to already hold the user's access token, and if it holds that it does
- * not need a browser. `public-project` serves a public projection and the service role stays on
- * the server, so a hostile page that calls it learns only what the public page is already willing
- * to show. This is the Supabase standard posture for edge functions. A deployment that later
- * authenticates by cookie must revisit this line first.
- */
 const CORS_HEADERS: Record<string, string> = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info',
@@ -93,22 +42,10 @@ export function json(body: unknown, status: number): Response {
   });
 }
 
-/** A refusal a caller can act on: the reason travels, never a bare status. */
 export function refusal(reason: string, status: number): Response {
   return json({ ok: false, reason }, status);
 }
 
-/**
- * The two conventions EVERY entry point here needs, applied once instead of twice.
- *
- *   * THE PREFLIGHT. Both functions refuse any method that is not POST, so without this an
- *     `OPTIONS` would be answered 405 and no browser would ever reach the real call.
- *   * NOTHING ESCAPES AS A BARE STATUS. A rejected `fetch` (Auth or the Data API unreachable) or a
- *     non-JSON success body throws, and an exception out of a `Deno.serve` handler becomes a 500
- *     with no body — precisely the case where a caller most needs to tell a refusal from an outage.
- *     Anything thrown becomes a shaped 502 carrying a sentence, which is this file's standing
- *     contract: the reason travels, never a bare status.
- */
 export function edgeHandler(
   name: string,
   handler: (request: Request) => Promise<Response>,
@@ -124,45 +61,8 @@ export function edgeHandler(
   };
 }
 
-/**
- * `Caller` is imported from `./caller.ts` and re-exported here so a function may take the type from
- * this file without reaching into `caller.ts`; the one-line re-export form would create no local
- * binding for `resolveCaller`'s own annotation.
- */
 export type { Caller };
 
-/**
- * WHO IS CALLING — answered by Supabase Auth, never by this function.
- *
- * `verify_jwt = true` in `config.toml` means the platform has already verified the token's
- * signature before this code runs. That still leaves the question of which user it belongs to, and
- * the cheap answer — decode the payload and read `sub` — would mean trusting a base64 blob because
- * something upstream is believed to have checked it. So the token is presented to `/auth/v1/user`
- * instead and Auth answers. One extra round trip, no cryptography in our code, and no dependency:
- * `fetch` is enough.
- *
- * ============================================================================================
- * THE ROUND TRIP IS HERE. THE JUDGEMENT IS IN `./caller.ts`, AND NONE OF IT IS LEFT IN THIS FILE.
- * ============================================================================================
- *
- * This function used to read the status, dig `id` out of the body, check its type and extract the
- * GitHub handle — four judgements about the ANSWER'S SHAPE, sitting in a file no type-checker
- * covers and no test can import. They are now one call to `callerFromAuthAnswer`, which the
- * acceptance fixture drives on every validated path and
- * `tests/at/harness/shipped-caller.selftest.ts` drives shape by shape. What is left below is I/O:
- * one header read, one `fetch`, one body parse.
- *
- * THE WHOLE BODY IS HANDED OVER, NEVER A NARROWED PIECE OF IT. `callerFromAuthAnswer` reads
- * `identities[]` to find the linked GitHub handle, so passing `{ id }` — or anything else this file
- * pre-selected — would return a caller with `githubHandle: null` and refuse every linked volunteer
- * at this edge, while every unit-level check stayed green. This bridge is untyped, so nothing here
- * would catch it. `loop/items/AI4DEV-60/proof-local.ts` check (g) is the live control that does:
- * it completes a linked volunteer through the DEPLOYED function.
- *
- * THE MISSING-HEADER RETURN STAYS HERE, and it is not a judgement about the answer — there is no
- * answer yet. It is this file declining to spend a round trip on a request that carries no
- * credential at all, exactly as before.
- */
 export async function resolveCaller(request: Request, supabaseUrl: string, anonKey: string): Promise<Caller | null> {
   const authorization = request.headers.get('Authorization');
   if (!authorization) return null;
@@ -171,38 +71,12 @@ export async function resolveCaller(request: Request, supabaseUrl: string, anonK
     headers: { Authorization: authorization, apikey: anonKey },
   });
 
-  // THE PARSE NEVER THROWS, and that is deliberate rather than defensive habit. The old code
-  // returned on `!response.ok` BEFORE touching the body, so a refusal was never parsed; reading the
-  // body first with `response.json()` would make an Auth outage that answers HTML — a proxy's error
-  // page — throw here and become a 502 where it used to be a 401. An unparseable body is handed
-  // over as `null` instead, so the status still decides and the deployed refusal path is
-  // byte-for-byte what it was.
   const text = await response.text();
   let user: unknown = null;
   try {
     user = JSON.parse(text) as unknown;
   } catch {
     // Left as `null`, which `callerFromAuthAnswer` reads as no caller. Nothing is judged here.
-    //
-    // TWO EDGES DO CHANGE, and both are named rather than glossed. The first is this one: a 2xx
-    // whose body is UNPARSEABLE used to throw and surface as a 502; it now refuses as a 401. The
-    // second belongs to the parse below and is named here so the pair reads together: a 2xx whose
-    // body is the JSON literal `null` parsed cleanly, and the old unguarded `.id` read on `null`
-    // threw a TypeError which `edgeHandler` turned into a 502; it now yields no caller and refuses
-    // as a 401. (The old code is quoted from the committed history in
-    // `loop/items/AI4DEV-60/gate2-rulings.md`, which is where that reading was done.)
-    //
-    // AND THE CLAIM IS EXHAUSTIVE, which is the part that took a second reader to establish. Every
-    // OTHER parseable body behaves exactly as it did: a property read on a boxed primitive — a
-    // number, a string, a boolean — yields `undefined`, and an array has no `id` either, so all of
-    // them failed the string check then and fail it now. `null` is the one parseable body whose old
-    // behaviour differed.
-    //
-    // Both edges are the fail-closed direction and both match this module's stated promise — a
-    // malformed body yields no caller. GoTrue answers a JSON object on both the 200 and its
-    // refusal (HTTP 403 measured live for a dead and for an expired token — the re-pin in
-    // loop/items/AI4DEV-60/fix-rulings.md ruling 2), so neither case is reachable through Auth
-    // itself; both are reachable through something in front of Auth.
   }
   return callerFromAuthAnswer(response.status, user);
 }
@@ -216,10 +90,8 @@ function isIpv6(value: string): boolean {
   if (value.split('::').length > 2) return false;
   const abbreviated = value.includes('::');
   const groups = value.split(':').filter((group) => group !== '');
-  if (groups.length === 0) return abbreviated; // `::` itself
+  if (groups.length === 0) return abbreviated;
   const last = groups[groups.length - 1];
-  // `::ffff:127.0.0.1` is a legal IPv6 address whose final element is a dotted IPv4 and occupies
-  // two of the eight groups.
   const trailingIpv4 = last.includes('.');
   if (trailingIpv4 && !isIpv4(last)) return false;
   const hexGroups = trailingIpv4 ? groups.slice(0, -1) : groups;
@@ -228,28 +100,6 @@ function isIpv6(value: string): boolean {
   return abbreviated ? count < 8 : count === 8;
 }
 
-/**
- * The address the request came from — AT-001.01 records it on the acknowledgment.
- *
- * `x-forwarded-for` may carry a chain; the FIRST entry is the original client and the rest are
- * proxies. `null` rather than a placeholder when there is nothing to record:
- * `public.acknowledgments` permits a null `ip`, and inventing `0.0.0.0` would put a value in the
- * column that reads like a measurement and is not one.
- *
- * IT IS VALIDATED BEFORE IT LEAVES HERE, because `public.complete_signup`'s fifth parameter is
- * `p_ip inet` and the header is a client-supplied string. An unparseable value made PostgREST fail
- * the cast, which arrived as a 4xx, which `complete-signup` maps to 409 with the database's message
- * — so a perfectly well-formed signup was refused with something that read like a signup conflict.
- * Anything that is not a well-formed IPv4 or IPv6 address therefore records nothing at all, which
- * is honest, rather than breaking a signup.
- *
- * THE TRUST BOUNDARY, stated because the column looks like a measurement: this is what the gateway
- * chain REPORTED, and it is NOT authenticated. On any path where no trusted proxy overwrites the
- * header, a caller chooses it. Which entry of the chain a deployment should believe depends on the
- * proxies actually in front of it, which is not observable from this tree; whoever lands the hosted
- * deployment settles it with that chain in view. Until then the acknowledgment records AN address,
- * never a verified source address, and the plan's per-id table says so in those words.
- */
 export function callerIp(request: Request): string | null {
   const forwarded = request.headers.get('x-forwarded-for');
   const first = forwarded?.split(',')[0]?.trim();
@@ -258,29 +108,10 @@ export function callerIp(request: Request): string | null {
   return isIpv4(candidate) || isIpv6(candidate) ? candidate : null;
 }
 
-/**
- * The result of a database function call: its value, or the database's own refusal. `details` is
- * the DETAIL a definer attached with `RAISE ... USING DETAIL`, which is where a backstop refusal
- * carries its kind (R10); `code` is PostgREST's `code` field, a five-character SQLSTATE when the
- * body is a raised exception.
- */
 type RpcOutcome =
   | { ok: true; value: unknown }
   | { ok: false; status: number; message: string; details: string | null; code: string | null };
 
-/**
- * Call one `public.` function, with the service role, in ONE round trip.
- *
- * One round trip is one implicit transaction, which is the whole reason the signup writes live
- * inside a database function rather than being issued as separate Data API calls from here. Four
- * calls would be four transactions, and a failure partway would leave an account with no
- * organisation, membership or acknowledgment.
- *
- * The service role bypasses row-level security, which is why the database functions perform their
- * own checks: nothing else is standing on this path.
- *
- * Not exported: a route reaches the database only through `writeRoute`.
- */
 async function callDatabaseFunction(name: string, args: Record<string, unknown>): Promise<RpcOutcome> {
   const supabaseUrl = requireEnv('SUPABASE_URL');
   const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
@@ -296,9 +127,6 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
 
   const text = await response.text();
   if (!response.ok) {
-    // PostgREST wraps a raised exception as `{ message, code, details, hint }`. The message is the
-    // sentence the database function chose, so it is passed through rather than replaced with a
-    // generic one — those functions raise sentences precisely so a caller can act on them.
     let message = text;
     let details: string | null = null;
     let code: string | null = null;
@@ -317,7 +145,6 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
 }
 
-/** One round trip for type, lifecycle, role-in-target, the organisation's seat and the subject. */
 async function loadWriteStanding(
   accountId: string,
   organizationId: string | null,
@@ -356,7 +183,6 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     const target = spec.target ? spec.target(body.value) : null;
     const subject = spec.subject ? spec.subject(body.value) : null;
     const from = spec.from ? spec.from(body.value) : null;
-    // A malformed id is refused here, because PostgREST would fail the cast and answer like an outage.
     for (const [what, value] of [['organisation', target], ['account', subject], ['from', from]] as const) {
       if (value !== null && !UUID_SHAPE.test(value)) {
         return json({ ok: false, kind: 'invalid-request', reason: `the ${what} id ${JSON.stringify(value)} is not a well-formed id` }, 400);
@@ -498,7 +324,6 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
   };
 }
 
-/** The public page's source: one RPC as the service role, never a table grant. */
 export function publicProjectReads(): PublicProjectReads {
   const supabaseUrl = requireEnv('SUPABASE_URL');
   const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SECRET_KEY');
@@ -518,7 +343,6 @@ export function publicProjectReads(): PublicProjectReads {
   };
 }
 
-/** Read a JSON request body, or refuse — a malformed body must not read as an empty one. */
 export async function readJsonBody(request: Request): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string }> {
   let text: string;
   try {

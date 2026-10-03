@@ -1,28 +1,3 @@
-/**
- * The one product module that speaks to a mail provider: `ProviderPort` over SMTP.
- *
- * THIS FILE IS THE DOCUMENTED EXCEPTION to the `_shared` rule that `edge.ts` is the only I/O
- * module. AT-016.01's source oracle asserts that exactly one component holds a send path, and a
- * send path that lived in the test tree would make that assertion count a type mention. So the
- * product owns the sending code, here, and the live acceptance adapter constructs it pointed at the
- * local mail catcher rather than reimplementing it. The file the scan names is the file that sends.
- *
- * WHAT IT READS AND DOES NOT READ. Host, port, sender address and timeout arrive as constructor
- * arguments. Nothing here reads an environment variable at module level, so the pure acceptance
- * program can import it, and nothing here reaches a database. It uses `node:net`, which both the
- * edge runtime and Bun serve, and it type-checks under `tests/at/tsconfig.json`.
- *
- * THE THREE ANSWERS. A final 250 after the message body is `accepted`, and the receipt is the
- * provider's own reply line. A 4xx or 5xx reply to any command is `rejected`, a refusal the
- * provider stated. A timeout, a refused connection or a connection that closes before the reply
- * is `no_ack`: the sender does not know whether the message was taken, and it must not pretend to.
- *
- * THE KEY TRAVELS ON THE MESSAGE. `X-Notification-Key` carries the delivery's idempotency key
- * verbatim, and `Message-ID` carries the same key with the characters a message id cannot hold
- * replaced by dots, so the catcher holds one identity per delivery whichever header a reader
- * chooses.
- */
-
 import { Buffer } from 'node:buffer';
 import { createConnection, type Socket } from 'node:net';
 
@@ -31,15 +6,12 @@ import type { OutgoingMessage, ProviderAnswer, ProviderPort } from './notificati
 export type SmtpProviderOptions = {
   host: string;
   port: number;
-  /** the envelope and header sender */
   sender: string;
-  /** the budget for the whole exchange, after which the answer is `no_ack` */
   timeoutMs: number;
 };
 
 type Reply = { code: number; lines: string[] };
 
-/** A refusal the provider stated, as an SMTP reply of class 4 or 5. */
 class SmtpRefusal extends Error {
   constructor(
     readonly code: number,
