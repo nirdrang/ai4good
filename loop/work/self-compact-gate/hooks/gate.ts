@@ -29,6 +29,13 @@ export const register = (on: any) => {
   let gateId: string | undefined;
 
   on('tool.call', async ($: any, e: any, next: any) => {
+    if (e.tool === 'AskUserQuestion' && e.agentId === undefined && Array.isArray(e.questions)) {
+      const isGate = (q: any) => (q.options ?? []).some((o: any) => String(o.label).startsWith(FAST));
+      if (e.questions.some(isGate)) {
+        const size = await contextSize($).catch(() => undefined);
+        if (size) e = { ...e, questions: e.questions.map((q: any) => (isGate(q) ? { ...q, question: `Context now: ${size}. ${q.question}` } : q)) };
+      }
+    }
     const out = await next(e);
     if (e.tool !== 'AskUserQuestion' || e.agentId !== undefined) return out;
     const labels = chosen(out);
@@ -55,7 +62,7 @@ export const register = (on: any) => {
       await $.session.compact({ instructions: INSTRUCTIONS });
       const after = await contextSize($);
       $.ui.log(`SELFCOMPACT fast compact: ${before} -> ${after}`);
-      const pick = await $.ui.ask(`Fast compact done. Context was ${before}, now ${after}. Continue, or run /compact as well?`, [
+      const pick = await $.ui.ask(`Fast compact done. Context was ${before}, now ${after}. Continue, or run the full /compact too?`, [
         'Continue',
         FULL,
       ]);
