@@ -11,6 +11,8 @@ Work in this session, with the founder. Do not hand the work to poteto-mode or t
 
 The canvas boards are the input to screen build. The details of the screen live on the boards. The PRD gets only the contract changes and the big changes or additions, once, at step 6.
 
+This item commits no app code: nothing under `src/` or `supabase/` (founder 2026-10-03). A type, transport, or helper the screen needs belongs to screen build, where the comment audit runs. The only code this item writes is the pending acceptance stubs of step 7.
+
 If the controller started you, read `loop/items/<item>/brief.md`. If the founder typed `/ui-design`, ask for the screen and its requirement ids.
 
 ## Steps
