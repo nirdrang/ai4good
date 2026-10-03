@@ -1698,7 +1698,6 @@ body:has(.discovery-content) {
   padding-bottom: 8px;
   min-width: 0;
 }
-/* The shell gives every paragraph and heading a bottom margin. Inside the frame, the components own the spacing. */
 .discovery-content h1,
 .discovery-content h2,
 .discovery-content h3,

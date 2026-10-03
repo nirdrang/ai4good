@@ -1,8 +1,3 @@
-/**
- * AT-REQ-002 · A. Org profile — AT-002.01, AT-002.02
- * Source: .taskmaster/docs/acceptance/at-req-002.md
- */
-
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import type { OrganizationProfileRow, OrganizationsSut, ProfileRequest, Session, WriteRefusal } from './_contract.ts';
@@ -173,8 +168,6 @@ describe('AT-REQ-002 A — org profile', () => {
         EDITED,
       );
 
-      // The unique seat forbids a second membership row, so a member of this organisation is the
-      // existing seat with its role changed. No product path writes `member`.
       await sut.setMembershipRoleAsOperator(ngo.organizationId, ngo.accountId, 'member');
       await assertRouteRefused('a member of this organisation', ngo.session, 'not-an-admin', 403);
       await assertDefinerRefused('a member of this organisation, through the definer', ngo.accountId, 'not-an-admin');

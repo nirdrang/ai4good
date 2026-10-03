@@ -208,8 +208,6 @@ function DiscoveryRoutes({
   const showChat = route === "discovery";
   return (
     <>
-      {/* The chat stays mounted so a draft and a file read survive the review.
-          This box is the flex child. A plain wrapper grows with the chat and pushes Send below the frame. */}
       <div hidden={!showChat} className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden">
         <DiscoveryScreen
           port={port}

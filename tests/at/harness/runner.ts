@@ -1,24 +1,3 @@
-/**
- * The AT runner — `bun run at:verify req-0NN --tier <loop|integration|drill>`.
- *
- * The command shape is fixed: all 30 decomposition manifests cite it verbatim in their done
- * contracts, and the skills (`/dev-start`'s inner loop, `/dev-end`, `/pm-done`'s gate) call it.
- * It resolves the requirement's suite, runs it under vitest with the tier passed through
- * `AT_TIER`, and reports PER AT ID — green / red / missing — because "3 failed" tells a gate
- * nothing about which acceptance criterion is unmet.
- *
- * The `integration` tier's one stack — lock, identity proof, reset, migration proof, evidence
- * line, allowlisted child environment — lives in `./local-stack.ts`.
- *
- * The `drill` tier resolves no database at all until an item decides which stack it should use.
- *
- * Any failure in that sequence is an INFRASTRUCTURE failure: non-zero exit, no tests run, a
- * message naming what failed. The runner never falls back to the loop tier's stubs and never
- * runs against a database whose state it could not establish — a gate grading a stand-in, or an
- * unknown database, is worse than a gate that refuses to run. Secrets are never printed: raw CLI
- * output is redacted, and validation reports which check failed, never the value that failed it.
- */
-
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -56,7 +35,6 @@ interface Args {
   requirement: string;
   tier: Tier;
   wired: boolean;
-  /** Named `expectDeclared`, not `expect`, so nobody later reads it as vitest's `expect`. */
   expectDeclared: boolean;
 }
 
@@ -80,18 +58,12 @@ function parseArgs(argv: string[]): Args {
   if (!requirement) throw new Error('no requirement given');
   if (!tier) throw new Error('--tier is required — there is no default tier, by design');
   if (!TIERS.includes(tier as Tier)) throw new Error(`unknown tier "${tier}" — expected one of ${TIERS.join('|')}`);
-  // Refused here rather than later: `--wired` runs no tests at all, so there would be no report
-  // for a declaration to be checked against, and a declaration refusal must never be reported as
-  // the wired refusal. A usage error exits 2, which is what a `--expect` command that cannot be
-  // honoured is required to do.
   if (wired && expectDeclared) {
     throw new Error('--expect and --wired cannot be combined: --wired runs no tests, so there is no report for a declaration to be checked against');
   }
 
   return { requirement: normalizeRequirement(requirement), tier: tier as Tier, wired, expectDeclared };
 }
-
-/* --------------------------------------------------------------------------- vitest json shape */
 
 export interface AssertionResult {
   title?: string;
@@ -100,18 +72,7 @@ export interface AssertionResult {
   failureMessages?: string[];
 }
 
-/**
- * The report's own arithmetic, alongside the per-test results. `--expect` needs both: the id
- * parser only sees tests whose titles carry an AT id, so an untagged `it()` that fails is
- * invisible to it and visible in these counts. Optional because this describes a file on disk —
- * a missing field is validated at runtime (see `reportAccountingDeviations`), not asserted here.
- */
 interface VitestJson {
-  /**
-   * One entry per test FILE. `status` and `message` are kept alongside the assertions because a
-   * file that fails to import, or whose hook throws, changes no test's status: that failure is
-   * visible here and nowhere else in the report.
-   */
   testResults?: { name?: string; status?: string; message?: string; assertionResults?: AssertionResult[] }[];
   numTotalTests?: number;
   numPassedTests?: number;
@@ -224,13 +185,6 @@ export interface ProcessOutcome {
   signal?: NodeJS.Signals | null;
 }
 
-/**
- * The verdict is NOT "did every row go green". A vitest process can report twelve green
- * assertions and still exit non-zero — a global teardown that threw, an unhandled rejection, a
- * worker that died after its last test. Treating that as success is exactly the false green this
- * harness exists to prevent, so the process's own exit is part of the verdict, and a discrepancy
- * between green rows and a non-zero exit is called out rather than smoothed over.
- */
 export function runVerdict(rows: IdRow[], unexpected: string[], run: ProcessOutcome): string[] {
   const problems: string[] = [];
   const red = rows.filter((r) => r.status === 'red').length;
@@ -258,13 +212,6 @@ export function runVerdict(rows: IdRow[], unexpected: string[], run: ProcessOutc
   return problems;
 }
 
-/**
- * End-of-run housekeeping. The lock release lives in a `finally` of its OWN so that it cannot be
- * skipped: on Windows, removing the report directory can throw EPERM while a file in it is still
- * open, and if that throw escaped, the stack lock would be stranded and every later run would
- * find a leftover it has to reason about. A lost temp directory is untidy; a stranded lock blocks
- * work, so the release always wins and the cleanup failure is reported instead of hidden.
- */
 export function cleanupRun(reportDir: string, lock: { release(): void } | null): void {
   try {
     rmSync(reportDir, { recursive: true, force: true });
@@ -282,8 +229,6 @@ function firstLine(text: string | undefined, fallback: string): string {
     .find((l) => l.length > 0);
   return line ?? fallback;
 }
-
-/* --------------------------------------------------------------------------------------- main */
 
 async function main(argv: string[]): Promise<number> {
   let args: Args;
@@ -325,11 +270,6 @@ async function main(argv: string[]): Promise<number> {
     return 2;
   }
 
-  // The declaration preflight sits HERE for two reasons, both load-bearing. It needs the
-  // acceptance file's P0 id set, which only exists after the bijection preflight above; and every
-  // refusal must run NO tests, so it must precede the vitest spawn. Placing it before the stack
-  // sequence as well means a bad declaration never takes the machine-wide lock, never talks to
-  // Docker and never resets a database — the refusal costs nothing at any tier.
   let expectation: TierExpectation | null = null;
   if (expectDeclared) {
     try {
@@ -354,7 +294,6 @@ async function main(argv: string[]): Promise<number> {
     `  2. Docker is fine but the one stack is not up, or was started before supabase/config.toml ` +
     `last changed: run \`bun run db:stop\` then \`bun run db:start\`.`;
 
-  // The `loop` tier touches no database: no lock, no stack, no reset.
   const stackEnv: Record<string, string> = {};
   let lock: StackLock | null = null;
   const reportDir = mkdtempSync(join(tmpdir(), 'at-verify-'));
@@ -372,9 +311,6 @@ async function main(argv: string[]): Promise<number> {
   process.once('SIGTERM', onSignal);
 
   try {
-    // THE DRILL TIER RESOLVES NO DATABASE. No item has decided which stack drill runs against, and
-    // nothing in this tree invokes the tier, so refusing costs nothing. The item that decides
-    // drill's stack replaces this.
     if (tier === 'drill') {
       return infra(
         `the drill tier resolves no database: no item has decided which stack drill runs against, ` +
@@ -383,10 +319,6 @@ async function main(argv: string[]): Promise<number> {
     }
 
     if (tier === 'integration') {
-      // THE DESTRUCTIVE TARGET IS THE REAL CHECKOUT AND NOTHING ELSE. `AT_REPO_ROOT` exists so the
-      // runner's own tests can feed it a disposable tree of malformed suites, and bun also loads it
-      // out of `.env.local`. A data root must not choose which database is reset, so under a
-      // redirect this tier refuses before the lock, before the config read and before any CLI call.
       if (REPO_ROOT !== INSTALL_ROOT) {
         return infra(
           `the integration tier runs only from the real checkout: AT_REPO_ROOT redirects the data root, and a data ` +
@@ -394,22 +326,13 @@ async function main(argv: string[]): Promise<number> {
         );
       }
 
-      // THE ONE STACK, STATED POSITIVELY: the project id this tree's supabase/config.toml declares,
-      // at this tree's root. Every CLI call below names it. The reset demands the read that proved
-      // it. Every integration run resets this database.
       let config: LocalConfig;
       let target: CliTarget;
       try {
         config = readLocalConfig(REPO_ROOT);
-        // THE LIFETIME PIN IS A PREFLIGHT, decided from this file and the registry before the lock:
-        // a mispinned tree must not take the machine-wide lock to learn a fact that was true before
-        // it started, and the refusal must not wear advice about a stack nothing contacted.
         const pin = lifetimePinProblem(config);
         if (pin) return infra(pin);
         target = { workdir: REPO_ROOT, projectId: config.projectId };
-        // The lock goes into the SAME `lock` variable `cleanupRun` releases, before anything else,
-        // so the release stays in the one `finally` chain that exists. Its failure is reported on
-        // its own: "another run holds this stack" must never be followed by advice to restart it.
         lock = acquireStackLock(config, `req-${requirement}`);
       } catch (err) {
         return infra((err as Error).message);
@@ -429,8 +352,6 @@ async function main(argv: string[]): Promise<number> {
       }
     }
 
-    // The suites and their vitest root come from the DATA root; vitest itself comes from the
-    // install root, so a run pointed at a disposable tree still runs the pinned test framework.
     const atRoot = join(REPO_ROOT, 'tests', 'at');
     const outputFile = join(reportDir, 'vitest-report.json');
     const rootOverride: Record<string, string> = {};
@@ -497,9 +418,6 @@ async function main(argv: string[]): Promise<number> {
       return 1;
     }
 
-    // Both deviation sets are computed and printed: an id-level and a report-level problem in the
-    // same run are two facts an author needs at once, and printing only the first costs a second
-    // run to find the second.
     const deviations = [
       ...expectationDeviations(rows, unexpected, expectation),
       ...reportAccountingDeviations(report, run as ProcessOutcome, expectation),

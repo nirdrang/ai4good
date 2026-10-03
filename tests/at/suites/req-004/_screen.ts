@@ -155,7 +155,6 @@ export class DiscoveryPage {
       const root = landmark(SCREEN.composer.role, SCREEN.composer.name);
       const paid = [root, landmark('button', TEXT.sendPaid)];
       const free = [root, landmark('button', TEXT.send)];
-      // Three free replies can use the daily turns. The button then says Send paid reply.
       await this.page.click((await this.page.count(paid)) > 0 ? paid : free);
       const article = [
         landmark(SCREEN.conversation.role, SCREEN.conversation.name),
@@ -507,10 +506,6 @@ export class DiscoveryPage {
   }
 }
 
-/**
- * Call once at the top of a screen test file. Returns `withDiscovery`.
- * Loop drives the fixture shell. Integration and drill refuse before anything is built.
- */
 export function discoveryScreens() {
   const driver = useScreenDriver({ viteConfig: 'design/astra/vite.config.ts', enabled: TIER === 'loop' });
 

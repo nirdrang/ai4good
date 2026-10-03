@@ -1,58 +1,3 @@
-/**
- * REQ-016's LIVE adapter: the integration tier's binding of the notification core to the one
- * local stack.
- *
- * READ THIS BEFORE TRUSTING A GREEN FROM THE INTEGRATION TIER. `_fixture.ts` binds the same core to
- * memory, so a loop green says the product's DECISIONS are right. This file binds the same six
- * ports to the stack, so an integration green additionally says the schema, the definers, the
- * privileges and the SMTP path behave:
- *
- *   - the OUTBOX is `public.fixture_commit_transition_and_emit`, one call and one transaction,
- *     then `public.apply_delivery_results` for each worker pass, and three reads as the operator;
- *   - the PROVIDER is the product's own SMTP module, `notification-provider.ts`, pointed at the
- *     stack's mail catcher on the port `supabase/config.toml` states. Nothing here sends;
- *   - the DIRECTORY is SQL: the NGO is the seat holder of this world's organisation, the volunteer
- *     is the developer seat of this world's project, the administrator and the ex-volunteer are the
- *     world's own record because nothing in this schema stores either per scope;
- *   - the CLOCK is the wall clock and the PROCESS is an identity string a restart replaces.
- *
- * EVERY READ IS SCOPED TO THE OPEN WORLD'S ACTOR IDS, and that is not bookkeeping. One integration
- * run shares one database and the reliability id opens twenty-two worlds against it. Deliveries are
- * selected by recipient, events by the ids those deliveries name, ops items by those events, and
- * the worker's pending set the same way, so a fresh world observes nothing an earlier world wrote.
- * A crashed emit leaves no delivery and therefore no event, which is exactly the answer the
- * atomicity id reads.
- *
- * ============================================================================================
- * HOW THE TWO FAULTS ARE ARMED, AND WHAT STILL REFUSES
- * ============================================================================================
- *
- * This file's existence turns every id of the suite from the declared stand-in refusal into a
- * real run. The crash fault is an argument of the producer's own call. The provider point is a
- * decorator around the SMTP port: `reject` and `lose_ack` never reach product send code.
- *
- * THE CRASH FAULT IS AN ARGUMENT OF THE PRODUCER'S OWN CALL. `append` reads the crash switch
- * immediately before the call and forwards it as `p_induce_fault`; nothing in the product reads a
- * control table or a session setting. The reach is counted by TWO WITNESSES that record on
- * different sides of the wire: the product takes `nextval` on a sequence immediately before it
- * raises, which the rollback cannot undo, and the adapter counts the refusals it received carrying
- * the raise's own `detail`. `triggerCount()` refuses when they differ. They can differ: a product
- * that took the sequence and then stopped raising, or an error swallowed between the database and
- * this file, advances the sequence with no refusal; a refusal that arrived without the sequence
- * moving was raised by something other than the product's fault point. Both are reads inside
- * `append`, because the harness calls `arm` and `triggerCount` synchronously and neither can await.
- *
- * THE PROVIDER FAULT IS A DECORATOR, not a second crash switch. It reuses the same arming object
- * with kinds `reject` and `lose_ack`. The reach is the decorator consuming one forced outcome.
- * There is no sequence witness: the database does not record this fault. The adapter's attempt
- * log is the outcome witness; the catcher is the physical-message witness.
- *
- * The sentinel scope is registered and its read refuses by name. `AdapterSentinelSeam.read` is
- * synchronous and a SQL read is not, so a live scope cannot answer through that seam without a
- * harness change, which this item does not make. No body scans it; the bodies read delivery
- * bodies through `sut.deliveries()`.
- */
-
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -81,7 +26,6 @@ import { producerPayload } from './_fixture-producers.ts';
 import { bindProviderFaults, PROVIDER_FAULT_POINT, withIdempotentReplay } from './_provider-faults.ts';
 import type { Channel, Role } from './taxonomy.ts';
 
-/** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-016' as const;
 
 const FAULT_POINT = 'notifications.between_transition_and_event_write';
@@ -92,12 +36,6 @@ const ROLES: readonly Role[] = ['ngo', 'volunteer', 'ex_volunteer', 'platform_ad
 
 const CONFIG_TOML = fileURLToPath(new URL('../../../../supabase/config.toml', import.meta.url));
 
-/**
- * THE CATCHER'S SMTP PORT, read from `supabase/config.toml` because the runner hands the adapter
- * only the five stack coordinates and the SMTP port is not one of them. It is read from the file
- * rather than remembered so there is one statement of the number in the tree. A config with no
- * `smtp_port` is a refusal: the stack then exposes no SMTP listener and nothing here could send.
- */
 function smtpPortFromConfig(): number {
   const text = readFileSync(CONFIG_TOML, 'utf8');
   const section = /^\[local_smtp\]\s*$([\s\S]*?)(?=^\[|(?![\s\S]))/m.exec(text)?.[1] ?? '';
@@ -148,13 +86,11 @@ async function releaseSql(): Promise<void> {
   await client.close().catch(() => undefined);
 }
 
-/** What one open world holds: its scope for the transition ledger, its actors, and its sources. */
 interface LiveWorldRecord {
   name: string;
   scopeId: string;
   actors: Record<Role, string>;
   addresses: Record<Role, string>;
-  /** every account this world has ever seated, so a reassigned holder still appears in scoped reads */
   knownActorIds: string[];
   organizationId: string;
   projectId: string;
@@ -166,10 +102,6 @@ function accountTypeFor(role: Role): 'ngo' | 'volunteer' | 'platform_admin' {
   return 'volunteer';
 }
 
-/**
- * The live factory receives only `{ stack }`, so the pinned guard numbers reach it through the
- * world name `req-016/guard?cap=<n>&window=<ms>&coalesce=<bool>`. A name with no query carries no pin.
- */
 function guardConfigFromWorldName(name: string): GuardConfig | null {
   const queryIndex = name.indexOf('?');
   if (queryIndex < 0) return null;
@@ -262,8 +194,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   let processEpoch = `delivery-process-${crypto.randomUUID()}`;
 
-  /* ------------------------------------------------------------------------ the crash switch */
-
   const crash = createCrashSwitch(
     FAULT_POINT,
     () => ({ sequenceAdvances: 0, refusals: 0 }),
@@ -291,16 +221,7 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   const inducedRefusal = (error: unknown): boolean =>
     (error as { detail?: unknown } | null)?.detail === `induced-fault:${FAULT_POINT}`;
 
-  /* ------------------------------------------------------------------------- the outbox port */
-
   const outbox: OutboxPort = {
-    /**
-     * ONE CALL, ONE TRANSACTION. The fixture producer performs this world's transition, reaches the
-     * fault point, and calls `public.emit_notification` with the whole write set. The third
-     * argument is the crash switch, read here and nowhere else. While it is armed the sequence is
-     * read on both sides of the call, so a reach the product recorded is counted whether or not the
-     * call refused; the refusal is counted only when it carries the raise's own detail.
-     */
     append: async (write) => {
       const world = requireWorld('commit a transition against');
       const armed = crash.armed();
@@ -432,8 +353,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
   };
 
-  /* ---------------------------------------------------------------------- the directory port */
-
   const directory: DirectoryPort = {
     resolve: async (roles) => {
       const world = requireWorld('resolve recipients in');
@@ -463,8 +382,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return holders;
     },
   };
-
-  /* ------------------------------------------------------------------------------ the core */
 
   const smtp = createSmtpProvider({
     host: new URL(stack.mailUrl).hostname,
@@ -496,8 +413,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     drainDeliveries: (opts) => core.drain(opts),
   };
 
-  /* ------------------------------------------------------------------------------ the seams */
-
   const faults: AdapterFaultSeam = {
     points: () => [FAULT_POINT, PROVIDER_FAULT_POINT],
     arm: (point, kind) => {
@@ -520,8 +435,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
   };
 
-  /* ------------------------------------------------------------------------------ the world */
-
   const transitionOf = async (scopeId: string, event: string): Promise<boolean> => {
     const found = await rows<{ committed: boolean }>(
       sql`select committed from public.notification_fixture_transitions where scope_id = ${scopeId} and event = ${event}`,
@@ -529,13 +442,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     return found[0]?.committed === true;
   };
 
-  /**
-   * AN AUTH USER, CREATED CONFIRMED, and its account row written by the operator. The admin API
-   * with `email_confirm: true` sends no mail, so provisioning never touches the auth service's
-   * per-hour mail limit, which matters for an id that opens twenty-two worlds. The account row is
-   * written over the database connection, as the operator, which is the authority the auth suite's
-   * `provisionPlatformAdmin` already uses and narrower than the service role.
-   */
   const provisionAccount = async (email: string, accountType: 'ngo' | 'volunteer' | 'platform_admin'): Promise<string> => {
     const created = await fetch(`${api}/auth/v1/admin/users`, {
       method: 'POST',
@@ -554,10 +460,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     return accountId;
   };
 
-  /**
-   * Mint a successor account, move the seat the directory actually reads, and keep the old holder
-   * in knownActorIds so deliveries already addressed to them remain visible after the move.
-   */
   const moveRole = async (world: NotificationLiveWorld, role: Role, label: string): Promise<string> => {
     const local = label.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
     const namespace = world.record.scopeId.replace(/[^a-z0-9]+/gi, '-');
@@ -574,12 +476,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     return successor;
   };
 
-  /**
-   * A FIXTURE WORLD: four real accounts, one organisation with the NGO in its seat, one project
-   * with the volunteer in its seat. Addresses are namespaced per world so the catcher can be read
-   * per world; the transition ledger is keyed by the same namespace so a fresh world reads its own
-   * transitions and nobody else's.
-   */
   const world = async (name: string): Promise<NotificationLiveWorld> => {
     const guardPin = guardConfigFromWorldName(name);
     const namespace = `${name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

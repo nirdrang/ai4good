@@ -1,5 +1,3 @@
-/** Daily Discovery grants, the high-water mark, and the allowance read/debit decision. */
-
 import { orgAdminActionAllowed } from './memberships.ts';
 import {
   integerField,
@@ -13,7 +11,6 @@ import {
 
 export type DiscoveryTier = 'unverified' | 'vetted';
 
-/** One place in TypeScript. The SQL function `discovery_daily_grant` is the other. */
 export const DISCOVERY_DAILY_GRANT: Readonly<Record<DiscoveryTier, number>> = {
   unverified: 10,
   vetted: 30,
@@ -27,12 +24,10 @@ export function discoveryTier(vetted: boolean): DiscoveryTier {
   return vetted ? 'vetted' : 'unverified';
 }
 
-/** UTC calendar day of an instant, matching `(clock_timestamp() at time zone 'utc')::date`. */
 export function utcDayOf(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** High-water mark for the day's row. */
 export function highWaterGrant(storedGranted: number | null, tier: DiscoveryTier): number {
   const current = dailyGrantFor(tier);
   return storedGranted === null ? current : Math.max(storedGranted, current);
@@ -42,11 +37,6 @@ export function remainingCredits(granted: number, spent: number): number {
   return granted - spent;
 }
 
-/**
- * One place in TypeScript. The debit arm of `public.discovery_allowance` raises the same words.
- * The vetted grant in the get-vetted remedy is `dailyGrantFor('vetted')`, never a numeral in the sentence.
- * The get-vetted remedy is dropped for a vetted caller: that caller has already taken it.
- */
 export function dailyAllowanceExhaustedReason(organizationId: string, tier: DiscoveryTier): string {
   const remedies =
     tier === 'vetted'
@@ -58,10 +48,6 @@ export function dailyAllowanceExhaustedReason(organizationId: string, tier: Disc
   );
 }
 
-/**
- * One place in TypeScript. The oversize-debit arm of `public.discovery_allowance` raises the same words.
- * Remaining is a slot, never a numeral in the sentence.
- */
 export function debitExceedsRemainingReason(organizationId: string, remaining: number): string {
   return (
     `discovery_allowance refuses: organisation ${organizationId} still has ${remaining} Discovery credits remaining today` +
@@ -69,10 +55,6 @@ export function debitExceedsRemainingReason(organizationId: string, remaining: n
   );
 }
 
-/**
- * One place in TypeScript. The email-confirmation arm of `public.discovery_allowance` raises the same words.
- * The account id is a slot, never a numeral in the sentence.
- */
 export function emailUnverifiedReason(accountId: string): string {
   return `discovery_allowance refuses ${accountId}: the caller's email address is not verified`;
 }
@@ -84,7 +66,6 @@ export type SpendRow = {
   granted: number;
 };
 
-/** The allowance route's answer. `dailyGrant` is the high-water mark, not the current-tier raw grant. */
 export type Allowance = {
   organizationId: string;
   utcDay: string;

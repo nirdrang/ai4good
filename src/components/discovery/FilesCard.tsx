@@ -61,7 +61,6 @@ export function FilesCard({
 }) {
   const view = fileRows(files, funded);
   const countText = view.limitText !== null ? `${view.discoveryCount} of 3 added` : `${view.discoveryCount} added`;
-  // A confirmed Discovery takes no new file. A saved change reopens it.
   const canAdd = view.canAdd && !finished;
   return (
     <section

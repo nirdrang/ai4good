@@ -219,7 +219,6 @@ export function useDiscovery(
     port.load().then((result) => {
       if (!live || !result.ok) return;
       const incoming = result.value.confirmation;
-      // A click during this load keeps the question. An older Edit does not survive confirmation.
       if (incoming && confirmationRef.current === null && shownGeneration.current === generationAtLoad) {
         setReopened([]);
         setPinned([]);

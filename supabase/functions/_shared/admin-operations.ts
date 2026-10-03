@@ -1,5 +1,3 @@
-/** The platform administrator's decisions: the contact transfer, the escalation contact and the lifecycle setter. */
-
 import { parseAccountLifecycle, type AccountLifecycle, type Decision } from './accounts.ts';
 import {
   refuseWrite,
@@ -12,12 +10,10 @@ export function subjectAccountIdField(body: Record<string, unknown>): string | n
   return stringField(body.toAccountId);
 }
 
-/** The outgoing contact the transfer names — `writeRoute` shape-checks it like the other ids. */
 export function fromAccountIdField(body: Record<string, unknown>): string | null {
   return stringField(body.fromAccountId);
 }
 
-/** The account whose lifecycle the setter changes — the standing's subject. */
 export function accountIdField(body: Record<string, unknown>): string | null {
   return stringField(body.accountId);
 }
@@ -93,7 +89,6 @@ export type EscalationContact = {
   readonly phone: string | null;
 };
 
-/** A name and an address are what make the row a contact; a blank phone records nothing rather than ''. */
 export function validateEscalationContact(raw: { name?: unknown; email?: unknown; phone?: unknown }): Decision<EscalationContact> {
   const name = stringField(raw.name);
   if (name === null) return { ok: false, reason: 'the escalation contact needs a name' };

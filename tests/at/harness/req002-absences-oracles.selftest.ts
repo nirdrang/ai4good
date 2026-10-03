@@ -1,7 +1,3 @@
-/**
- * Oracle for REQ-002's absence source arms: each refusal the scan names, over injected text.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import { WRITE_ROUTES } from '../../../supabase/functions/_shared/write-routes.ts';

@@ -1,8 +1,3 @@
-/**
- * Oracle for the static tenant catalog scan: each refusal the scan names, and the throw
- * on an empty directory.
- */
-
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -1,33 +1,9 @@
-/**
- * The SHARED capability contract — one definition of every seam a suite is allowed to reach.
- *
- * Rule 5 of the suite-authoring rules (`loop/bringup/AI4DEV-3-at-harness.md`): tier, clock,
- * fixture, sentinel, fault, config and vendor contracts come from ONE harness package, and a
- * suite defines locally only its own system-under-test and fixture adapter. REQ-016's
- * `_contract.ts` was the pre-harness stopgap — it declared the whole surface because no harness
- * package existed to declare it — and thirty suites each restating the seam would drift into
- * thirty subtly different seams, at which point "the harness contract" means nothing.
- *
- * These are types only. The implementations arrive per slice (H2 clock/fixtures, H3
- * sentinels/faults), and `refusing()` in `index.ts` is what stands where one
- * has not landed — a seam that throws the capability's name, never a no-op. Of the vendor sims, the
- * EMAIL provider landed with AI4DEV-21 (`harness/vendors.ts`); the Anthropic usage/cost, Stripe,
- * GitHub, Lovable and Linear stand-ins are each built with the FIRST test suite that consumes them
- * (founder ruling, 2026-08-04), tracked as board items AI4DEV-38 through AI4DEV-42 under the
- * AT-harness parent — their contracts land in this file when they do.
- *
- * Requirement-SPECIFIC types stay in the suite: which system under test it drives, what its
- * fixture world can do. The generics below are the joints those bolt onto.
- */
-
 export type { Tier } from './registry.ts';
 export { TIERS } from './registry.ts';
 export type { ConfigRegistry } from './config.ts';
 
 import type { ConfigRegistry } from './config.ts';
 import type { Tier } from './registry.ts';
-
-/* ---------------------------------------------------------------- H2 fixtures + clock */
 
 /** The minimum every fixture world owes the harness: it can be given back. */
 export type WorldSeam = {
@@ -39,42 +15,15 @@ export type Fixtures<W extends WorldSeam = WorldSeam> = {
   world(name: string): Promise<W>;
 };
 
-/**
- * Time, under the test's control — funding's 7-day expiry, the UTC daily credit reset, blocker
- * aging, abandonment, link expiry.
- *
- * There is deliberately NO `observedByProduct()` here. A method by which the clock reports its
- * own time cannot distinguish a clock the product reads from one that only moves the test's
- * notion of time — it is the clock answering a question about itself. That wiring is proven
- * BEHAVIOURALLY instead: move the clock, then assert product behaviour that depends on time
- * changed (the anti-spam window in AT-016.08). Sampling the clock from inside the product process
- * is a real capability, but it needs a product process to sample, so it belongs to a later
- * integration-tier slice, not to a self-report.
- */
 export type Clock = {
   freezeAt(iso: string): Promise<void>;
   advance(ms: number): Promise<void>;
 };
 
-/**
- * TIME AT THE INTEGRATION TIER, and the seam is gone rather than disabled.
- *
- * Above the loop tier the harness runs against a real database whose sessions really expire, so
- * there is nothing for a control seam to command: a clock that could jump forward would not move
- * GoTrue's notion of `now` by one millisecond, and a body that called it would be asserting against
- * a fiction while believing it had aged a real session.
- *
- * SO THE METHODS ARE ABSENT FROM THE TYPE, not present and throwing. `registry.ts` hands an
- * integration body a context whose `h.clock` is this type, so `await h.clock.advance(ms)` in
- * an integration body is a COMPILE error naming the method — which is the difference between a
- * mistake a reviewer has to notice and one the type-checker refuses.
- */
 export type RealClock = {
   /** the wall clock, which is the only clock a live stack shares with the test */
   now(): number;
 };
-
-/* ------------------------------------------------- H3 sentinels + faults + static scan */
 
 export type Sentinel = {
   id: string;
@@ -100,7 +49,6 @@ export type Faults = {
   points(): Promise<string[]>;
   /**
    * Induce a fault at a named point in the product.
-   * 'notifications.between_transition_and_event_write' is AT-016.09's point.
    * MUST reject a point that is not in points().
    */
   at(point: string, kind: 'crash' | 'reject' | 'lose_ack'): Promise<FaultHandle>;
@@ -110,24 +58,13 @@ export type Faults = {
   processEpoch(): Promise<string>;
 };
 
-/**
- * Out-of-band evidence: static facts about the product source, not self-report from the SUT.
- * AT-016.01's sole-writer claim is unfalsifiable if the only witnesses are `senders()` and
- * `Delivery.emittedBy` — both produced by the component under test.
- */
 export type StaticScan = {
   /** components whose SOURCE imports a comms-provider client or reads a provider credential */
   providerClientImporters(): Promise<string[]>;
 };
 
-/* ------------------------------------------------------------------- H5 vendor sims */
-
 export type ProviderOutcome = 'accepted' | 'rejected' | 'ack_lost';
 
-/**
- * Channels are named by the requirement that owns them (REQ-016's are 'email' and 'inapp'), so
- * the vendor types are generic over the channel name rather than hard-coding one suite's set.
- */
 export type ProviderAttempt<Channel extends string = string> = {
   recipientId: string;
   eventId: string;
@@ -142,12 +79,7 @@ export type EmailProviderSim<Channel extends string = string> = {
   acceptButLoseAck(count: number): void;
   /** everything the provider actually accepted, in order */
   accepted(): ProviderAttempt<Channel>[];
-  /**
-   * EVERY send that arrived at the provider seam, accepted or not, in order.
-   * This is the out-of-band trace: it is recorded by the simulator, not by the SUT, so it
-   * can contradict the SUT's own attempt counter (AT-016.11's retry proof, AT-016.01's
-   * "no path around the emitter").
-   */
+  /** every send that arrived at the provider seam, accepted or not, in order; recorded by the simulator, not the SUT */
   attempts(): ProviderAttempt<Channel>[];
 };
 
@@ -179,37 +111,6 @@ export type AnthropicMessagesSim = {
   requests(): ModelRequestRecord[];
 };
 
-/* ----------------------------------------------------------------------- the harness */
-
-/**
- * What `createHarness()` hands a suite. A suite names its own system-under-test map and world
- * type; everything else is the same for all thirty of them.
- *
- * A TYPE ALIAS, NOT AN INTERFACE, and that is load-bearing. An interface is open to declaration
- * merging, so a suite could write `declare module './contracts.ts' { interface AtHarness { auditLog?: string[] } }`
- * and then read `h.auditLog` with a green type-check, against a harness that supplies no such thing.
- * The member being OPTIONAL is what makes it slip through: `createHarness()` still satisfies its
- * annotation, so nothing anywhere goes red. That is the same lie a free harness type parameter used
- * to permit, arriving by a different door and needing no `any` and no suppression. A type alias
- * cannot be merged into, so this door is shut.
- *
- * EVERY CAPABILITY CONTRACT IN THIS FILE IS AN ALIAS FOR THE SAME REASON. Closing only the type
- * below left the identical attack open one level down, and worse there: only `static` comes from a
- * Proxy cast `as T` at every tier, and `vendors` only above loop; `sentinels` and `faults` come from
- * `createSentinels` and `createFaults`. A merged-in member on a Proxy seam did not break
- * `index.ts` even when it was REQUIRED — where the same member added to this type fails with
- * TS2741. `ConfigRegistry` in `config.ts` is an alias for the same reason.
- *
- * So the rule is: contracts are type aliases, never interfaces. It covers everything reachable from
- * the harness object AND the objects `open()` hands a test body — `OpenWorld`, `AtContext` and
- * `WorldLike` in `registry.ts` obey it for the same reason these do. `WorldLike` was briefly
- * excluded as belonging to AI4DEV-31's seam; that conflated two different defects. The suite's `W`
- * being an unverified claim was AI4DEV-31's, and that item derived the seam types from the fixture
- * adapter that produces them, leaving a suite no type argument to name either one with — though a
- * widened context can still be REBUILT by hand out of the derived types, which is measured and
- * documented on `SeamOpenWorld` in `registry.ts`. The interface being augmentable is this defect,
- * not that one — and `w` is handed to the body exactly as `h` is.
- */
 export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = WorldSeam, Channel extends string = string> = {
   tier: Tier;
   clock: Clock;
@@ -220,27 +121,9 @@ export type AtHarness<Sut = Record<string, unknown>, W extends WorldSeam = World
   config: ConfigRegistry;
   vendors: Vendors<Channel>;
   sut: Sut;
-  /** REQUIRED, not optional: frozen clocks, vendor counters and fault state leak without it */
   teardown(): Promise<void>;
 };
 
-/**
- * THE SAME HARNESS, SEEN AT ONE TIER — two members differ and the rest is identical.
- *
- * `clock` and `vendors` are the two members whose control seams exist only at the loop tier.
- * At the loop tier both have control seams, which is what the loop bodies command. Above it
- * `clock` is the wall clock with no command methods, and `vendors` is ABSENT from the type: a
- * body that reaches for it fails to compile. Mail is read through the live adapter, not through
- * a harness vendor seam.
- *
- * WHY IT IS A TYPE AND NOT A RUNTIME CHECK. A per-tier body written against the wrong tier's
- * capabilities is an honest mistake that would otherwise surface as a run-time `TypeError` inside a
- * test whose red is then undeclarable. Here it is a compile error at the body.
- *
- * NOTHING ELSE FORKS. `sut`, `fixtures`, `sentinels`, `faults`, `static` and `config` are
- * the same type at every tier: what changes at integration is what backs them, which is not the
- * body's concern.
- */
 export type TierHarness<
   T extends Tier,
   Sut = Record<string, unknown>,

@@ -1,5 +1,3 @@
-/** The selftest of the write-route conformance scan. */
-
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

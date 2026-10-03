@@ -1,6 +1,4 @@
 // @ts-nocheck
-// The browser callback below names document. This file is the only one that loads Playwright.
-// A function named require() would pull Playwright's DOM types into the test project.
 // Bun's chromium.launch hangs on this machine. Node owns the browser and answers JSON lines.
 
 import { createRequire } from 'node:module';
@@ -79,7 +77,6 @@ const ops = {
     page.setDefaultTimeout(LOCATOR_TIMEOUT_MS);
     page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT_MS);
     // A phone context can still report a fine pointer. The drop area is only for a fine pointer.
-    // The width query stays on the real matchMedia so the phone layout still follows the viewport.
     if (phone === true) {
       await page.addInitScript(() => {
         const native = window.matchMedia.bind(window);
@@ -167,7 +164,6 @@ const ops = {
       mimeType: String(file.mimeType),
       buffer: Buffer.from(String(file.base64 ?? ''), 'base64'),
     }));
-    // The chooser landmark is the dialog. The file input is the hidden control inside it.
     const root = locate(entry(page).page, chain);
     const nested = root.locator('input[type=file]');
     if ((await nested.count()) > 0) {

@@ -1,5 +1,3 @@
-/** The founder's manual vet and unvet: evidence tokens, request validation, RPC arguments and result projection. */
-
 import type { Decision } from './accounts.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel, type TaxonomyRow } from './notification-taxonomy.ts';
@@ -48,14 +46,6 @@ const UNVET_BODY_KEYS = new Set(['organizationId', 'action', 'note']);
 
 const VETTING_OUTCOME_EVENT = 'vetting.outcome';
 
-/**
- * Publishing is the ONE thing the vetted condition gates, and this function is the whole of that
- * rule. It lives here, and not in either test adapter, because a rule an adapter states is a rule
- * the suite grades against itself: AT-002.21 asserts that publishing refuses at the same moment
- * Discovery does not, and that assertion is worth nothing unless it reads the product's answer.
- *
- * NO PUBLISH ROUTE CONSULTS IT YET. AT-002.19 and AT-002.20 stay red for exactly that reason.
- */
 export function publishingAllowed(vetted: boolean): Decision<'vetted'> {
   if (vetted === true) return { ok: true, value: 'vetted' };
   return {
@@ -64,17 +54,10 @@ export function publishingAllowed(vetted: boolean): Decision<'vetted'> {
   };
 }
 
-/**
- * The tier argument is taken and ignored on purpose: both values give the same permit, and a
- * signature without it would hide that the rule is "whatever the tier".
- *
- * NO CHECKOUT CONSULTS IT YET. AT-002.31 stays red for exactly that reason.
- */
 export function fundingAllowed(_vetted: boolean): Decision<'not-vetting-gated'> {
   return { ok: true, value: 'not-vetting-gated' };
 }
 
-/** Channels and copy the definer must not restate. Recipient and payload are resolved in SQL. */
 export type VettingOutcomeNotice = {
   readonly channels: readonly Channel[];
   readonly copy: { readonly subject: string; readonly body: string };

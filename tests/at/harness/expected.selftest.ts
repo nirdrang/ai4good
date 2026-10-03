@@ -1,19 +1,3 @@
-/**
- * The declaration reader and comparison rules, tested as pure functions.
- *
- * The black-box file next door (`runner-expect.selftest.ts`) proves the ASSEMBLED runner behaves,
- * which is the claim a gate depends on. This file proves the rules themselves, which is where the
- * two dangerous cases live: a red that has the declared SHAPE versus one that merely contains the
- * declared WORDS, and a run whose ids all match while its arithmetic does not. Both are cheap to
- * state here and expensive to state end to end.
- *
- * Every expected detail is built through the `DASH` constant rather than being typed inline. The
- * separator the harness really prints is U+2014 EM DASH — verified by codepoint in
- * `pending.ts` and in a real vitest report — and routing it through one
- * named constant means a mangled encoding shows up as one obviously-wrong constant instead of as
- * a scattering of assertions that still look right and no longer match.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -48,7 +32,6 @@ const expectation = (green: string[], red: Record<string, RedDeclaration>): Tier
 
 const row = (id: string, status: ReportedRow['status'], detail: string): ReportedRow => ({ id, status, detail });
 
-/** One test file, one green and one red inside it — the shape a healthy declared run really has. */
 const oneHealthyFile = () => [
   {
     name: 'C:\\tmp\\tree\\tests\\at\\suites\\req-900\\a-two-ids.test.ts',
@@ -118,8 +101,6 @@ describe('parseExpectedManifest refuses anything it cannot act on', () => {
   });
 
   it('refuses a __proto__ red key instead of letting it vanish into the prototype', () => {
-    // JSON.parse produces a real own "__proto__" key; assigning it onto an ordinary object would
-    // invoke the prototype setter and drop it silently, past both the id grammar and the bijection.
     const text = '{"requirement":"900","tiers":{"loop":{"green":[],"red":{"__proto__":{"kind":"pending","phase":"sut-missing"}}}}}';
     expect(() => parseExpectedManifest(text, '900')).toThrow(/not a well-formed AT id/);
   });
@@ -194,7 +175,6 @@ describe('a declared red is matched by shape, not by the words it contains', () 
   });
 
   it('REJECTS a new harness defect that merely contains the declared words', () => {
-    // The whole reason D3's substring rule was replaced: this line would have satisfied it.
     expect(detailMatches('AT-900.02', pendingCapability, 'Error: H3 fault injection: fixture reset failed')).toBe(false);
   });
 
@@ -253,8 +233,6 @@ describe('expectationDeviations reports exactly how a run departs from its decla
   });
 
   it('fails closed when a red detail was redacted, even against a declaration it might match', () => {
-    // A capability name long enough to look secret-shaped is rewritten to <redacted-token>, so the
-    // line identifies nothing. Matching it loosely would turn the declaration into a wildcard.
     const rows = [row('AT-900.01', 'green', 'a green one'), row('AT-900.02', 'red', capabilityDetail('<redacted-token>'))];
     const line = expectationDeviations(rows, [], declared).join('\n');
     expect(line).toContain('AT-900.02');
@@ -278,8 +256,6 @@ describe('reportAccountingDeviations makes the run add up, not just the ids', ()
   });
 
   it('CATCHES an extra failing test the id parser never saw', () => {
-    // Two ids match their declarations perfectly; an untagged `it()` also failed. This is the
-    // false green the id comparison alone cannot see.
     const line = reportAccountingDeviations(totals({ numTotalTests: 3, numFailedTests: 2 }), ranAndFailed, declared).join('\n');
     expect(line).toContain('counts 2 failed tests but the declaration declares 1 red');
     expect(line).toContain('an extra test ran');
@@ -321,8 +297,6 @@ describe('reportAccountingDeviations makes the run add up, not just the ids', ()
   });
 
   it('CATCHES a second file that failed to import while every declared count stayed correct', () => {
-    // Measured against vitest 4.1.10: an import failure adds a file entry with status "failed",
-    // zero assertions and a message, and moves NONE of the test counts. Both signals fire.
     const withBrokenFile = totals({
       testResults: [
         ...oneHealthyFile(),

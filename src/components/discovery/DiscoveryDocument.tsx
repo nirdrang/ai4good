@@ -2,7 +2,6 @@ import type { BriefSnapshot, DiscoveryFile } from "@/lib/discovery-stream";
 import { IMPORTANCE, SCREEN, TEXT } from "./a11y";
 import { fileTookLine, openForReview, reviewSections } from "./model";
 
-/** The finished Discovery document. It names the need. It does not name a technical plan. */
 export function DiscoveryDocument({
   projectTitle,
   brief,

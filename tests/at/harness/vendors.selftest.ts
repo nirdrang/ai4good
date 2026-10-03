@@ -1,24 +1,3 @@
-/**
- * H5's wall: the email provider simulator, proved on both the accepting and the refusing side.
- *
- * Rule 2 of the suite-authoring rules puts the generic self-checks in the harness once, and names
- * the price: a bug in a centralized seam green-lights every suite that leans on it, with no suite
- * showing a symptom. The vendor seam is the sharpest case of that. AT-016.11 asks the simulator to
- * be the out-of-band witness for "sent only on provider acceptance, unconfirmed sends retry, a lost
- * acknowledgment mints no duplicate" — so a simulator that accepted everything, or that recorded a
- * replay as a second acceptance, would make that id say the opposite of what it claims while still
- * passing.
- *
- * WHAT THE SUITE CANNOT SEE, AND THIS FILE THEREFORE MUST. AT-016.11 arms one outcome at a time, so
- * nothing in the suite can tell one cross-method FIFO queue from two per-kind counters that always
- * serve rejections first. Both arming orders are driven here, with two distinct send identities,
- * because call order is the only meaning `rejectNext(1); acceptButLoseAck(1)` can honestly have.
- *
- * The last two cases drive `createHarness()` rather than the factory directly, for the reason the
- * clock case in `conformance.selftest.ts` gives: what is worth proving is that the simulator a suite
- * is really HANDED is the one the delivery path behind it really reaches.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import { CapabilityPending } from './registry.ts';
@@ -99,7 +78,6 @@ describe('Anthropic Messages simulator', () => {
   });
 });
 
-/** Four DISTINCT send identities. Same event, different recipients — the shape a real event produces. */
 const SEND_A = { recipientId: 'volunteer-1', eventId: 'event-1', channel: 'email' };
 const SEND_B = { recipientId: 'volunteer-2', eventId: 'event-1', channel: 'email' };
 const SEND_C = { recipientId: 'volunteer-3', eventId: 'event-1', channel: 'email' };
@@ -159,9 +137,6 @@ describe('the H5 wall: the email provider simulator', () => {
       'the replay was recorded as a SECOND acceptance, so "a lost ack mints no duplicate" becomes unprovable',
     ).toBe(1);
 
-    // A REPLAY IS NOT ONE OF "THE NEXT N SENDS". Letting it eat the armed rejection would silently
-    // disarm the case a test had just set up, and the test would read the following default
-    // acceptance as if it were the outcome it armed.
     expect(port.deliver(SEND_B), 'the replay consumed the armed rejection, disarming the case silently').toBe('rejected');
   });
 
@@ -183,10 +158,6 @@ describe('the H5 wall: the email provider simulator', () => {
   });
 
   it('keeps two sends apart when their ids merely CONCATENATE the same way', () => {
-    // The identity used to be `${eventId}:${recipientId}:${channel}`, and all three fields are
-    // unrestricted strings, so these two distinct sends produced one identity: the second was
-    // answered as a replay of the first and never delivered to anybody. A provider that swallows a
-    // physically new send is the exact opposite of what idempotency is for.
     const { sim, port } = createEmailProviderSim();
 
     expect(port.deliver({ eventId: 'e:a', recipientId: 'b', channel: 'email' })).toBe('accepted');
@@ -198,10 +169,6 @@ describe('the H5 wall: the email provider simulator', () => {
   });
 
   it('treats the same event and recipient on a SECOND channel as an independent send', () => {
-    // A simulator that deduped on `eventId:recipientId` alone passes every other case in this file
-    // and the whole of AT-016.11 — REQ-016's in-app channel bypasses the port by design, so nothing
-    // else here sends the same pair twice on two channels. It would then suppress a physically new
-    // send the moment a second provider-backed channel exists.
     const { sim, port } = createEmailProviderSim();
 
     expect(port.deliver(SEND_A)).toBe('accepted');
@@ -228,7 +195,6 @@ describe('the H5 wall: the email provider simulator', () => {
       /whole number/,
     );
 
-    // The refusal names the method, so an author can see WHICH arming was refused.
     expect(() => sim.rejectNext(0)).toThrow(/rejectNext/);
     expect(() => sim.acceptButLoseAck(0)).toThrow(/acceptButLoseAck/);
 
@@ -239,9 +205,6 @@ describe('the H5 wall: the email provider simulator', () => {
   });
 
   it('leaves an ALREADY-ARMED queue untouched when it refuses a later invalid arming', () => {
-    // The case above only ever refuses on an empty queue, so an implementation that cleared the
-    // queue and then threw would pass it — and would silently disarm a case a test had already set
-    // up, which is the same catastrophe as arming nothing while reporting an arming.
     const { sim, port } = createEmailProviderSim();
 
     sim.rejectNext(1);
@@ -271,8 +234,6 @@ describe('the H5 wall: the email provider simulator', () => {
   });
 
   it('serves forced outcomes in CALL order across both arming methods, never by outcome kind', () => {
-    // Two per-kind counters that always served rejections first would pass every case above and the
-    // whole of AT-016.11, and fail only here — which is why both orders are driven.
     const lostFirst = createEmailProviderSim();
     lostFirst.sim.acceptButLoseAck(1);
     lostFirst.sim.rejectNext(1);
@@ -295,11 +256,6 @@ describe('the H5 wall: the email provider simulator', () => {
   });
 
   it('serves forced outcomes in call order at counts ABOVE ONE, in both arming orders', () => {
-    // Counts of one cannot tell one FIFO queue from a chunk round-robin that alternates between the
-    // two armings: both answer `rejectNext(1); acceptButLoseAck(1)` identically, and both pass the
-    // single-kind `rejectNext(3)` case in the harness block below. At counts of two they diverge —
-    // a round-robin returns rejected, ack_lost, rejected, ack_lost — so this is where the queue's
-    // claimed meaning is actually pinned.
     const sends = [SEND_A, SEND_B, SEND_C, SEND_D];
 
     const rejectFirst = createEmailProviderSim();
@@ -338,9 +294,6 @@ describe('the H5 wall, through the harness a suite is really handed', () => {
         'the simulator the suite holds is not the one the delivery path reaches',
       ).toEqual(['rejected']);
 
-      // THE STATIC SCAN IS STILL PENDING, and it names ONLY itself now. It is a real-source
-      // capability: at loop tier there is no product source to scan, and scanning the fixture would
-      // be the self-report `contracts.ts` forbids.
       let thrown: unknown = null;
       try {
         void h.static.providerClientImporters();
@@ -393,11 +346,6 @@ describe('the H5 wall, through the harness a suite is really handed', () => {
       const world = (await h.fixtures.world('vendors-pass-budget')) as World;
       const sut = h.sut.notifications as NotificationsSut;
 
-      // WITH WORK WAITING, so a drain that interpreted the value instead of refusing it would
-      // return normally having done something — `passes: 0` no pass at all while reading as one
-      // bounded pass, `passes: 1.5` two of them. AT-016.11 asks for exactly one pass because the
-      // state BETWEEN attempts is what it observes; a budget that means something else there is a
-      // green bought from a run the test never asked for.
       await world.fire('access.key_issued');
 
       await expect(

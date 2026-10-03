@@ -1,11 +1,3 @@
-/**
- * Oracle for the shipped tenant-read cores: one refusal for foreign and absent, one outage
- * answer that names nothing, and a field-by-field public projection.
- *
- * Driven directly because the acceptance bodies cannot inject a failed read or a zero-row
- * result without the fixture lying about storage. CI already runs this lane.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import {

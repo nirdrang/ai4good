@@ -1,11 +1,3 @@
-/**
- * Pure parts of the shared stack module, proved before anything talks to a running stack.
- *
- * The integration adapter and the verify-ai4good drive both import this module. A decode
- * that left `=3D` in a verify link, or a status parse that swallowed a missing field, would
- * turn a live green into a false one. These cases are the ones the module's header claims.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -35,7 +27,6 @@ const STACK: Stack = {
 describe('verifyLinksIn', () => {
   it('decodes quoted-printable with a soft break inside =3D and &amp; in an HTML part', () => {
     // Soft break sits inside the `=3D` escape (`=3` + `=\r\n` + `D`). Order is load-bearing:
-    // unwrap, then `=XX`, then `&amp;`. Decode-first would leave `=3D` in the URL.
     const raw =
       'Click https://127.0.0.1:44321/auth/v1/verify?token=3=\r\nDabc&amp;type=3=\r\nDsignup. extra';
     expect(verifyLinksIn(raw, 'signup')).toEqual([

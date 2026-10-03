@@ -1,5 +1,3 @@
-/** Names and copy for the Discovery screen. No imports: the acceptance tests compile this file without the DOM library. */
-
 export type Role =
   | "log"
   | "region"

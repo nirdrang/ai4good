@@ -1,28 +1,3 @@
-/**
- * REQ-001's INTEGRATION-TIER test bodies — one per id, against the one stack.
- *
- * WHY THESE ARE SEPARATE BODIES AND NOT THE LOOP ONES RUN AGAIN. Some criteria are proved by
- * DIFFERENT PROCEDURES at the two tiers, proving the same criterion. AT-001.12's expiry arm commands
- * a controlled clock forward at loop tier; against a real GoTrue there is nothing to command, so the
- * same clause is proved by waiting out a real access token. The criterion never forks — both bodies
- * cite the same acceptance text — and the id is registered once, at one call site, with the tier
- * choosing which procedure runs.
- *
- * THE LIVE PUBLIC ORDER IS FOLLOWED EVERYWHERE. Register, use the emailed verification link, sign
- * in, and only then act. That is the order a real person follows, and it is forced rather than
- * chosen: `_live.ts` returns a handle with NO session from a registration, because the live stack
- * under `enable_confirmations = true` issues none, and every session-taking operation refuses such a
- * handle by name. A loop body written before that flip takes its session from the registration, and
- * that is why these bodies exist at all.
- *
- * FOUR BODIES HERE REFUSE RATHER THAN ASSERT, and each names the capability that is missing. That is
- * not a stub and it is not a skip: the refusal is a `CapabilityPending` carrying an exact name, so
- * the id is RED in a shape the declaration machinery matches from position 0, and a declaration has
- * to state which capability is missing rather than only that something is. The four are the ids
- * whose criteria need something this environment does not hold — a real OAuth consent round trip, a
- * real GitHub statistics import, or a Discovery send route that exists in no requirement yet.
- */
-
 import type { RouteSurface } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { expect } from 'vitest';
 
@@ -34,82 +9,29 @@ import type { AccountType, AccountsSut, AuditEventRow, ProjectRow, Session, Worl
 import { isTautologicalUsing, TENANT_CATALOG, tenantCatalogProblems } from './_policy-scan.ts';
 import { writeRouteProblems } from './_write-route-scan.ts';
 import { WRITE_ROUTES, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
-// AT-001.17's source arm, shared with its loop body: the arm runs identically at both tiers, and the
-// two bodies live in different files, so the check has one home rather than two copies.
 import { inviteOrAddMemberSurface } from './_source-scan.ts';
-// The SHIPPED authority statement — the one attestation the deployed validation accepts.
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 
-/** The integration tier's context: no clock control seam, and a mail catcher instead of a sim. */
 type Ctx = HarnessAtContext<'req-001', 'accounts', 'integration'>;
 
 const TEXT_VERSION = 'tos-2026-01+promise-2026-01';
 const CLIENT_IP = '203.0.113.7';
 const PASSWORD = 'correct horse battery staple';
-/**
- * AT-001.19's three fields, carried by every completion here that must SUCCEED.
- *
- * The two completions that do NOT carry them are the ones whose refusal is pinned to an EARLIER
- * check — AT-001.01's no-acknowledgment request and AT-001.07's `platform_admin` request. The
- * shared validation runs the identity checks last, so those two keep the reasons their criteria
- * name.
- */
 const SIGNER = {
   signerName: 'Dana Okonkwo',
   signerTitle: 'Executive Director',
   authorityAttestation: ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement,
 } as const;
 
-/**
- * THE SESSION LIFETIME `supabase/config.toml` pins in `[auth] jwt_expiry`, in milliseconds.
- *
- * Read from the registry entry that config line cites back, so this file, the loop fixture's clock
- * and the loop bodies that advance it all follow ONE number; each reads the registry for itself,
- * so no tier imports this module FOR A NUMBER (the loop test imports its bodies from here on every
- * tier; only the constant stopped travelling). What keeps the registry honest against
- * the running stack is the runner, which refuses an integration run when the config's number and
- * the registry's differ, and the live adapter, which refuses the first token whose lifetime is not
- * the pinned one.
- */
 const ACCESS_TOKEN_LIFETIME_MS = AT_CONFIG.accessTokenLifetimeSeconds.value * 1000;
 
-/**
- * THE BUDGET FOR THE TWO BODIES THAT WAIT OUT REAL TIME (gate-2 ruling S2-1).
- *
- * `vitest.config.ts` pins `testTimeout: 30_000`, which is right for every body whose clock can be
- * commanded — and wrong for these two, whose criteria are ABOUT the passage of time: AT-001.12 waits
- * `ACCESS_TOKEN_LIFETIME_MS + 15_000` = 135 seconds for a real access token to expire, and AT-001.13 polls
- * for up to `ACCESS_TOKEN_LIFETIME_MS + 30_000` = 150 seconds for a rotation it must not ask for. Under 30
- * seconds both would time out red however correct they were, so the declared integration green could
- * not occur.
- *
- * FOUR MINUTES, AND IT IS STILL A BOUND. It is the longer of the two waits plus about ninety seconds
- * for the live round trips around it — a sign-up, a mail-catcher read, a confirmation, a sign-in, a
- * completion and several writes. It is a raise, not a removal: a body that hangs still fails here
- * rather than running until somebody notices. The raise is PER TIER, so the loop tier's 30 seconds
- * are untouched.
- */
 export const INTEGRATION_TIMEOUT_MS = 240_000;
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/* ------------------------------------------------------------------ the real client, for AT-001.13 */
-
 /**
- * EXACTLY THE CLIENT SURFACE AT-001.13 DEPENDS ON, declared here rather than imported.
- *
- * `@supabase/supabase-js` is a real runtime dependency of that body — the criterion is about a
- * client refreshing itself, and this repository ships none — but its type declarations describe a
- * BROWSER: they reach for `Window`, `CloseEvent`, `PublicKeyCredential` and a dozen other DOM names.
- * `tests/at/tsconfig.json` deliberately holds `lib: ["ES2022"]` with no DOM, and equally
- * deliberately keeps `skipLibCheck` FALSE — its own comment says why, and neither is a knob this
- * suite may turn to make one test body compile.
- *
- * So the module is loaded through a NON-LITERAL specifier, which TypeScript cannot resolve and
- * therefore does not type-check, and the surface this body uses is written out below. That is not a
- * way round the type system: it is a narrower claim than importing the whole library would make,
- * and it is checked at run time by the code failing loudly if the shape is wrong. The same pattern
- * is what `index.ts` uses to load a suite's adapter.
+ * `@supabase/supabase-js` types reference DOM globals and `tests/at/tsconfig.json` has no DOM lib,
+ * so the module is loaded through a non-literal specifier and only the surface used is declared.
  */
 type RealClient = {
   auth: {
@@ -136,12 +58,6 @@ async function realClient(url: string, anonKey: string): Promise<RealClient> {
   });
 }
 
-/**
- * Register, confirm through the emailed link, and sign in — the live public order, as one step.
- *
- * IT ASSERTS AS IT GOES, because a helper that swallowed a failure would report the wrong cause for
- * the right red: "no session" three assertions later, rather than "no confirmation email arrived".
- */
 async function registerConfirmAndSignIn(
   sut: Awaited<ReturnType<Ctx['open']>>['sut'],
   email: string,
@@ -216,22 +132,6 @@ function publicPageKeys(body: string): string[] {
   return Object.keys(parsed as Record<string, unknown>).sort();
 }
 
-/* ------------------------------------------------------------------------ the ids that go green */
-
-/**
- * AT-001.01 — the FULL-OUTCOME oracle, not the atomicity arm alone.
- *
- * The criterion names five outcomes and a later sign-in, and gate 1 ruled that a green here has to
- * prove all of them: an account of type NGO, an org, an admin membership in it, an acknowledgment
- * carrying timestamp, IP and text version, the pre-project gate discriminating, and a return
- * sign-in. Atomicity is the NEGATIVE arm and is asserted last.
- *
- * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: the act is the DEPLOYED `complete-signup`, so the
- * platform's own token check, `resolveCaller`, the edge function and the database's
- * `complete_signup` all sit on the path; and `hasPlatformAcknowledgment` calls the SHIPPED SQL
- * predicate rather than an adapter query, which is the one thing the loop tier's own fixture says
- * its green cannot establish.
- */
 export async function at00101(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const email = w.email('ngo-signup');
@@ -262,8 +162,6 @@ export async function at00101(ctx: Ctx): Promise<void> {
   const acknowledgments = await sut.acknowledgments(completion.accountId);
   expect(acknowledgments, 'exactly one platform acknowledgment is recorded by one completion').toHaveLength(1);
   expect(acknowledgments[0].textVersion, 'the acknowledgment must say WHICH text was accepted').toBe(TEXT_VERSION);
-  // The address the gateway chain REPORTED, never a verified source address — the header travels
-  // through kong and the edge runtime and must arrive in the row intact.
   expect(acknowledgments[0].ip, 'the reported address did not reach the acknowledgment row').toContain(CLIENT_IP);
   expect(
     Number.isFinite(Date.parse(acknowledgments[0].acknowledgedAt)),
@@ -280,29 +178,6 @@ export async function at00101(ctx: Ctx): Promise<void> {
   if (!returning.ok) return;
   expect(returning.session.accountId).toBe(session.accountId);
 
-  /*
-   * THE NEGATIVE ARM, AND EXACTLY WHAT IT PROVES — narrowed by gate-2 ruling S2-3, which asked
-   * whether it proves more than this and had the question measured rather than argued.
-   *
-   * WHAT IT PROVES: the DEPLOYED completion path refuses a completion that carries no
-   * acknowledgment, states the acknowledgment as the reason, and leaves NO account row and NO
-   * acknowledgment behind. That is the criterion's clause — the acknowledgment is required — proved
-   * against the deployed function rather than against a fixture.
-   *
-   * WHAT IT DOES NOT PROVE, said plainly because an earlier version of this comment implied it: it
-   * is NOT a demonstration of mid-transaction rollback. The refusal here comes from
-   * `validateCompleteSignup` BEFORE the database is called, so "zero rows left" is true because
-   * nothing was ever written, not because something was written and undone.
-   *
-   * AND THAT IS NOT A GAP LEFT UNEXAMINED. `verify-first.md` Part C records the inspection: the only
-   * write inside `public.complete_signup` that can fail after an earlier one has succeeded is the
-   * acknowledgment insert, whose lever is an empty `text_version` — and JavaScript's `trim()` strips
-   * a superset of what Postgres's `btrim()` strips, so every value the constraint would refuse the
-   * validator refuses first. Measured on both instruments; the intersection is empty by
-   * construction. In-transaction rollback is therefore NOT externally drivable on the deployed
-   * surface, and no fault-injection seam was added to shipped code to manufacture one. The green
-   * rests on the full-outcome positive oracle above plus this refusal.
-   */
   const other = await registerConfirmAndSignIn(sut, w.email('no-acknowledgment'));
   const refused = await sut.completeSignup(other, { accountType: 'ngo', organizationName: 'Riverside Shelter Annexe' }, CLIENT_IP);
   expect(refused.ok, 'signup completed with no acknowledgment of the ToS and Platform Promise').toBe(false);
@@ -315,18 +190,6 @@ export async function at00101(ctx: Ctx): Promise<void> {
   ).toBe(false);
 }
 
-/**
- * AT-001.06 — a volunteer is refused the NGO-only action while an NGO performs it.
- *
- * THE CONTROL IS NOT OPTIONAL: an operation that refuses everybody would satisfy the negative half
- * on its own, so the NGO succeeds FIRST and the volunteer's refusal is then attributable to the
- * account type.
- *
- * THE LINKED IDENTITY IS A GIVEN HERE, and it is written by the operator. Since the GitHub leaf a
- * volunteer cannot complete signup without one; the refusal under test is the NGO-only one, so the
- * volunteer has to reach the state of being a signed-up volunteer first. AT-001.04 owns the link
- * rule and is declared red at this tier for exactly the reason that rule cannot be proved live.
- */
 export async function at00106(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -364,8 +227,6 @@ export async function at00106(ctx: Ctx): Promise<void> {
   expect(volunteerAction.ok, 'a volunteer account performed an NGO-only action').toBe(false);
   if (volunteerAction.ok) return;
 
-  // A REJECTION INCLUDES ITS WRITES NOT HAPPENING, and on the live stack that is row-level truth
-  // rather than a mirror: no organisation by the attempted name, and no membership anywhere.
   expect(await sut.organizationsNamed(REFUSED_NAME), `the refused action created an organisation named ${REFUSED_NAME}`).toEqual([]);
   expect(await sut.membershipsOf(volunteerCompletion.accountId), 'the refused action left the volunteer holding a membership').toEqual(
     [],
@@ -374,17 +235,6 @@ export async function at00106(ctx: Ctx): Promise<void> {
   expect(volunteerAction.reason).toMatch(/volunteer/i);
 }
 
-/**
- * AT-001.07 — a provisioned platform administrator authenticates and carries the type; the public
- * signup surface offers only the two.
- *
- * THE SECOND CLAUSE IS PROVED DIFFERENTLY HERE, and that difference is the reason this body exists.
- * At loop tier it reads `publicSignupAccountTypes()`, which is a constant a shipped module exports —
- * a list is a claim. At this tier the live oracle is a REFUSAL, which is a fact: the DEPLOYED
- * completion path is asked for a `platform_admin` and must refuse it and leave no row behind. That
- * is a strictly stronger oracle, and it is why the constant is not among the methods the live
- * adapter backs.
- */
 export async function at00107(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -454,25 +304,6 @@ export async function at00141(ctx: Ctx): Promise<void> {
   ).not.toContain('github');
 }
 
-/**
- * AT-001.09 — email verification, PARAMETERIZED OVER BOTH email-capable account types.
- *
- * Gate 1's finding 8 is what makes this body cover two types rather than one: the criterion says
- * "EITHER account type … (NGO and volunteer)" and carries the acceptance file's own
- * "parameterized over account types" note, and the migrated NGO-only set proved half of it.
- *
- * AND EACH ITERATION REALLY IS ITS TYPE (gate-2 ruling S2-4). The first version of this body labelled
- * the two iterations `ngo` and `volunteer` and differed only in the email address it used — neither
- * one ever created an account of either type, so the parameterization was nominal and a
- * type-specific verification regression would have gone unnoticed by both halves. Each iteration now
- * COMPLETES SIGNUP as its type after verification — the NGO with an organisation, the volunteer with
- * a linked GitHub identity, both with the acknowledgment — and asserts the account row carries that
- * global type.
- *
- * WHAT IS LIVE HERE: the message is the one GoTrue really sent, held by the stack's own mail catcher;
- * the link is followed by HTTP; and the verified fact is judged by the SHIPPED extractor over the
- * real row rather than read as a boolean.
- */
 export async function at00109(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -481,14 +312,11 @@ export async function at00109(ctx: Ctx): Promise<void> {
     const registered = await sut.registerWithEmailPassword(email, PASSWORD);
     expect(registered.sessionId, 'the live registration issued a session, which under confirmations it must not').toBe('');
 
-    // UNVERIFIED FIRST, and it must DISCRIMINATE: an extractor that answered true unconditionally
-    // would satisfy every assertion after the link is used.
     expect(
       await sut.emailVerified(registered.accountId),
       `a fresh ${kind} registration is already reported verified — nothing below would then mean anything`,
     ).toBe(false);
 
-    // Auth itself refuses sign-in before confirmation, which is the state the criterion describes.
     const early = await sut.signInWithEmailPassword(email, PASSWORD);
     expect(early.ok, `an unconfirmed ${kind} account signed in`).toBe(false);
 
@@ -506,10 +334,6 @@ export async function at00109(ctx: Ctx): Promise<void> {
     expect(after, `a confirmed ${kind} account could not sign in`).toMatchObject({ ok: true });
     if (!after.ok) return;
 
-    // THE COMPLETION AS THIS TYPE, which is what makes the two iterations two different runs of the
-    // criterion rather than the same run under two labels. The volunteer's linked GitHub identity is
-    // a GIVEN written by the operator — AT-001.04 owns the link rule and is red at this tier — and
-    // without it the deployed path refuses a volunteer completion, correctly.
     const request =
       kind === 'ngo'
         ? {
@@ -531,20 +355,6 @@ export async function at00109(ctx: Ctx): Promise<void> {
   }
 }
 
-/**
- * AT-001.12 — access ends when a session expires OR is revoked, and re-authentication is the remedy.
- *
- * TWO ARMS, BOTH AGAINST REAL TIME AND A REAL AUTH.
- *
- *   REVOCATION — a scoped logout ends THIS session while a SIBLING session of the same account keeps
- *   working. The sibling is the control that separates "this session ended" from "the account's
- *   access ended", and without it the criterion's remedy clause is untested.
- *
- *   EXPIRY — the body WAITS OUT a real access token. There is nothing to command: the one stack's
- *   `supabase/config.toml` pins a standing low `jwt_expiry` precisely so this wait is two minutes
- *   rather than an hour, and no test edits configuration or restarts anything. The loop body
- *   advances a controlled clock, which is a different procedure proving the same clause.
- */
 export async function at00112(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const email = w.email('sessions');
@@ -559,7 +369,6 @@ export async function at00112(ctx: Ctx): Promise<void> {
     ok: true,
   });
 
-  // A SIBLING SESSION, opened before the logout, standing as the control.
   const sibling = await sut.signInWithEmailPassword(email, PASSWORD);
   expect(sibling, 'a second sign-in for the same account failed').toMatchObject({ ok: true });
   if (!sibling.ok) return;
@@ -571,29 +380,21 @@ export async function at00112(ctx: Ctx): Promise<void> {
   expect(after.map((row) => row.sessionId), 'the signed-out session row is still there').not.toContain(session.sessionId);
   expect(after.map((row) => row.sessionId), 'the scoped logout took the sibling session with it').toContain(sibling.session.sessionId);
 
-  // THE REVOKED SESSION CANNOT WRITE. `create-organization` is the write, because no verification
-  // gate sits on it — so a refusal here is unambiguously the session layer's.
   const revokedWrite = await sut.createOrganization(session, 'Riverside Shelter After Logout');
   expect(revokedWrite.ok, 'a revoked session performed a write').toBe(false);
   expect(await sut.organizationsNamed('Riverside Shelter After Logout'), 'the revoked write happened anyway').toEqual([]);
 
-  // RE-AUTHENTICATION IS THE REMEDY, not a wall: a fresh sign-in works at once.
   const again = await sut.signInWithEmailPassword(email, PASSWORD);
   expect(again, 're-authentication after revocation was refused, so revocation ended the account rather than the session').toMatchObject(
     { ok: true },
   );
   if (!again.ok) return;
 
-  // THE EXPIRY ARM. Wait past the stack's standing token lifetime and assert the same write is
-  // refused — with the margin on the far side, so a token that is merely close to expiry is not
-  // mistaken for one that has passed it.
   await wait(ACCESS_TOKEN_LIFETIME_MS + 15_000);
   const expiredWrite = await sut.createOrganization(again.session, 'Riverside Shelter After Expiry');
   expect(expiredWrite.ok, 'an expired access token performed a write').toBe(false);
   expect(await sut.organizationsNamed('Riverside Shelter After Expiry'), 'the expired write happened anyway').toEqual([]);
 
-  // And the refresh token re-establishes access with NO credentials — which is what makes expiry a
-  // pause rather than a logout, and is the mechanism AT-001.13 builds its own claim on.
   const refreshed = await sut.refreshSession(again.session);
   expect(refreshed, 'the same session could not be refreshed after its access token expired').toMatchObject({ ok: true });
   if (!refreshed.ok) return;
@@ -601,33 +402,11 @@ export async function at00112(ctx: Ctx): Promise<void> {
   expect(afterRefresh, 'a refreshed session still could not write').toMatchObject({ ok: true });
 }
 
-/**
- * AT-001.13 — the session refreshes AUTOMATICALLY, with no forced re-login mid-work.
- *
- * GATE 1'S FINDING 7 IS WHY THIS BODY LOOKS DIFFERENT FROM EVERY OTHER ONE HERE. The criterion's
- * word is "automatically", and every existing piece of evidence proves the MECHANISM: the loop body
- * calls `refreshSession` explicitly, and the live proof transcript says in its own words that it
- * establishes nothing about scheduling. A mechanism-only green at the tier whose meaning is "proved
- * for real" would be a new overclaim.
- *
- * SO THE THING UNDER TEST IS A REAL CLIENT — supabase-js with `autoRefreshToken: true` — and the
- * observable is a rotation NOBODY ASKED FOR: the access token the client holds changes while the
- * body only waits, and access continues afterwards. No `refreshSession` call appears below.
- *
- * WHY THE COORDINATES COME FROM THE ENVIRONMENT rather than through the system under test: the thing
- * under test is a CLIENT LIBRARY, not a product surface, and this repository ships no client. The
- * runner validated those coordinates, attested them, and put them in this child's environment; a
- * system-under-test method wrapping the client would be this suite building the very thing it is
- * supposed to be observing.
- */
 export async function at00113(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const email = w.email('auto-refresh');
   const session = await registerConfirmAndSignIn(sut, email);
 
-  // SIGNUP IS COMPLETED FIRST, so there is an account row for the rotated session to resolve TO.
-  // Without it the same-account assertion below could only ever compare two nulls, which is how the
-  // vacuous version of it came to be written (gate-2 ruling S2-5).
   const completion = await sut.completeSignup(
     session,
     { accountType: 'ngo', organizationName: 'Riverside Shelter Auto Refresh', acknowledgmentTextVersion: TEXT_VERSION, ...SIGNER },
@@ -646,19 +425,12 @@ export async function at00113(ctx: Ctx): Promise<void> {
     const first = signedIn.data.session?.access_token ?? '';
     expect(first, 'the real client signed in with no access token').not.toBe('');
 
-    // WHOSE SESSION THIS IS, captured AT SIGN-IN and from the client's own answer — so the assertion
-    // after the rotation compares the rotated identity with a value that was read before any
-    // rotation happened, rather than with itself.
     const signedInAs = (await client.auth.getUser()).data.user?.id ?? '';
     expect(signedInAs, 'the real client signed in and named no user').not.toBe('');
     expect(signedInAs, 'the real client signed in as a different account than the harness registered').toBe(
       session.accountId,
     );
 
-    // WAIT, AND ONLY WAIT. The client's own scheduler is the thing under test, so the body issues no
-    // refresh of any kind. The budget is the token's whole lifetime plus a margin: the client
-    // rotates about one tick in, well before expiry, and a body that waited less than the lifetime
-    // could pass by luck.
     const deadline = Date.now() + ACCESS_TOKEN_LIFETIME_MS + 30_000;
     let rotated = '';
     while (Date.now() < deadline && !rotated) {
@@ -668,17 +440,11 @@ export async function at00113(ctx: Ctx): Promise<void> {
     }
     expect(rotated, 'the client never rotated its access token on its own — automatic refresh is unproved').not.toBe('');
 
-    // "WITHOUT FORCED RE-LOGIN MID-WORK": the work continues, with no credentials supplied anywhere.
     const me = await fetch(`${url.replace(/\/$/, '')}/auth/v1/user`, {
       headers: { apikey: anonKey, Authorization: `Bearer ${rotated}` },
     });
     expect(me.status, 'the automatically rotated token does not carry access').toBe(200);
 
-    // AND IT IS THE SAME USER'S WORK THAT CONTINUED, which is the clause the previous version of
-    // this assertion did not reach: `account === null || account.id.length > 0` is satisfied by
-    // every possible value, so it passed whoever the rotated token belonged to. Two independent
-    // reads now say the same name — the client's own `getUser()` over the rotated token, and the
-    // account row read out of the database with operator authority.
     const rotatedUser = (await client.auth.getUser()).data.user?.id ?? '';
     expect(rotatedUser, 'the automatically rotated token names a different user than the one that signed in').toBe(
       signedInAs,
@@ -691,14 +457,6 @@ export async function at00113(ctx: Ctx): Promise<void> {
   }
 }
 
-/**
- * AT-001.14 — the emailed reset flow changes the password: the new one works and the old one does
- * not.
- *
- * The link is the one GoTrue really sent, held by the stack's own catcher, and its flow shape is read
- * from what the link answers rather than remembered — the shape differs across CLI versions and
- * AI4DEV-60's proof measured it before using it.
- */
 export async function at00114(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const email = w.email('password-reset');
@@ -719,13 +477,6 @@ export async function at00114(ctx: Ctx): Promise<void> {
   expect(withOld.ok, 'the OLD password still works after the reset').toBe(false);
 }
 
-/**
- * AT-001.38 — the wrong password is rejected and NO authenticated session is created.
- *
- * The second clause is the one a refusal's own return value cannot show, so it is measured as an
- * UNCHANGED set of `auth.sessions` rows across the refused attempt — read with operator authority,
- * which is the only place the fact lives.
- */
 export async function at00138(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const email = w.email('wrong-password');
@@ -739,33 +490,11 @@ export async function at00138(ctx: Ctx): Promise<void> {
   const after = (await sut.sessionsOf(session.accountId)).map((row) => row.sessionId).sort();
   expect(after, 'the refused sign-in created an authenticated session').toEqual(before);
 
-  // THE CONTROL: the CORRECT password does add exactly one row, so the assertion above is measuring
-  // a real observable rather than a table nothing ever writes to.
   const accepted = await sut.signInWithEmailPassword(email, PASSWORD);
   expect(accepted, 'the correct password was refused, so the negative above proves nothing').toMatchObject({ ok: true });
   expect((await sut.sessionsOf(session.accountId)).length, 'the accepted sign-in added no session row').toBe(after.length + 1);
 }
 
-/* ------------------------------------------------- the per-organisation role ids (D3.L1) -------- */
-
-/**
- * THE TWO-MEMBERSHIP GIVEN, provisioned once for AT-001.16 and AT-001.36 — and HOW it is reached is
- * part of what those greens claim, so it is written down here rather than buried in a helper name.
- *
- * ONE ACCOUNT, THREE ORGANISATIONS, TWO MEMBERSHIP ROWS:
- *   * A — created by the PRODUCT path. `complete_signup` writes the organisation and seats the
- *     caller as its `admin`, inside one transaction, exactly as an NGO signup does.
- *   * B — created by the OPERATOR with NO membership row, and the actor is then granted B's single
- *     seat as `member`.
- *   * C — created by the OPERATOR and left unseated, so the actor holds no membership in it at all.
- *
- * WHY B AND C NEED AN OPERATOR AT ALL, said plainly because it is the honest part. No product path
- * writes `'member'`: the single-seat invariant (AT-001.17) forbids invites, so there is no invite
- * surface to mint a second member and no second seat for one to occupy. The `member` half of the
- * `org_role` enum exists for AT-001.36 and this is how that criterion's Given is reached — the same
- * posture the merged integration-verification item recorded for its own operator-provisioned Givens.
- * The Given is provisioned; the BEHAVIOUR under test is entirely the product's.
- */
 async function twoMembershipGiven(
   sut: Awaited<ReturnType<Ctx['open']>>['sut'],
   w: Awaited<ReturnType<Ctx['open']>>['w'],
@@ -797,21 +526,6 @@ async function twoMembershipGiven(
   };
 }
 
-/**
- * AT-001.16 — membership and role are held per NGO, and acting in one grants nothing in another.
- *
- * WHAT IS LIVE HERE THAT WAS NOT AT LOOP TIER: the two membership rows are rows in
- * `public.org_memberships` read back with operator authority, the rename is the DEPLOYED
- * `update-organization` — so the platform's token check, `resolveCaller`, the service-role
- * membership read and the definer function all sit on the path — and the refusals are the ones the
- * deployed function really sent.
- *
- * WHAT THIS GREEN CLAIMS, AND WHAT IT DOES NOT (gate-1 ruling 1). It claims OPERATION-SURFACE
- * isolation: the same account's authority does not cross organisations on this action, proved by
- * three different answers to one caller. It does NOT claim read isolation over drafts, ledgers and
- * files — that breadth is the tenant-isolation deliverable's. `anon` holds nothing on any table;
- * `authenticated` holds SELECT on the four tenant tables, filtered by policy.
- */
 export async function at00116(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const NAMES = {
@@ -825,7 +539,6 @@ export async function at00116(ctx: Ctx): Promise<void> {
 
   const given = await twoMembershipGiven(sut, w, 'two-orgs-16', NAMES);
 
-  // (1) ROLE IS HELD PER ORGANISATION — two independent rows, different roles, and NO row in C.
   expect(await sut.membership(given.organizationA, given.accountId), 'the actor is not A\'s admin').toMatchObject({ role: 'admin' });
   expect(await sut.membership(given.organizationB, given.accountId), 'the actor is not B\'s member').toMatchObject({ role: 'member' });
   expect(await sut.membership(given.organizationC, given.accountId), 'the actor holds a membership in C, which the Given denies').toBeNull();
@@ -836,13 +549,10 @@ export async function at00116(ctx: Ctx): Promise<void> {
     'the two memberships do not carry two different roles, so the role is not being held per organisation',
   ).toEqual(['admin', 'member']);
 
-  // (2) THE ADMIN ACTS IN A. The positive is not optional: an action that refused everybody would
-  // satisfy both refusals below on its own.
   const renamed = await sut.updateOrganization(given.session, given.organizationA, RENAMED_A);
   expect(renamed, 'A\'s own admin was refused the admin-only action, so the refusals below prove nothing').toMatchObject({ ok: true });
   expect(await sut.organization(given.organizationA), 'the rename did not reach the row').toMatchObject({ name: RENAMED_A });
 
-  // (3) ADMIN STANDING IN A DOES NOT CARRY INTO B, where the same account holds `member`.
   const refusedInB = await sut.updateOrganization(given.session, given.organizationB, ATTEMPTED_B);
   expect(refusedInB.ok, 'A\'s admin renamed an organisation where it holds only the member role').toBe(false);
   if (refusedInB.ok) return;
@@ -850,9 +560,6 @@ export async function at00116(ctx: Ctx): Promise<void> {
   expect(await sut.organization(given.organizationB), 'the refused rename reached B\'s row anyway').toMatchObject({ name: NAMES.b });
   expect(await sut.organizationsNamed(ATTEMPTED_B), 'the refused rename created an organisation by the attempted name').toEqual([]);
 
-  // (4) NO AMBIENT AUTHORITY — C, where the actor holds no membership at all, refuses with the
-  // OTHER kind. Two different refusals from one caller is what makes this an isolation oracle
-  // rather than a blanket denial.
   const refusedInC = await sut.updateOrganization(given.session, given.organizationC, ATTEMPTED_C);
   expect(refusedInC.ok, 'the actor renamed an organisation it holds no membership in').toBe(false);
   if (refusedInC.ok) return;
@@ -860,20 +567,9 @@ export async function at00116(ctx: Ctx): Promise<void> {
   expect(await sut.organization(given.organizationC), 'the refused rename reached C\'s row anyway').toMatchObject({ name: NAMES.c });
   expect(await sut.organizationsNamed(ATTEMPTED_C), 'the refused rename created an organisation by the attempted name').toEqual([]);
 
-  // (5) AND NEITHER REFUSAL WROTE A MEMBERSHIP. A refusal that quietly enrolled the caller would
-  // pass every assertion above and hand it the authority next time.
   expect(await sut.membershipsOf(given.accountId), 'a refused action changed what the actor is a member of').toHaveLength(2);
 }
 
-/**
- * AT-001.36 — an admin in NGO A and a member in NGO B succeeds only where it is the admin.
- *
- * THE DISCRIMINATOR IS THE `member` ROW, and it is asserted before the action is attempted. The
- * refusal under test is `not-an-admin` — the caller IS in this organisation and its role here is too
- * low — which is a DIFFERENT refusal from AT-001.16's `not-a-member`. Without the row assertion the
- * body could not tell "rejected because the role is member" from "rejected because nothing was
- * found", and the criterion's whole point is that "NGO admin" names the admin role IN THAT NGO.
- */
 export async function at00136(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const NAMES = {
@@ -886,7 +582,6 @@ export async function at00136(ctx: Ctx): Promise<void> {
 
   const given = await twoMembershipGiven(sut, w, 'admin-and-member-36', NAMES);
 
-  // THE GIVEN, ASSERTED: admin in A, member in B, one account.
   expect(await sut.membership(given.organizationA, given.accountId), 'the actor is not A\'s admin').toMatchObject({
     accountId: given.accountId,
     role: 'admin',
@@ -896,12 +591,10 @@ export async function at00136(ctx: Ctx): Promise<void> {
     role: 'member',
   });
 
-  // IT SUCCEEDS IN A.
   const inA = await sut.updateOrganization(given.session, given.organizationA, RENAMED_A);
   expect(inA, 'the admin-only action failed where the caller IS the admin').toMatchObject({ ok: true });
   expect(await sut.organization(given.organizationA)).toMatchObject({ name: RENAMED_A });
 
-  // AND IS REJECTED IN B, on the role rather than on absence.
   const inB = await sut.updateOrganization(given.session, given.organizationB, ATTEMPTED_B);
   expect(inB.ok, 'the same account performed the admin-only action where it holds the member role').toBe(false);
   if (inB.ok) return;
@@ -911,7 +604,6 @@ export async function at00136(ctx: Ctx): Promise<void> {
     'the refusal came back as not-a-member, which would mean the member row was not found rather than not sufficient',
   ).not.toBe('not-a-member');
 
-  // AND IT WROTE NOTHING.
   expect(await sut.organization(given.organizationB), 'the refused action renamed B anyway').toMatchObject({ name: NAMES.b });
   expect(await sut.organizationsNamed(ATTEMPTED_B), 'the refused action created an organisation by the attempted name').toEqual([]);
   expect(await sut.membership(given.organizationB, given.accountId), 'the refused action changed the actor\'s role in B').toMatchObject({
@@ -919,21 +611,6 @@ export async function at00136(ctx: Ctx): Promise<void> {
   });
 }
 
-/**
- * AT-001.37 — granting a per-NGO role to a volunteer account is rejected on EVERY path.
- *
- * "EVERY PATH" IS WHY THIS BODY HAS FOUR ARMS AND A CONTROL. Two product paths already refuse, and
- * they refuse for product reasons a future change could move; the third arm is the one that closes
- * the criterion, because it carries no edge function, no shared module and no TypeScript at all —
- * an operator's direct insert, which is the shape every path nobody has written yet will have. The
- * fourth arm is the same grant reached in TWO statements: the seat is taken by an NGO account and
- * then re-pointed at the volunteer, which changes no row count and so meets only the NGO-only rule's
- * UPDATE half (gate-2 ruling R5).
- *
- * THE CONTROL IS NOT OPTIONAL: an insert that refused everybody would satisfy the negative on its
- * own, so an NGO account is granted the same seat afterwards and must succeed. It also SEATS the row
- * the fourth arm re-points, which is why it runs before that arm rather than last.
- */
 export async function at00137(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const ATTEMPTED_ORG = 'Volunteer Attempted Organisation 37';
@@ -951,14 +628,10 @@ export async function at00137(ctx: Ctx): Promise<void> {
   if (!completion.ok) return;
   expect(await sut.account(completion.accountId), 'the account under test is not a volunteer').toMatchObject({ accountType: 'volunteer' });
 
-  // ARM 1 — the product's NGO-only action. A volunteer cannot create the organisation that would
-  // have seated it as an admin.
   const ngoOnly = await sut.createOrganization(volunteer, ATTEMPTED_ORG);
   expect(ngoOnly.ok, 'a volunteer performed the NGO-only action and would have been seated as its admin').toBe(false);
   expect(await sut.organizationsNamed(ATTEMPTED_ORG), 'the refused action created an organisation').toEqual([]);
 
-  // ARM 2 — the product's signup path. A volunteer completion carrying an organisation name is
-  // refused outright, so the seat is never reached through signup either.
   const second = await registerConfirmAndSignIn(sut, w.email('volunteer-with-org-37'));
   await sut.linkGithubIdentity(second, `volunteer-org-37-${second.accountId.slice(0, 8)}`);
   const withOrganization = await sut.completeSignup(
@@ -970,9 +643,6 @@ export async function at00137(ctx: Ctx): Promise<void> {
   expect(await sut.account(second.accountId), 'the refused completion left an account row behind').toBeNull();
   expect(await sut.organizationsNamed(ATTEMPTED_ON_SIGNUP), 'the refused completion created an organisation').toEqual([]);
 
-  // ARM 3 — THE OPERATOR'S DIRECT GRANT, into an organisation whose single seat is free, so the
-  // refusal cannot be the one-seat index answering instead of the NGO-only rule. Both roles are
-  // attempted: the criterion is about a per-NGO role, not about the admin role.
   const organization = await sut.createOrganizationAsOperator(OPERATOR_ORG);
   for (const role of ['admin', 'member'] as const) {
     const granted = await sut.grantMembershipAsOperator(organization.id, completion.accountId, role);
@@ -981,12 +651,9 @@ export async function at00137(ctx: Ctx): Promise<void> {
     expect(granted.kind, `the ${role} grant was refused for a reason other than the account type`).toBe('not-an-ngo-account');
   }
 
-  // THE READ-BACK: zero membership rows anywhere for this account.
   expect(await sut.membershipsOf(completion.accountId), 'the volunteer holds a per-organisation role after every path refused').toEqual([]);
   expect(await sut.membership(organization.id, completion.accountId), 'the refused grant wrote a membership row').toBeNull();
 
-  // THE CONTROL — the same seat, the same method, an NGO account: it succeeds. So the three
-  // refusals above are about the account TYPE and not about the path being closed to everybody.
   const control = await registerConfirmAndSignIn(sut, w.email('ngo-control-37'));
   const controlCompletion = await sut.completeSignup(
     control,
@@ -998,16 +665,11 @@ export async function at00137(ctx: Ctx): Promise<void> {
   const seated = await sut.grantMembershipAsOperator(organization.id, controlCompletion.accountId, 'member');
   expect(seated, 'the operator grant refuses an NGO account too, so the refusals above prove nothing').toMatchObject({ ok: true });
 
-  // ARM 4 — THE SAME GRANT IN TWO STATEMENTS. The seat the control just took is re-pointed at the
-  // volunteer. The row count does not change, so the one-seat index never sees this write and the
-  // NGO-only trigger's UPDATE half is the only guard on it — the attack the migration names in its
-  // own prose, driven here for the first time (gate-2 ruling R5).
   const repointed = await sut.repointMembershipAsOperator(organization.id, completion.accountId);
   expect(repointed.ok, 'an operator re-pointed a seated membership at a volunteer account').toBe(false);
   if (repointed.ok) return;
   expect(repointed.kind, 'the re-point was refused for a reason other than the account type').toBe('not-an-ngo-account');
 
-  // AND THE ROW IS UNMOVED: the control still holds it, with the role it was granted.
   expect(await sut.membership(organization.id, controlCompletion.accountId), 'the refused re-point moved the seat anyway').toMatchObject({
     accountId: controlCompletion.accountId,
     role: 'member',
@@ -1015,32 +677,9 @@ export async function at00137(ctx: Ctx): Promise<void> {
   expect(await sut.membershipsOf(completion.accountId), 'the volunteer holds a per-organisation role after the re-point refused').toEqual([]);
 }
 
-/* ------------------------------------------------- the single-seat and single-dev ids (D3.L2) --- */
-
-/**
- * AT-001.17 — no capability exists to invite or add a second member to an org.
- *
- * A NEGATIVE CRITERION NEEDS MORE THAN ONE WITNESS, because "no capability exists" is a claim about
- * every path rather than about one. Four arms, each closing a different way in:
- *
- *   1. NO DEPLOYED FUNCTION. The functions router is asked for an invite endpoint by name and
- *      answers 404 `Function not found` — with a DEPLOYED function on the same stack as the control,
- *      because a router that answered 404 to everything would make the first answer meaningless.
- *      Both shapes were measured before this body was written (verify-first answer (e)).
- *   2. NO CLIENT REACH. `public.org_memberships` is asked for through the Data API with the
- *      publishable key and refuses — the privilege layer for `anon`, not "no client role".
- *      `authenticated` holds SELECT on this table, filtered by policy.
- *   3. NO ROOM IN THE DATABASE. The operator, whose authority exceeds anything the product holds,
- *      tries to seat a second member in an organisation that already holds its one seat, and the
- *      unique index refuses.
- *   4. NO SURFACE IN THE APP. `src/routes/` and the generated route tree carry no invite or
- *      add-member naming — the source arm, shared with the loop body, with its residual stated in
- *      `_source-scan.ts`.
- */
 export async function at00117(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
-  // ARM 4 first, because it needs no state and a failure in it is the cheapest to read.
   expect(
     inviteOrAddMemberSurface(),
     'the app carries a route named like an invite or add-member surface, so "UI absent" is no longer true',
@@ -1050,7 +689,6 @@ export async function at00117(ctx: Ctx): Promise<void> {
   const anonKey = process.env.AT_SUPABASE_ANON_KEY ?? '';
   expect(url && anonKey, 'this child holds no stack coordinates, so the absence probes below cannot run').toBeTruthy();
 
-  // ARM 1 — the deployed-function absence probe, with its control.
   const absent = await fetch(`${url}/functions/v1/invite-member`, {
     method: 'POST',
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
@@ -1065,34 +703,20 @@ export async function at00117(ctx: Ctx): Promise<void> {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
   });
-  // THE CONTROL ASSERTS THE MEASURED ANSWER, not merely a non-404 (gate-2 ruling R6). Verify-first
-  // answer (e) measured this exact call answering 401 with its own refusal body, so pinning it costs
-  // nothing and makes the control prove two things instead of one: the router resolves names AND the
-  // function it resolved really ran. A 500, a 502 or a misroute passed the old assertion.
   expect(
     present.status,
     'the deployed control did not answer its measured 401, so the router may not be resolving names and the probe above proves nothing',
   ).toBe(401);
 
-  // ARM 2 — the membership table through the Data API, with the publishable key.
   const clientRead = await fetch(`${url}/rest/v1/org_memberships?select=role`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, Accept: 'application/json' },
   });
   const clientReadBody = await clientRead.text();
-  // THE STATUS AND THE BODY ARE BOTH PINNED TO WHAT WAS MEASURED (gate-2 ruling R7). The plan's claim
-  // is that the table is unreachable BECAUSE no privilege reaches a client role, and `status >= 400`
-  // does not prove the because: a missing table route (404) or a down PostgREST (5xx) passed it. The
-  // measurement is in `loop/items/AI4DEV-62/artifacts/gate2-verify-answers.md`, v2 — HTTP 401 with
-  // SQLSTATE 42501 and `permission denied for table org_memberships`. The status is 401 rather than
-  // the 403 the service role receives (verify-first answer (c)) because the anon key carries no
-  // authenticated user; the privilege layer is the same one either way, which is what the body says.
   expect(clientRead.status, 'the membership table did not answer the measured privilege refusal to a client key').toBe(401);
   expect(clientReadBody, 'the refusal does not name a permission denial, so it is not the privilege layer answering').toMatch(
     /permission denied/i,
   );
 
-  // ARM 3 — the operator's own attempt at a second seat, on an organisation the PRODUCT path
-  // created and seated. The one-seat index is what refuses; nothing about the product is consulted.
   const owner = await registerConfirmAndSignIn(sut, w.email('single-seat-owner-17'));
   const ownerCompletion = await sut.completeSignup(
     owner,
@@ -1118,7 +742,6 @@ export async function at00117(ctx: Ctx): Promise<void> {
     expect(seated.kind, `the second ${role} was refused for a reason other than the seat being taken`).toBe('org-already-seated');
   }
 
-  // AND THE ORGANISATION STILL HOLDS EXACTLY ONE SEAT, its owner's.
   const seats = await sut.membershipsOf(secondCompletion.accountId);
   expect(
     seats.map((row) => row.organizationId),
@@ -1130,19 +753,6 @@ export async function at00117(ctx: Ctx): Promise<void> {
   ).toMatchObject({ role: 'admin' });
 }
 
-/**
- * AT-001.32 — attaching a second volunteer to a project is rejected.
- *
- * THE GIVEN IS OPERATOR-PROVISIONED AND SAYS SO. No product path creates a project or attaches a
- * volunteer in this tree, at either tier; building one to reach this criterion's Given would be
- * landing another requirement's surface early. What is under test is the REFUSAL, and the path this
- * body drives is the one with nothing on it but the database — which is what makes the invariant a
- * property of the table rather than of a writer somebody could change.
- *
- * THE CONTROL IS THE IDEMPOTENT RE-WRITE: attaching the SAME volunteer again is not refused. Without
- * it, a guard that refused every update at all would satisfy the negative, and the criterion's word
- * is "a SECOND volunteer".
- */
 export async function at00132(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -1175,7 +785,6 @@ export async function at00132(ctx: Ctx): Promise<void> {
   expect(secondCompletion, 'the second volunteer could not complete signup').toMatchObject({ ok: true });
   if (!secondCompletion.ok) return;
 
-  // THE GIVEN: a project with an assigned volunteer.
   const project = await sut.createProjectAsOperator(ngoCompletion.organizationId, 'Riverside Shelter Website 32');
   expect(project.assignedVolunteerId, 'a freshly created project already carries a developer').toBeNull();
   const assigned = await sut.assignVolunteerAsOperator(project.id, firstCompletion.accountId);
@@ -1184,20 +793,16 @@ export async function at00132(ctx: Ctx): Promise<void> {
     assignedVolunteerId: firstCompletion.accountId,
   });
 
-  // THE ACT UNDER TEST.
   const secondAttach = await sut.assignVolunteerAsOperator(project.id, secondCompletion.accountId);
   expect(secondAttach.ok, 'a second volunteer was attached to a project that already has one').toBe(false);
   if (secondAttach.ok) return;
   expect(secondAttach.kind, 'the second attach was refused for a reason other than the seat being taken').toBe('seat-occupied');
 
-  // AND IT WROTE NOTHING: the seat still holds the FIRST volunteer.
   expect(await sut.projectAssignment(project.id), 'the refused attach changed the project seat').toMatchObject({
     id: project.id,
     assignedVolunteerId: firstCompletion.accountId,
   });
 
-  // THE CONTROL — the same call with the SAME volunteer is not refused, so the guard is about a
-  // second developer rather than about writing to the column at all.
   const again = await sut.assignVolunteerAsOperator(project.id, firstCompletion.accountId);
   expect(again, 'attaching the volunteer that already holds the seat was refused, so the refusal above is not about a SECOND one').toMatchObject(
     { ok: true },
@@ -1205,20 +810,6 @@ export async function at00132(ctx: Ctx): Promise<void> {
   expect(await sut.projectAssignment(project.id)).toMatchObject({ assignedVolunteerId: firstCompletion.accountId });
 }
 
-/**
- * AT-001.19 — the acknowledgment records who made it: name, title and the authority attestation.
- *
- * WHAT IS LIVE HERE: the act is the DEPLOYED `complete-signup`, so the three values cross the wire,
- * pass the shared validation inside the edge runtime, travel as named arguments into
- * `public.complete_signup`, and are read back out of the real `public.acknowledgments` row by an
- * operator query. Nothing here is a mirror.
- *
- * THE GITHUB-ESTABLISHED PATH IS NOT DRIVEN AT THIS TIER, and that narrowing is stated here rather
- * than left to be noticed. A github-established session needs a real consent round trip, which is
- * why AT-001.02, .04 and .05 are all capability-pending at this tier. The loop body drives a
- * GitHub-linked volunteer completion through the same shared validation and the same adapter write,
- * so the volunteer half of "every acknowledgment" is loop-proved and said to be loop-proved.
- */
 export async function at00119(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const session = await registerConfirmAndSignIn(sut, w.email('who-signed'));
@@ -1242,8 +833,6 @@ export async function at00119(ctx: Ctx): Promise<void> {
   expect(acknowledgments, 'exactly one platform acknowledgment is recorded by one completion').toHaveLength(1);
   const row = acknowledgments[0];
 
-  // EACH VALUE BY ITSELF, AND VERBATIM. A row carrying three empty strings records nothing while
-  // looking like a record, which is the same discipline AT-001.01 applies to its own three fields.
   expect(row.signerName, 'the acknowledgment does not record the name that was submitted').toBe(SIGNER.signerName);
   expect(row.signerTitle, 'the acknowledgment does not record the title that was submitted').toBe(SIGNER.signerTitle);
   expect(
@@ -1252,20 +841,6 @@ export async function at00119(ctx: Ctx): Promise<void> {
   ).toBe(ACKNOWLEDGMENT_IDENTITY_COPY.authorityStatement);
 }
 
-/**
- * AT-001.39 — an acknowledgment missing any one of the three is rejected and records nothing.
- *
- * THREE VARIANTS AT THIS TIER, one per omitted field, against the deployed function. The loop body
- * runs seven — the three omissions, the three whitespace-only forms, and an attestation whose
- * content contradicts the authority it claims — because those are refusals of the shared validation
- * and the loop tier drives that module directly.
- *
- * "RECORDS NOTHING" MEANS EVERY WRITE THE COMPLETION COULD HAVE MADE. A refusal that left an
- * organisation or a membership behind would satisfy an account-and-acknowledgment check while
- * having half-completed the signup, so the organisation is looked for BY THE NAME that was
- * attempted and the account's memberships are listed — the two reads the contract keeps for exactly
- * this question, because a refusal hands back no identifier to look anything up by.
- */
 export async function at00139(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -1310,9 +885,6 @@ export async function at00139(ctx: Ctx): Promise<void> {
     ).toEqual([]);
   }
 
-  // THE CONTROL, AND IT IS NOT OPTIONAL. A deployed path that refused every completion would satisfy
-  // all three refusals above, so a request differing ONLY in that it carries all three fields must
-  // succeed — which is what makes each refusal attributable to the missing field and nothing else.
   const control = await registerConfirmAndSignIn(sut, w.email('all-three'));
   const completed = await sut.completeSignup(
     control,
@@ -1329,13 +901,6 @@ export async function at00139(ctx: Ctx): Promise<void> {
   });
 }
 
-/**
- * AT-001.21 — one organisation cannot reach another's data, and the denial does not reveal
- * whether the thing exists.
- *
- * The green is over organisations, memberships, acknowledgments and a project's identity, because
- * those are the tenant rows this tree has. Drafts, ledger, files and thread do not exist yet.
- */
 export async function at00121(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const emailA = w.email('ngo-a-21');
@@ -1427,12 +992,6 @@ export async function at00121(ctx: Ctx): Promise<void> {
   await assertTenantCatalog(sut);
 }
 
-/**
- * AT-001.22 — an unassigned volunteer is denied a project's working data; the public page stays
- * visible. Unit 1 has no assigned-volunteer policy, so the denial is the absence of a branch.
- * The assigned-volunteer success belongs to unit 2. The positive control here is the owning
- * NGO's viewer read of the project and the public page's 200.
- */
 export async function at00122(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const emailNgo = w.email('ngo-22');
@@ -1499,11 +1058,6 @@ export async function at00122(ctx: Ctx): Promise<void> {
   await assertTenantCatalog(sut);
 }
 
-/**
- * AT-001.23 — the assigned volunteer reaches that project's working data, scoped to that
- * project only. The green is over organisations, memberships, acknowledgments and a
- * project's identity, because those are the tenant rows this tree has.
- */
 export async function at00123(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const emailNgoA = w.email('ngo-a-23');
@@ -1614,10 +1168,6 @@ export async function at00123(ctx: Ctx): Promise<void> {
   await assertTenantCatalog(sut);
 }
 
-/**
- * AT-001.40 — a platform administrator reaches every tenant table of two NGOs. An NGO
- * account repeating one of those reads is empty and answers the shared refusal.
- */
 export async function at00140(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
   const emailA = w.email('ngo-a-40');
@@ -1707,10 +1257,6 @@ export async function at00140(ctx: Ctx): Promise<void> {
   await assertTenantCatalog(sut);
 }
 
-/**
- * AT-001.24 — logged-out visitor. The API half is asserted first so a grant or public-page
- * regression fails the run; the UI redirect is the named capability this leaf does not land.
- */
 export async function at00124(ctx: Ctx): Promise<void> {
   const { w, sut } = await ctx.open();
 
@@ -1850,7 +1396,6 @@ export async function expectTransferred(
   expect(await sut.account(b.accountId), 'the new contact was deactivated too').toMatchObject({ accountType: 'ngo', lifecycle: 'active' });
 }
 
-/** AT-001.25's second arm: the seat moves on from B to C; B keeps its signup seat and stays active. */
 export async function expectSecondTransfer(sut: Opened['sut'], given: TransferGiven): Promise<void> {
   const second = await sut.transferOrganizationContact(given.admin, {
     organizationId: given.organizationId,
@@ -1933,7 +1478,6 @@ export async function expectTransferAudited(
   return record;
 }
 
-/** The database container keeps its own clock; a minute covers the drift seen on a laptop that slept. */
 const CONTAINER_CLOCK_TOLERANCE_MS = 60_000;
 
 export async function at00125(ctx: Ctx): Promise<void> {
@@ -2739,19 +2283,6 @@ export async function at00134(ctx: { open: () => Promise<unknown> }): Promise<vo
   throw new CapabilityPending(['vendors.gotrue-sign-in-rate-limit']);
 }
 
-/* -------------------------------------------------------- the ids that refuse, and what they name */
-
-/**
- * A refusal body: it opens a world — so the run is real and the id is genuinely exercised — and then
- * refuses with the capability this environment does not hold.
- *
- * IT IS NOT A SKIP AND IT IS NOT A STUB. `CapabilityPending` carrying an exact name is the same
- * shape the six explicit throws in `_live.ts` produce and the same shape a `capability-pending` declaration rebuilds,
- * so the id is red in a form the machinery matches from position 0 — and the declaration has to say
- * WHICH capability is missing. A body that instead asserted the half of the criterion it CAN reach
- * would be reporting a green for a criterion it does not prove, which is the whole failure mode this
- * tier exists to remove.
- */
 function refusesWith(capability: string): (ctx: Ctx) => Promise<void> {
   return async (ctx: Ctx): Promise<void> => {
     await ctx.open();
@@ -2759,20 +2290,6 @@ function refusesWith(capability: string): (ctx: Ctx) => Promise<void> {
   };
 }
 
-/**
- * AT-001.05 — the imported GitHub statistics.
- *
- * WHY THIS REFUSES RATHER THAN GOING GREEN, when the live path would in fact populate the row. The
- * criterion's words are "the imported PUBLIC STATS (top languages, repository count, contribution
- * summary) are observably populated". What the deployed completion imports is
- * `stubGithubStatsFor` — a shipped stub whose own output says "no GitHub API was called to produce
- * this". The row really is populated, and the statistics in it are fabricated, so a green at the
- * tier whose meaning is "proved for real" would be claiming the one thing that is not true.
- *
- * The stub is RATIFIED by the decomposition manifest's cross-contract ("stub import fixture until
- * W3"), and the loop tier's green over it is honest for that reason. This tier is the one that
- * cannot say it.
- */
 export const at00105 = refusesWith('vendors.github-public-statistics');
 
 export async function at00110(ctx: Ctx): Promise<void> {

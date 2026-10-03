@@ -1,19 +1,3 @@
-/**
- * The above-loop refusal, through the real path.
- *
- * CI never runs the integration tier. The factory selftests call the pure predicate by hand.
- * This file is the remaining guard: it spawns the pinned vitest on a suite that has a fixture
- * adapter and no `_live.ts`, with AT_TIER=integration and no stack coordinates, and asserts every
- * id fails with the named CapabilityPending. The refusal precedes construction, so the test needs
- * no stack.
- *
- * THE SUITE IS A DISPOSABLE TREE, on the pattern of `runner-blackbox.selftest.ts`. It used to be
- * the real req-016 suite, which was the one registered suite with no live adapter; now both
- * registered suites have one, so the example has to be planted. The tree is reached through
- * `AT_REPO_ROOT`, which moves data only: the suite registers through the REAL registry by absolute
- * file URL, and vitest comes from the real checkout. The rule under test is unchanged.
- */
-
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,10 +12,8 @@ const REQUIREMENT = '999';
 const REFUSAL = 'CapabilityPending: CAPABILITY PENDING — fixtures.worlds, sut.probe';
 const REGISTRY_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 'registry.ts')).href;
 
-/** A vitest config for the disposable tree; a plain object, because the tree has no node_modules. */
 const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
 
-/** A fixture adapter that declares itself, so the loop loader would accept it. No `_live.ts` beside it. */
 const FIXTURE_ADAPTER = `export const requirement = 'req-${REQUIREMENT}';
 export function createFixtureAdapter({ worlds }) {
   return {
@@ -42,7 +24,6 @@ export function createFixtureAdapter({ worlds }) {
 }
 `;
 
-/** Three ids, each opening a world, which is where the refusal fires. */
 const SUITE = `import { describe, it } from 'vitest';
 import { bindSuite } from '${REGISTRY_URL}';
 const { atTest } = bindSuite({ requirement: 'req-${REQUIREMENT}', sut: 'probe', sutMissingDetail: 'the probe sut is absent' });

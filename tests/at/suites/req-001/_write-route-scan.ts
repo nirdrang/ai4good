@@ -1,5 +1,4 @@
 import type { RouteSurface } from '../../../../supabase/functions/_shared/write-routes.ts';
-/** The static conformance scan of the write boundary: every route reaches the database through `writeRoute`. */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';

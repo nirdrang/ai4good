@@ -25,7 +25,6 @@ export type LocatorStep = {
   name?: string;
   text?: string;
   exact?: boolean;
-  /** `last` picks the last match. A number is the zero-based match. */
   position?: number | 'last';
 };
 
@@ -179,10 +178,6 @@ async function serveFile(root: string, req: IncomingMessage, res: ServerResponse
   }
 }
 
-/**
- * Builds the fixture shell into a temporary folder outside the repository, so a test run never
- * writes the worktree, and serves that folder from this process.
- */
 async function buildAndServe(opts: { viteConfig: string }): Promise<StaticShell> {
   const outDir = await mkdtemp(join(tmpdir(), 'ai4good-discovery-'));
   try {

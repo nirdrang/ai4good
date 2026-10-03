@@ -1,11 +1,3 @@
-/**
- * Oracle for the profile renderer and the profile definer's organisation-row lock.
- *
- * The renderer lives in the shared module because no type-checker covers the edge entry point.
- * The lock is a SQL fact: a missing organisation is already a refusal; this file pins that the
- * writer takes FOR UPDATE on the organisation row before the update, matching its siblings.
- */
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

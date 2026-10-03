@@ -1,9 +1,3 @@
-/**
- * THE ONE CLIENT FOR THE RUNNING STACK — shared by the integration adapter and the
- * verify-ai4good drive. Five coordinates (api, db, anon, service role, mail). HTTP to
- * Auth and the edge functions, Mailpit read, SQL, redaction.
- */
-
 export type Stack = {
   apiUrl: string;
   dbUrl: string;
@@ -12,7 +6,6 @@ export type Stack = {
   mailUrl: string;
 };
 
-/** Field to `AT_SUPABASE_*` name. `childCoordinates` writes through this; `stackFromEnv` reads it. */
 export const STACK_ENV = {
   apiUrl: 'AT_SUPABASE_URL',
   dbUrl: 'AT_SUPABASE_DB_URL',
@@ -63,7 +56,6 @@ function addressesOf(value: unknown): string[] {
     .filter((address) => address.length > 0);
 }
 
-/** The five `AT_SUPABASE_*` values the runner hands the child. Never recomputed here. */
 export function stackFromEnv(): Stack {
   const required = (field: 'apiUrl' | 'dbUrl' | 'anonKey' | 'serviceRoleKey'): string => {
     const name = STACK_ENV[field];
@@ -115,7 +107,6 @@ export async function authDelete(
   return { url, status: response.status, json: jsonBody(await response.text()) };
 }
 
-/** A Data API GET as a caller. `bearer` null sends the anon key as bearer (the AT-001.17 arm's shape). */
 export async function restGet(
   stack: Stack,
   pathAndQuery: string,
@@ -134,7 +125,6 @@ export async function restGet(
   return { url, status: response.status, text: await response.text() };
 }
 
-/** An edge-function POST that returns raw text so equality is over bytes. */
 export async function functionPostRaw(
   stack: Stack,
   name: string,
@@ -168,10 +158,6 @@ export async function functionPost(
   return { url, status, json: jsonBody(text) };
 }
 
-/**
- * The Mailpit `/api/v1/info` probe and its refusals. A URL is a string; the catcher is asked
- * what it is, and only an answer that identifies a catcher is accepted.
- */
 export async function mailIdentification(stack: Stack): Promise<string> {
   const base = stripSlash(stack.mailUrl);
   if (!base) {
@@ -274,10 +260,6 @@ export async function mailMessagesFor(
   }
 }
 
-/**
- * The links a raw message carries, in the order they appear. Quoted-printable is decoded in
- * full: soft breaks first (a break can sit in the middle of an escape), then `=XX`, then `&amp;`.
- */
 export function verifyLinksIn(raw: string, kind: 'signup' | 'recovery'): string[] {
   const body = raw
     .replace(/=\r?\n/g, '')
@@ -293,7 +275,6 @@ export function verifyLinksIn(raw: string, kind: 'signup' | 'recovery'): string[
   return links;
 }
 
-/** The same read, waited for up to 20 seconds. Sending mail is not synchronous with the request. */
 export async function verifyLinksFor(
   stack: Stack,
   address: string,
@@ -344,7 +325,6 @@ export function redactValue(value: unknown): unknown {
   return value;
 }
 
-/** A URL with its fragment cut and every query VALUE replaced; parameter names survive. */
 export function redactUrl(raw: string): string {
   try {
     const u = new URL(raw);

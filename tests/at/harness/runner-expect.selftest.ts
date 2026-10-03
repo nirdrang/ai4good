@@ -1,28 +1,3 @@
-/**
- * `--expect`, driven END TO END as a black box.
- *
- * WHY SEPARATELY from `expected.selftest.ts`: that file proves the comparison RULES by calling the
- * pure functions with hand-built inputs. The claim a gate depends on is different — "the assembled
- * runner, given a suite in a particular state and a declaration, exits with this code and says
- * this" — and assembly is where a false green hides: a preflight computed and not acted on, a
- * declaration read from the wrong root, a deviation list printed but not returned as an exit code.
- *
- * So each case plants a COMPLETE disposable tree — acceptance file, suite, vitest config, and
- * (usually) a declaration — points the real runner at it with `AT_REPO_ROOT`, and asserts the exit
- * code and the printed output. `node_modules` still resolves from the real checkout, so the child
- * runs the pinned vitest, and the fixture suite imports the REAL registry and the REAL
- * `CapabilityPending` by absolute file URL: these are tests of the harness, not of a copy of it.
- * That last part is load-bearing now that a declared red is matched by exact shape — a fixture
- * throwing a plain `Error` could never match a `capability-pending` declaration.
- *
- * The tree-planting helper below duplicates `runner-blackbox.selftest.ts`'s deliberately: sharing
- * it would mean editing a passing selftest that guards the runner's assembly, and forty lines of
- * fixture plumbing is a cheap price for not perturbing it.
- *
- * Every case runs at the loop tier, which by design takes no lock, starts no Docker and touches no
- * database.
- */
-
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,12 +13,6 @@ const REGISTRY_URL = pathToFileURL(join(INSTALL_ROOT, 'tests', 'at', 'harness', 
 
 const FIXTURE_VITEST_CONFIG = `export default { test: { include: ['suites/**/*.test.ts'], environment: 'node', testTimeout: 30000 } };\n`;
 
-/**
- * The adapter declares its own requirement because the real `loadAdapter()` checks that literal
- * against the requirement it was asked to load. These trees are not in `suite-adapters.ts`'s type
- * map and do not need to be — the check compares what the adapter says about itself against what
- * was requested, which needs no map.
- */
 function fixtureAdapter(requirement: string): string {
   return `export const requirement = 'req-${requirement}';
 export function createFixtureAdapter({ worlds }) {
@@ -56,14 +25,8 @@ export function createFixtureAdapter({ worlds }) {
 `;
 }
 
-/** The capability a fixture red is pending on. Never a real one — nothing here waits on H9. */
 const PENDING_CAPABILITY = 'H9 imaginary capability';
 
-/**
- * The requirement is a parameter because `atTest` now refuses an id whose requirement disagrees
- * with the binding's. These suites are never type-checked but they ARE executed, so that run-time
- * guard applies to them exactly as it does to a real suite.
- */
 function suitePreamble(requirement: string): string {
   return (
     `import { describe, expect, it } from 'vitest';\n` +
@@ -73,7 +36,6 @@ function suitePreamble(requirement: string): string {
   );
 }
 
-/** A green id: opens a world and asserts something the fixture adapter really answers. */
 function greenTest(atId: string): string {
   return (
     `  atTest('${atId}', 'a green one', async ({ open }) => {\n` +
@@ -83,10 +45,6 @@ function greenTest(atId: string): string {
   );
 }
 
-/**
- * A red id. It opens and asserts FIRST so the red is the thrown CapabilityPending and not the
- * registry's own complaint about a body that never opened a world or never asserted.
- */
 function redTest(atId: string): string {
   return (
     `  atTest('${atId}', 'a pending one', async ({ open }) => {\n` +
@@ -99,13 +57,11 @@ function redTest(atId: string): string {
 
 const p0 = (atId: string, text: string) => `- **${atId} (P0)** — ${text}\n`;
 
-/** A second file that dies while vitest is loading it — it never contributes a test at all. */
 const IMPORT_FAILURE_FILE =
   `import { describe, it } from 'vitest';\n` +
   `throw new Error('this file blows up at import time');\n` +
   `describe('never reached', () => { it('nothing', () => { expect(true).toBe(true); }); });\n`;
 
-/** The two-id suite every case shares, so the only variable between cases is the declaration. */
 function twoIdSuite(
   requirement: string,
   opts: { secondIsRed?: boolean; untaggedFailure?: boolean; brokenImport?: boolean } = {},
@@ -138,19 +94,10 @@ interface ExpectTree {
   requirement: string;
   acceptance: string;
   files: Record<string, string>;
-  /** raw text written to <tree>/tests/at/expected/req-<NNN>.json; omit to plant no declaration */
   manifest?: string;
-  /** pass --expect to the runner */
   expect: boolean;
 }
 
-/**
- * Plant a tree, run the real runner against it at the loop tier, remove the tree.
- *
- * The declaration is written under the TREE, not the checkout — which is why
- * `expectedManifestPath` must resolve from the AT_REPO_ROOT-overridable data root rather than the
- * install root. That is a hard constraint on the module, not a preference.
- */
 function runExpectTree(spec: ExpectTree): RunnerOutcome {
   const tree = mkdtempSync(join(tmpdir(), 'at-expect-'));
   try {
@@ -190,7 +137,6 @@ function runExpectTree(spec: ExpectTree): RunnerOutcome {
   }
 }
 
-/** Declarations are written out per case rather than generated, so no shared bug can agree with itself. */
 const declaration = (body: string) => `${body}\n`;
 
 describe('--expect passes only when the run matches the declaration exactly', () => {
@@ -294,7 +240,6 @@ describe('--expect refuses, and runs nothing, when the declaration cannot be hon
     expect(run.status, `a missing declaration did not refuse the run\n${run.output}`).toBe(2);
     expect(run.stderr).toContain('DECLARATION REFUSED');
     expect(run.stderr).toContain('req-914.json');
-    // No report table means no tests ran — the refusal has to happen before the suite is spawned.
     expect(run.stdout).not.toContain('at:verify req-914 --tier loop');
   });
 
@@ -318,7 +263,6 @@ describe('--expect refuses, and runs nothing, when the declaration cannot be hon
       requirement: '919',
       acceptance: twoIdAcceptance('919'),
       files: twoIdSuite('919'),
-      // Complete and well formed — for a tier nobody asked for.
       manifest: declaration(`{
   "requirement": "919",
   "tiers": {
@@ -358,8 +302,6 @@ describe('--expect refuses, and runs nothing, when the declaration cannot be hon
 
 describe('without --expect the runner behaves exactly as it did before', () => {
   it('exits 1 on the same tree and declaration that --expect exits 0 on', () => {
-    // The control. Its tree and declaration are case 1's; only the flag differs, so the pair
-    // proves the flag is doing the work rather than something else about the tree.
     const run = runExpectTree({
       requirement: '916',
       acceptance: twoIdAcceptance('916'),
@@ -386,11 +328,6 @@ describe('without --expect the runner behaves exactly as it did before', () => {
 
 describe('--expect accounts for the whole run, not only the ids it can name', () => {
   it('fails a run carrying an extra failure that no AT id claims', () => {
-    // THE case Gate 1 found. Both declared ids match their declarations perfectly, so the per-id
-    // comparison is silent; an untagged `it()` also failed, and only the report's own arithmetic
-    // can see it. Without that arithmetic this tree exits 0 — a false green inside the artefact
-    // built to remove one. The untagged test is not an `atTest(` call site, so the static
-    // bijection preflight still passes and the run reaches its verdict.
     const run = runExpectTree({
       requirement: '917',
       acceptance: twoIdAcceptance('917'),
@@ -410,7 +347,6 @@ describe('--expect accounts for the whole run, not only the ids it can name', ()
     expect(run.status, `an unaccounted-for failure was reported as the expected state\n${run.output}`).toBe(1);
     expect(run.output).toContain('counts 2 failed tests but the declaration declares 1 red');
     expect(run.output).toContain('an extra test ran');
-    // and the ids themselves are NOT reported as deviations — the point of the case
     expect(run.output).not.toContain('AT-917.01 —');
     expect(run.output).not.toContain('AT-917.02 —');
   });
@@ -418,11 +354,6 @@ describe('--expect accounts for the whole run, not only the ids it can name', ()
 
 describe('--expect sees a failure that belongs to a FILE and to no test', () => {
   it('fails a run where a second file died at import while every declared count stayed correct', () => {
-    // Gate 2's shared finding, raised independently by codex and Kimi. The declared ids report
-    // exactly as declared, every count matches, and `success === false` reads as expected because
-    // reds ARE declared — so before the file-level check this tree exited 0. Measured against the
-    // real reporter: the import failure adds a file entry with status "failed", zero assertions
-    // and a message, and moves no test count at all.
     const run = runExpectTree({
       requirement: '920',
       acceptance: twoIdAcceptance('920'),
@@ -443,7 +374,6 @@ describe('--expect sees a failure that belongs to a FILE and to no test', () => 
     expect(run.output).toContain('z-broken.test.ts');
     expect(run.output).toContain('not one test in it failed');
     expect(run.output).toContain('this file blows up at import time');
-    // and the declared ids are NOT deviations — which is exactly why nothing else caught this
     expect(run.output).not.toContain('AT-920.01 —');
     expect(run.output).not.toContain('AT-920.02 —');
   });
@@ -451,8 +381,6 @@ describe('--expect sees a failure that belongs to a FILE and to no test', () => 
 
 describe('--expect and --wired cannot be combined', () => {
   it('refuses the pair as a usage error rather than reporting the wired refusal', () => {
-    // --wired runs no tests, so there is no report for a declaration to check. Costs no vitest
-    // spawn: it fails in argument parsing, before anything is read.
     const run = spawnSync(bunExecutable(), ['--no-env-file', RUNNER, 'req-910', '--tier', 'loop', '--expect', '--wired'], {
       cwd: INSTALL_ROOT,
       env: childEnv(),

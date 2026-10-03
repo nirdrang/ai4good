@@ -1,20 +1,3 @@
-/**
- * What REQ-016 adds to the shared harness contract.
- *
- * The generic seams — tier, clock, fixture worlds, sentinels, faults, static scan, config,
- * vendor sims, the harness shape itself — now live in ONE harness-owned module,
- * `tests/at/harness/contracts.ts`. This file was the pre-harness stopgap that declared all of
- * them because no such module existed; keeping thirty suites each restating the seam is how
- * "the harness contract" stops meaning anything.
- *
- * What is left here is genuinely REQ-016's: the notification system under test, the row / event /
- * delivery shapes its assertions read, and what this requirement's fixture world can do. The
- * shared types are re-exported so the test bodies still import one file.
- *
- * Integration point: `_bind.ts` remains the ONLY module that resolves the real harness. When a
- * later slice changes a shared seam, reconcile it in the harness module, never in the tests.
- */
-
 import type {
   EmailProviderSim as SharedEmailProviderSim,
   ProviderAttempt as SharedProviderAttempt,
@@ -38,48 +21,8 @@ export type {
 } from '../../harness/contracts.ts';
 export { TIERS } from '../../harness/contracts.ts';
 
-/* ------------------------------------------------------------------ SUT (REQ-016) */
-
-/*
- * TYPE ALIASES, NOT INTERFACES, FROM HERE DOWN — the same rule `contracts.ts` states for the shared
- * seams, arriving at this file only now, and for a reason that did not exist before.
- *
- * Nothing reachable from the objects `open()` hands a test body may be an interface, because an
- * interface can be reopened with `declare module` and a member merged into it read green off a
- * value that never supplies it. An OPTIONAL member is what makes that slip past everything: the
- * producer still satisfies its annotation, so nothing goes red anywhere, and the body reads
- * `undefined` at run time believing it read data.
- *
- * These types sat OUTSIDE that boundary while `open().sut` and `open().w` were the suite's own type
- * arguments — pinning your own types hides a merged member rather than rejecting it, which is
- * exactly why "REQ-016 is not affected" was never an answer. AI4DEV-31 derives both from the
- * adapter instead, so `open().sut` now resolves to `NotificationsSut` and everything its methods
- * return is on the seam path. Being on that path is what puts them under the rule.
- *
- * The severity did drop on the way in: with one derived type, a merged-in REQUIRED member breaks
- * the adapter itself (TS2741). What the alias conversion kills is the OPTIONAL member that reads
- * `undefined` and breaks nothing — precisely the case that slipped past two adversarial gates in
- * AI4DEV-24 and is the reason this rule exists at all.
- *
- * `World` IS CONVERTED TOO, and the story of why is worth keeping because it is a measurement that
- * was right about one route and wrong about the route that mattered. Gate 1 measured the DIRECT read
- * — `open().w.invented`, on a world that resolves to the adapter's concrete fixture-world class —
- * and found it TS2339 whether `World` is an interface or an alias, because a class does not acquire
- * members merely because an interface it implements was augmented. True, and it was taken as reason
- * to leave `World` alone.
- *
- * Gate 2 measured the UPCAST route, which that reasoning never covered. The class implements `World`,
- * so `const asWorld: World = w` needs no cast; a member merged into the `World` INTERFACE then reads
- * green off it — exit 0, measured. And the suite still spells `World` on the seam path
- * (`d-taxonomy-evidence.test.ts` annotates with `World['actors']`), so the condition the earlier
- * ruling attached to itself — "no remaining seam path resolves to `World`" — did not hold. So it is
- * an alias like everything else here, and the uniform rule needs no exception to explain.
- */
-
 export type SenderProbe = {
-  /** component identifier, e.g. 'notifications.emitter', 'blockers.service' */
   component: string;
-  /** does this component hold a direct send path / provider credential? */
   canSendDirectly: boolean;
 };
 
@@ -93,23 +36,14 @@ export type RegisteredRow = {
 export type DocumentedDefault = {
   event: string;
   channels: Channel[];
-  /** where the default is documented — empty string = implicit behaviour, which fails AT-016.06 */
   source: string;
 };
 
 export type NotificationEvent = {
   id: string;
   type: string;
-  /** resolved at event CREATION (AT-016.10), never at send time */
   recipients: { role: Role; recipientId: string; channels: Channel[] }[];
   state: 'pending' | 'retrying' | 'sent' | 'failed';
-  /**
-   * WORKER PASSES THAT ATTEMPTED THIS EVENT — not provider sends. A pass that attempted only an
-   * in-app delivery increments it, and in-app never reaches a provider, so this number can exceed
-   * the sends that were physically made. It is the system under test's own counter, and the
-   * provider trace (`EmailProviderSim.attempts()`) is the send-count oracle beside it; AT-016.11
-   * checks both precisely because the two can disagree.
-   */
   attempts: number;
 };
 
@@ -120,18 +54,9 @@ export type Delivery = {
   recipientId: string;
   channel: Channel;
   state: 'pending' | 'retrying' | 'sent' | 'failed';
-  /** which component performed the send — AT-016.01's sole-writer observable */
   emittedBy: string;
-  /**
-   * WHICH PROCESS INSTANCE performed the send — `null` until one did. Deliberately NOT named
-   * `deliveredBy`: it sits beside `emittedBy`, which names a COMPONENT, and the two must not read
-   * as the same kind of thing. This one is the delivery process's identity, the value
-   * `Faults.processEpoch()` reports and `processRestart()` changes, so a send that happened after
-   * a restart carries a different string than one that happened before it (AT-016.07).
-   */
   deliveredByProcess: string | null;
   payload: Record<string, unknown>;
-  /** rendered copy delivered to the recipient (payload semantics checks) */
   body: string;
 };
 
@@ -148,66 +73,26 @@ export type EmitResult = {
 };
 
 export type NotificationsSut = {
-  /** every component the architecture lets send comms (AT-016.01) */
   senders(): Promise<SenderProbe[]>;
-  /** the registered event set (AT-016.02/03/06) */
   taxonomy(): Promise<RegisteredRow[]>;
-  /** documented per-event delivery defaults; the runtime-binding oracle (AT-016.06/03) */
   documentedDefaults(): Promise<DocumentedDefault[]>;
-  /** runtime registration/mutation entry points — MUST be empty in v1 (AT-016.02) */
   runtimeRegistrationSurface(): Promise<string[]>;
-  /** direct emitter call, used only to probe rejection of unregistered types (AT-016.02) */
   emit(req: { type: string; ctx?: Record<string, unknown> }): Promise<EmitResult>;
   events(filter?: { type?: string }): Promise<NotificationEvent[]>;
   deliveries(filter?: { type?: string }): Promise<Delivery[]>;
   opsItems(filter?: { linkedEventId?: string }): Promise<OpsItem[]>;
-  /**
-   * Run the delivery worker. Default = to quiescence (or until it can make no further
-   * progress). `passes` bounds it to N worker passes so a test can observe the state
-   * BETWEEN attempts — AT-016.11's "the unconfirmed send is observable as pending/retrying"
-   * is unobservable if every drain is run-to-quiescence.
-   */
   drainDeliveries(opts?: { passes?: number }): Promise<void>;
 };
 
-/* ----------------------------------------------- REQ-016's fixture world + harness */
-
-/**
- * What REQ-016's scenarios need a world to do, on top of the shared world seam.
- *
- * An INTERSECTION, not `interface World extends WorldSeam`, for the alias reason above: an interface
- * can be reopened, and a member merged into this one reads green off any value upcast to it.
- */
 export type World = WorldSeam & {
-  /** role -> actor id in this world */
   actors: Record<Role, string>;
-  /**
-   * role -> the email address the directory resolves that actor to, namespaced per world. An
-   * integration body reads the mail catcher by these, so the out-of-band witness is scoped to
-   * this world's recipients and never to another world's, or a previous run's, mail.
-   */
   addresses: Record<Role, string>;
-  /**
-   * Raise a taxonomy event from its OWNING domain fixture (per the REQ-016 boundary note:
-   * the events fire from their own requirements; this suite asserts who/how).
-   */
   fire(event: string, params?: Record<string, unknown>): Promise<{ eventId: string }>;
-  /** did the ledger/state transition that accompanies this event commit? (AT-016.09) */
   transitionCommitted(event: string): Promise<boolean>;
-  /** hand a role to a different actor (AT-016.10) */
   reassignRole(role: Role, toActorId: string): Promise<string>;
-  /** post N thread comments inside one anti-spam window (AT-016.08) */
   burstThreadComments(count: number): Promise<void>;
 };
 
-/** The shared vendor seams, bound to the channel names REQ-016's taxonomy uses. */
 export type ProviderAttempt = SharedProviderAttempt<Channel>;
 export type EmailProviderSim = SharedEmailProviderSim<Channel>;
 export type Vendors = SharedVendors<Channel>;
-
-// A suite-local `AtHarness` alias and a `HarnessModule` interface used to live here, binding the
-// shared harness to REQ-016's system under test, world and channel names. They went dead when the
-// harness stopped being a type a suite may name or re-label: `h` is now exactly what the factory is
-// checked to produce, so there is nothing for a suite to bind. Left in place they would be the most
-// inviting thing in this file for a future author to reach for, and reaching for them is precisely
-// the move the type-check no longer permits.

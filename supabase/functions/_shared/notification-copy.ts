@@ -1,14 +1,3 @@
-/**
- * The copy a recipient receives, rendered from a taxonomy row and the producer's payload.
- *
- * Rows whose payload keys the requirement names have their own wording, so the named meaning
- * reaches the recipient rather than sitting in a field the general sentence never uses. Every
- * other row uses one general template: the subject is the event name in words, and the body
- * carries every string the payload holds.
- *
- * Pure: no I/O, no clock, no Deno, relative imports only.
- */
-
 import type { TaxonomyRow } from './notification-taxonomy.ts';
 import { SCOPE_COPY } from './scope-copy.ts';
 
@@ -17,7 +6,6 @@ export type Copy = {
   body: string;
 };
 
-/** `blocker.aging_48h` reads as `Blocker aging 48h`. */
 export function eventInWords(event: string): string {
   const words = event.replace(/[._]/g, ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
