@@ -7,8 +7,6 @@ export type Importance = "needed" | "suggested" | "later";
 export type DiscoveryUsage = {
   dailyLeft: number;
   dailyGrant: number;
-  betaLeft: number;
-  betaGrant: number;
   availableMicros: number;
   reservedMicros: number;
   /** This gate's paid allocation, and what it has settled, for the paid gauge. */
@@ -16,7 +14,7 @@ export type DiscoveryUsage = {
   settledMicros: number;
   /** The hold one paid reply reserves. */
   holdMicros: number;
-  /** The next reset as an ISO instant, or null when no free reply returns (beta used up). */
+  /** The next UTC daily reset as an ISO instant, or null when the reset is unknown. */
   nextResetAt: string | null;
   nextReply: "free" | "paid" | "unavailable";
 };

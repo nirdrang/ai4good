@@ -225,8 +225,6 @@ export function planReplyTurn(input: {
 export type ScreenUsage = {
   dailyLeft: number;
   dailyGrant: number;
-  betaLeft: number;
-  betaGrant: number;
   availableMicros: number;
   reservedMicros: number;
   allocationMicros: number;
@@ -251,7 +249,6 @@ export function screenUsage(value: unknown): ScreenUsage | null {
     || (nextReply !== 'free' && nextReply !== 'paid' && nextReply !== 'unavailable')) return null;
   return {
     dailyLeft, dailyGrant,
-    betaLeft: dailyLeft, betaGrant: dailyGrant,
     availableMicros, reservedMicros, allocationMicros, settledMicros, holdMicros,
     nextResetAt: typeof value.next_reset_at === 'string' ? value.next_reset_at : null,
     nextReply,

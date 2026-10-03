@@ -125,7 +125,7 @@ export const TEXT = {
     "Discovery is ready for review. The AI has stopped asking questions. Select Finish Discovery.",
   notePlaceholder: "Add a note to your answers (optional)",
   replyPlaceholder: "Reply to ai4good AI",
-  usageValues: { daily: "Free today", beta: "Beta", fuel: "Fuel" },
+  usageValues: { daily: "Free today", fuel: "Fuel" },
   ack: {
     reviewed: (revision: number) =>
       `I have reviewed revision ${revision}. It describes the first version we need.`,
