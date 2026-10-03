@@ -6,7 +6,7 @@ import { discoveryModelPort } from './discovery-model.ts';
 import { discoveryFileWorker } from './edge.ts';
 import { isRecord } from './write-routes.ts';
 
-export async function fileReadCommit(fileId: string, action: string, payload: Record<string, unknown>): Promise<unknown> {
+async function fileReadCommit(fileId: string, action: string, payload: Record<string, unknown>): Promise<unknown> {
   return discoveryFileWorker().commit(fileId, action, payload);
 }
 

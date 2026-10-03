@@ -1,12 +1,12 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
-import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage, type ReplyTool } from './discovery-reply.ts';
+import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
 import { SCOPE_COPY } from './scope-copy.ts';
-import { scopeSourceFromBrief, scopeViewFromSql, type RecordScopeTool, type ScopeView } from './scope.ts';
+import { scopeSourceFromBrief, scopeViewFromSql, type ScopeView } from './scope.ts';
 import type { DiscoverySkill } from './discovery-skills.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED } from './tenant-reads.ts';
 import type { CallerReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
@@ -21,7 +21,7 @@ export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discove
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
 export type DiscoveryModelRequest = {
   model: string; maxTokens: number; effort: 'low'; system: SystemBlock[];
-  tools: readonly { name: string; description: string; input_schema: Record<string, unknown> }[];
+  tools: readonly { name: string; description: string; input_schema: { type: 'object'; [key: string]: unknown } }[];
   images?: { mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }[];
   toolChoice?: { type: 'tool'; name: string };
   messages: { role: 'user' | 'assistant'; content: string }[];

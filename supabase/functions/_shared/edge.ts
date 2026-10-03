@@ -211,8 +211,8 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     const caller = await resolveCaller(request, SUPABASE_URL, ANON_KEY);
     if (!caller) return refusal(`authenticate before calling ${spec.name}`, 401);
 
-    const body = await (spec.readBody ?? readJsonBody)(request);
-    if (!body.ok) return refusal(body.reason, 400);
+    const body = spec.readBody ? await spec.readBody(request) : await readJsonBody(request);
+    if (!body.ok) return json({ ok: false, kind: 'kind' in body ? body.kind : 'invalid-request', reason: body.reason }, 'status' in body ? body.status ?? 400 : 400);
 
     const target = spec.target ? spec.target(body.value) : null;
     const subject = spec.subject ? spec.subject(body.value) : null;

@@ -1,5 +1,5 @@
 import { decideDiscoveryFile } from '../_shared/discovery-file-write.ts';
-import { screenFile, type FileRow } from '../_shared/discovery-files.ts';
+import { FILE_MAX_BYTES, screenFile, type FileRow } from '../_shared/discovery-files.ts';
 import { readDiscoveryFile } from '../_shared/discovery-file-read.ts';
 import { discoveryFileWorker, readJsonBody, writeRoute } from '../_shared/edge.ts';
 import { organizationIdField, refuseWrite } from '../_shared/write-routes.ts';
@@ -14,9 +14,13 @@ Deno.serve(writeRoute({
       if (body.ok && body.value.fileId) body.value.file = { id: body.value.fileId };
       return body;
     }
+    if (Number(request.headers.get('content-length')) > FILE_MAX_BYTES + 65536) {
+      return { ok: false, kind: 'file-too-large', status: 413, reason: 'Choose a file of 10 MB or less.' };
+    }
     const form = await request.formData();
     const file = form.get('file');
     if (!(file instanceof File)) return { ok: false, reason: 'Choose a file to add.' };
+    if (file.size > FILE_MAX_BYTES) return { ok: false, kind: 'file-too-large', status: 413, reason: 'Choose a file of 10 MB or less.' };
     const contentHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))]
       .map((byte) => byte.toString(16).padStart(2, '0')).join('');
     const value = { action: form.get('action') ?? 'add', organizationId: form.get('organizationId'), projectId: form.get('projectId'),

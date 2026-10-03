@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stackFromLocalStatus } from '../../../../../tests/at/harness/local-stack.ts';
-import { functionPost, restGet, sqlClient } from '../../../../../tests/at/harness/live-stack.ts';
+import { functionPost, restGet } from '../../../../../tests/at/harness/live-stack.ts';
 import { createLiveAdapter } from '../../../../../tests/at/suites/req-003/_live.ts';
 import { seedFileProject, uploadFile, waitForFile } from '../../../../../tests/at/suites/req-032/_files.ts';
 import { discoveryPrepare, decideDiscoveryMessage, type CallerReads, type DiscoveryModelRequest } from '../../../../../supabase/functions/_shared/discovery-turn.ts';
@@ -75,7 +75,7 @@ try {
     need: async () => ({ ok: true, rows: needRows }), discoveryTurnsOf: async () => ({ ok: true, rows: [] }),
     discoveryBriefOf: async () => ({ ok: true, value: briefRows[0].value }), discoveryFilesOf: async () => ({ ok: true, rows: fileRows }),
   } as unknown as CallerReads;
-  const caller = { id: seed.ngo.accountId, emailVerified: true };
+  const caller = { id: seed.ngo.accountId, emailVerified: true, githubHandle: null };
   const standing = parseWriteStanding({ account: { account_type: 'ngo', lifecycle: 'active' }, org_exists: true, org_role: 'admin', org_seat_account_id: seed.ngo.accountId });
   const decision = writePipeline({ name: 'discovery-message', decide: decideDiscoveryMessage }, { caller, standing, target: org, subject: null, ip: null,
     body: { organizationId: org, projectId: project, mode: 'answer', userMessageId: crypto.randomUUID(), expectedCharge: 'free', message: 'Please continue our kitchen rota brief.' } });

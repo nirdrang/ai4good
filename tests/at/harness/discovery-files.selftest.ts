@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import { evolveBrief, openingDocument } from '../../../supabase/functions/_shared/discovery-brief.ts';
-import { fileLimitReached, mergeFileDigests, parseFileDigest, screenFile, splitFileText, type FileRow } from '../../../supabase/functions/_shared/discovery-files.ts';
+import { fileDigestContext, fileLimitReached, fileReport, mergeFileDigests, parseFileDigest, screenFile, splitFileText, type FileRow } from '../../../supabase/functions/_shared/discovery-files.ts';
+import { decideDiscoveryFile } from '../../../supabase/functions/_shared/discovery-file-write.ts';
+import type { AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
 
 it('splits the complete text without dropping characters or splitting surrogate pairs', () => {
   const text = 'abcd😀efgh\nijkl';
@@ -51,4 +53,27 @@ it('projects progress, completion and failure to the screen contract', () => {
   expect(screenFile(row).status).toEqual({ kind: 'reading', percent: 50 });
   expect(screenFile({ ...row, status: 'read', facts_count: 3 }).status).toEqual({ kind: 'ready', facts: 3 });
   expect(screenFile({ ...row, status: 'failed', failure_reason: 'Unreadable' }).status).toEqual({ kind: 'failed', reason: 'Unreadable' });
+});
+
+it('passes only completed live digests to later turns and composes the report', () => {
+  const row = { id: 'file', name: 'rota.txt', status: 'read', removed_at: null,
+    digest: { facts: [{ sectionId: 'usersToday', text: '45 volunteers' }], questions: ['Which days?'] } } as FileRow;
+  const context = fileDigestContext([row, { ...row, id: 'removed', removed_at: '2026-10-03' }, { ...row, id: 'reading', status: 'reading' }]);
+  expect(context).toHaveLength(1);
+  expect(context[0]!.content).toContain('45 volunteers');
+  expect(context[0]!.content).toContain('Which days?');
+  expect(fileReport(row)).toBe('I finished reading rota.txt, and it shows that 45 volunteers');
+});
+
+it('refuses unsupported, oversized and non-admin uploads before storage', () => {
+  const input = { caller: { id: 'ngo', emailVerified: true, githubHandle: null }, target: 'org', subject: null, ip: null,
+    standing: { kind: 'account', accountType: 'ngo', lifecycle: 'active', orgExists: true, orgRole: 'admin', orgSeatAccountId: 'ngo', subject: null },
+    body: { projectId: '00000000-0000-4000-8000-000000000001', action: 'add', file: {
+      id: '00000000-0000-4000-8000-000000000002', name: 'rota.txt', sizeBytes: 42, mediaType: 'text/plain', contentHash: 'a'.repeat(64),
+    } },
+  } as AccountWriteRouteInput;
+  expect(decideDiscoveryFile(input).ok).toBe(true);
+  expect(decideDiscoveryFile({ ...input, body: { ...input.body, file: { ...(input.body.file as object), sizeBytes: 10485761 } } })).toMatchObject({ ok: false, kind: 'file-too-large' });
+  expect(decideDiscoveryFile({ ...input, body: { ...input.body, file: { ...(input.body.file as object), mediaType: 'application/zip' } } })).toMatchObject({ ok: false, kind: 'unsupported-file-type' });
+  expect(decideDiscoveryFile({ ...input, standing: { ...input.standing, orgRole: 'member' } })).toMatchObject({ ok: false, kind: 'not-an-admin' });
 });
