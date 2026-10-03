@@ -627,6 +627,143 @@ function applyFileFacts(version: BriefVersion, command: Extract<BriefCommand, { 
   return changed(document, version.revision + 1, null, filed);
 }
 
+export type ReplyQuestionUpdate = {
+  topicId: string;
+  suggestion: string;
+  suggested: string;
+  importance: Importance;
+  reason: string;
+};
+
+export type ReplyAgreedUpdate = { topicId: string; answer: string };
+export type ReplyOpenUpdate = { topicId: string; importance: Importance };
+
+export type ReplyUpdate = {
+  text: string;
+  questions: readonly ReplyQuestionUpdate[];
+  agreed: readonly ReplyAgreedUpdate[];
+  openQuestions: readonly ReplyOpenUpdate[];
+};
+
+function matchOption(options: readonly SuggestedAnswer[], suggested: string): string | null {
+  const trimmed = suggested.trim();
+  const byId = options.find((option) => option.id === trimmed);
+  if (byId) return byId.id;
+  const byLabel = options.find((option) => option.label === trimmed || option.answer === trimmed);
+  return byLabel?.id ?? null;
+}
+
+function applyModelQuestion(document: BriefDocument, item: ReplyQuestionUpdate, round: number): boolean {
+  const topic = document.topics[item.topicId];
+  if (!topic) return false;
+  let changed = false;
+  if (item.suggestion.trim() !== '' && topic.suggestion !== item.suggestion) {
+    topic.suggestion = item.suggestion;
+    changed = true;
+  }
+  if (topic.importance !== item.importance) {
+    topic.importance = item.importance;
+    changed = true;
+  }
+  if (ensureQuestion(document, topic, round)) changed = true;
+  const question = document.questions[topic.id];
+  if (!question) return changed;
+  const suggestedId = matchOption(question.options, item.suggested) ?? question.suggestedId;
+  if (question.suggestedId !== suggestedId) {
+    question.suggestedId = suggestedId;
+    changed = true;
+  }
+  if (question.importance !== item.importance) {
+    question.importance = item.importance;
+    changed = true;
+  }
+  if (item.reason.trim() !== '' && question.reason !== item.reason) {
+    question.reason = item.reason;
+    changed = true;
+  }
+  return changed;
+}
+
+function applyModelAgreed(
+  document: BriefDocument,
+  item: ReplyAgreedUpdate,
+  round: number,
+  userMessageId: string,
+  answered: ReadonlySet<string>,
+): FiledTopic | null {
+  const topic = document.topics[item.topicId];
+  if (!topic || answered.has(topic.id)) return null;
+  if (topic.state.kind === 'agreed' && topic.state.answer === item.answer && topic.needsReview !== true) return null;
+  clearReview(topic);
+  topic.state = {
+    kind: 'agreed',
+    answer: item.answer,
+    source: { kind: 'chat', round },
+    answerMessageId: userMessageId,
+  };
+  return { id: topic.id, title: topic.title };
+}
+
+function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: number): boolean {
+  const topic = document.topics[item.topicId];
+  if (!topic || topicSettled(topic)) return false;
+  let changed = false;
+  if (topic.importance !== item.importance) {
+    topic.importance = item.importance;
+    changed = true;
+  }
+  if (ensureQuestion(document, topic, round)) changed = true;
+  const question = document.questions[topic.id];
+  if (question && question.importance !== item.importance) {
+    question.importance = item.importance;
+    changed = true;
+  }
+  return changed;
+}
+
+/** Answers land first. A model entry that repeats an answer already stored does not change the brief. */
+export function applyReplyTurn(current: BriefVersion, input: {
+  answers: readonly DiscoveryAnswer[];
+  userMessageId: string;
+  round: number;
+  update: ReplyUpdate;
+}): BriefTransition {
+  const answered = evolveBrief(current, {
+    kind: 'apply-answers',
+    answers: input.answers,
+    round: input.round,
+    userMessageId: input.userMessageId,
+  });
+  const base = answered.kind === 'refused' ? current : answered.brief;
+  const filed = answered.kind === 'changed' ? [...answered.filed] : [];
+  const protectedIds = new Set<string>();
+  for (const answer of input.answers) {
+    const question = current.document.questions[answer.questionId];
+    if (question) protectedIds.add(question.topicId);
+  }
+  const document = clone(base.document);
+  const before = JSON.stringify(document);
+  for (const question of input.update.questions) applyModelQuestion(document, question, input.round);
+  for (const agreed of input.update.agreed) {
+    const filedTopic = applyModelAgreed(document, agreed, input.round, input.userMessageId, protectedIds);
+    if (filedTopic) filed.push(filedTopic);
+  }
+  for (const open of input.update.openQuestions) applyModelOpen(document, open, input.round);
+  const modelChanged = JSON.stringify(document) !== before;
+  if (!modelChanged) return answered.kind === 'changed' ? answered : unchanged(current);
+  const revision = answered.kind === 'changed' ? answered.brief.revision : current.revision + 1;
+  const line = answered.kind === 'changed' ? answered.personLine : null;
+  return changed(document, revision, line, filed);
+}
+
+export function requiredAgreement(version: BriefVersion): { agreed: number; total: number; ready: boolean } {
+  const required = version.document.topicOrder
+    .map((id) => version.document.topics[id])
+    .filter((topic): topic is StoredTopic => topic !== undefined && topic.required);
+  const agreed = required.filter((topic) => topicSettled(topic)).length;
+  return { agreed, total: required.length, ready: required.length > 0 && agreed === required.length };
+}
+
 export function evolveBrief(current: BriefVersion, command: BriefCommand): BriefTransition {
   switch (command.kind) {
     case 'edit':
