@@ -1,64 +1,3 @@
-/**
- * REQ-001's LIVE adapter — the integration tier's system under test.
- *
- * READ THIS BEFORE TRUSTING A GREEN FROM THE INTEGRATION TIER, because what it claims is different
- * from what the loop tier claims, and neither is "REQ-001 works".
- *
- * `_fixture.ts` is storage: its judgements are the shipped modules' and its storage is a Map, so a
- * loop-tier green says the DECISIONS are right and says nothing about the migration, the deployed
- * functions, row-level security or Supabase Auth. This file is the other half. Every operation below
- * goes to the stack:
- *
- *   - Supabase Auth over HTTP, at the stack's gateway — signup, the password grant, logout,
- *     refresh, recovery, and the emailed links as the stack's mail catcher really holds them;
- *   - the DEPLOYED edge functions, served by the stack's own edge-runtime container out of this
- *     tree's `supabase/` — so `verify_jwt`, the platform's own token check, `resolveCaller` and the
- *     database function all sit on the path;
- *   - the database as the OPERATOR, over the connection string the runner validated, for the
- *     read-backs an assertion needs and for the two Givens no public path can reach.
- *
- * ============================================================================================
- * WHAT IS NOT BACKED, AND WHY
- * ============================================================================================
- *
- * THE FOUR FAMILIES THAT ARE DELIBERATELY NOT BACKED, each with the fact that keeps it that way:
- *
- *   1. `registerWithProvider`, `registerWithGithub`, `signInWithProvider` — the OAuth handshakes.
- *      No GitHub or Google OAuth app or credential exists in this environment: AI4DEV-58's live
- *      proof records its GitHub check SKIPPED for exactly that reason, and the config's own comments
- *      say the provider blocks prove well-formedness and never a round trip. Consent is a person
- *      pressing a button, which no agent performs. A green over a fabricated provider session at the
- *      tier whose meaning is "proved for real" would be the false green this repository exists to
- *      kill.
- *   3. `publicSignupAccountTypes` — a constant exported by a shipped module, with no deployed
- *      surface that reports it. Reading it back here would be this file asking the shipped module
- *      what the shipped module says. AT-001.07's integration body proves the same clause the way a
- *      live tier can: the DEPLOYED completion path refuses `platform_admin`.
- *   4. `emailedPasswordResetLink` is backed and `completePasswordReset` is backed, but note what the
- *      pair does NOT model — expiry, single use and resend. AT-001.15 is retired and those semantics
- *      are unstated in REQ-001, so nothing here asserts them.
- *
- * ============================================================================================
- * THE ONE DIVERGENCE THAT CANNOT BE HIDDEN: REGISTRATION ISSUES NO SESSION
- * ============================================================================================
- *
- * `_contract.ts` says `registerWithEmailPassword` returns "the resulting session", and records that
- * the loop fixture MINTS one although the live stack issues none — it calls that the DECLARED
- * DIVERGENCE, in those words. With `enable_confirmations = true` the live GoTrue creates the user,
- * sends the confirmation email, and answers with no tokens. AI4DEV-59's proof measured exactly that:
- * "signup HTTP 200 … carried a session: false".
- *
- * SO THIS ADAPTER RETURNS A HANDLE THAT NAMES THE ACCOUNT AND HOLDS NO SESSION — `sessionId` is the
- * empty string, and no access token is stored against it. It does NOT fabricate one, and the reason
- * is the whole doctrine: a minted handle would let a body complete signup with a session the live
- * stack never issued, which is a green over a state that does not exist.
- *
- * WHAT HAPPENS WHEN A BODY USES IT ANYWAY: every session-taking operation here looks the token up
- * and REFUSES when there is none, naming this paragraph. The failure direction is a false RED. That
- * is why the integration bodies follow the LIVE PUBLIC ORDER — register, use the emailed link, sign
- * in — and take their session from the sign-in, which is the order a real person follows.
- */
-
 import { emailVerifiedFromUser } from '../../../../supabase/functions/_shared/verification.ts';
 import { parseWriteRefusalKind, type WriteRouteName } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
@@ -122,18 +61,13 @@ function asOrganizationRow(row: {
   };
 }
 
-/** THE SELF-DECLARATION the loader checks against the requirement it was asked for. */
 export const requirement = 'req-001' as const;
 
-/* ------------------------------------------------------------------------------ the plumbing */
-
-/** What this adapter holds for a session it really obtained. A handle with no entry holds nothing. */
 interface LiveSession {
   accessToken: string;
   refreshToken: string;
 }
 
-/** The one place a handle is turned into a token, and the one place the divergence is enforced. */
 function tokensOf(store: Map<string, LiveSession>, session: Session, act: string): LiveSession {
   const held = session.sessionId ? store.get(session.sessionId) : undefined;
   if (!held) {
@@ -151,7 +85,6 @@ function claimsOf(token: string): JwtClaims {
   return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')) as JwtClaims;
 }
 
-/** The `session_id` claim, which is the identity of the `auth.sessions` row GoTrue minted. */
 function sessionIdOf(accessToken: string): string {
   return String(claimsOf(accessToken).session_id ?? '');
 }
@@ -160,21 +93,11 @@ function accountIdOf(accessToken: string): string {
   return String(claimsOf(accessToken).sub ?? '');
 }
 
-/** `exp - iat`, in seconds: the lifetime the issuing Auth service is configured with, in its own words. */
 function lifetimeOf(accessToken: string): number {
   const claims = claimsOf(accessToken);
   return Number(claims.exp) - Number(claims.iat);
 }
 
-/**
- * THE RUNNING STACK MUST ISSUE THE LIFETIME THE TREE PINS, EXACTLY. Auth reads `[auth] jwt_expiry`
- * at container START, so a stack started before the config last changed issues tokens of the old
- * lifetime while the bodies wait out the pinned one: AT-001.12 then waits 135 seconds and reports
- * "an expired access token performed a write", and AT-001.13 reports "the client never rotated its
- * access token" — both blaming the product for a stale stack. `exp` and `iat` come from the same
- * token, so no clock enters the subtraction and there is nothing to tolerate: any number but the
- * pinned one is a stack started under another config. Null when they are the same number.
- */
 export function lifetimeProblem(accessToken: string, pinned: number): string | null {
   const issued = lifetimeOf(accessToken);
   if (issued === pinned) return null;
@@ -186,24 +109,8 @@ export function lifetimeProblem(accessToken: string, pinned: number): string | n
 }
 
 /**
- * WHAT A POSTGRES REFUSAL CARRIES — the SQLSTATE and the sentence, and WHERE THE SQLSTATE REALLY
- * LIVES WAS MEASURED RATHER THAN ASSUMED.
- *
- * The operator methods below drive SQL directly, so a refused write arrives as a thrown error rather
- * than as a status and a body. The obvious field is wrong on this client: `loop/items/AI4DEV-62`'s
- * verify-first probe, answer (d), dumped a real refusal's own properties on the slot stack and found
- *
- *   name `PostgresError`, code `ERR_POSTGRES_SERVER_ERROR`, **errno `42501`**, severity `ERROR`,
- *   where `PL/pgSQL function public.org_membership_grantee_must_be_ngo() line 24 at RAISE`
- *
- * — so `code` is the client's own error CLASS and `errno` is the SQLSTATE the migration raised. A
- * classification written against `code === '42501'` would have matched nothing, every refusal would
- * have fallen through to `refused`, and two acceptance criteria would have gone red for a reason
- * that had nothing to do with the product.
- *
- * SO EVERY CANDIDATE FIELD IS READ AND THE ONE THAT LOOKS LIKE A SQLSTATE WINS — five characters,
- * digits and capitals, which is the format's own shape. A client that reports it somewhere else
- * again simply yields no code, and the call sites below fall back on the sentence.
+ * The postgres client reports the SQLSTATE in `errno`; its `code` is the client error class.
+ * Every candidate field is read and the one shaped like a SQLSTATE wins.
  */
 function databaseRefusal(error: unknown): { code: string; message: string } {
   const carrier = error as Record<string, unknown> | null;
@@ -219,8 +126,6 @@ function databaseRefusal(error: unknown): { code: string; message: string } {
   return { code, message };
 }
 
-/* -------------------------------------------------------------------------------- the factory */
-
 export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   sut: { accounts: AccountsSut };
   fixtures: { world(name: string): Promise<World> };
@@ -233,11 +138,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
   const sessions = new Map<string, LiveSession>();
 
-  /**
-   * `lifetimeProblem`, asked once, on the first access token this adapter obtains, and refused with
-   * the true cause. The runner cannot read a token without a sign-in, which is why the check lives
-   * here rather than in `prepareLocalStack`.
-   */
   let lifetimeChecked = false;
   const checkLifetime = (accessToken: string): void => {
     if (lifetimeChecked) return;
@@ -284,13 +184,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
   };
 
   const accounts: AccountsSut = {
-    /* ------------------------------------------------- Supabase Auth, over the stack's own gateway */
-
     registerWithEmailPassword: async (email, password) => {
       const { status, json } = await authPost(stack, '/auth/v1/signup', { email, password });
       if (status >= 400) throw new Error(`the live signup for a fresh address answered ${status}`);
-      // NO SESSION IS MINTED HERE. See this file's header: with confirmations on the live stack
-      // issues none, and a fabricated handle would let a body act as a user that cannot act.
       const accountId = String((json.id as string | undefined) ?? (json.user as { id?: string } | undefined)?.id ?? '');
       if (!accountId) throw new Error('the live signup answered 200 but named no user id');
       return { accountId, email, provider: 'email', sessionId: '' };
@@ -299,8 +195,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     signInWithEmailPassword: async (email, password) => {
       const { status, json } = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password });
       if (status >= 400) {
-        // ONE REASON FOR BOTH BRANCHES, which is the shape `_contract.ts` requires: an answer that
-        // differed would tell an anonymous caller which addresses hold accounts.
         return { ok: false, reason: String(json.msg ?? json.error_description ?? 'sign-in was refused') };
       }
       const accessToken = String(json.access_token ?? '');
@@ -312,41 +206,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { ok: true, session: { accountId: accountIdOf(accessToken), email, provider: 'email', sessionId } };
     },
 
-    /**
-     * THE LINKED GITHUB IDENTITY, WRITTEN BY THE OPERATOR — and it is a GIVEN, never an act under
-     * test.
-     *
-     * The real act is a browser consent round trip that no agent performs, and this repository holds
-     * no OAuth credential for it. What is written here is the STATE Auth would be in afterwards: one
-     * `auth.identities` row. Two ids read this state — AT-001.06 needs a fully signed-up volunteer
-     * before it can test an NGO-only refusal, and AT-001.03's volunteer half needs the same
-     * precondition — and for both of them the link is scenery.
-     *
-     * AT-001.04 AND AT-001.05 DO NOT GET TO USE IT, because for them the link IS the act: "linking
-     * completes signup", and "when the link completes, onboarding fires". Their integration bodies
-     * refuse with the missing capability named rather than reaching this method, and the manifest
-     * declares them red on exactly that. The distinction is the criterion's, not this file's.
-     */
     /*
-     * `::text::jsonb`, AND THE DOUBLE CAST IS THE WHOLE DIFFERENCE — measured, because the single
-     * cast wrote a row that broke Supabase Auth for that user.
-     *
-     * A bound string parameter cast straight to `jsonb` arrives as a JSON STRING SCALAR: the column
-     * then holds `"{\"sub\":…}"` rather than `{"sub":…}`, so `identity_data->>'user_name'` is null
-     * and GoTrue's own `/auth/v1/user` answers 500 for the account. The completion that follows is
-     * then refused 401 "authenticate before completing signup" — a refusal that reads like an auth
-     * rule and is really a malformed fixture row. Measured on slot 1:
-     *   `${text}::jsonb`        -> "{\"sub\":\"h\",…}"  ->>'user_name' = null
-     *   `${text}::text::jsonb`  -> {"sub":"h",…}        ->>'user_name' = "h"
-     * The text cast makes Postgres PARSE the value rather than wrap it, which is what the column
-     * means. The database's own backstop reads the same field, so a wrapped value fails there too.
+     * The double cast is required: `${text}::jsonb` binds a JSON string scalar, so
+     * `identity_data->>'user_name'` is null and GoTrue's `/auth/v1/user` answers 500.
      */
     linkGithubIdentity: async (session, githubHandle) => {
-      // THE HANDLE MUST NAME A SESSION THIS PROCESS REALLY OBTAINED — R-D3's divergence handle. A
-      // registration under confirmations holds none, and it is refused BY NAME here rather than
-      // reaching the write below. That write is operator-level SQL and carries no token, so the
-      // VALIDATION is the point and the returned tokens are deliberately unused. Same posture as
-      // the sim fixture and as this method's own doc in `_contract.ts`.
       tokensOf(sessions, session, 'link a GitHub identity');
       const identityId = crypto.randomUUID();
       await sql`
@@ -402,26 +266,8 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return me.status === 200;
     },
 
-    /**
-     * THE CACHED TOKENS SURVIVE THE LOGOUT, DELIBERATELY (gate-2 ruling S2-2).
-     *
-     * This method used to end with `sessions.delete(session.sessionId)`, and that one line made the
-     * revocation clause untestable: the next call with the same handle threw client-side in
-     * `tokensOf` before any request left this process, so the assertion "a revoked session cannot
-     * write" was measuring THIS FILE'S bookkeeping rather than the live stack's judgement. A test
-     * that passes because the client refused to try has proved nothing about the server.
-     *
-     * So the handle keeps its tokens and the post-logout write really goes out, carrying a token
-     * that is revoked and not yet expired. Whatever the live stack answers is the measured fact.
-     *
-     * THE DIVERGENCE HANDLE IS UNTOUCHED. `tokensOf` still refuses a handle that never held a
-     * session — a registration under confirmations — which is a different case from a session that
-     * existed and was revoked, and is the one the file header describes.
-     */
     signOut: async (session) => {
       const tokens = tokensOf(sessions, session, 'sign out');
-      // `?scope=local` ends THIS session. The vendor's default is `global`, which ends every session
-      // the account holds — measured in AI4DEV-60's proof — and `_contract.ts` models the local one.
       const response = await fetch(`${api}/auth/v1/logout?scope=local`, {
         method: 'POST',
         headers: { apikey: stack.anonKey, Authorization: `Bearer ${tokens.accessToken}` },
@@ -431,8 +277,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
     refreshSession: async (session): Promise<RefreshSessionOutcome> => {
       const tokens = tokensOf(sessions, session, 'refresh a session');
-      // NO CREDENTIALS IN THIS CALL, which is the whole content of AT-001.13's mechanism: a refresh
-      // token, and no password anywhere.
       const { status, json } = await authPost(stack, '/auth/v1/token?grant_type=refresh_token', { refresh_token: tokens.refreshToken });
       if (status >= 400) return { ok: false, reason: String(json.msg ?? 'the refresh was refused') };
       const accessToken = String(json.access_token ?? '');
@@ -449,8 +293,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     },
 
     requestPasswordReset: async (email) => {
-      // IT ALWAYS SUCCEEDS, including for an address nobody registered — a security shape, measured
-      // on the live stack in AI4DEV-60's proof, not a convenience.
       await authPost(stack, '/auth/v1/recover', { email });
       return { ok: true };
     },
@@ -458,9 +300,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     emailedPasswordResetLink: async (email) => (await verifyLinksFor(stack, email, 'recovery'))[0] ?? null,
 
     completePasswordReset: async (link, newPassword) => {
-      // THE FLOW SHAPE IS MEASURED RATHER THAN REMEMBERED. AI4DEV-60's proof found the implicit
-      // fragment on this CLI version and recorded that a PKCE code appears on others; following the
-      // link and reading what comes back is what keeps this working across either.
       const { location } = await followLink(link);
       const fragment = location.includes('#') ? location.slice(location.indexOf('#') + 1) : '';
       const accessToken = new URLSearchParams(fragment).get('access_token') ?? '';
@@ -473,27 +312,11 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return { ok: update.status < 400 };
     },
 
-    /**
-     * THE VERIFIED FACT, DERIVED BY THE SHIPPED EXTRACTOR — never read as a boolean off a column.
-     *
-     * The row is read with operator authority and rendered as the canonical `/auth/v1/user` shape,
-     * and the SHIPPED `emailVerifiedFromUser` judges it. That is the same pattern the loop fixture
-     * uses and it exists for the same reason: the extractor the future Discovery route will call
-     * sits on the tested path rather than being a function no test ever runs. AI4DEV-59's proof is
-     * what binds the RENDERED shape to the real one — it fed a real response to the same function.
-     */
     emailVerified: async (accountId) => {
       const found = await rows<{ email_confirmed_at: string | Date | null; email: string }>(
         sql`select email, email_confirmed_at from auth.users where id = ${accountId}::uuid`,
       );
       if (found.length !== 1) return false;
-      // THE ROW IS RENDERED AS GoTrue RENDERS IT, and the rendering is the load-bearing part rather
-      // than a formality. The driver hands back a `timestamptz` as a Date OBJECT, and the shipped
-      // extractor's only verified answer is a non-blank STRING — deliberately, because it judges a
-      // JSON body that crossed a network. Handing it the Date made `emailVerified` answer false for
-      // a confirmed account, so AT-001.09 reported "using the emailed link did not flip the account
-      // to verified" while GoTrue had confirmed it. The other reads here already convert
-      // (`acknowledgments`, `volunteerProfile`); this one did not.
       const confirmedAt = found[0].email_confirmed_at;
       return emailVerifiedFromUser({
         id: accountId,
@@ -506,13 +329,9 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
 
     useVerificationLink: async (link) => {
       const { status } = await followLink(link);
-      // GoTrue answers a 303 to the site URL for a token it issued AND for one it never issued — the
-      // tampered probe in AI4DEV-59's proof measured that. So the STATUS is not the oracle; the
-      // column is, and the body that cares reads `emailVerified` afterwards.
+      // GoTrue answers a 303 for a token it never issued as well, so the status is not the oracle.
       return { ok: status < 400 };
     },
-
-    /* ------------------------------------------------ the DEPLOYED functions, over the stack's kong */
 
     completeSignup: async (session, request: CompleteSignupRequest, ip): Promise<CompleteSignupOutcome> => {
       const tokens = tokensOf(sessions, session, 'call the deployed complete-signup');
@@ -545,16 +364,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       };
     },
 
-    /* ------------------------------- the operator's surface, over SQL, as the operator ---------- */
-
-    /**
-     * AN ORGANISATION WITH NO MEMBERSHIP ROW — one insert, and the absence of the second insert is
-     * the whole content of this method.
-     *
-     * Both product paths write the organisation AND its admin membership inside one definer
-     * function, so neither can produce this state. See `_contract.ts` for why the Given AT-001.16
-     * and AT-001.36 need is unreachable without it.
-     */
     createOrganizationAsOperator: async (name): Promise<OrganizationRow> => {
       const created = await rows<{
         id: string;
@@ -570,24 +379,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return asOrganizationRow(created[0]);
     },
 
-    /**
-     * THE OPERATOR'S DIRECT MEMBERSHIP GRANT — a plain insert, with the database's own refusals
-     * classified rather than swallowed.
-     *
-     * WHY THIS PATH IS THE ONE AT-001.37 NEEDS: it carries no edge function, no shared module and no
-     * TypeScript at all. "Any path attempts to grant it a per-NGO role" is a claim about paths
-     * nobody has written yet, and the only object that can hold on all of them is the trigger this
-     * leaf's migration lands. This method is how a test reaches that trigger directly.
-     *
-     * THE CLASSIFICATION IS SENTENCE-PRIMARY, WITH THE SQLSTATE AS AGREEMENT (gate-2 ruling R3).
-     * The sentence must match, AND the SQLSTATE must either be absent or be the one this leaf's
-     * migration raises — `42501` for the trigger refusing a non-NGO grantee, `23505` for the
-     * one-seat unique index refusing a second membership row, both measured on the slot stack
-     * (verify-first answer (d)). A SQLSTATE alone no longer mints a meaningful kind: an unrelated
-     * `42501` from some future policy, or an unrelated unique violation, would otherwise arrive
-     * wearing a label two acceptance criteria read as their refusal. A client that reports no
-     * SQLSTATE still classifies on the sentence; anything else is `refused`, never a meaningful kind.
-     */
     grantMembershipAsOperator: async (organizationId, accountId, role): Promise<GrantMembershipOutcome> => {
       try {
         const inserted = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
@@ -609,9 +400,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         if (/NGO accounts only/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'not-an-ngo-account', reason: message };
         }
-        // THE INDEX'S OWN NAME, not the generic `duplicate key value` half it used to carry: an
-        // unrelated unique violation on this statement must land in `refused` rather than in the kind
-        // AT-001.17 reads as its structural refusal.
         if (/org_memberships_one_seat_per_org_idx/i.test(message) && (code === '' || code === '23505')) {
           return { ok: false, kind: 'org-already-seated', reason: message };
         }
@@ -619,22 +407,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       }
     },
 
-    /**
-     * THE SAME GRANT REACHED IN TWO STATEMENTS — one update, aimed at the organisation's single
-     * membership row, with the trigger's UPDATE half as the only thing that can refuse it.
-     *
-     * WHY IT IS A SEPARATE PATH: re-pointing changes no row COUNT, so the one-seat unique index
-     * never sees this write. The migration's own prose names the attack — a row inserted for an NGO
-     * account and then re-pointed at a volunteer — and gate-2 ruling R5 added this method because no
-     * test drove the binding that stops it.
-     *
-     * THE UPDATE IS AIMED BY ORGANISATION AND RETURNS THE ROW, so an update that matched nothing is
-     * `refused` with its own reason rather than reading as a silent success. The classification is
-     * sentence-primary with the SQLSTATE as agreement, the same rule the grant above follows
-     * (gate-2 ruling R3); a new account that never completed signup meets the trigger's OTHER branch
-     * — SQLSTATE `23503`, its own sentence — and lands in `refused`, which is the fixture's answer
-     * for it too.
-     */
     repointMembershipAsOperator: async (organizationId, accountId): Promise<RepointMembershipOutcome> => {
       try {
         const updated = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
@@ -662,14 +434,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       }
     },
 
-    /**
-     * A PROJECT, PROVISIONED BY THE OPERATOR — one insert, with its seat free.
-     *
-     * There is no product project-creation path in this repository at either tier, so this is the
-     * only way AT-001.32's Given is reached. `authenticated` may SELECT `public.projects` through
-     * the tenant policy set; this method is still a direct operator insert because no product path
-     * creates a project, and the service role still holds no INSERT.
-     */
     createProjectAsOperator: async (organizationId, name): Promise<ProjectRow> => {
       const created = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
         sql`insert into public.projects (org_id, name) values (${organizationId}::uuid, ${name})
@@ -684,19 +448,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       };
     },
 
-    /**
-     * ATTACH A VOLUNTEER, AS THE OPERATOR — and the guard trigger's refusal is classified rather
-     * than swallowed.
-     *
-     * The sentence and the SQLSTATE were measured on the slot stack (verify-first answer (d)):
-     * `projects refuses a second volunteer on project …: its single developer seat is held by
-     * account …`, SQLSTATE `42501`. The same probe recorded that releasing the seat to null is
-     * ALLOWED and that the seat still held the FIRST volunteer after the refusal — both of which the
-     * loop fixture mirrors.
-     *
-     * THE UPDATE IS AIMED BY PRIMARY KEY AND RETURNS THE ROW, so an update that matched nothing is
-     * `refused` with its own reason rather than reading as a silent success.
-     */
     assignVolunteerAsOperator: async (projectId, accountId): Promise<AssignVolunteerOutcome> => {
       try {
         const updated = await rows<{ id: string; org_id: string; name: string; assigned_volunteer_id: string | null }>(
@@ -716,9 +467,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         };
       } catch (error) {
         const { code, message } = databaseRefusal(error);
-        // SENTENCE-PRIMARY, SQLSTATE AS AGREEMENT — gate-2 ruling R3, the same rule the membership
-        // grant above follows and for the same reason. The two patterns are disjoint: the type
-        // refusal names admission, the occupancy refusal names a single developer seat.
         if (/developer seat admits volunteer accounts only/i.test(message) && (code === '' || code === '42501')) {
           return { ok: false, kind: 'not-a-volunteer-account', reason: message };
         }
@@ -728,8 +476,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         return { ok: false, kind: 'refused', reason: message };
       }
     },
-
-    /* -------------------------------------------------------- read-back, as the operator, over SQL */
 
     account: async (accountId): Promise<AccountRow | null> => {
       const found = await rows<{ id: string; account_type: AccountRow['accountType']; lifecycle: AccountRow['lifecycle'] }>(
@@ -754,10 +500,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return found.length === 1 ? asOrganizationRow(found[0]) : null;
     },
 
-    // THE COLUMN IS `org_id`, not `organization_id` — the migration's own name, and the reason this
-    // read used to throw `column "organization_id" does not exist` on every id that asserts a
-    // membership. The CONTRACT's field is `organizationId`, so the two are aliased here rather than
-    // renamed anywhere: one name in the database, one name in the contract, and this is the seam.
     membership: async (organizationId, accountId): Promise<MembershipRow | null> => {
       const found = await rows<{ organization_id: string; account_id: string; role: MembershipRow['role'] }>(
         sql`select org_id as organization_id, account_id, role from public.org_memberships
@@ -802,8 +544,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         acknowledgedAt: new Date(row.acknowledged_at).toISOString(),
         ip: String(row.ip ?? ''),
         textVersion: row.text_version,
-        // AT-001.19's three, read back as the operator. They are `not null` in the schema, so a
-        // missing value is not a case this read has to model — it is a case the write refused.
         signerName: row.signer_name,
         signerTitle: row.signer_title,
         authorityAttestation: row.authority_attestation,
@@ -855,13 +595,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       }));
     },
 
-    /**
-     * THE SHIPPED SQL PREDICATE, called as the predicate rather than reproduced as a query.
-     *
-     * `_fixture.ts`'s own comment says what a loop-tier green over this does NOT establish: it
-     * reaches the adapter's storage query, so `public.has_platform_acknowledgment` could return true
-     * unconditionally and the loop tier would not notice. This call is what notices.
-     */
     hasPlatformAcknowledgment: async (accountId) => {
       const found = await rows<{ held: boolean }>(
         sql`select public.has_platform_acknowledgment(${accountId}::uuid) as held`,
@@ -869,21 +602,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       return found[0]?.held === true;
     },
 
-    /**
-     * THE PROVISIONED ADMINISTRATOR — the only legal way one exists, because the public path refuses
-     * the type.
-     *
-     * TWO AUTHORITIES, AND THEY ARE DIFFERENT ONES. The auth user is created through
-     * `POST /auth/v1/admin/users` with `email_confirm: true`, which is the recipe this repository
-     * records and which sends no email. The `public.accounts` row is written as the OPERATOR, over
-     * the database connection — NOT as the service role, which holds no INSERT on that table by
-     * measurement and by decision (migration 20260808120000 grants it `select` only). Provisioning
-     * is a narrower authority than the service role, not a wider one, and no running service holds
-     * it.
-     *
-     * IT RETURNS A REAL SESSION, unlike registration: the administrator is created confirmed, so the
-     * password grant works immediately and the handle this returns is one the live stack issued.
-     */
     provisionPlatformAdmin: async (email, password): Promise<Session> => {
       const created = await fetch(`${api}/auth/v1/admin/users`, {
         method: 'POST',
@@ -1148,8 +866,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
       };
     },
 
-    // Written out because the integration manifest names each one, and `AccountsSut` makes an
-    // omitted method a compile error.
     registerWithProvider: () => { throw new CapabilityPending(['sut.accounts.registerWithProvider']); },
     registerWithGithub: () => { throw new CapabilityPending(['sut.accounts.registerWithGithub']); },
     signInWithProvider: () => { throw new CapabilityPending(['sut.accounts.signInWithProvider']); },
@@ -1168,14 +884,6 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
     }),
   };
 
-  /**
-   * A FIXTURE WORLD, against a database this run rebuilt from empty.
-   *
-   * There is nothing to tear down per world: `prepareLocalStack()` resets the stack before the run, so a world
-   * is a namespace for addresses rather than a container of state. The namespace still matters —
-   * two ids that happened to register the same address would interfere in a way that looks exactly
-   * like a product defect.
-   */
   const world = async (name: string): Promise<World> => {
     const namespace = `${name.replace(/[^a-z0-9]+/gi, '-')}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     return {

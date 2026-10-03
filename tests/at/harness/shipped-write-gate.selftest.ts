@@ -1,5 +1,3 @@
-/** The selftest of the write gate's check order and of the standing parser's fail-closed shapes. */
-
 import { describe, expect, it } from 'vitest';
 
 import {

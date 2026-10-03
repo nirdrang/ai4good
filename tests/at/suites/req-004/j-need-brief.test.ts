@@ -24,8 +24,6 @@ const withDiscovery = discoveryScreens();
 const SCHEMES = ['light', 'dark'] as const;
 const SIZES = ['desktop', 'phone'] as const;
 
-// d94 (2026-09-29): the need brief, files, and Finish. The Discovery screen item replaces each stub
-// with a body that runs against the shared mock first and the wired app after.
 atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui', timeoutMs: { loop: 120_000 } }, {
   loop: async (ctx) => {
     const given = GIVEN['mid-interview'];

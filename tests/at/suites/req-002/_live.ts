@@ -1,12 +1,3 @@
-/**
- * REQ-002's LIVE adapter — the integration tier's binding of the organisation system under test to
- * the one local stack.
- *
- * Members this unit lands drive the deployed vetting route, operator SQL for the aggregate and its
- * audit rows, and the public signup path for an NGO. What an integration green means: the criterion
- * holds against a database this run rebuilt, the deployed edge function and the real Auth service.
- */
-
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
 import { integerField, isoDay as isoDayField, parseWriteRefusalKind, stringField } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { allowanceOf, type Allowance, type SpendRow } from '../../../../supabase/functions/_shared/discovery-allowance.ts';

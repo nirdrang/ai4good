@@ -1,10 +1,3 @@
-/**
- * Cross-family smoke for REQ-002's source arms over the real tree.
- * Refusal cases live in req002-vetting-oracles.selftest.ts,
- * req002-documents-oracles.selftest.ts, req002-pins-oracles.selftest.ts,
- * and req002-absences-oracles.selftest.ts.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import { documentContentSinks } from '../suites/req-002/_source-documents.ts';

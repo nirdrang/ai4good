@@ -1,35 +1,3 @@
-/**
- * REQ-016's SOURCE ARMS: three oracles that read the tree, not the system under test.
- *
- * `senders()` and `Delivery.emittedBy` are both produced by the component under test, so a rogue
- * direct sender could omit itself from the one and stamp the emitter's name on the other. These
- * oracles are the witnesses that are not the subject. They live in their own file, on the precedent
- * of `tests/at/suites/req-001/_source-scan.ts`: the arms run at BOTH tiers, the two bodies live in
- * different files, and a helper imported by both is one statement of each check. The file name
- * starts with an underscore and does not end in `.test.ts`, so `at:check` does not read it.
- *
- * THREE RULES, ONE SHAPE. Each oracle returns a list that the assertion expects to be exactly a
- * known value, and each THROWS rather than returning nothing when it could not read what it claims
- * to have read: a negative from a broken instrument is indistinguishable from a true absence unless
- * the instrument says so.
- *
- *   - `providerClientImporters()`: which components hold a send path or a provider credential.
- *     Exactly one may: the emitter. Files map to components through `NOTIFICATION_COMPONENTS`, the
- *     product's own statement of who owns which paths, and a file nobody declared is reported under
- *     its path, so a new sender is an unexpected entry rather than an invisible one.
- *   - `taxonomySeedProblems()`: where the migration's seeded event names and the product's TAXONOMY
- *     disagree. The wire names exist twice by design, once as the closed set in the database and once
- *     as the decision table in TypeScript; this is what keeps the two equal.
- *   - `strayNotificationWriters()`: any `insert into` one of the three outbox tables that is not
- *     inside `public.emit_notification`, in the migrations or in a product module. The worker updates
- *     rows that exist; only the emitter creates them.
- *
- * WHAT THESE ARE NOT. They are naming oracles over text. A sender that hides its client behind a
- * renamed import escapes the first one, exactly as it escapes any static check. The realistic
- * regression is somebody adding a mail client to a service module because a design asked for it,
- * and that is what these turn into a red in the same run.
- */
-
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,22 +5,18 @@ import { fileURLToPath } from 'node:url';
 import { TAXONOMY } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';
 import { NOTIFICATION_COMPONENTS } from '../../../../supabase/functions/_shared/notifications.ts';
 
-/** The repository root, resolved from THIS file, so the answer never depends on the caller's cwd. */
 const REPO_ROOT = fileURLToPath(new URL('../../../../', import.meta.url));
 
-/** Where product source lives. Every root must be readable, or the oracle refuses. */
 const PRODUCT_ROOTS = ['supabase/functions', 'supabase/migrations', 'src'] as const;
 
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.sql'];
 
-/** A send path: a call to a provider port, a reference to the port type, or a mail client import. */
 const SEND_PATH_PATTERNS: readonly RegExp[] = [
   /\bdeliver\b\s*\(/,
   /\bProviderPort\b/,
   /from\s+['"](?:node:net|node:tls|nodemailer|resend|postmark|@sendgrid\/[a-z-]+|mailgun(?:-js|\.js)?|smtp[a-z-]*)['"]/,
 ];
 
-/** A provider credential, by the names the hosted providers document for it. */
 const CREDENTIAL_PATTERNS: readonly RegExp[] = [
   /\bRESEND_API_KEY\b/,
   /\bSENDGRID_API_KEY\b/,
@@ -68,7 +32,6 @@ const CLIENT_OUTBOX_INSERT = new RegExp(`\\.from\\(\\s*['"](${OUTBOX_TABLES.join
 
 type SourceFile = { path: string; text: string };
 
-/** Every source file under a root, recursively, with its path relative to the repository root. */
 function sourceFilesUnder(root: string): SourceFile[] {
   const found: SourceFile[] = [];
   const walk = (dir: string, relative: string): void => {
@@ -105,7 +68,6 @@ function productFiles(oracle: string): SourceFile[] {
   return files;
 }
 
-/** The component that owns a path, by the product's own declaration, or a path-derived id. */
 function componentOf(path: string): string {
   for (const [component, prefixes] of Object.entries(NOTIFICATION_COMPONENTS)) {
     if (prefixes.some((prefix) => path === prefix || path.startsWith(prefix))) return component;
@@ -117,13 +79,6 @@ function lineOf(text: string, index: number): number {
   return text.slice(0, index).split('\n').length;
 }
 
-/**
- * Components whose SOURCE holds a send path or a provider credential.
- *
- * The assertion both AT-016.01 bodies make is that this is exactly `['notifications.emitter']`. The
- * oracle throws when it finds NO hit at all: the product provider module exists and sends, so an
- * empty answer means the instrument stopped seeing, not that the tree stopped sending.
- */
 export function providerClientImporters(): string[] {
   const components = new Set<string>();
   for (const file of productFiles('providerClientImporters')) {
@@ -160,7 +115,6 @@ function seededEventNames(): { file: string; names: string[] } {
   return { file: files.join(', '), names };
 }
 
-/** Where the migration's seeded event names and the product's TAXONOMY disagree. Empty is the assertion. */
 export function taxonomySeedProblems(): string[] {
   const { file, names } = seededEventNames();
   const problems: string[] = [];
@@ -181,7 +135,6 @@ export function taxonomySeedProblems(): string[] {
   return [...new Set(problems)].sort();
 }
 
-/** The character span of `create function public.emit_notification(...)` up to the end of its body. */
 function emitterSpan(text: string): { start: number; end: number } | null {
   const head = /create\s+function\s+public\.emit_notification\s*\(/i.exec(text);
   if (!head) return null;
@@ -192,14 +145,6 @@ function emitterSpan(text: string): { start: number; end: number } | null {
   return { start: head.index, end: close + 2 };
 }
 
-/**
- * Every writer of the outbox tables that is not the emitter. Empty is the assertion.
- *
- * In the migrations an `insert into` one of the three tables is allowed only inside the body of
- * `public.emit_notification`. In product modules it is never allowed, whether as SQL text or as a
- * client insert. The oracle throws when no migration defines the emitter, because a rule about
- * "outside the emitter" measured against a tree with no emitter is a rule about nothing.
- */
 export function strayNotificationWriters(): string[] {
   const files = productFiles('strayNotificationWriters');
   const problems: string[] = [];

@@ -1,12 +1,3 @@
-/**
- * AT-REQ-001 section E — tenant isolation and visibility.
- *
- * Loop bodies grade shipped orchestration: the cores over injected reads, the fixture surface
- * that runs those cores over unfiltered Maps, the public projection, and the static catalog
- * scan. They do not grade SQL policies. AT-001.24 throws the named UI-rendering capability
- * at both tiers after the integration body asserts the API half.
- */
-
 import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { at00121, at00122, at00123, at00124, at00140, INTEGRATION_TIMEOUT_MS } from './_integration.ts';

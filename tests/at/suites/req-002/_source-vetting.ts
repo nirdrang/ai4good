@@ -1,11 +1,3 @@
-/**
- * REQ-002's vetting-surface source arms: the vet is manual, single-writer, unscheduled;
- * no KYC or automated-verification surface exists; the vetted flag is a two-value boolean.
- *
- * Shared posture (throws rather than report an absence the instrument could not measure;
- * naming oracles over text): `_source-scan.ts`.
- */
-
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 import {
@@ -43,10 +35,6 @@ function admitsOf(route: RouteInventory[string]): readonly string[] | null {
   return route.standing.kind === 'account-required' ? route.standing.admits : null;
 }
 
-/**
- * Write-route rows whose RPC is the vetting definer. Empty is not success: the product has that
- * route, so zero hits means the inventory stopped naming it.
- */
 export function scanVettingRoutes(inventory: RouteInventory): string[] {
   const problems: string[] = [];
   const reaching: string[] = [];
@@ -78,10 +66,6 @@ export function vettingRouteProblems(): string[] {
   return scanVettingRoutes(WRITE_ROUTES);
 }
 
-/**
- * Every statement that writes `public.org_vetting` must sit inside the body of
- * `public.set_organization_vetting`. A product module must not write the table at all.
- */
 export function scanOrgVettingWriters(files: readonly SourceFile[]): string[] {
   const problems: string[] = [];
   let definerDefined = false;
@@ -130,10 +114,6 @@ function writesVettedColumn(statement: string): boolean {
   return VETTED_COLUMN_ASSIGN.test(statement) || VETTED_COLUMN_SET.test(statement);
 }
 
-/**
- * No cron job that vets, and no writer of the `vetted` column outside the definer. A trigger that
- * maintains a derived row on `org_vetting` is not automated vetting.
- */
 export function scanScheduledVetting(migrations: readonly SourceFile[]): string[] {
   const problems: string[] = [];
   for (const file of migrations) {
@@ -156,7 +136,6 @@ export function scheduledVettingProblems(): string[] {
 
 export type KycSurfaceInput = SurfaceInventory;
 
-/** Route folders, write-route rows and shared modules that name a KYC or automated-verification surface. */
 export function scanKycSurfaces(input: KycSurfaceInput): string[] {
   const problems: string[] = [];
   for (const name of input.routeFolders) {
@@ -180,10 +159,6 @@ export function kycSurfaceProblems(): string[] {
   return scanKycSurfaces(loadProductSurfaces('kycSurfaceProblems'));
 }
 
-/**
- * The vetted flag is a two-value boolean. A third `pending` / `under review` column or check is a
- * document-review status transition.
- */
 export function scanVettedState(migrations: readonly SourceFile[]): string[] {
   const problems: string[] = [];
   let table: { path: string; text: string } | null = null;

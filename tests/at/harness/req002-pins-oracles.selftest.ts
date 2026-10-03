@@ -1,8 +1,3 @@
-/**
- * Oracle for REQ-002's pin source arms over injected text: the debit sentences, the
- * email-unverified sentence, and the notice channel set.
- */
-
 import { describe, expect, it } from 'vitest';
 
 import {

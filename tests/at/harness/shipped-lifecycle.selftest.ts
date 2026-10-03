@@ -1,5 +1,3 @@
-/** The selftest of `decideLifecycleChange`, every branch. */
-
 import { describe, expect, it } from 'vitest';
 
 import { decideLifecycleChange } from '../../../supabase/functions/_shared/admin-operations.ts';
@@ -111,5 +109,3 @@ describe('the shipped lifecycle-change decision', () => {
     });
   });
 });
-
-

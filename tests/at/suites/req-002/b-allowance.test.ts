@@ -1,15 +1,3 @@
-/**
- * AT-REQ-002 · B. Tiers and the daily Discovery allowance — AT-002.04 .. AT-002.08, AT-002.10,
- * AT-002.26, AT-002.27, AT-002.31
- * Source: .taskmaster/docs/acceptance/at-req-002.md
- *
- * Three ids here wait on surfaces this tree does not have and are declared red by shape in
- * `tests/at/expected/req-002.json`: the paid-continuation path (AT-002.10), the funded remedy
- * (AT-002.26) and fuel funding itself (AT-002.31) need the project-fuel checkout. AT-002.05 is
- * proved at loop through the allowance contract and waits, at integration only, on a Discovery
- * surface that shows the three remedies to somebody.
- */
-
 import { describe, expect } from 'vitest';
 import { debitExceedsRemainingReason, utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createConfigRegistry } from '../../harness/config.ts';
@@ -82,9 +70,6 @@ async function persistSpendOnPreviousUtcDay(
   spent: number,
   granted: number,
 ): Promise<void> {
-  // Backdating the day row produces exactly the bytes the database holds one second after
-  // midnight: a new day is a new key with no row, and the product has no midnight event to
-  // observe. This body does not prove the crossing itself. No test in this tree can.
   await sut.writeSpendRowAsOperator({
     organizationId,
     utcDay: previousUtcDay(today),
@@ -227,8 +212,6 @@ async function proveUtcReset(
     });
   }
 
-  // An organisation vetted on an earlier day, with no ledger row today. The unvet case is only
-  // reachable across a UTC day boundary: a vet always writes that day's mark.
   await persistSpendOnPreviousUtcDay(sut, vettedNgo.organizationId, today, 0, vettedGrant);
   const rowsBeforeUnvet = await sut.spendRows(vettedNgo.organizationId);
   expect(
@@ -431,9 +414,6 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
       const pins = createConfigRegistry();
       const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
       const vettedGrant = pins.get<number>(VETTED_PIN);
-      // The sentence a caller reads comes from the database at one tier and from the shipped
-      // renderer at the other, so the two must agree word for word. That the arm itself can fail
-      // is proved in `tests/at/harness/req002-pins-oracles.selftest.ts`, not here.
       expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL debit raise disagree').toEqual(
         [],
       );

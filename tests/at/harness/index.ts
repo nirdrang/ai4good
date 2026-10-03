@@ -17,40 +17,21 @@ import { createEmailProviderSim, createAnthropicMessagesSim, type AnthropicMessa
 interface FixtureAdapter {
   fixtures: { world(name: string): Promise<{ teardown(): Promise<void> }> };
   sut: Record<string, unknown>;
-  /**
-   * OPTIONAL, and refused at use rather than ignored. The runner's own black-box trees write
-   * disposable adapters that export `sut`, `fixtures` and `teardown` and nothing else, so a
-   * required member here would break them at run time. Absence is not permission to no-op: an
-   * adapter that offers no fault seam exposes no fault points, so `faults.at()` refuses through
-   * `faultPointProblem` in the guard's own words, and a scan of any scope is refused the same way.
-   */
   faults?: AdapterFaultSeam;
   sentinels?: AdapterSentinelSeam;
   teardown(): Promise<void>;
 }
 
 interface FixtureAdapterModule {
-  /** the requirement this adapter declares itself to be, e.g. 'req-016' — see loadAdapter() */
   requirement: string;
   createFixtureAdapter(opts: {
     clock: ControlledClock;
     worlds: FixtureWorldStore;
     config: ConfigRegistry;
-    /**
-     * The SUT-facing half of H5's provider seam. ADDITIVE on the options object rather than a new
-     * required export, so the runner's disposable black-box adapters — which take an options object
-     * they largely ignore — keep working untouched.
-     */
     vendors: { email: EmailProviderPort; anthropic: AnthropicMessagesPort };
   }): Promise<FixtureAdapter> | FixtureAdapter;
 }
 
-/**
- * The adapter is resolved through REPO_ROOT rather than relative to this file, so that the suites
- * directory the harness loads from is the SAME tree the runner and the bijection checker read.
- * They agree by construction, including when `AT_REPO_ROOT` points all three at a disposable
- * fixture tree for the runner's own black-box tests.
- */
 function adapterUrl(requirement: string): string {
   return pathToFileURL(join(REPO_ROOT, 'tests', 'at', 'suites', requirement, '_fixture.ts')).href;
 }
@@ -74,22 +55,6 @@ async function loadAdapter(
     throw new Error(`fixture adapter for ${requirement} exports no createFixtureAdapter()`);
   }
 
-  /*
-   * THE ADAPTER SAYS WHO IT IS, AND IS HELD TO IT.
-   *
-   * `harness/suite-adapters.ts` reads a suite's system-under-test and world types from the module
-   * its map names, while THIS function loads a module from a path built out of a string. Those were
-   * two independent facts: a mistyped map entry, a renamed directory or an `AT_REPO_ROOT` pointing
-   * somewhere else would have made the type-check describe one suite while the run drove another,
-   * and every layer would have looked correct on its own.
-   *
-   * The map entry is constrained to match this literal at compile time; the same literal is checked
-   * here against the requirement actually requested. So the key, the module the types came from and
-   * the module really imported are one self-declared value, checked at both ends.
-   *
-   * A MISSING literal is an error too, not a skipped check — a guard that switches itself off when a
-   * field is absent is the hole again, arriving through the door marked convenience.
-   */
   if (module.requirement !== requirement) {
     throw new Error(
       `fixture adapter at ${moduleUrl} declares requirement ` +
@@ -103,19 +68,9 @@ async function loadAdapter(
   return { adapter: await module.createFixtureAdapter({ clock, worlds, config, vendors }), moduleUrl };
 }
 
-/**
- * WHAT A SUITE'S LIVE ADAPTER MODULE MUST EXPORT — `_live.ts`, beside its `_fixture.ts`.
- *
- * A SEPARATE MODULE AND A SEPARATE FACTORY SIGNATURE, never a tier flag on the loop one. The loop
- * factory takes a `ControlledClock`, and above the loop tier there is no such thing to hand it: a
- * clock that could be commanded forward would not move a real GoTrue by one millisecond. So the two
- * factories take different things because they are given different worlds, and the type system says
- * so rather than a comment.
- */
 interface LiveAdapterModule {
   requirement: string;
   createLiveAdapter(opts: {
-    /** the coordinates the runner validated — never re-derived here */
     stack: Stack;
   }): Promise<FixtureAdapter> | FixtureAdapter;
 }
@@ -129,16 +84,6 @@ export function liveAdapterExists(requirement: string): boolean {
   return existsSync(join(REPO_ROOT, 'tests', 'at', 'suites', requirement, '_live.ts'));
 }
 
-/**
- * A suite's live adapter, or `null` when it has none.
- *
- * ABSENCE IS NOT AN ERROR AT THIS LOADER. `openWorld` throws the stand-in refusal before
- * `createHarness` when this returns null above loop. `createHarness` itself then refuses rather
- * than loading the loop fixture, so a flipped check cannot grade a stand-in.
- *
- * A module that EXISTS and is broken is a different thing entirely and throws, because a suite whose
- * live adapter fails to import has a defect rather than an absence.
- */
 async function loadLiveAdapterModule(requirement: string): Promise<{ module: LiveAdapterModule; moduleUrl: string } | null> {
   const moduleUrl = liveAdapterUrl(requirement);
   if (!liveAdapterExists(requirement)) return null;
@@ -153,9 +98,6 @@ async function loadLiveAdapterModule(requirement: string): Promise<{ module: Liv
   if (typeof loaded.createLiveAdapter !== 'function') {
     throw new Error(`the live adapter for ${requirement} at ${moduleUrl} exports no createLiveAdapter()`);
   }
-  // THE SAME SELF-DECLARATION THE LOOP LOADER ENFORCES, and for the same reason: a renamed
-  // directory or a redirected repo root would otherwise drive one suite while the types described
-  // another. A missing literal is an error, never a skipped check.
   if (loaded.requirement !== requirement) {
     throw new Error(
       `the live adapter at ${moduleUrl} declares requirement ` +
@@ -179,14 +121,6 @@ export function refusing<T extends object>(...capabilities: string[]): T {
   ) as T;
 }
 
-/**
- * The return type is annotated, not inferred, and that annotation is load-bearing: it is what makes
- * the shared contract a checked promise rather than a hopeful one. Inferred, this factory produced
- * `object` for every pending seam — `refusing<T extends object>()` has no inference site,
- * so `T` fell back to its constraint — and the result was not assignable to `AtHarness` at all.
- * With the annotation, dropping or misnaming a contract member is a compile error here, where it is
- * written, instead of a surprise in whichever suite reaches for it.
- */
 export async function createHarness(opts: {
   requirement: string;
   tier: Tier;
@@ -206,12 +140,9 @@ export async function createHarness(opts: {
       tier: opts.tier,
       clock: parts.clock,
       fixtures: parts.adapter.fixtures,
-      // The `sut.` prefix is composed onto a key only in `registry.ts` (`aboveLoopStandInRefusal`).
-      // Here the adapter's `sut` map is handed through as the adapter exported it.
       sut: parts.adapter.sut,
       sentinels: createSentinels(parts.adapter.sentinels),
       faults: createFaults(parts.adapter.faults),
-      // AT-016.01 stays red on this one name; tests/at/expected/req-016.json declares it.
       static: staticScan,
       vendors: parts.vendors,
       config,
@@ -240,9 +171,6 @@ export async function createHarness(opts: {
   }
 
   const adapter = await live.module.createLiveAdapter({ stack: stackFromEnv() });
-  // RealClock has now() only; Clock also declares freezeAt/advance. The cast is required because
-  // the two tiers share finish(). NOTHING IS WIDENED BY IT: registry.ts hands a body TierHarness<T>,
-  // which subtracts the clock's control seam and vendors at integration.
   return finish({
     clock: new RealClock() as unknown as AtHarness['clock'],
     adapter,

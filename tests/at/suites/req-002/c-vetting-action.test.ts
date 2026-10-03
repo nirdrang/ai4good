@@ -1,14 +1,3 @@
-/**
- * AT-REQ-002 · C. The vetting action and its audit record — AT-002.11, AT-002.11b, AT-002.29,
- * AT-002.30, AT-002.12, AT-002.13, AT-002.14
- * Source: .taskmaster/docs/acceptance/at-req-002.md
- *
- * AT-002.12 waits on the publish flow and the checkout: publishing closing and funding staying
- * untouched both need a consumer this tree does not have. It is declared red by shape in
- * `tests/at/expected/req-002.json`; the unvet audit and the two pure policies are proved by the
- * neighbouring ids.
- */
-
 import { describe, expect } from 'vitest';
 import { EMITTER_COMPONENT } from '../../../../supabase/functions/_shared/notifications.ts';
 import { channelsFor, taxonomyRow } from '../../../../supabase/functions/_shared/notification-taxonomy.ts';

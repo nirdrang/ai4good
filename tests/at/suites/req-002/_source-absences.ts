@@ -1,11 +1,3 @@
-/**
- * REQ-002's absence source arms: naming sweeps that assert something does not exist.
- * Founder-vetted wording, no Discovery wallet, no publish flow.
- *
- * Shared posture (throws rather than report an absence the instrument could not measure;
- * naming oracles over text): `_source-scan.ts`.
- */
-
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 import {
   CRON,
@@ -20,28 +12,6 @@ import {
   type RouteInventory,
   type SourceFile,
 } from './_source-scan.ts';
-
-/**
- * A naming-and-copy oracle over quoted strings (and JSX text under src/). It refuses a
- * "verified" trust claim about an organisation, and a person-facing trust flag whose label
- * is not exactly "founder-vetted".
- *
- * "verified" in this tree almost always means the email-confirmation floor. The split is
- * the SUBJECT of each string. A string is email or auth verification when it names email,
- * a jwt, a token, or a source address. A string is an organisation trust claim when it
- * names an organisation or NGO and uses "verified" as that organisation's trust word.
- * A standalone "verified" / "Verified" label is a claim on a person-facing surface
- * (src/, notification-copy, public-project, tenant-reads). The one exemption is the
- * lower-case token `'verified'` away from a person-facing surface: that is the
- * email-decision value. `'Verified'` is not that value.
- *
- * A `verified` field is an organisation trust claim when it sits on a person-facing
- * surface or the enclosing declaration names an organisation or NGO, and the enclosing
- * declaration is not email, domain, or webhook-signature verification.
- *
- * A badge whose text is assembled at runtime, or a listing screen that does not exist
- * yet, escapes it. That is why AT-002.23 stays red on the public listing screens.
- */
 
 const EMAIL_OR_AUTH_VERIFICATION = /\bemail\b|\bjwt\b|\btoken\b|\bsource address\b/i;
 const EMAIL_OR_AUTH_FIELD = /\bemail\b|\bjwt\b|\btoken\b|\bdomain\b|\bwebhook\b|\bsignature\b|\bsource address\b/i;
@@ -107,9 +77,6 @@ export function scanTrustWording(files: readonly SourceFile[]): string[] {
         problems.push(`${loc} uses ${shown} as a trust label; the label is founder-vetted`);
         continue;
       }
-      // The one exemption, stated once: `'verified'` in lower case away from a person-facing
-      // surface is the email decision's value, as in `Decision<'verified'>`. `'Verified'` is not
-      // that value, and neither is the same token in copy a person reads.
       const isEmailDecisionValue = piece.value === 'verified' && !isPersonFacingSurface(file.path);
       if (BARE_VERIFIED_LABEL.test(piece.value) && !isEmailDecisionValue) {
         problems.push(`${loc} uses ${shown} as a trust label; the label is founder-vetted`);
@@ -138,21 +105,6 @@ export function scanTrustWording(files: readonly SourceFile[]): string[] {
 export function trustWordingProblems(): string[] {
   return scanTrustWording(productFiles('trustWordingProblems'));
 }
-
-/**
- * A naming oracle over surface names, declaration names, quoted strings, and JSX text. It
- * refuses a Discovery wallet, a Discovery-credit product for sale, and a Discovery-only
- * balance a caller can hold or buy.
- *
- * A wallet is a stored, purchasable, carried-over balance. Remaining is `granted - spent`
- * and is never stored. A name or string is a Discovery wallet when it names Discovery
- * together with wallet, sku, buy/purchase/top-up, or a holdable balance. A name or string
- * is daily-grant accounting when it names grant, granted, spent, remaining, debit,
- * allowance, or "left today" and does not also name a wallet form.
- *
- * A disguised `credit-desk.tsx` escapes it. That is why AT-002.10 stays red on the missing
- * checkout.
- */
 
 const TS_DECLARATION =
   /\b(?:export\s+)?(?:type|interface|class|function|const|let|enum)\s+([A-Za-z_][\w]*)/g;
@@ -199,10 +151,6 @@ function isDiscoveryWalletName(raw: string): boolean {
   return hasToken(tokens, 'balance', 'balances') && !isDailyGrantAccounting(tokens);
 }
 
-/**
- * Quoted copy is a Discovery wallet when it names Discovery together with a wallet form, a
- * credit sale that is not fuel, or a holdable balance that is not the day's remaining.
- */
 function isDiscoveryWalletCopy(value: string): boolean {
   const tokens = words(value);
   if (!hasDiscovery(tokens)) return false;
@@ -304,22 +252,6 @@ export function discoveryWalletProblems(): string[] {
   });
 }
 
-/**
- * A naming-and-statement oracle over surface names, SQL object names, columns, cron jobs,
- * and triggers. It refuses a write that publishes a project, a store of publish state /
- * visibility / triage, and a scheduled change to a project. AT-002.19 and AT-002.20 stay
- * red on the missing publish flow; a green here says the flow is absent, not that those
- * ids are green.
- *
- * The third check is the one an absent route cannot cover: a cron job that writes
- * `public.projects`, or a trigger on `public.projects` that names a publish, scope,
- * visibility, triage, or aging action, would stop a project sitting at scoped
- * indefinitely without any publish route existing at all. The two seat-constraint
- * triggers on projects do not name those actions and stay silent.
- *
- * Visibility without a project or publish subject is a UI control, not a publish store.
- */
-
 const PROJECTS_TABLE_HEAD = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?projects\b/i;
 const TRIGGER_ON_PROJECTS = /create\s+trigger\b[\s\S]*\bon\s+(?:only\s+)?(?:public\.)?projects\b/i;
 const PROJECTS_DML =
@@ -352,11 +284,6 @@ function isNotificationOrAccountName(tokens: readonly string[]): boolean {
   return hasToken(tokens, 'notification', 'notifications', 'account', 'accounts');
 }
 
-/**
- * A name whose subject is publishing a project, a project visibility, a project lifecycle,
- * or a triage queue — not a public-page read, the permit, a notification send, or an
- * account lifecycle.
- */
 function isProjectPublishName(raw: string): boolean {
   const tokens = words(raw);
   if (tokens.length === 0) return false;

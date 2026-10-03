@@ -23,14 +23,6 @@ import {
   type TaxonomyRow,
 } from './taxonomy.ts';
 
-/**
- * One send as the PROVIDER recorded it — the out-of-band half of a row's evidence.
- *
- * `channel` is `string`, not this suite's `Channel`. The harness is statically checked to produce
- * `AtHarness<…, string>`, so narrowing it here would be the suite re-labelling a seam it does not
- * own — the same move `registry.ts` refuses on `h`. That every attempt in this trace is on 'email'
- * is a CHECK in AT-016.05, never a type that asserts it into existence.
- */
 interface ProviderTrace {
   recipientId: string;
   eventId: string;
@@ -44,9 +36,7 @@ interface RowEvidence {
   events: NotificationEvent[];
   deliveries: Delivery[];
   opsItems: OpsItem[];
-  /** every send of this row's deliveries that ARRIVED at the provider seam, accepted or not */
   providerAttempts: ProviderTrace[];
-  /** the subset the provider physically accepted — the send-count oracle, free of replays */
   providerAccepted: ProviderTrace[];
 }
 
@@ -57,28 +47,16 @@ interface TaxonomyEvidence {
   rows: Record<string, RowEvidence>;
 }
 
-/** The documented per-event delivery defaults, keyed by event for the lookup below. */
 function documentedChannels(evidence: TaxonomyEvidence): Map<string, Channel[]> {
   return new Map(evidence.defaults.map((entry) => [entry.event, entry.channels]));
 }
 
-/**
- * A row's EFFECTIVE channels: the ones the requirement names, or the documented default the row
- * binds to when it names none (`channels: null` in `taxonomy.ts`).
- *
- * ONE derivation, because AT-016.03 and AT-016.05 both need it: two copies of this rule is how one
- * test comes to grade a row against channels the other never expected of it.
- */
 function effectiveChannels(row: TaxonomyRow, documented: Map<string, Channel[]>): Channel[] | undefined {
   return row.channels ?? documented.get(row.event);
 }
 
 let evidenceBuilds = 0;
 
-// The BOUND helper from `_bind.ts`, not the raw generic. The raw one took the system-under-test and
-// world types as arguments, so a capture could declare a seam nothing supplies and read it green —
-// the same defect `bindSuite` used to have, one import along. Only `TaxonomyEvidence` is named here,
-// and that is this file's own captured shape, not a claim about the harness.
 const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
   'REQ-016 taxonomy execution',
   async ({ open }) => {
@@ -98,9 +76,6 @@ const taxonomyEvidence = defineEvidenceCapture<TaxonomyEvidence>(
         events: (await sut.events({ type: row.event })).filter((event) => event.id === eventId),
         deliveries: (await sut.deliveries({ type: row.event })).filter((delivery) => delivery.eventId === eventId),
         opsItems: await sut.opsItems({ linkedEventId: eventId }),
-        // THE OUT-OF-BAND HALF. At the loop tier the simulator accumulates every row's sends, and
-        // only the id this row just fired can tell them apart. Above loop there is no simulator;
-        // the catcher is read once after the loop and grouped by that same id.
         providerAttempts: live ? [] : h.vendors.email.attempts().filter((attempt) => attempt.eventId === eventId),
         providerAccepted: live ? [] : h.vendors.email.accepted().filter((attempt) => attempt.eventId === eventId),
       };
@@ -249,22 +224,6 @@ describe.sequential('AT-REQ-016 taxonomy capture and projections', () => {
       `${LOW_TONE_FIXTURE} is low-tone: in-app only, never email`,
     ).toEqual(['inapp']);
 
-    /*
-     * AND THE PROVIDER'S OWN RECORD SAYS THE SAME THING.
-     *
-     * Everything above reads delivery rows the system under test wrote about itself, so an
-     * implementation that records an in-app delivery and hands it to the email provider anyway —
-     * or that mails a recipient the row never resolved to — satisfies every clause of this id while
-     * doing the opposite of what it claims. `_fixture.ts` states the invariant ("in-app never
-     * reaches the provider"); this is its oracle, and the trace it reads was recorded at the seam
-     * by the simulator, not by the sender.
-     *
-     * BOTH DIRECTIONS, per row: nothing off-channel arrived at the email provider, and the pairs it
-     * physically accepted are EXACTLY the ones the taxonomy owes on email — none missing, none
-     * duplicated, nobody extra. A row whose channels do not include email owes the provider
-     * nothing at all, and an empty expectation is what makes "never reaches the provider" fail
-     * loudly instead of being a sentence in a comment.
-     */
     const documented = documentedChannels(evidence);
     const problems: string[] = [];
     for (const row of TAXONOMY) {

@@ -1,5 +1,3 @@
-/** The selftest of `decideContactTransfer` and `decideEscalationContact`, every branch. */
-
 import { describe, expect, it } from 'vitest';
 
 import {

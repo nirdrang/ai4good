@@ -1,17 +1,8 @@
-/**
- * AT-REQ-016 · B. Delivery defaults — AT-016.07 .. AT-016.08
- * Source: .taskmaster/docs/acceptance/at-req-016.md
- *
- * Every pinned number in this file comes from the at-config registry (AI4DEV-3 Part B).
- * Nothing here hard-codes a cap, a window, or a threshold.
- */
-
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { at01608 } from './_integration.ts';
 import { countPairs } from './_oracles.ts';
 
-/** The at-config keys the thread-comment anti-spam guard is configured by (AT-016.08). */
 const GUARD_CAP_KEY = 'req-015.thread_comment_notifications.max_per_window';
 const GUARD_WINDOW_KEY = 'req-015.thread_comment_notifications.window_ms';
 const GUARD_COALESCE_KEY = 'req-015.thread_comment_notifications.coalesce';
@@ -25,9 +16,6 @@ describe('AT-REQ-016 B — delivery defaults', () => {
 
       const { eventId } = await w.fire('payment.succeeded');
 
-      // The restart is only "mid-flight" if the event is durable AND nothing has been delivered
-      // yet. If `fire()` already ran delivery to completion, restarting afterwards exercises
-      // nothing and this test would pass on a no-op — so that state is a RED, not a pass.
       const committed = (await sut.events({ type: 'payment.succeeded' })).find((e) => e.id === eventId);
       expect(committed, 'the committed event was never written').toBeDefined();
       expect(
@@ -35,15 +23,6 @@ describe('AT-REQ-016 B — delivery defaults', () => {
         'delivery already completed before the restart — the restart is not mid-flight and proves nothing',
       ).toEqual([]);
 
-      // THE THIRD PRECONDITION — that the restart happened at all. Two obligations here, and they
-      // have different owners. The HARNESS owns "an invoked restart must change the identity":
-      // `processEpochProblem` in harness/guards.ts, routed by harness/faults.ts from INSIDE
-      // `processRestart()`, so a restart that restarted nothing throws before this test reaches a
-      // single assertion below. The TEST owns "a restart was invoked here at all", because a guard
-      // that lives inside the call cannot fire for a call that was deleted — and deleting exactly
-      // this call is how the Gate 2 finding was proved in the first place. So the pin below is not
-      // a second opinion on the harness's judgement; it is this scenario refusing to hold still
-      // while its restart is taken away.
       const beforeRestart = await h.faults.processEpoch();
       await h.faults.processRestart();
       const afterRestart = await h.faults.processEpoch();
@@ -55,12 +34,6 @@ describe('AT-REQ-016 B — delivery defaults', () => {
 
       await sut.drainDeliveries();
 
-      // THE RESTART IS PART OF THIS RESULT, not a step beside it. Every delivery of this event was
-      // still pending above, so all of them had to be completed by the process that exists AFTER
-      // the restart — and the delivery path has to read that identity to say so. Before this
-      // assertion, `processRestart()` changed a label nothing on the delivery path consulted, and
-      // deleting the restart call left this test passing identically; now a process identity the
-      // delivery path ignores fails here instead of passing.
       const stamps = (await sut.deliveries({ type: 'payment.succeeded' }))
         .filter((d) => d.eventId === eventId)
         .map((d) => d.deliveredByProcess);
@@ -76,19 +49,9 @@ describe('AT-REQ-016 B — delivery defaults', () => {
       const deliveries = (await sut.deliveries({ type: 'payment.succeeded' })).filter((d) => d.eventId === eventId);
       const perPair = countPairs(deliveries);
 
-      // THIS ASSERTION CANNOT FAIL AT LOOP TIER, and saying so here is the point. In the reference
-      // stand-in, `emitKnown` writes exactly one delivery per recipient-channel pair by
-      // construction and `drainDeliveries` mutates those rows in place — no code path anywhere
-      // appends a second delivery for a pair, so no restart and no drain can make this list
-      // non-empty. Its worth is as a regression guard for the tier where a REAL delivery process
-      // exists: one with volatile in-flight state, an outbox it can re-read after a restart, and
-      // therefore a way to send the same pair twice. That process is filed, not built (see
-      // `loop/items/AI4DEV-19/proof-restart.txt`, "what this does not prove"), and until it exists
-      // a green here is a green about the fixture's shape, not about duplicate suppression.
       const duplicated = [...perPair.entries()].filter(([, n]) => n !== 1);
       expect(duplicated, 'a recipient-channel pair received more than one delivery').toEqual([]);
 
-      // An email + in-app row legitimately yields two deliveries — one per channel, never per pair.
       const required = logical[0].recipients
         .flatMap((r) => r.channels.map((c) => `${r.recipientId}:${c}`))
         .sort();
@@ -100,15 +63,8 @@ describe('AT-REQ-016 B — delivery defaults', () => {
   atTest('AT-016.08', 'a comment burst delivers the count the pinned anti-spam configuration prescribes, on two different configurations', {
     timeoutMs: { integration: 60_000 },
   }, {
-    // The loop procedure commands the harness clock, which above loop is the passage of time
-    // and has no command seam. The integration procedure waits real time against two short pins.
     integration: at01608,
     default: async ({ open }) => {
-      // TWO materially different configurations, driven through the SAME body. One configuration
-      // is not a test of "conforms to configuration": an implementation that hard-codes the
-      // registry's own defaults satisfies a single-variant run exactly as well as one that reads
-      // its configuration, and the pair is what tells them apart. Variant B changes the cap, the
-      // window AND the coalescing switch, so no single hard-coded behaviour can satisfy both.
       const variants = [
         { name: 'registry defaults', overrides: undefined },
         {
@@ -120,12 +76,8 @@ describe('AT-REQ-016 B — delivery defaults', () => {
       const observed: { name: string; delivered: number }[] = [];
 
       for (const variant of variants) {
-        // A world of its own per variant: the guard's window state is what is under test, so it
-        // must start from nothing, and its configuration is fixed when the world is opened.
         const { h, w, sut } = await open(undefined, variant.overrides ? { config: variant.overrides } : undefined);
 
-        // Read back from THIS world's registry — the values the guard is actually running on,
-        // never a copy the test kept.
         const cap = h.config.get<number>(GUARD_CAP_KEY);
         const windowMs = h.config.get<number>(GUARD_WINDOW_KEY);
         const coalesce = h.config.get<boolean>(GUARD_COALESCE_KEY);
@@ -134,13 +86,12 @@ describe('AT-REQ-016 B — delivery defaults', () => {
         const expectedDelivered = coalesce ? 1 : cap;
         const where = `${variant.name} (cap=${cap}, window=${windowMs}ms, coalesce=${coalesce})`;
 
-        // The oracle must discriminate: a no-op guard would deliver one per comment.
         expect(expectedDelivered, `${where} describes a no-op guard for a burst of ${burst}`).toBeLessThan(burst);
 
         const pair = `${w.actors.volunteer}:inapp`;
         await h.clock.freezeAt('2026-07-01T00:00:00.000Z');
         await w.burstThreadComments(burst);
-        await h.clock.advance(Math.floor(windowMs / 2)); // still inside the pinned window
+        await h.clock.advance(Math.floor(windowMs / 2));
         await sut.drainDeliveries();
 
         const insideWindow = countPairs(await sut.deliveries({ type: 'thread.comment' })).get(pair) ?? 0;
@@ -149,9 +100,6 @@ describe('AT-REQ-016 B — delivery defaults', () => {
           `${where}: burst of ${burst} inside the window delivered ${insideWindow}; the configuration prescribes ${expectedDelivered}`,
         ).toBe(expectedDelivered);
 
-        // The other side of the boundary: past the window the guard resets, so one more comment
-        // delivers again. A guard that simply stopped after the first N — ignoring time entirely —
-        // fails here, and so does a guard that never reads the controlled clock.
         await h.clock.advance(windowMs);
         await w.burstThreadComments(1);
         await sut.drainDeliveries();
@@ -165,8 +113,6 @@ describe('AT-REQ-016 B — delivery defaults', () => {
         observed.push({ name: variant.name, delivered: insideWindow });
       }
 
-      // The two configurations must be observably different, otherwise "it honoured the
-      // configuration" was never actually put to the test.
       expect(
         new Set(observed.map((entry) => entry.delivered)).size,
         `the two configurations produced the same delivered count (${JSON.stringify(observed)}) — ` +

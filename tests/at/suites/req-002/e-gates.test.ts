@@ -1,13 +1,3 @@
-/**
- * AT-REQ-002 · E. What vetting gates, and what it never gates — AT-002.19, AT-002.20, AT-002.28,
- * AT-002.21, AT-002.22
- * Source: .taskmaster/docs/acceptance/at-req-002.md
- *
- * AT-002.19 and AT-002.20 wait on the publish flow, and AT-002.20 on the triage queue as well.
- * Neither exists in this tree. Both are declared red by shape in `tests/at/expected/req-002.json`;
- * the publishing decision they will consult ships as a pure module with no route behind it.
- */
-
 import { describe, expect } from 'vitest';
 import { createConfigRegistry } from '../../harness/config.ts';
 import { atTest } from './_bind.ts';
@@ -61,8 +51,6 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
     'AT-002.28',
     'when concierge onboarding of an admitted pilot NGO completes, the audited vet action has run and the NGO is founder-vetted on the vetted-tier grant',
     async ({ open }) => {
-      // Concierge onboarding is not a route. It is the pilot operator running the ordinary
-      // audited vet action by hand.
       expect(
         vettingRouteProblems(),
         'the write-route inventory does not admit exactly one platform-admin path to the vetting definer',
@@ -179,8 +167,6 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
         'daily-allowance-exhausted',
       );
 
-      // Debits inside the grant must not be refused at all. The exhausted sentence names
-      // get-vetted as a remedy; that is the zero-credit block, not a vetting gate.
       const inAllowanceRefusals = discoveryRefusalReasons([first, ...debits]);
       expect(inAllowanceRefusals, 'Discovery within the allowance was refused').toEqual([]);
     },
@@ -200,10 +186,6 @@ describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
       const verified = await sut.provisionNgo(w.email('ngo-22-verified'), { emailVerified: true });
       const admin = await sut.provisionPlatformAdmin(w.email('admin-22'));
 
-      // No Discovery send route exists in this repository. A green here says the shipped
-      // discoveryMessageAllowed decision answers correctly. It does not say any deployed
-      // Discovery surface consults it. The debit arm proves the allowance debit is refused
-      // for an unverified caller. It does not prove a Discovery message was blocked.
       const unverifiedDebit = await sut.debitAllowance(unverified.session, unverified.organizationId, 1);
       expect(
         unverifiedDebit.ok,

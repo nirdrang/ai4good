@@ -1,16 +1,3 @@
-/**
- * AT-REQ-002 · D. Evidence rule — AT-002.16, AT-002.17, AT-002.18
- * Source: .taskmaster/docs/acceptance/at-req-002.md
- *
- * Rejecting attachments and storing only metadata cannot prove a document was deleted from
- * the founder's mailbox. The record carries `registrationCopiesDeleted` as an attestation,
- * and an attestation is not proof. AT-002.16 does not assert mailbox deletion.
- *
- * The AT-002.18 surface sweep covers the organisation dashboard and the public project page,
- * which are the surfaces this tree has. It does not claim a sweep of listing screens or of
- * any other surface that does not exist.
- */
-
 import { describe, expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { documentContentSinks } from './_source-documents.ts';
