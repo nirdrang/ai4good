@@ -57,7 +57,7 @@
 10. **Hosted production environment for built tools** — the volunteer/NGO choose deployment.
 11. **Public star ratings for volunteers** — reputation is completion credit plus badges; NGO satisfaction stays private, never displayed (→ RM-24).
 12. **Platform skim on tips** — tips (post-MVP → RM-11) flow NGO→volunteer with a 0% cut.
-13. **Paid-only Discovery in the beta** — the enrolled project uses 10 free turns per UTC day and 50 across the beta first. The initial cohort admits 20 NGOs with one sponsored project each. After either free cap, paid fuel permits continuation. Daily reset restores free-first routing only while beta capacity remains. Vetting and funding do not increase the grant (REQ-002/004/006).
+13. **Paid-only Discovery in the pilot** — the enrolled project uses 10 free turns per UTC day first, or 30 when its NGO is vetted. The initial cohort admits at most 20 NGOs with one sponsored project each. After the daily cap, paid fuel permits continuation. Daily reset restores free-first routing without rollover. Vetting raises the daily grant from 10 to 30; funding does not increase it (REQ-002/004/006).
 13a. **Paid "Discovery wallet"** — out for v1 and v1.5; the post-allowance path is a regular project-fuel purchase (single-pot).
 14. **ai4good-funded Lovable infrastructure** — the NGO owns and pays for its Lovable workspace, never billed against fuel; the platform reads the workspace-level credit status through its monitoring account (REQ-021) and never meters or caps Lovable usage — the only spend bound is the NGO-set credit cap, native to Lovable.
 15. **Multi-tool fuel metering** — fuel covers Anthropic (Claude Code) only; other tools are NGO-direct or volunteer-personal unless they ship metering-compatible APIs.

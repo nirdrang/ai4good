@@ -10,13 +10,13 @@ Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at 
 
 ## B. Tiers & the daily Discovery allowance
 
-- **AT-002.04 (P0)** — Given an email-verified NGO with an enrolled project, when its grant is read, it has exactly 10 daily turns and 50 beta turns. Both vetted and unvetted NGOs share these limits. Another project or another member receives no additional grant. Unvetted NGOs can draft but cannot publish. [d92]
-- **AT-002.05 (P0)** — Given no eligible free turn and no available fuel, sending is blocked and the draft remains. Show fuel checkout. Show the daily reset only if beta turns remain. Vetting is never a remedy for exhausted turns. [d92]
-- **AT-002.26 (P0)** — Given exhausted daily or beta capacity, when the NGO funds project fuel, the next turn can use paid USD. Buying fuel changes neither free counter. [d92]
-- **AT-002.27 (P0)** — Given exhausted daily capacity, the UTC reset permits free turns only if beta capacity remains. If beta capacity is zero, waiting does not restore free access. [d92]
-- **AT-002.06 (P0)** — Given zero, partial, or full daily capacity, the UTC day change resets the daily counter to 10 exactly once without rollover. The beta counter does not reset. Effective free capacity is the smaller remaining daily or beta count. [d92]
-- **AT-002.07 (P0)** — Given k daily and b beta turns used, vetting changes publishing permission but neither free counter. No allowance increase occurs immediately or on subsequent days. [d92]
-- **AT-002.08 (P0)** — Given an enrolled NGO, unvetting, re-vetting, reopening Discovery, or recreating a project never mints another beta grant or resets either consumed counter. [d92]
+- **AT-002.04 (P0)** — Given an email-verified NGO with an enrolled project, its daily grant is exactly 10 free turns, or 30 when vetted. Another project or member receives no additional grant. Unvetted NGOs can draft but cannot publish. [d95]
+- **AT-002.05 (P0)** — Given no eligible free turn and no available fuel, sending is blocked and the draft remains. Show ordinary fuel checkout and the next UTC daily reset. Vetting raises an unvetted NGO's daily grant from 10 to 30 without resetting turns already used. [d95]
+- **AT-002.26 (P0)** — Given exhausted daily capacity, funding project fuel permits paid continuation. Buying fuel changes no daily grant or usage. [d95]
+- **AT-002.27 (P0)** — Given exhausted daily capacity, the next UTC day restores 10 free turns, or 30 when vetted, without a lifetime cap. [d95]
+- **AT-002.06 (P0)** — Given zero, partial, or full daily capacity, the UTC day change resets daily usage exactly once without rollover. The daily grant is 10, or 30 when vetted. [d95]
+- **AT-002.07 (P0)** — Given k turns used today, vetting raises the daily grant from 10 to 30 and preserves k. Subsequent UTC days grant 30 while vetted. [d95]
+- **AT-002.08 (P0)** — Given an enrolled NGO, unvetting, re-vetting, reopening Discovery, or recreating a project never creates another sponsorship or resets consumed daily turns. Vetting raises the daily grant from 10 to 30. [d95]
 - **AT-002.09 [retired — cx r2: remaining-credit visibility is a REQ-004 transparency clause → AT-REQ-004.46]**
 - **AT-002.10 (P0)** — Given exhausted Discovery credits, When the NGO follows the paid-continuation path (UI and API), Then it routes to the ordinary project-fuel checkout; no separately-purchasable Discovery-credit SKU, wallet, or Discovery-only balance exists — ordinary project/general fuel checkout is permitted [cross: REQ-006]. [cx r2: permit fuel checkout, forbid only a Discovery wallet]
 - **AT-002.25 [retired — cx r2: funded-turn billing/allowance-side is a REQ-004 obligation → AT-REQ-004.04/05/48]**
@@ -43,7 +43,7 @@ Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at 
 
 - **AT-002.19 (P0)** — Given an unvetted NGO with a completed scope, When it attempts to publish, Then publishing is blocked (UI and API) while the project may sit at `scoped` indefinitely [cross: REQ-005/005.5].
 - **AT-002.20 (P0)** — Given a vetted NGO with a completed scope, When it publishes, Then the project enters triage [cross: REQ-005/023].
-- **AT-002.28 (P0)** — Given pilot enrollment, concierge onboarding records the audited vet action and the sponsored project. At most 20 NGOs enroll, one sponsored project each, with 50 beta turns each. Concurrent admissions cannot create a twenty-first grant. Vetting alone never creates a second sponsorship. [d92]
+- **AT-002.28 (P0)** — Given pilot enrollment, concierge onboarding records the audited vet action and sponsored project. At most 20 NGOs enroll, one sponsored project each. Concurrent admissions cannot create a twenty-first sponsorship. Vetting raises the daily grant from 10 to 30 and never creates a second sponsorship. [d95]
 - **AT-002.21 (P0)** — Given an unvetted NGO, When it runs Discovery within its allowance, Then Discovery is never blocked by vetting status — vetting gates publishing, never Discovery.
 - **AT-002.22 (P0)** — Given an email-unverified NGO, When it attempts any Discovery message, Then it is blocked — email verification precedes Discovery, at every tier.
 
@@ -57,8 +57,8 @@ Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at 
 | REQ-002 clause | Tests |
 |---|---|
 | Profile create/edit (all five fields) | 01, 02 |
-| Enrolled project: 10 daily turns and 50 beta turns; unvetted cannot publish | 04, 05, 19 |
-| Vetting permits publishing without increasing grants; cohort admission is bounded | 07, 20, 28 |
+| Enrolled project: 10 daily turns, 30 when vetted; unvetted cannot publish | 04, 05, 19 |
+| Vetting permits publishing and raises the daily grant from 10 to 30; cohort admission is bounded | 07, 20, 28 |
 | Funding not vetting-gated (only publishing is) | 31 |
 | Zero-credit remedies actually restore Discovery | 26, 27 |
 | Verification machinery deferred (manual founder-vet only) | 30 |
@@ -67,7 +67,7 @@ Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at 
 | Audited vet action (all fields + field-omission negative + non-admin rejected) + unvet/revoke + notification via REQ-016 | 11, 11b, 12–14, 29 |
 | Evidence rule (public preferred → observable as email-docs metadata-only+deleted; no identity docs; evidence-type honesty) | 16–18 |
 | No public "verified" claim; "founder-vetted" only | 23, 24 |
-| Vetting and project recreation never replenish allowances | 07, 08 |
+| Vetting raises the grant; project recreation preserves daily usage | 07, 08 |
 | Daily hard reset, no rollover | 06 |
 | No paid Discovery wallet in v1/v1.5 | 10 |
 | Funded turns never debit the free allowance | 25 |
