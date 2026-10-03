@@ -14,6 +14,22 @@ function countedRequestTokens(messages: unknown): number {
   return Math.ceil(JSON.stringify(messages).length / 4);
 }
 
+function scriptedReplyInput(reply: Exclude<ScriptedReply, { kind: 'error' }>, request: ModelRequestRecord): unknown {
+  if (reply.kind === 'tool' && reply.name === 'reply') {
+    const input = reply.input as { text?: unknown; facts?: string[]; constraints?: string[]; openQuestions?: string[] };
+    if (typeof input?.text === 'string') return input;
+    if (Array.isArray(input?.facts)) {
+      const facts = [...input.facts, ...(input.constraints ?? [])];
+      return { text: reply.text ?? 'Recorded.', questions: [],
+        agreed: (request.reply?.topicIds ?? []).map((topicId, i) => ({ topicId, answer: facts[i % facts.length] })),
+        openQuestions: [] };
+    }
+    return input;
+  }
+  return { text: reply.text ?? '', questions: [], agreed: [], openQuestions: [],
+    ...(reply.kind === 'tool' && reply.name === 'decline_off_topic' ? { offTopic: true } : {}) };
+}
+
 export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port: AnthropicMessagesPort } {
   let replies: ScriptedReply[] = [];
   const requests: ModelRequestRecord[] = [];
@@ -24,9 +40,6 @@ export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port:
     },
     port: {
       model: DISCOVERY_REQUEST_SETTINGS.model,
-      countTokens: async (request) => replies[0]?.inputTokens ??
-        (replies[0]?.kind !== 'error' ? replies[0]?.usage.inputTokens : undefined) ??
-        countedRequestTokens(request.messages),
       create: async (request) => {
         const reply = replies.shift();
         if (reply === undefined) throw new Error('Anthropic Messages request exceeded its scripted replies');
@@ -40,7 +53,9 @@ export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port:
             inputTokens: foldedInputTokens(reply.usage),
             outputTokens: Math.min(reply.usage.outputTokens, request.maxTokens),
           },
-          toolUse: reply.kind === 'tool' ? { name: reply.name, input: reply.input } : null,
+          toolUse: request.toolChoice?.name === 'reply'
+            ? { name: 'reply', input: scriptedReplyInput(reply, request) }
+            : reply.kind === 'tool' ? { name: reply.name, input: reply.input } : null,
         };
       },
       async stream(request, onDelta, signal) {

@@ -73,6 +73,7 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
       additionalProperties: false,
       properties: {
         text: { type: 'string' },
+        offTopic: { type: 'boolean' },
         questions: {
           type: 'array',
           items: {
@@ -109,7 +110,9 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
 }
 
 export function parseReplyInput(input: unknown, topicIds: readonly string[]): ReplyUpdate | null {
-  if (!isRecord(input) || !exactKeys(input, ['text', 'questions', 'agreed', 'openQuestions'])) return null;
+  if (!isRecord(input) || !exactKeys(input, input.offTopic === undefined
+    ? ['text', 'questions', 'agreed', 'openQuestions'] : ['text', 'questions', 'agreed', 'openQuestions', 'offTopic'])
+    || (input.offTopic !== undefined && typeof input.offTopic !== 'boolean')) return null;
   const text = stringValue(input.text);
   if (text === null || !Array.isArray(input.questions) || !Array.isArray(input.agreed) || !Array.isArray(input.openQuestions)) {
     return null;
@@ -145,12 +148,13 @@ export function parseReplyInput(input: unknown, topicIds: readonly string[]): Re
   return { text, questions, agreed, openQuestions };
 }
 
-export function replySystemPrompt(need: DiscoveryNeed, topicIds: readonly string[], skills: readonly DiscoverySkill[]): SystemBlock[] {
+export function replySystemPrompt(need: DiscoveryNeed, topicIds: readonly string[], skills: readonly DiscoverySkill[], free = true): SystemBlock[] {
   return [
     {
       text: `You are a scoping partner for an NGO with no developer on staff.
 Your goal is a complete brief of the software need, grounded in what the NGO says.
-Call the reply tool on every turn. Its input has exactly these keys: text, questions, agreed, openQuestions.
+Call the reply tool on every turn. Its input has text, questions, agreed, openQuestions, and optionally offTopic.
+${free ? 'Free turns only cover this need. If the request is unrelated, redirect to the need and set offTopic to true. Do not carry out the unrelated task.' : 'This is a paid turn. Free-turn scope redirects and off-topic notices do not apply.'}
 text is the reply the NGO reads. Do not list the questions in the text.
 questions is an array of {topicId, suggestion, suggested, importance, reason}. importance is needed, suggested, or later. suggested is the wording of the option you recommend.
 agreed is an array of {topicId, answer} and only for an answer the NGO gave on this turn.

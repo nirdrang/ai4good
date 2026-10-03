@@ -54,7 +54,7 @@ export const FOOD_BANK_SCOPE: Scope = {
 };
 
 export const FOOD_BANK_ELICITATION_REPLY: ScriptedReply = {
-  kind: 'tool', name: 'record_elicitation', input: FOOD_BANK_ELICITATION,
+  kind: 'tool', name: 'reply', input: FOOD_BANK_ELICITATION,
   text: 'I recorded the shared shelf list and the weekly first-name record. This completes the scoping conversation.',
   usage: { inputTokens: 1600, outputTokens: 80 },
 };

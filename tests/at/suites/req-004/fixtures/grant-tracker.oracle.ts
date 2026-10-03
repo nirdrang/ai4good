@@ -1,4 +1,4 @@
-import { parseElicitation } from '../../../../../supabase/functions/_shared/discovery-prompt.ts';
+import type { Elicitation } from '../_contract.ts';
 
 const facts = [
   { name: 'funder reporting deadlines', matches: (text: string) => /funder|grant/i.test(text) && /report/i.test(text) && /deadline|due date/i.test(text) },
@@ -19,7 +19,8 @@ from a into then given when will user users access open enter set gets get out c
 requires require requiring does do any`.split(/\s+/));
 
 export function grantTrackerOracleProblems(input: unknown): string[] {
-  const elicitation = parseElicitation(input);
+  const candidate = input as Elicitation | null;
+  const elicitation = candidate?.complete === true && Array.isArray(candidate.facts) && Array.isArray(candidate.constraints) && Array.isArray(candidate.userStories) && Array.isArray(candidate.openQuestions) ? candidate : null;
   if (!elicitation) return ['not a complete elicitation shape'];
   const problems: string[] = [];
   if (elicitation.openQuestions.length) problems.push('essential questions remain open');

@@ -38,7 +38,7 @@ atTest('AT-004.12', 'free Discovery declines an unrelated task and redirects to 
     expect(sent.turn.offTopic).toBe(true);
     expect(sent.guardrail).toEqual({ offTopicCount: 1, flagged: false, notice: null });
     const request = h.vendors.anthropic.requests()[0];
-    expect(request.tools.map((tool) => tool.name)).toEqual(['record_elicitation', 'decline_off_topic']);
+    expect(request.tools.map((tool) => tool.name)).toEqual(['reply']);
   },
   integration: awaiting(AWAITED.anthropicLive),
 });
@@ -53,7 +53,7 @@ atTest('AT-004.13', 'repeated off-topic requests on free credits flag once and n
     for (let i = 0; i < strikes; i += 1) {
       const reserved = await sut.reserveTurnAsOperator({
         accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-        message: OFF_TOPIC, countedInputTokens: USAGE.inputTokens,
+        message: OFF_TOPIC,
       });
       expect(reserved.ok).toBe(true);
       if (!reserved.ok) return;
@@ -74,7 +74,7 @@ atTest('AT-004.13', 'repeated off-topic requests on free credits flag once and n
     expect(await sut.notificationEvents('discovery.off_topic_flagged')).toHaveLength(1);
     const extraReserve = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: OFF_TOPIC, countedInputTokens: USAGE.inputTokens,
+      message: OFF_TOPIC,
     });
     expect(extraReserve.ok).toBe(true);
     if (!extraReserve.ok) return;
@@ -88,7 +88,7 @@ atTest('AT-004.13', 'repeated off-topic requests on free credits flag once and n
     expect(await sut.notificationEvents('discovery.off_topic_flagged')).toHaveLength(1);
     const next = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: MESSAGE,
     });
     expect(next.ok).toBe(true);
     if (!next.ok) return;
@@ -109,7 +109,7 @@ atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it 
       { kind: 'text', text: 'Who will use the tracker?', usage: USAGE },
       { kind: 'text', text: 'How do you track deadlines today?', usage: USAGE },
       {
-        kind: 'tool', name: 'record_elicitation', input: elicitation,
+        kind: 'tool', name: 'reply', input: { text: 'I recorded what we have. Two questions stay open.', questions: [], agreed: [{ topicId: 'priority', answer: 'Track reporting deadlines' }], openQuestions: [{ topicId: 'booking', importance: 'needed' }, { topicId: 'measure', importance: 'needed' }] },
         text: 'I recorded what we have. Two questions stay open.', usage: USAGE,
       },
     ]);
@@ -124,10 +124,9 @@ atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it 
     });
     expect(sent.ok).toBe(true);
     if (!sent.ok) return;
-    expect(sent.scopeReady).toBe(true);
-    expect(sent.elicitation).toEqual(elicitation);
-    expect(sent.turn.elicitation).toEqual(elicitation);
-    expect(sent.elicitation?.openQuestions).toHaveLength(2);
+    expect(sent.scopeReady).toBe(false);
+    const read = await sut.readConversation(ngo.session, projectId);
+    expect(read.ok && read.value.brief?.topics.filter((topic) => topic.state.kind !== 'agreed').length).toBeGreaterThan(0);
     const request = h.vendors.anthropic.requests().at(-1)!;
     expect(request.system[0].cached).toBe(true);
     expect(request.system[0].text).toContain(DISCOVERY_STOP_RULE);
@@ -135,7 +134,7 @@ atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it 
   integration: awaiting(AWAITED.anthropicLive),
 });
 
-atTest('AT-004.15', 'a funded project carries no free-phase guardrail', {
+atTest('AT-004.15', 'the selected paid mode carries no free-turn guardrail', {
   default: async ({ open }) => {
     const { w, sut, h } = await open();
     const ngo = await sut.provisionNgo(w.email('ngo-15'), { emailVerified: true });
@@ -145,12 +144,13 @@ atTest('AT-004.15', 'a funded project carries no free-phase guardrail', {
       fundedAt: new Date().toISOString(), fuelMicros: 5_000_000,
     });
     const past = strikes + 2;
+    await sut.drainAllowance(ngo.session, ngo.organizationId);
     h.vendors.anthropic.script(Array.from({ length: past }, () => ({
       kind: 'text' as const, text: DECLINE_TEXT, usage: USAGE,
     })));
     for (let i = 0; i < past; i += 1) {
       const sent = await sut.sendMessage(ngo.session, {
-        organizationId: ngo.organizationId, projectId, message: OFF_TOPIC,
+        organizationId: ngo.organizationId, projectId, message: OFF_TOPIC, expectedCharge: 'paid',
       });
       expect(sent.ok).toBe(true);
       if (!sent.ok) return;
@@ -159,7 +159,7 @@ atTest('AT-004.15', 'a funded project carries no free-phase guardrail', {
     }
     const requests = h.vendors.anthropic.requests();
     expect(requests).toHaveLength(past);
-    requests.forEach((request) => expect(request.tools.map((tool) => tool.name)).toEqual(['record_elicitation']));
+    requests.forEach((request) => expect(request.tools.map((tool) => tool.name)).toEqual(['reply']));
     expect(await sut.notificationEvents('discovery.off_topic_flagged')).toEqual([]);
   },
   integration: async ({ open }) => {
@@ -202,7 +202,7 @@ atTest('AT-004.41', 'an email-unverified account is blocked from any Discovery m
     expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
     await sut.setEmailVerifiedAsOperator(ngo.accountId, true);
     const reserved = await sut.reserveTurnAsOperator({
-      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: MESSAGE, countedInputTokens: USAGE.inputTokens,
+      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: MESSAGE,
     });
     expect(reserved.ok).toBe(true);
     if (!reserved.ok) return;
@@ -245,13 +245,13 @@ atTest('AT-004.42', 'a platform admin switches Discovery off for one NGO and the
     const { w, sut } = await open();
     const world = await proveSwitchOff(sut, w, async ({ sut: inner, ngo, projectId }) => {
       const blocked = await inner.reserveTurnAsOperator({
-        accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: MESSAGE, countedInputTokens: USAGE.inputTokens,
+        accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: MESSAGE,
       });
       expect(blocked).toMatchObject({ ok: false, kind: 'discovery-disabled', status: 409 });
     });
     const otherReserved = await sut.reserveTurnAsOperator({
       accountId: world.other.accountId, organizationId: world.other.organizationId, projectId: world.otherProjectId,
-      message: MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: MESSAGE,
     });
     expect(otherReserved.ok).toBe(true);
     if (!otherReserved.ok) return;

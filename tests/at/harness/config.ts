@@ -2,11 +2,7 @@ import { AT_CONFIG, type AtConfigKey } from './atconfig.ts';
 import type { ConfigOverrides } from './registry.ts';
 
 export const CONFIG_KEYS: Record<string, AtConfigKey> = {
-  'req-004.discovery.micros_per_credit': 'discoveryMicrosPerCredit',
-  'req-004.discovery.input_micros_per_token': 'discoveryInputMicrosPerToken',
-  'req-004.discovery.output_micros_per_token': 'discoveryOutputMicrosPerToken',
   'req-004.discovery.max_output_tokens': 'discoveryMaxOutputTokens',
-  'req-004.discovery.min_output_tokens': 'discoveryMinOutputTokens',
   'req-004.discovery.turn_deadline_seconds': 'discoveryTurnDeadlineSeconds',
   'req-004.discovery.cause_labels_max': 'discoveryCauseLabelsMax',
   'req-004.discovery.off_topic_flag_strikes': 'discoveryOffTopicFlagStrikes',

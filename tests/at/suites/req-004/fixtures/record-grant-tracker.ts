@@ -22,7 +22,7 @@ try {
     model = answer.turn.servedModel ?? '';
     if (model === '') throw new Error('the turn recorded no served model');
     const usage = { inputTokens: answer.turn.inputTokens!, outputTokens: answer.turn.outputTokens! };
-    if (answer.elicitation) replies.push({ kind: 'tool', name: 'record_elicitation', input: answer.elicitation, text: answer.reply, usage });
+    if (answer.elicitation) replies.push({ kind: 'tool', name: 'reply', input: answer.elicitation, text: answer.reply, usage });
     else {
       if (!['end_turn', 'max_tokens', 'refusal'].includes(answer.turn.stopReason ?? '')) throw new Error('turn did not return a recordable stop reason');
       replies.push({ kind: 'text', text: answer.reply, usage, stopReason: answer.turn.stopReason as 'end_turn' | 'max_tokens' | 'refusal' });

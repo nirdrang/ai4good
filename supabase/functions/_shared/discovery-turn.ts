@@ -1,12 +1,12 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage, type ReplyTool } from './discovery-reply.ts';
-import { billingTargetFor, DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
-import { contextMessagesFrom, DECLINE_OFF_TOPIC_TOOL, discoverySystemPrompt, guardrailSettingsFor, parseElicitation, RECORD_ELICITATION_TOOL, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
+import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
+import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
 import { SCOPE_COPY } from './scope-copy.ts';
-import { scopeViewFromSql, type RecordScopeTool, type ScopeView } from './scope.ts';
+import { scopeSourceFromBrief, scopeViewFromSql, type RecordScopeTool, type ScopeView } from './scope.ts';
 import type { DiscoverySkill } from './discovery-skills.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED } from './tenant-reads.ts';
 import type { CallerReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
@@ -20,7 +20,7 @@ export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discove
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
 export type DiscoveryModelRequest = {
   model: string; maxTokens: number; effort: 'low'; system: SystemBlock[];
-  tools: readonly (typeof RECORD_ELICITATION_TOOL | typeof DECLINE_OFF_TOPIC_TOOL | RecordScopeTool | ReplyTool)[];
+  tools: readonly (RecordScopeTool | ReplyTool)[];
   toolChoice?: { type: 'tool'; name: string };
   messages: { role: 'user' | 'assistant'; content: string }[];
   reply?: {
@@ -34,7 +34,6 @@ export type DiscoveryModelAnswer =
 export type MessagesPort = {
   model: string;
   create(request: DiscoveryModelRequest): Promise<DiscoveryModelAnswer>;
-  countTokens(request: DiscoveryModelRequest): Promise<number>;
   stream(request: DiscoveryModelRequest, onDelta: (text: string) => void, signal: AbortSignal): Promise<DiscoveryModelAnswer>;
 };
 export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
@@ -43,7 +42,7 @@ export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
     utcDay: row.utc_day.slice(0, 10), userMessage: row.user_message, assistantMessage: row.assistant_message,
     elicitation: row.elicitation, requestSettings: {
       model: row.request_settings.model, maxTokens: row.request_settings.max_tokens, effort: row.request_settings.effort,
-    }, maxOutputTokens: row.max_output_tokens, estimatedInputTokens: row.estimated_input_tokens,
+    }, maxOutputTokens: row.max_output_tokens,
     reservedCredits: row.reserved_credits, chargedCredits: row.charged_credits,
     reservedMicros: row.reserved_micros, actualMicros: row.actual_micros, overrunMicros: row.overrun_micros,
     inputTokens: row.input_tokens, outputTokens: row.output_tokens, stopReason: row.stop_reason,
@@ -55,16 +54,16 @@ export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
 export type DiscoveryTurnView = ReturnType<typeof turnViewFromSql>;
 const PREPARED_REQUEST = Symbol('discovery prepared request');
 export type ReplyReserveFields = {
-  contract?: 'reply'; mode?: 'answer' | 'opening'; user_message_id?: string;
-  answers?: DiscoveryAnswer[]; expected_charge?: 'free' | 'paid'; assistant_message_id?: string;
+  mode: 'answer' | 'opening'; user_message_id: string;
+  answers: DiscoveryAnswer[]; expected_charge: 'free' | 'paid'; assistant_message_id: string;
 };
 export type DiscoveryReserveArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string; p_message: string;
-  p_settings: DiscoveryReserveSettings & ReplyReserveFields; p_counted_through_seq: number;
+  p_settings: DiscoveryReserveSettings & ReplyReserveFields;
   [PREPARED_REQUEST]?: DiscoveryModelRequest;
 };
 export type Reservation = {
-  turn: DiscoveryTurnSqlRow; need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; allowance: unknown;
+  turn: DiscoveryTurnSqlRow; need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; allowance: unknown; brief?: BriefVersion | null; usage?: unknown; replay?: string;
 };
 export function renderReservation(value: unknown): Reservation {
   if (!isRecord(value) || !isRecord(value.turn) || !Array.isArray(value.context) || !isRecord(value.need)) {
@@ -77,67 +76,13 @@ export function decideDiscoveryMessage(input: AccountWriteRouteInput): WriteRout
   if (!input.standing.orgExists) return refuseWrite('no-such-organisation', 409, 'no such organisation');
   const allowed = orgAdminActionAllowed(input.standing.orgRole);
   if (!allowed.ok) return refuseWrite(allowed.kind, 403, allowed.reason);
-  if (isReplyBody(input.body)) return decideReplyMessage(input);
-  const projectId = uuidField(input.body.projectId);
-  const message = stringField(input.body.message);
-  if (projectId === null || message === null || message.length > DISCOVERY_MESSAGE_MAX_CHARS) {
-    return refuseWrite('invalid-request', 400, 'a Discovery message requires a project id and text within the message limit');
-  }
-  return { ok: true, args: {
-    p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
-    p_message: message, p_settings: reserveSettings(), p_counted_through_seq: 0,
-  } };
+  return decideReplyMessage(input);
 }
 export { contextMessagesFrom } from './discovery-prompt.ts';
 
-export function buildModelRequest(input: {
-  need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; skills: readonly DiscoverySkill[];
-  maxTokens?: number; model: string; tools?: DiscoveryModelRequest['tools'];
-}): DiscoveryModelRequest {
-  return {
-    model: input.model, maxTokens: input.maxTokens ?? DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
-    effort: DISCOVERY_REQUEST_SETTINGS.effort, system: discoverySystemPrompt(input.need, input.skills), messages: input.context,
-    tools: input.tools ?? [RECORD_ELICITATION_TOOL],
-  };
-}
 export function discoveryPrepare(port: MessagesPort, skills: readonly DiscoverySkill[]) {
-  return async (caller: Caller, args: DiscoveryReserveArgs, reads: CallerReads): Promise<WriteRouteDecision<DiscoveryReserveArgs>> => {
-    if (args.p_settings.contract === 'reply') return prepareReply(port, skills, args, reads);
-    const need = await needIntakeAnswer(reads, args.p_project_id);
-    if (need.status === 502) throw new Error(need.body.reason);
-    if (need.status === 404) return refuseWrite('no-such-project', 409, need.body.reason);
-    if (need.body.need.stage !== 'discovery_in_progress') {
-      return refuseWrite('need-not-in-discovery', 409, 'the need is not in Discovery');
-    }
-    const turns = await reads.discoveryTurnsOf(args.p_project_id);
-    if (!turns.ok) throw new Error(turns.detail);
-    const project = await reads.project(args.p_project_id);
-    if (!project.ok) throw new Error(project.detail);
-    const source = project.rows[0];
-    if (source === undefined) return refuseWrite('no-such-project', 409, 'no such project');
-    const billing = billingTargetFor({
-      id: source.id, fundedAt: source.funded_at == null ? null : String(source.funded_at),
-    });
-    const guardrails = guardrailSettingsFor(billing.kind);
-    const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
-    const request = buildModelRequest({
-      skills, model: port.model,
-      need: { title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
-        reference_files: need.body.need.referenceFiles.map((file) => file.fileName) },
-      context: [...contextMessagesFrom(settled), { role: 'user', content: args.p_message }],
-      tools: guardrails.active ? [RECORD_ELICITATION_TOOL, DECLINE_OFF_TOPIC_TOOL] : [RECORD_ELICITATION_TOOL],
-    });
-    let count = 0;
-    if (caller.emailVerified) {
-      count = await port.countTokens(request);
-      if (!Number.isSafeInteger(count) || count < 0) throw new Error('the provider returned an invalid token count');
-    }
-    return { ok: true, args: { ...args, p_settings: {
-        ...args.p_settings, counted_input_tokens: count, model: port.model,
-        off_topic_flag_strikes: guardrails.offTopicFlagStrikes,
-      },
-      p_counted_through_seq: settled.at(-1)?.seq ?? 0, [PREPARED_REQUEST]: request } };
-  };
+  return async (_caller: Caller, args: DiscoveryReserveArgs, reads: CallerReads): Promise<WriteRouteDecision<DiscoveryReserveArgs>> =>
+    prepareReply(port, skills, args, reads);
 }
 const OFF_TOPIC_FLAGGED_EVENT = 'discovery.off_topic_flagged';
 export type OffTopicFlaggedNotice = {
@@ -161,59 +106,15 @@ export function offTopicFlaggedNotice(payload: {
 export type DiscoverySettleArgs = {
   p_account_id: string; p_turn_id: string; p_outcome: 'completed' | 'failed'; p_assistant_message: string | null;
   p_input_tokens: number | null; p_output_tokens: number | null; p_stop_reason: string | null;
-  p_served_model: string | null; p_elicitation: Elicitation | Record<string, unknown> | null;
+  p_served_model: string | null; p_elicitation: Record<string, unknown> | null;
   p_off_topic: boolean; p_notice: OffTopicFlaggedNotice | null;
 };
-export function settleArgsFrom(reservation: Reservation, answer: DiscoveryModelAnswer, accountId: string): {
-  args: DiscoverySettleArgs | null; failure: string | null;
-} {
-  if (!answer.ok && answer.status === null) return { args: null, failure: answer.reason };
-  const active = reservation.turn.request_settings?.guardrails?.active === true;
-  const offTopic = Boolean(answer.ok && answer.toolUse?.name === 'decline_off_topic' && active);
-  const notice = offTopic ? offTopicFlaggedNotice({
-    projectId: reservation.turn.project_id, organizationId: reservation.turn.org_id,
-    strikes: reservation.turn.request_settings.guardrails?.off_topic_flag_strikes ?? DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
-  }) : null;
-  const pNotice = notice?.ok ? notice.value : null;
-  if (answer.ok && answer.stopReason === 'refusal') {
-    return {
-      args: {
-        p_account_id: accountId, p_turn_id: reservation.turn.id, p_outcome: 'failed',
-        p_assistant_message: null, p_input_tokens: null, p_output_tokens: null, p_stop_reason: null,
-        p_served_model: null, p_elicitation: null, p_off_topic: false, p_notice: null,
-      }, failure: 'the model refused the request',
-    };
-  }
-  return {
-    args: {
-      p_account_id: accountId, p_turn_id: reservation.turn.id, p_outcome: answer.ok ? 'completed' : 'failed',
-      p_assistant_message: answer.ok ? answer.text : null, p_input_tokens: answer.ok ? answer.usage.inputTokens : null,
-      p_output_tokens: answer.ok ? answer.usage.outputTokens : null, p_stop_reason: answer.ok ? answer.stopReason : null,
-      p_served_model: answer.ok ? answer.model : null,
-      p_elicitation: answer.ok && answer.toolUse?.name === 'record_elicitation' ? parseElicitation(answer.toolUse.input) : null,
-      p_off_topic: offTopic, p_notice: pNotice,
-    }, failure: answer.ok ? null : answer.reason,
-  };
-}
 export function discoveryAct(port: MessagesPort) {
-  return async (value: unknown, args: DiscoveryReserveArgs) => {
-    if (args.p_settings.contract === 'reply') return actReply(port, value, args, null, undefined);
-    const reservation = renderReservation(value);
-    const prepared = args[PREPARED_REQUEST];
-    if (prepared === undefined) throw new Error('Discovery has no counted request');
-    const answer = await port.create({ ...prepared, maxTokens: reservation.turn.max_output_tokens });
-    return settleArgsFrom(reservation, answer, args.p_account_id);
-  };
+  return async (value: unknown, args: DiscoveryReserveArgs) => actReply(port, value, args, null, undefined);
 }
 export function discoveryStream(port: MessagesPort) {
-  return async (value: unknown, args: DiscoveryReserveArgs, onDelta: (text: string) => void, signal: AbortSignal) => {
-    if (args.p_settings.contract === 'reply') return actReply(port, value, args, onDelta, signal);
-    const reservation = renderReservation(value);
-    const prepared = args[PREPARED_REQUEST];
-    if (prepared === undefined) throw new Error('Discovery has no counted request');
-    const answer = await port.stream({ ...prepared, maxTokens: reservation.turn.max_output_tokens }, onDelta, signal);
-    return settleArgsFrom(reservation, answer, args.p_account_id);
-  };
+  return async (value: unknown, args: DiscoveryReserveArgs, onDelta: (text: string) => void, signal: AbortSignal) =>
+    actReply(port, value, args, onDelta, signal);
 }
 export type DiscoveryConversationView = {
   projectId: string; turns: DiscoveryTurnView[]; elicitation: Elicitation | null;
@@ -278,10 +179,6 @@ export function renderDiscoveryMessage(value: unknown): {
 
 const USER_MESSAGE_ID_MAX = 200;
 
-function isReplyBody(body: Record<string, unknown>): boolean {
-  return body.mode === 'answer' || body.mode === 'opening' || typeof body.userMessageId === 'string';
-}
-
 function messageText(value: unknown): string | null {
   return typeof value === 'string' ? value.trim() : null;
 }
@@ -322,7 +219,7 @@ function decideReplyMessage(input: AccountWriteRouteInput): WriteRouteDecision<D
   const expected = input.body.expectedCharge;
   if (projectId === null || userMessageId === null || userMessageId.length > USER_MESSAGE_ID_MAX
     || message === null || message.length > DISCOVERY_MESSAGE_MAX_CHARS || answers === null
-    || (input.body.mode !== 'opening' && input.body.mode !== 'answer' && typeof input.body.userMessageId !== 'string')) {
+    || (input.body.mode !== 'opening' && input.body.mode !== 'answer')) {
     return refuseWrite('invalid-request', 400, 'a Discovery reply needs a project, a message id, and text within the message limit');
   }
   if (mode === 'answer' && message.length === 0 && answers.length === 0) {
@@ -338,9 +235,9 @@ function decideReplyMessage(input: AccountWriteRouteInput): WriteRouteDecision<D
   const expectedCharge: 'free' | 'paid' = mode === 'opening' || expected !== 'paid' ? 'free' : 'paid';
   return { ok: true, args: {
     p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
-    p_message: composed, p_counted_through_seq: 0,
+    p_message: composed,
     p_settings: {
-      ...reserveSettings(), counted_input_tokens: 0, contract: 'reply', mode,
+      ...reserveSettings(), mode,
       user_message_id: userMessageId, answers, expected_charge: expectedCharge,
       assistant_message_id: crypto.randomUUID(),
     },
@@ -365,14 +262,13 @@ async function prepareReply(
     ?? openingDocument({ need: need.body.need.description ?? need.body.need.title }).document.topicOrder;
   const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
   const opening = args.p_settings.mode === 'opening';
-  // discovery_files arrives with the file unit, so an opening turn counts zero Discovery files.
   const discoveryFileCount = 0;
   const request: DiscoveryModelRequest = {
     model: port.model, maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: replySystemPrompt({
       title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
       reference_files: need.body.need.referenceFiles.map((file) => file.fileName),
-    }, topicIds, skills),
+    }, topicIds, skills, args.p_settings.expected_charge !== 'paid'),
     messages: [...contextMessagesFrom(settled), { role: 'user', content: args.p_message }],
     tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },
     reply: {
@@ -382,8 +278,8 @@ async function prepareReply(
     },
   };
   return { ok: true, args: {
-    ...args, p_counted_through_seq: 0,
-    p_settings: { ...args.p_settings, counted_input_tokens: 0, model: port.model },
+    ...args,
+    p_settings: { ...args.p_settings, model: port.model },
     [PREPARED_REQUEST]: request,
   } };
 }
@@ -413,7 +309,6 @@ export function replyStreamHead(value: unknown, args: DiscoveryReserveArgs): {
   messageId: string; textId: string; prefix?: string;
   replay: { text: string; parts: readonly Record<string, unknown>[] } | null;
 } | null {
-  if (args.p_settings.contract !== 'reply') return null;
   const reservation = renderReservation(value);
   const prepared = args[PREPARED_REQUEST];
   const messageId = assistantMessageId(reservation.turn, prepared?.reply?.messageId ?? args.p_settings.assistant_message_id ?? reservation.turn.id);
@@ -438,7 +333,7 @@ async function actReply(
   if (isRecord(value) && value.replay === 'stored') return { args: null, failure: null, skipSettle: true };
   const reservation = renderReservation(value);
   const prepared = args[PREPARED_REQUEST];
-  if (prepared?.reply === undefined) throw new Error('Discovery has no counted request');
+  if (prepared?.reply === undefined) throw new Error('Discovery has no prepared reply');
   const request = { ...prepared, maxTokens: reservation.turn.max_output_tokens };
   const answer = onDelta
     ? await port.stream(request, onDelta, signal ?? new AbortController().signal)
@@ -470,6 +365,12 @@ async function actReply(
     ready: plan.ready, brief: snapshotOf(plan.brief), usage,
   });
   const messageId = assistantMessageId(reservation.turn, prepared.reply.messageId);
+  const offTopic = reservation.turn.billing === 'free' && isRecord(answer.toolUse?.input)
+    && answer.toolUse.input.offTopic === true;
+  const notice = offTopic ? offTopicFlaggedNotice({
+    projectId: reservation.turn.project_id, organizationId: reservation.turn.org_id,
+    strikes: DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
+  }) : null;
   return {
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'completed',
@@ -482,8 +383,9 @@ async function actReply(
         ui: { id: messageId, role: 'assistant', parts: persistedParts(plan.text, tail) },
         document: plan.changed ? plan.brief.document : null,
         baseRevision: current?.revision ?? null,
+        source: scopeSourceFromBrief(plan.brief),
       },
-      p_off_topic: false, p_notice: null,
+      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null,
     },
     failure: null, suffix: plan.suffix, tail,
   };

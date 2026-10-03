@@ -12,7 +12,7 @@ import { GRANT_TRACKER, GRANT_TRACKER_ELICITATION } from './fixtures/grant-track
 import { GRANT_TRACKER_SCOPE, GRANT_TRACKER_SCOPE_REPLY } from './fixtures/scope-tiers.ts';
 
 const GRANT_ELICITATION_REPLY = {
-  kind: 'tool' as const, name: 'record_elicitation', input: GRANT_TRACKER_ELICITATION,
+  kind: 'tool' as const, name: 'reply', input: GRANT_TRACKER_ELICITATION,
   text: 'I recorded the shared deadline list and reminders.',
   usage: { inputTokens: 1600, outputTokens: 80 },
 };

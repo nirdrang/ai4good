@@ -533,22 +533,19 @@ atTest(
       await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
         const before = await screen.usage.text();
         expect(before, 'Free today starts at 3 of 10').toContain('3 of 10');
-        expect(before, 'Beta starts at 18 of 50').toContain('18 of 50');
         const given = GIVEN['mid-interview'];
         await screen.chat.question(given.open[1].question).pick(given.open[1].suggested);
         await screen.composer.send();
         const after = await eventually(
-          'one free send drops Free today and Beta',
+          'one free send drops the daily free turns',
           () => screen.usage.text(),
-          (text) => text.includes('2 of 10') && text.includes('17 of 50'),
+          (text) => text.includes('2 of 10'),
         );
         expect(after, 'Free today drops by one').toContain('2 of 10');
-        expect(after, 'Beta drops by one').toContain('17 of 50');
       });
       await withDiscovery(ctx, { scenario: 'daily-empty', viewport: 'desktop' }, async (screen) => {
         const text = await screen.usage.text();
         expect(text, 'Free today is used up').toContain('0 of 10');
-        expect(text, 'Beta replies remain').toContain('18 of 50');
         expect(text, 'no fuel is available').toContain('$0.00');
         expect(text, 'Buy fuel shows when the next reply is not free').toContain(TEXT.buyFuel);
         expect(text, 'the note names the $50 minimum').toContain(TEXT.buyFuelNote);
@@ -602,7 +599,6 @@ atTest(
               const calls = await screen.modelCalls();
               const usage = await screen.usage.text();
               expect(usage, 'Free today starts at 3 of 10').toContain('3 of 10');
-              expect(usage, 'Beta starts at 18 of 50').toContain('18 of 50');
               await question.pick('Fewer unfilled shifts');
               await question.saveChange();
               await screen.brief.open();
@@ -617,7 +613,6 @@ atTest(
               expect(await screen.modelCalls(), 'Save change makes no model call').toEqual(calls);
               const after = await screen.usage.text();
               expect(after, 'Free today stays 3 of 10').toContain('3 of 10');
-              expect(after, 'Beta stays 18 of 50').toContain('18 of 50');
               expect(after, 'the edit leaves the usage card unchanged').toBe(usage);
               const line = TEXT.changedAnswer(given.agreed[0].title, 'Fewer unfilled shifts');
               await eventually('Save change adds your line', () => screen.chat.yourText(), (text) => text.includes(line));
