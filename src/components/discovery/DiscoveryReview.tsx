@@ -116,7 +116,6 @@ function PhoneReview({
         </div>
       </div>
       {inView ? null : (
-        // The page frame does not scroll. The bar stays under the column until the card is in view.
         <div className="shrink-0 border-t border-border bg-background p-3">
           <Button
             type="button"

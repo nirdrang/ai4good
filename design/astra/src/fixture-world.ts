@@ -143,7 +143,6 @@ export function openFixtureWorld(scenario: ScreenScenario, pace: Pace = "test"):
 }
 
 function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld {
-  // The seed itself is not stored, so a code change reseeds until the NGO sends.
   let state = loadStored(scenario) ?? seedState(scenario);
   const listeners = new Set<(change: ServerChange) => void>();
 
@@ -356,7 +355,6 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
       const edited = next.brief.topics.find((item) => item.id === input.sectionId);
       if (edited?.state.kind === "agreed") edited.state.answerMessageId = lineId;
       next.brief.revision = revision;
-      // A real change drops the earlier approval. Opening Edit and going back does not.
       next.confirmation = null;
       commit(next, true);
       return { ok: true, value: structuredClone(next.brief) };
@@ -457,8 +455,6 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
     },
   };
 
-  // The read stays in the world, so closing the panel does not stop it.
-  // The read does not pause. Test steps stay long enough to show "Reading… N%".
   const delay =
     pace === "test"
       ? { to35: 400, to70: 400, ready: 2200 }
@@ -499,7 +495,6 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
     if (!file || file.status.kind !== "reading") return;
     const script = scriptForName(file.name);
     file.status = { kind: "ready", facts: script.facts };
-    // A confirmed brief does not change. The row can still become ready.
     if (!next.confirmation) file.tookFromIt = script.fact;
     commit(next);
   }
@@ -508,7 +503,6 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
     clearTimers(fileId);
     const file = discoveryFile(state, fileId);
     if (!file || file.status.kind !== "reading") return;
-    // A reload drops the timers and keeps the percent. The read continues from there.
     if (from < 35) {
       later(fileId, delay.to35, () => {
         if (!setReadingPercent(fileId, 35)) return;

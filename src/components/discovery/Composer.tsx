@@ -33,7 +33,6 @@ export function Composer({
     const oneLine = (Number.isFinite(line) ? line : 0) + (Number.isFinite(pad) ? pad : 0);
     field.style.height = "auto";
     const grown = Math.min(field.scrollHeight, 192);
-    // A long placeholder can inflate scrollHeight. An empty box stays one line.
     const next = text.length === 0 ? oneLine : Math.max(grown, oneLine);
     field.style.height = `${next}px`;
     setHeight(next);

@@ -250,7 +250,6 @@ export function questionForTopic(topic: BriefTopic, round: number): BriefQuestio
   );
 }
 
-/** Booking rules wait while booking is open. */
 export function nextOpenQuestions(brief: BriefSnapshot, round: number): BriefQuestion[] {
   const booking = brief.topics.find((item) => item.id === "booking");
   const askedTopics = new Set(brief.questions.map((question) => question.topicId));
