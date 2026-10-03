@@ -66,6 +66,6 @@ export type DiscoverySut = NeedsSut & {
   setDiscoverySwitch(session: Session | null, request: { organizationId: string; enabled: boolean; reason: string }): Promise<DiscoverySwitchOutcome>;
   discoverySwitchAuditEvents(organizationId: string): Promise<DiscoverySwitchAuditRow[]>;
   setEmailVerifiedAsOperator(accountId: string, verified: boolean): Promise<void>;
-  seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage; elicitation?: Elicitation }[]): Promise<void>;
+  seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage; elicitation?: Elicitation; utcDay?: string }[]): Promise<void>;
   spendLedgerInvariantProblems(organizationId: string): Promise<string[]>;
 };

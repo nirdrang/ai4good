@@ -686,6 +686,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const membership = [...state.memberships.values()].find((row) => row.accountId === caller.id);
       const run = runWrite(DISCOVERY_MESSAGE, session, {
         organizationId: membership?.organizationId ?? null, projectId: crypto.randomUUID(), message: body,
+        mode: 'answer', userMessageId: crypto.randomUUID(), answers: [], expectedCharge: 'free',
       }, null);
       if (!run.ok) return run;
       const allowed = discoveryMessageAllowed({ emailVerified: caller.emailVerified });

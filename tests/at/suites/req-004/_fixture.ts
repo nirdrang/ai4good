@@ -632,7 +632,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         const bound = { reservedMicros: 0, reservedCredits: 1 };
         const cost = { actualMicros: 0, chargedCredits: 1, overrunMicros: 0 };
         rows.push({ id: crypto.randomUUID(), project_id: projectId, org_id: need.organizationId,
-          seq: (rows.at(-1)?.seq ?? 0) + 1, status: 'settled', billing: 'free', utc_day: now().slice(0, 10),
+          seq: (rows.at(-1)?.seq ?? 0) + 1, status: 'settled', billing: 'free', utc_day: seed.utcDay ?? now().slice(0, 10),
           user_message: seed.message, assistant_message: seed.reply, elicitation: seed.elicitation ?? null,
           request_settings: { model: settings.model, max_tokens: maxOutputTokens, effort: settings.effort },
           max_output_tokens: maxOutputTokens, reserved_micros: bound.reservedMicros,

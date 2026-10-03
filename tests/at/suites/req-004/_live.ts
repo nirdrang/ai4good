@@ -268,7 +268,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
             reserved_micros, reserved_credits, input_tokens, output_tokens, stop_reason, served_model, actual_micros,
             charged_credits, overrun_micros, opened_at, settled_at
           ) values (${projectId}::uuid, ${projects[0].org_id}::uuid, ${++seq}, 'settled', 'free',
-            (clock_timestamp() at time zone 'utc')::date, ${seed.message}, ${seed.reply},
+            coalesce(${seed.utcDay ?? null}::date, (clock_timestamp() at time zone 'utc')::date), ${seed.message}, ${seed.reply},
             ${seed.elicitation == null ? null : JSON.stringify(seed.elicitation)}::text::jsonb,
             ${JSON.stringify(request)}::text::jsonb,
             ${cap},

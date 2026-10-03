@@ -90,15 +90,28 @@ async function proveShared(open: Open, drive: Drive) {
   let charged = 0;
   for (const title of ['First tracker', 'Second tracker']) {
     const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, { ...INTAKE, title });
+    if (title === 'First tracker') {
+      for (let daysAgo = 1; daysAgo <= 6; daysAgo++) {
+        const utcDay = utcDayOf(Date.parse(`${before.allowance.utcDay}T00:00:00Z`) - daysAgo * 86400000);
+        await sut.seedTurnsAsOperator(projectId, Array.from({ length: 10 }, () => ({
+          message: 'An earlier question.', reply: 'An earlier reply.', utcDay,
+          usage: { inputTokens: 600, outputTokens: 300 },
+        })));
+        await sut.writeSpendRowAsOperator({ organizationId: ngo.organizationId, utcDay, granted: 10, spent: 10 });
+      }
+      expect((await sut.turnRows(projectId)).length).toBe(60);
+      expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+    }
     const sent = await drive(sut, ngo, projectId, { inputTokens: 600, outputTokens: 300 });
     expect(sent.ok).toBe(true);
     if (!sent.ok) return;
     charged += sent.turn.chargedCredits!;
     expect(sent.allowance?.remaining).toBe(before.allowance.dailyGrant - charged);
   }
-  expect(await sut.spendRows(ngo.organizationId)).toEqual([{
+  expect((await sut.spendRows(ngo.organizationId)).filter((row) => row.utcDay === before.allowance.utcDay)).toEqual([{
     organizationId: ngo.organizationId, utcDay: before.allowance.utcDay, granted: before.allowance.dailyGrant, spent: charged,
   }]);
+  expect(await sut.spendLedgerInvariantProblems(ngo.organizationId)).toEqual([]);
 }
 async function proveBound(open: Open, config: ConfigRegistry, drive: Drive) {
   const { w, sut } = await open();
@@ -173,7 +186,7 @@ atTest('AT-004.08', 'the UTC day restores the grant without rolling unused credi
   default: async ({ open }) => { const world = await open(); const { h } = world; return proveReset(async () => world, loopDrive(h.vendors.anthropic)); },
   integration: ({ open }) => proveReset(open, operatorDrive),
 });
-atTest('AT-004.47', 'two projects share one NGO allowance and one daily spend row', {
+atTest('AT-004.47', 'over fifty historical replies do not cap the shared daily allowance', {
   default: async ({ open }) => { const world = await open(); const { h } = world; return proveShared(async () => world, loopDrive(h.vendors.anthropic)); },
   integration: ({ open }) => proveShared(open, operatorDrive),
 });
