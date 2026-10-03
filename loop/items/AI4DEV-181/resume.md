@@ -41,8 +41,11 @@ Rewritten at the unit 2 gate, 2026-10-03.
 
 ## Next: unit 3 (usage)
 
-The founder's call at the unit 2 gate decides its scope (recorded in `decisions.tsv`). Units 4 to 6
-follow plan.md.
+Founder at the unit 2 gate, 2026-10-03: "Remove old path (Recommended)". Unit 3 rewrites the REQ-004
+acceptance text to one credit per reply with no beta counter, moves the 15 old-contract tests
+(list above) onto the reply path, drops the beta fields from the screen's `DiscoveryUsage` and the
+fixture shell, and deletes `record_elicitation`, the token-priced reserve and the old request path.
+The `--expect` declarations change only for the tests it moves. Units 4 to 6 follow plan.md.
 
 ## Facts that cost time
 
