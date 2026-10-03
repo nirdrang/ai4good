@@ -1,6 +1,6 @@
 # Resume note for AI4DEV-181 (Discovery wired to backend)
 
-Rewritten at the unit 3 gate, 2026-10-03.
+Rewritten at the unit 4 gate, 2026-10-03.
 
 ## Where the run is
 
@@ -50,15 +50,31 @@ Rewritten at the unit 3 gate, 2026-10-03.
   29, req-002 19, req-003 10, req-004 17, req-016 12, all matching; assemble-pure -Check 0;
   check-tree 0; unit 2 live proof 6 of 6.
 
-## Next: unit 4 (files)
+- **Unit 4 (files) is merged on the item branch** (writer codex gpt-6.1-sol high, 41 min, four
+  commits; it stopped on a 404 because the runtime lists functions only at start). Private bucket
+  `discovery-files`, `discovery_files` and `discovery_file_parts`, the `discovery-file` edge function
+  (add multipart, remove; refusals `finished`, `file-limit`, `duplicate-file`,
+  `unsupported-file-type`, `file-too-large`), the free automatic read in `EdgeRuntime.waitUntil`
+  (`discovery-file-read.ts`, parts of 16,000 characters, three attempts per part), digests in later
+  turns, the reply's file report, AT-032.13 registered and green (`tests/at/suites/req-032/`,
+  `tests/at/expected/req-032.json`). Lead fixes after the merge: the upload strips `;charset=` from
+  the media type; a part whose model answer does not parse is retried. The proof's large file is
+  varied rows (420 identical rows made the free model loop).
+- Checks at the unit 4 gate: live proof `evidence/unit4/live-proof.ts` passes (small read, duplicate,
+  3-part large read, fourth refused with intake excluded, removal frees a place, digests in context,
+  reply reports the file, funded fourth accepted); typecheck 0; at:selftest 504; at:check 001, 002,
+  004, 032 0; loop req-004 44, req-032 1; integration req-001 29, req-002 19, req-003 10, req-004 17,
+  req-016 12, req-032 1, all matching; unit 2 proof 6 of 6.
 
-Per plan.md and design.md "Files": the `discovery-files` bucket, the `discovery-file` upload edge
-function (multipart; refusals `finished`, `file-limit` three while not funded with intake excluded,
-`duplicate-file`), `discovery_files` and `discovery_file_parts`, the read in
-`EdgeRuntime.waitUntil` (no question, never pauses, free, not a turn), stored digests in parts,
-facts into the brief through `evolveBrief` with source `file`, digests in later turns, `load`
-re-dispatching a read whose heartbeat is older than five minutes, AT-032.13 registered. Units 5 and
-6 follow plan.md.
+## Next: unit 5 (real route)
+
+Per plan.md: the real `DiscoveryPort` in `src/lib/discovery-port.ts` over the edge functions only
+(`discovery-conversation` load, `discovery-message`, `discovery-brief`, `discovery-file`),
+`subscribe` polling `load` while a file reads and once after each write; `DiscoveryScreen` and
+`DiscoveryReview` mounted on `src/routes/discovery/$organizationId.$projectId.tsx` behind sign-in;
+the section J screen bodies run against the real route at the integration tier with seeded worlds
+and state checks (founder's two levels); the model-call counter reads the stack. Unit 6 follows
+plan.md.
 
 ## Unit 3 scope, as decided at the unit 2 gate
 
@@ -77,6 +93,14 @@ The `--expect` declarations change only for the tests it moves. Units 4 to 6 fol
 - **Run every requirement's integration tier at each unit**, not only req-004: unit 1's new viewer
   function broke the req-001 catalog allowlist (`VIEWER_FUNCTIONS` in
   `tests/at/suites/req-001/_integration.ts`); the writer had run req-004 only.
+- **The edge runtime serves code as it was when the stack started:** a new function answers 404 and
+  an edited file keeps its old behaviour until `bun run db:stop` then `bun run db:start`. Writers
+  cannot restart it (auto mode blocks them): the lead starts the stack from the writer's worktree
+  before launch and restarts it from this worktree before its own runs.
+- The gate plugin loads only when Claude Code's cached rollout switch `tengu_plugin_hooks_modules`
+  was on at session start; older Claude Code builds on this PC write it off. No "Context now:"
+  prefix on the gate question means the plugin is not loaded.
+- Grok's balance is exhausted (402); units 3 and 4 ran on codex gpt-6.1-sol high by founder choice.
 - The stack's edge runtime serves the checkout it was started from. A writer restarts it from its
   own worktree; restart it from the item worktree before the lead's integration runs.
 - `supabase/functions/.env` (git-ignored) holds `ANTHROPIC_API_KEY` and `DISCOVERY_MODEL` (Haiku);

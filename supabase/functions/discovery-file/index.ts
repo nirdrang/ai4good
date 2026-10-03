@@ -24,7 +24,7 @@ Deno.serve(writeRoute({
     const contentHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))]
       .map((byte) => byte.toString(16).padStart(2, '0')).join('');
     const value = { action: form.get('action') ?? 'add', organizationId: form.get('organizationId'), projectId: form.get('projectId'),
-      file: { id: crypto.randomUUID(), name: file.name, sizeBytes: file.size, mediaType: file.type, contentHash } };
+      file: { id: crypto.randomUUID(), name: file.name, sizeBytes: file.size, mediaType: file.type.split(';')[0].trim().toLowerCase(), contentHash } };
     uploads.set(value.file, file);
     return { ok: true, value };
   },

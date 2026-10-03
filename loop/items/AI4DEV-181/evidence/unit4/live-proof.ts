@@ -46,7 +46,11 @@ try {
   const duplicate = await uploadFile(stack, seed.bearer, org, project, 'renamed-duplicate.txt', smallText);
   assert.equal(duplicate.body.kind, 'duplicate-file');
   record('duplicate refused by content', duplicate);
-  const largeText = Array.from({ length: 420 }, (_, index) => `Rota row ${index + 1}: coordinators schedule 45 volunteers in three kitchens, with Sunday gaps and four hours of weekly scheduling.`).join('\n');
+  const kitchens = ['North Hall', 'Riverside', 'Station Road'];
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const tasks = ['cooking', 'serving', 'washing up', 'deliveries', 'stock count', 'front desk'];
+const largeText = Array.from({ length: 420 }, (_, index) =>
+  `${days[index % 7]} week ${Math.floor(index / 21) + 1}, ${kitchens[index % 3]}: volunteer ${index % 45 + 1} on ${tasks[index % 6]}, ${index % 5 === 0 ? 'no cover found, coordinator phoned three people' : `confirmed by text ${index % 4 + 1} days ahead`}.`).join('\n');
   const largeUpload = await uploadFile(stack, seed.bearer, org, project, 'large-rota.txt', largeText);
   assert.equal(largeUpload.status, 200, JSON.stringify(largeUpload));
   const largeId = String((largeUpload.body.file as { id: string }).id);
