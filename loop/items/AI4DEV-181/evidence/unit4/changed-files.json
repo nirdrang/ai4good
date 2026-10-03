@@ -1,0 +1,190 @@
+[
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/changed-files.json"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/checks.md"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/integration-results.json"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/live-proof.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/req-003-integration.log"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/req-004-integration.log"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/req-016-integration.log"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/req-032-integration.log"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/runtime-inspect.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/runtime.json"
+    },
+    {
+        "status":  "A",
+        "path":  "loop/items/AI4DEV-181/evidence/unit4/transcript.json"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/config.toml"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/anthropic-messages.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/discovery-brief.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/functions/_shared/discovery-file-extract.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/functions/_shared/discovery-file-read.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/functions/_shared/discovery-file-write.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/functions/_shared/discovery-files.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/functions/_shared/discovery-model.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/discovery-reads.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/discovery-reply.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/discovery-turn.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/edge.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/openai-compatible-messages.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/_shared/write-routes.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/discovery-conversation/index.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/functions/discovery-file/index.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "supabase/functions/discovery-message/index.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "supabase/migrations/20261003120300_discovery_files.sql"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/expected/req-032.json"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/harness/discovery-brief.selftest.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/harness/discovery-files.selftest.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/harness/req002-documents-oracles.selftest.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/harness/suite-adapters.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-001/_contract.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-001/_fixture.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-001/_integration.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-001/_live.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-001/_policy-scan.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-001/_write-route-scan.ts"
+    },
+    {
+        "status":  "M",
+        "path":  "tests/at/suites/req-002/_source-documents.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/suites/req-032/_bind.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/suites/req-032/_files.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/suites/req-032/_fixture.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/suites/req-032/_live.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/suites/req-032/a-discovery-limit.test.ts"
+    },
+    {
+        "status":  "A",
+        "path":  "tests/at/suites/req-032/z-pending.test.ts"
+    }
+]
