@@ -39,7 +39,7 @@ const DOCUMENT_RETURN_NAME =
   /\b(?:attachment[-_]?download|document[-_]?content|document[-_]?download|document[-_]?file|document[-_]?upload|download[-_]?document|get[-_]?attachment|serve[-_]?document|upload[-_]?document)\b/i;
 
 const STORAGE_API = /\bstorage\.from\s*\(|\bcreateBucket\s*\(|\bcreateSignedUrl\s*\(/;
-const DOCUMENT_CONTENT_TYPE = /['"]application\/(?:pdf|octet-stream)['"]/;
+const DOCUMENT_CONTENT_TYPE = /['"]?content-type['"]?\s*:\s*['"]application\/(?:pdf|octet-stream)['"]/i;
 
 export type DocumentContentSinkInput = {
   files: readonly SourceFile[];
