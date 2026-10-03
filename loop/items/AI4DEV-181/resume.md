@@ -1,6 +1,6 @@
 # Resume note for AI4DEV-181 (Discovery wired to backend)
 
-Rewritten at the unit 1 gate, 2026-10-02.
+Rewritten at the unit 2 gate, 2026-10-03.
 
 ## Where the run is
 
@@ -19,17 +19,30 @@ Rewritten at the unit 1 gate, 2026-10-02.
   --expect req-001 33 green, req-004 44 green; integration --expect req-001 29, req-002 19,
   req-003 10, req-004 17, req-016 12 green, all matching.
 
-## Next: unit 2 (turn contract)
+- **Unit 2 (turn contract) is merged on the item branch** (writer grok-4.7 xhigh, 87 min, 6.20 USD;
+  commits `078d4f7`, `959dc19`, `b7f20b8`, `094e72e`). `discovery-reply.ts` (the forced `reply`
+  tool), `json-text-decoder.ts`, `openai-compatible-messages.ts` beside `anthropic-messages.ts`
+  (env `DISCOVERY_PROVIDER` picks; unset keeps Anthropic), migrations `20261003120000` (billing
+  `opening`) and `20261003120100` (reply turn, one SQL usage function, one credit, refusals
+  `finished`, `discovery-ready`, `mode-changed`, `daily-limit`, replay by `userMessageId`). The
+  persisted screen message is `assistant_ui`; `assistant_message` stays text.
+- **A temporary old path remains:** a request without reply mode still uses `record_elicitation`
+  and the token-priced reserve, so the old req-004 suites stay as declared. The screen's usage type
+  still carries the beta fields (the server copies the daily grant into them). Tests on the old
+  contract per the writer: AT-004.01, .02, .03a, .03b, .04, .06, .08, .10, .12, .14, .15, .46, .47,
+  .48, .72. Record in `evidence/unit2/writer-output.md`.
+- Checks at the unit 2 gate (lead, stack started from this worktree): live proof
+  `evidence/unit2/prove.ts` 6 of 6 on space-bunny-free; typecheck 0; at:selftest 494; at:check
+  req-001 and req-004 0; loop req-004 44 green; integration req-001 29, req-002 19, req-003 10,
+  req-004 17, req-016 12 green, all matching.
+- `supabase/functions/.env` in this worktree now holds the opencode settings
+  (`DISCOVERY_PROVIDER=openai-compatible`, `DISCOVERY_MODEL=space-bunny-free`, base URL, key,
+  `DISCOVERY_REASONING_EFFORT=low`) beside the Anthropic key.
 
-Per `design.md` "Turn", "Opening", "Model adapter": `discovery-message` accepts the screen's body
-plus ids and `userMessageId`; one forced `reply` tool call streams `text` and returns the update;
-settle applies answers then the model update through `evolveBrief` and commits turn + revision +
-one credit together; stream parts `data-filed`, `data-charge`, `data-question`, `data-ready`,
-transient `data-brief`, `data-usage`; persisted assistant message id; the opening turn (billing
-`opening`, free, unique per project, calls `openingDocument`); the OpenAI-compatible adapter chosen
-by env (`DISCOVERY_PROVIDER`, `DISCOVERY_MODEL`, `DISCOVERY_BASE_URL`, `DISCOVERY_API_KEY`,
-`DISCOVERY_REASONING_EFFORT`), space-bunny-free at low on `https://opencode.ai/zen/v1`; drop
-`countTokens` before reserve. Units 3 to 6 follow plan.md.
+## Next: unit 3 (usage)
+
+The founder's call at the unit 2 gate decides its scope (recorded in `decisions.tsv`). Units 4 to 6
+follow plan.md.
 
 ## Facts that cost time
 
@@ -49,5 +62,5 @@ by env (`DISCOVERY_PROVIDER`, `DISCOVERY_MODEL`, `DISCOVERY_BASE_URL`, `DISCOVER
 
 ## Worktrees kept
 
-`.claude/worktrees/AI4DEV-181-unit1` (lane/ai4dev-181/unit1). No deletion without a founder
-decision.
+`.claude/worktrees/AI4DEV-181-unit1` (lane/ai4dev-181/unit1) and `.claude/worktrees/AI4DEV-181-unit2`
+(lane/ai4dev-181/unit2). No deletion without a founder decision.
