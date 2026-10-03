@@ -1,4 +1,38 @@
-<!-- ISOLATED requirement, extracted from prd-mvp.md. Source of truth is the PRD; re-extract if it changes. -->
+# Change order 013: one credit per reply and daily grants only
+
+Date: 2026-10-03. Decision d95. AI4DEV-181 (Discovery wired to backend).
+
+## Founder rulings, as recorded in the unit brief
+
+- "Remove the beta thing 1 credit for each turn"
+- "Remove everywhere"
+- "Vetted gets 30"
+- "Remove old path"
+
+The cohort remains at most 20 NGOs with one sponsored project each. Free comes first even when funded; fuel remains the stub.
+
+## Changed requirement text, verbatim
+
+#### REQ-002: NGO Organization Profile & Founder Vetting
+
+NGOs sign up (email-verified) and complete an org profile. v1 trust is a founder-vetted flag applied during concierge onboarding; the verification machinery is deferred (→ RM-6). Two tiers:
+
+1. **Unverified** — email-verified, the Discovery access floor. May draft projects and use an enrolled project's daily allowance or paid fuel. Cannot publish.
+2. **Vetted** — one audited admin action at concierge onboarding. May publish and fund. The default for admitted pilot NGOs. Vetting raises the daily Discovery grant from 10 to 30 free turns.
+
+- The NGO admin creates and edits the profile (name, mission, country, website, logo).
+- The profile's mission text is one input the Discovery pass reads to generate cause labels (REQ-004); there is no separate cause-category field or admin taxonomy surface here.
+- Email verification precedes any Discovery message; vetting gates publishing, never Discovery.
+- **The vetting action is audited:** it records who vetted and when, the NGO legal/display name, a public reference link, the contact's name + title + authority attestation, the evidence type, and a note; unvet/revoke exists; vet/unvet emits the verification-outcome notification through the normal event path (REQ-016).
+- **Evidence rule (PII-minimizing):** public evidence is preferred (registry, website, EIN); emailed registration documents have only their metadata recorded and the copy deleted after vetting; no sensitive personal identity documents in v1; nothing may imply a document review that did not occur.
+- **No public "verified" claim in v1** — the flag may show only as "founder-vetted" (→ RM-6).
+- **Pilot enrollment:** the initial cohort contains at most 20 NGOs, with one sponsored project per NGO. Each enrolled project receives 10 free turns per UTC day, or 30 when its NGO is vetted. There is no lifetime turn cap. Enrollment records the NGO and project. Additional projects receive no new grant. Vetting raises the daily grant from 10 to 30 without resetting consumed turns. Re-vetting, project recreation, or reopening Discovery never resets consumed turns or creates another sponsorship.
+- Only vetted NGOs publish; an unvetted NGO may reach `scoped` with publishing disabled.
+- The daily allowance resets at 00:00 UTC without rollover to 10 free turns, or 30 when the NGO is vetted. Free capacity is the daily grant minus turns used today. Existing v1 membership remains single-seat; future members share the sponsored project's daily allowance.
+- A paid "Discovery wallet" is excluded in v1 and v1.5 (→ RM-6).
+
+Dependencies: REQ-001.
+
 
 #### REQ-004: AI Discovery Agent (free, rate-limited)
 
@@ -31,4 +65,11 @@ A conversational agent, on Claude Opus, turns intake into a confirmed Discovery 
 
 Dependencies: REQ-003.
 
----
+
+## Contract edits
+
+Show today's free turns left of the daily grant (10, or 30 when vetted), paid USD available and the next reply mode in one usage card. Remove the lifetime row and exhaustion states. Use daily consumption for the free gauge. The next UTC reset restores free turns without rollover. One completed free reply costs one credit regardless of tokens.
+
+## Design stage remaining
+
+Part c is deferred to the screen design stage: revise the Discovery canvas, run its Codex review, obtain founder agreement and copy the completed canvas into design/canvas/discovery/.

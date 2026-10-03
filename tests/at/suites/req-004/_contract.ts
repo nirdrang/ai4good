@@ -7,7 +7,10 @@ import type { Scope, ScopeView } from '../../../../supabase/functions/_shared/sc
 export type { Session, WriteRefusal, SpendRow, ModelUsage, DiscoveryTurnView, Elicitation, Reservation };
 export type { Scope, ScopeView };
 export type IntakeFixture = { title: string; description: string; urgency?: NeedUrgency };
-export type DiscoveryMessageRequest = { organizationId: string; projectId: string; message: string };
+export type DiscoveryMessageRequest = { organizationId: string; projectId: string; message: string;
+  mode?: 'answer' | 'opening'; userMessageId?: string; expectedCharge?: 'free' | 'paid';
+  answers?: import('../../../../supabase/functions/_shared/discovery-brief.ts').DiscoveryAnswer[];
+};
 export type DiscoveryMessageOutcome = {
   ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
   scopeReady: boolean; guardrail: { offTopicCount: number; flagged: boolean; notice: string | null } | null;
@@ -30,7 +33,7 @@ export type OperatorScopeCommitInput = {
 export type ScopeWriteOutcome = {
   ok: true; changed: boolean; scope: ScopeView | null; scopes: ScopeView[]; need: NeedIntakeView; escalated: boolean;
 } | WriteRefusal;
-export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; countedInputTokens?: number; countedThroughSeq?: number };
+export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; mode?: 'answer' | 'opening'; userMessageId?: string; expectedCharge?: 'free' | 'paid' };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
 export type OperatorSettleInput = {
   accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage; offTopic?: boolean;
@@ -57,12 +60,12 @@ export type DiscoverySut = NeedsSut & {
   settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
   notificationEvents(event: string): Promise<{ event: string; payload: Record<string, unknown> }[]>;
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
-  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null }>>;
+  readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null; brief?: import("../../../../supabase/functions/_shared/discovery-brief.ts").BriefSnapshot | null }>>;
   setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;
   projectFundingAsOperator(projectId: string): Promise<{ fundedAt: string | null; fuelMicros: number }>;
   setDiscoverySwitch(session: Session | null, request: { organizationId: string; enabled: boolean; reason: string }): Promise<DiscoverySwitchOutcome>;
   discoverySwitchAuditEvents(organizationId: string): Promise<DiscoverySwitchAuditRow[]>;
   setEmailVerifiedAsOperator(accountId: string, verified: boolean): Promise<void>;
-  seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage; elicitation?: Elicitation }[]): Promise<void>;
+  seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage; elicitation?: Elicitation; utcDay?: string }[]): Promise<void>;
   spendLedgerInvariantProblems(organizationId: string): Promise<string[]>;
 };

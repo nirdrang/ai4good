@@ -13,7 +13,7 @@ import {
 } from './fixtures/scope-tiers.ts';
 
 const ELICITATION_REPLY = {
-  kind: 'tool' as const, name: 'record_elicitation', input: GRANT_TRACKER_ELICITATION,
+  kind: 'tool' as const, name: 'reply', input: GRANT_TRACKER_ELICITATION,
   text: 'I recorded the shared deadline list and reminders.',
   usage: { inputTokens: 1600, outputTokens: 80 },
 };

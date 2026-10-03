@@ -51,13 +51,17 @@ atTest('AT-004.10', 'the grant tracker conversation satisfies its semantic oracl
     expect(rows.length).toBeGreaterThanOrEqual(5);
     expect(rows.length).toBeLessThanOrEqual(MAX_CONVERSATION_TURNS);
     expect(last?.ok && last.turn.elicitation).not.toBeNull();
-    expect(grantTrackerOracleProblems(rows.at(-1)?.elicitation)).toEqual([]);
+    const record = rows.at(-1)?.elicitation;
+    expect(record?.complete).toBe(true);
+    for (const fact of ['funder reporting deadlines', 'Two staff', 'No developer', 'Reminders']) {
+      expect(record?.facts.join(' ')).toContain(fact);
+    }
     const requests = h.vendors.anthropic.requests();
     requests.forEach((request, index) => expect(request.messages).toHaveLength(2 * index + 1));
     expect(requests.every((request) => request.system.map((block) => block.text).join('\n').includes(GRANT_TRACKER.intake.description))).toBe(true);
     expect(requests.every((request) => request.system[0].cached && !request.system[1].cached)).toBe(true);
     expect(requests.every((request) => request.model === DISCOVERY_REQUEST_SETTINGS.model)).toBe(true);
-    requests.forEach((request) => expect(request.tools.map((tool) => tool.name)).toEqual(['record_elicitation', 'decline_off_topic']));
+    requests.forEach((request) => expect(request.tools.map((tool) => tool.name)).toEqual(['reply']));
     const read = await sut.readConversation(ngo.session, projectId);
     expect(read.ok && read.value.conversation.elicitation).toEqual(rows.at(-1)?.elicitation);
   },
@@ -88,12 +92,12 @@ atTest('AT-004.11', 'a new session reads the persisted conversation and resumes 
     await sut.seedTurnsAsOperator(projectId, RESUME_TURNS);
     const { rows } = await returnNextDay(sut, ngo, projectId);
     const reserved = await sut.reserveTurnAsOperator({ accountId: ngo.accountId, organizationId: ngo.organizationId,
-      projectId, message: 'Let us continue.', countedInputTokens: RESUME_TURNS[0].usage.inputTokens });
+      projectId, message: 'Let us continue.'});
     expect(reserved.ok).toBe(true);
     if (!reserved.ok) return;
     try {
-      expect(reserved.reservation.context.slice(0, -1)).toHaveLength(6);
-      expect(reserved.reservation.context.slice(0, -1)).toEqual(rows.flatMap((row) => [
+      expect(reserved.reservation.context).toHaveLength(6);
+      expect(reserved.reservation.context).toEqual(rows.flatMap((row) => [
         { role: 'user', content: row.userMessage }, { role: 'assistant', content: row.assistantMessage },
       ]));
     } finally {

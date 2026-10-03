@@ -49,29 +49,25 @@ describe('Anthropic Messages simulator', () => {
     sim.script([{ kind: 'text', text: 'Question?', usage: { inputTokens: 80, outputTokens: 32, cacheReadInputTokens: 400 } }]);
     expect(await port.create(request)).toMatchObject({ ok: true, usage: { inputTokens: 480, outputTokens: 32 } });
   });
-  it('counts without consuming and caps output on text and tool replies', async () => {
+  it('caps output on text and tool replies', async () => {
     const { sim, port } = createAnthropicMessagesSim();
     sim.script([
       { kind: 'text', text: 'Question?', inputTokens: 256, usage: { inputTokens: 512, outputTokens: 200 } },
-      { kind: 'tool', name: 'record_elicitation', input: { complete: true }, usage: { inputTokens: 600, outputTokens: 64 } },
+      { kind: 'tool', name: 'reply', input: { complete: true }, usage: { inputTokens: 600, outputTokens: 64 } },
     ]);
-    expect(await port.countTokens(request)).toBe(256);
-    expect(await port.countTokens(request)).toBe(256);
     expect(sim.requests()).toEqual([]);
     expect(await port.create(request)).toMatchObject({ ok: true, text: 'Question?', stopReason: 'max_tokens',
       usage: { inputTokens: 512, outputTokens: request.maxTokens } });
-    expect(await port.countTokens(request)).toBe(600);
-    expect(await port.create(request)).toMatchObject({ ok: true, stopReason: 'tool_use', toolUse: { name: 'record_elicitation', input: { complete: true } } });
+    expect(await port.create(request)).toMatchObject({ ok: true, stopReason: 'tool_use', toolUse: { name: 'reply', input: { complete: true } } });
     expect(sim.requests()).toEqual([request, request]);
     const copied = sim.requests();
     copied[0].messages[0].content = 'changed';
     expect(sim.requests()[0]).toEqual(request);
     await expect(port.create(request)).rejects.toThrow('exceeded its scripted replies');
   });
-  it('returns definite and uncertain errors and a deterministic fallback count', async () => {
+  it('returns definite and uncertain errors', async () => {
     const { sim, port } = createAnthropicMessagesSim();
     sim.script([{ kind: 'error', status: 429, reason: 'busy' }, { kind: 'error', status: null, reason: 'timeout' }]);
-    expect(await port.countTokens(request)).toBe(Math.ceil(JSON.stringify(request.messages).length / 4));
     expect(await port.create(request)).toEqual({ ok: false, status: 429, reason: 'busy' });
     expect(await port.create(request)).toEqual({ ok: false, status: null, reason: 'timeout' });
     await expect(port.create(request)).rejects.toThrow('exceeded its scripted replies');

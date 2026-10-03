@@ -1,6 +1,8 @@
+import { briefVersionFrom, requiredAgreement, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
+import { dailyAllowanceExhaustedReason, discoveryTier } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
-import { affordableOutputTokens, billingTargetFor, countedInputTokens, fuelRouteAllowed, reservationFor, reserveSettings, settlementFor,
-  DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_MICROS_PER_CREDIT, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { reserveSettings,
+  DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   contextMessagesFrom, offTopicFlaggedNotice,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
@@ -29,6 +31,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const accounts = inner.accounts;
   const actors = new Map<string, { session: Session; organizationId: string | null; role: 'admin' | 'member'; type: 'ngo' | 'volunteer' | 'platform_admin'; emailVerified: boolean }>();
   const turns = new Map<string, DiscoveryTurnSqlRow[]>();
+  const briefs = new Map<string, BriefVersion>();
   const scopes = new Map<string, ScopeSqlRow[]>();
   const vocabulary = new Map<string, { label: string; firstProjectId: string | null }>();
   const needCauseLabels = new Map<string, string[]>();
@@ -42,6 +45,14 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     organization_id: allowance.organizationId, utc_day: allowance.utcDay, vetted: allowance.vetted,
     daily_grant: allowance.dailyGrant, spent_today: allowance.spentToday, remaining: allowance.remaining,
   });
+  const usageOf = async (session: Session, org: string, project: string) => {
+    const read = await organizations.readAllowance(session, org);
+    if (!read.ok) throw new Error(read.reason);
+    return { daily_left: read.allowance.remaining, daily_grant: read.allowance.dailyGrant,
+      available_micros: funding.get(project)?.fuelMicros ?? 0, reserved_micros: 0, allocation_micros: 0,
+      settled_micros: 0, hold_micros: 100000, next_reply: read.allowance.remaining > 0 ? 'free' : 'unavailable',
+      next_reset_at: new Date(Date.parse(read.allowance.utcDay) + 86400000).toISOString() };
+  };
   const refuse = (kind: Parameters<typeof import('../../../../supabase/functions/_shared/write-routes.ts').refuseWrite>[0], reason: string) =>
     ({ ok: false as const, kind, status: 409, reason });
   const reserve = async (args: DiscoveryReserveArgs): Promise<OperatorReserveOutcome> => {
@@ -63,67 +74,53 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return refuse('turn-in-flight', 'a Discovery turn is in flight');
     }
     const settled = rows.filter((row) => row.status === 'settled');
-    if ((settled.at(-1)?.seq ?? 0) !== args.p_counted_through_seq) return refuse('stale-context', 'the conversation changed after token counting');
     const message = args.p_message.trim();
-    const estimatedInputTokens = countedInputTokens(args.p_settings.counted_input_tokens!);
-    const funded = funding.get(need.projectId);
-    const target = billingTargetFor({ id: need.projectId, fundedAt: funded?.fundedAt ?? null });
-    if (open) Object.assign(open, { status: 'abandoned', charged_credits: open.reserved_credits, settled_at: now() });
-    const latest = [...rows].sort((a, b) => a.seq - b.seq).at(-1);
-    const billing = target.kind === 'fuel'
-      ? 'fuel' as const
-      : (latest?.status === 'failed' || latest?.status === 'abandoned') && latest.user_message === message
-        ? 'retry' as const
-        : 'free' as const;
-    let maxOutputTokens: number;
-    let bound: ReturnType<typeof reservationFor>;
-    let utcDay: string;
-    let debitAllowance: ReturnType<typeof sqlAllowance> | null = null;
-    if (billing === 'fuel') {
-      const fuel = { availableMicros: funded?.fuelMicros ?? 0 };
-      maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
-        affordableOutputTokens({ availableMicros: fuel.availableMicros, estimatedInputTokens }));
-      bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
-      const allowed = fuelRouteAllowed(target, fuel, bound.reservedMicros);
-      if (!allowed.ok) return refuse(allowed.kind, allowed.reason);
-      bound = { reservedMicros: bound.reservedMicros, reservedCredits: 0 };
-      utcDay = new Date(opts.clock.now()).toISOString().slice(0, 10);
-    } else {
-      const before = await organizations.readAllowance(actor.session, need.organizationId);
-      if (!before.ok) return before;
-      maxOutputTokens = Math.max(DISCOVERY_REQUEST_SETTINGS.minOutputTokens,
-        affordableOutputTokens({ availableMicros: before.allowance.remaining * DISCOVERY_MICROS_PER_CREDIT, estimatedInputTokens }));
-      bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
-      if (billing === 'retry') {
-        bound = { reservedMicros: bound.reservedMicros, reservedCredits: 0 };
-        utcDay = before.allowance.utcDay;
-      } else {
-        const debit = await organizations.debitAllowance(actor.session, need.organizationId, bound.reservedCredits);
-        if (!debit.ok) return debit;
-        utcDay = debit.allowance.utcDay;
-        debitAllowance = sqlAllowance(debit.allowance);
-      }
+    const existing = rows.find((row) => row.user_message_id === args.p_settings.user_message_id);
+    if (existing) return { ok: true, reservation: { turn: structuredClone(existing),
+      need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: [] },
+      context: contextMessagesFrom(settled), allowance: null, replay: 'stored',
+      brief: briefs.get(need.projectId) ?? null, usage: await usageOf(actor.session, need.organizationId, need.projectId) } };
+    if (open) {
+      Object.assign(open, { status: 'abandoned', charged_credits: 0, settled_at: now() });
+      const spend = (await organizations.spendRows(open.org_id)).find((row) => row.utcDay === open.utc_day);
+      if (spend && open.reserved_credits) await organizations.writeSpendRowAsOperator({ ...spend, spent: spend.spent - open.reserved_credits });
+    }
+    const current = briefs.get(need.projectId);
+    if (current && requiredAgreement(current).ready) return refuse('discovery-ready', 'Discovery is ready for review.');
+    const before = await organizations.readAllowance(actor.session, need.organizationId);
+    if (!before.ok) return before;
+    const opening = args.p_settings.mode === 'opening';
+    const actual = before.allowance.remaining > 0 ? 'free' : (funding.get(need.projectId)?.fuelMicros ?? 0) >= 100000 ? 'paid' : 'unavailable';
+    if (!opening && actual === 'unavailable') return refuse('daily-limit', dailyAllowanceExhaustedReason(need.organizationId, discoveryTier(before.allowance.vetted)));
+    if (!opening && actual !== args.p_settings.expected_charge) return refuse('mode-changed', 'The reply cost changed. Review the usage card, then send again.');
+    const billing = opening ? 'opening' as const : actual === 'paid' ? 'fuel' as const : 'free' as const;
+    const maxOutputTokens = DISCOVERY_REQUEST_SETTINGS.maxOutputTokens;
+    const bound = { reservedMicros: 0, reservedCredits: billing === 'free' ? 1 : 0 };
+    const utcDay = before.allowance.utcDay;
+    let debitAllowance = sqlAllowance(before.allowance);
+    if (billing === 'free') {
+      const debit = await organizations.debitAllowance(actor.session, need.organizationId, 1);
+      if (!debit.ok) return debit;
+      debitAllowance = sqlAllowance(debit.allowance);
     }
     const row: DiscoveryTurnSqlRow = {
       id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId, seq: (rows.at(-1)?.seq ?? 0) + 1,
       status: 'open', billing, utc_day: utcDay, user_message: message,
       assistant_message: null, elicitation: null, request_settings: {
-        model: args.p_settings.model, max_tokens: maxOutputTokens, effort: args.p_settings.effort,
+        assistant_message_id: args.p_settings.assistant_message_id, model: args.p_settings.model, max_tokens: maxOutputTokens, effort: args.p_settings.effort,
         guardrails: {
           active: billing !== 'fuel',
           off_topic_flag_strikes: args.p_settings.off_topic_flag_strikes,
         },
-      }, max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
-      micros_per_credit: args.p_settings.micros_per_credit, input_micros_per_token: args.p_settings.input_micros_per_token,
-      output_micros_per_token: args.p_settings.output_micros_per_token, reserved_micros: bound.reservedMicros,
+      }, max_output_tokens: maxOutputTokens, reserved_micros: bound.reservedMicros,
       reserved_credits: bound.reservedCredits, input_tokens: null, output_tokens: null, stop_reason: null, served_model: null,
       actual_micros: null, charged_credits: null, overrun_micros: null, opened_at: now(), settled_at: null,
-      off_topic: false,
+      off_topic: false, user_message_id: args.p_settings.user_message_id, answers: args.p_settings.answers, base_revision: current?.revision ?? null,
     };
     turns.set(need.projectId, [...rows, row]);
     return { ok: true, reservation: { turn: structuredClone(row),
       need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: need.referenceFiles.map((f) => f.fileName) },
-      context: [...contextMessagesFrom(settled), { role: 'user', content: message }], allowance: debitAllowance } };
+      context: [...contextMessagesFrom(settled), { role: 'user', content: message }], allowance: debitAllowance, brief: current ?? null, usage: await usageOf(actor.session, need.organizationId, need.projectId) } };
   };
   const settle = async (args: DiscoverySettleArgs): Promise<DiscoveryMessageOutcome> => {
     const row = [...turns.values()].flat().find((r) => r.id === args.p_turn_id);
@@ -136,13 +133,16 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         args.p_output_tokens < 0 || args.p_output_tokens > row.max_output_tokens || args.p_assistant_message === null) {
         return refuse('invalid-request', 'invalid Discovery usage');
       }
-      const result = settlementFor({ reservedMicros: row.reserved_micros, reservedCredits: row.reserved_credits,
-        billing: row.billing, usage: { inputTokens: args.p_input_tokens, outputTokens: args.p_output_tokens } });
+      const result = { actualMicros: row.billing === 'fuel' ? 100000 : 0, chargedCredits: row.billing === 'free' ? 1 : 0, overrunMicros: 0 };
       const offTopic = args.p_off_topic === true && row.billing !== 'fuel';
       Object.assign(row, { status: 'settled', assistant_message: args.p_assistant_message, input_tokens: args.p_input_tokens,
-        output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model, elicitation: args.p_elicitation,
+        output_tokens: args.p_output_tokens, stop_reason: args.p_stop_reason, served_model: args.p_served_model, elicitation: args.p_elicitation?.source ?? null, assistant_ui: args.p_elicitation?.ui ?? null,
         actual_micros: result.actualMicros, charged_credits: result.chargedCredits, overrun_micros: result.overrunMicros,
         off_topic: offTopic });
+      if (args.p_elicitation?.document) {
+        const brief = briefVersionFrom(briefs.get(row.project_id) ? briefs.get(row.project_id)!.revision + 1 : 1, args.p_elicitation.document);
+        if (brief) briefs.set(row.project_id, brief);
+      }
       if (row.billing === 'fuel') {
         const entry = funding.get(row.project_id);
         if (entry) entry.fuelMicros -= result.actualMicros;
@@ -470,8 +470,9 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     scopeRows: async (projectId) => structuredClone((scopes.get(projectId) ?? []).map(scopeViewFromSql)),
     reserveTurnAsOperator: async (input) => reserve({
       p_account_id: input.accountId, p_organization_id: input.organizationId, p_project_id: input.projectId,
-      p_message: input.message, p_settings: { ...reserveSettings(), counted_input_tokens: input.countedInputTokens ?? 0 },
-      p_counted_through_seq: input.countedThroughSeq ?? (turns.get(input.projectId) ?? []).filter((r) => r.status === 'settled').at(-1)?.seq ?? 0,
+      p_message: input.message, p_settings: { ...reserveSettings(), mode: input.mode ?? 'answer',
+        user_message_id: input.userMessageId ?? crypto.randomUUID(), answers: [],
+        assistant_message_id: crypto.randomUUID(), expected_charge: input.expectedCharge ?? 'free' },
     }),
     settleTurnAsOperator: async (input) => {
       const row = [...turns.values()].flat().find((item) => item.id === input.turnId);
@@ -482,7 +483,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return settle({
         p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
         p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
-        p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: null,
+        p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: { replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null, baseRevision: row?.base_revision ?? null },
         p_off_topic: input.offTopic === true, p_notice: notice?.ok ? notice.value : null,
       });
     },
@@ -495,7 +496,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const actor = session === null ? undefined : actors.get(session.sessionId);
       if (!actor || actor.session.accountId !== session?.accountId) return { ok: false, kind: 'unauthenticated', status: 401, reason: 'authenticate before Discovery' };
       const caller = { id: session.accountId, githubHandle: null, emailVerified: actor.emailVerified };
-      const decision = writePipeline(SEND_SPEC, { caller, target: request.organizationId, subject: null, ip: null, body: request,
+      const decision = writePipeline(SEND_SPEC, { caller, target: request.organizationId, subject: null, ip: null, body: { mode: 'answer', userMessageId: crypto.randomUUID(), answers: [], expectedCharge: 'free', ...request },
         standing: { kind: 'account', accountType: actor.type, lifecycle: 'active', orgExists: await organizations.profile(request.organizationId) !== null,
           orgRole: actor.organizationId === request.organizationId ? actor.role : null, orgSeatAccountId: null, subject: null } });
       if (!decision.ok) return decision;
@@ -513,7 +514,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
         discoveryScopesOf: async () => ({ ok: true, rows: visible ? structuredClone(scopes.get(request.projectId) ?? []) : [] }),
-        discoveryBriefOf: async () => ({ ok: true, value: { revision: null, document: null, confirmation: null, lines: [] } }),
+        discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(request.projectId)?.revision ?? null, document: briefs.get(request.projectId)?.document ?? null, confirmation: null, lines: [] } }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);
@@ -539,7 +540,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           org_id: need.value.need.organizationId, assigned_volunteer_id: null }] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: structuredClone(turns.get(projectId) ?? []) }),
         discoveryScopesOf: async () => ({ ok: true, rows: structuredClone(scopes.get(projectId) ?? []) }),
-        discoveryBriefOf: async () => ({ ok: true, value: { revision: null, document: null, confirmation: null, lines: [] } }),
+        discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(projectId)?.revision ?? null, document: briefs.get(projectId)?.document ?? null, confirmation: null, lines: [] } }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);
@@ -577,7 +578,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       }
       const caller = { id: session.accountId, githubHandle: null, emailVerified: actor.emailVerified };
       const decision = writePipeline(SWITCH_SPEC, {
-        caller, target: request.organizationId, subject: null, ip: null, body: request,
+        caller, target: request.organizationId, subject: null, ip: null, body: { mode: 'answer', userMessageId: crypto.randomUUID(), answers: [], expectedCharge: 'free', ...request },
         standing: {
           kind: 'account', accountType: actor.type, lifecycle: 'active',
           orgExists: await organizations.profile(request.organizationId) !== null,
@@ -626,17 +627,15 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       const settings = reserveSettings();
       const rows = turns.get(projectId) ?? [];
       for (const seed of seeds) {
-        const estimatedInputTokens = countedInputTokens(seed.usage.inputTokens);
+
         const maxOutputTokens = Math.max(settings.max_output_tokens, seed.usage.outputTokens);
-        const bound = reservationFor({ estimatedInputTokens, maxOutputTokens });
-        const cost = settlementFor({ ...bound, billing: 'free', usage: seed.usage });
+        const bound = { reservedMicros: 0, reservedCredits: 1 };
+        const cost = { actualMicros: 0, chargedCredits: 1, overrunMicros: 0 };
         rows.push({ id: crypto.randomUUID(), project_id: projectId, org_id: need.organizationId,
-          seq: (rows.at(-1)?.seq ?? 0) + 1, status: 'settled', billing: 'free', utc_day: now().slice(0, 10),
+          seq: (rows.at(-1)?.seq ?? 0) + 1, status: 'settled', billing: 'free', utc_day: seed.utcDay ?? now().slice(0, 10),
           user_message: seed.message, assistant_message: seed.reply, elicitation: seed.elicitation ?? null,
           request_settings: { model: settings.model, max_tokens: maxOutputTokens, effort: settings.effort },
-          max_output_tokens: maxOutputTokens, estimated_input_tokens: estimatedInputTokens,
-          micros_per_credit: settings.micros_per_credit, input_micros_per_token: settings.input_micros_per_token,
-          output_micros_per_token: settings.output_micros_per_token, reserved_micros: bound.reservedMicros,
+          max_output_tokens: maxOutputTokens, reserved_micros: bound.reservedMicros,
           reserved_credits: bound.reservedCredits, input_tokens: seed.usage.inputTokens, output_tokens: seed.usage.outputTokens,
           stop_reason: 'end_turn', served_model: settings.model, actual_micros: cost.actualMicros,
           charged_credits: cost.chargedCredits, overrun_micros: cost.overrunMicros, opened_at: now(), settled_at: now(),

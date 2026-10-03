@@ -451,37 +451,33 @@ function ratio(used: number, total: number): number {
   return used / total;
 }
 
-function freeFill(usage: DiscoveryUsage, betaFirst: boolean): number {
-  const left = betaFirst ? usage.betaLeft : usage.dailyLeft;
-  const grant = betaFirst ? usage.betaGrant : usage.dailyGrant;
+function freeFill(usage: DiscoveryUsage): number {
+  const left = usage.dailyLeft;
+  const grant = usage.dailyGrant;
   if (grant <= 0) return 0;
   return Math.min(1, Math.max(0, left / grant));
 }
 
 export type UsageView = {
   headline: string;
-  values: { daily: string; beta: string; fuel: string };
+  values: { daily: string; fuel: string };
   bar: { free: number; fuel: number; label: string; freeTone: UsageTone; fuelTone: UsageTone };
   footer: string;
 };
 
 export function usageView(usage: DiscoveryUsage, resetLocalTime: string): UsageView {
   const dailyConsumed = ratio(usage.dailyGrant - usage.dailyLeft, usage.dailyGrant);
-  const betaConsumed = ratio(usage.betaGrant - usage.betaLeft, usage.betaGrant);
-  const freeTone = gaugeTone(Math.max(dailyConsumed, betaConsumed));
+  const freeTone = gaugeTone(dailyConsumed);
   const fuelConsumed = usage.allocationMicros > 0 ? usage.settledMicros / usage.allocationMicros : 0;
   const fuelTone = gaugeTone(fuelConsumed);
   const fuel = formatUsd(usage.availableMicros);
-  const freeTitle = betaConsumed > dailyConsumed ? "Beta free replies" : "Free replies";
-  const freeCount =
-    betaConsumed > dailyConsumed
-      ? `${usage.betaLeft} of ${usage.betaGrant} left`
-      : `${usage.dailyLeft} of ${usage.dailyGrant} left today`;
+  const freeTitle = "Free replies";
+  const freeCount = `${usage.dailyLeft} of ${usage.dailyGrant} left today`;
   const coversHold = usage.availableMicros >= usage.holdMicros;
   const returns =
-    usage.betaLeft > 0 && resetLocalTime.length > 0
+    resetLocalTime.length > 0
       ? ` Free replies return at ${resetLocalTime}.`
-      : " Beta replies do not reset.";
+      : "";
   let headline: string;
   if (usage.nextReply === "free") headline = `Next reply is free · ${usage.dailyLeft} left today`;
   else if (usage.nextReply === "unavailable") headline = `Not available now.${returns}`;
@@ -494,24 +490,23 @@ export function usageView(usage: DiscoveryUsage, resetLocalTime: string): UsageV
   let footer: string;
   if (usage.nextReply === "paid") {
     const tail =
-      usage.betaLeft > 0 && resetLocalTime.length > 0
+      resetLocalTime.length > 0
         ? ` Resets at ${resetLocalTime}.`
-        : " Beta replies do not reset.";
+        : "";
     footer = `The shown fuel already excludes the hold. Only actual usage is charged. The hold is not an extra charge.${tail}`;
-  } else if (usage.betaLeft > 0 && resetLocalTime.length > 0) {
+  } else if (resetLocalTime.length > 0) {
     footer = `Free replies are used first, then fuel. Resets at ${resetLocalTime}.`;
   } else {
-    footer = "Beta replies do not reset.";
+    footer = "Free replies are used first, then fuel.";
   }
   return {
     headline,
     values: {
       daily: `${usage.dailyLeft} of ${usage.dailyGrant}`,
-      beta: `${usage.betaLeft} of ${usage.betaGrant}`,
       fuel,
     },
     bar: {
-      free: freeFill(usage, betaConsumed > dailyConsumed),
+      free: freeFill(usage),
       fuel:
         usage.allocationMicros > 0
           ? Math.min(1, Math.max(0, usage.availableMicros / usage.allocationMicros))

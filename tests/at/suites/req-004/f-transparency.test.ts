@@ -23,7 +23,7 @@ const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, project
 };
 const operatorDrive: Drive = async (sut, ngo, projectId, message, usage, reply) => {
   const reserved = await sut.reserveTurnAsOperator({
-    accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message, countedInputTokens: usage.inputTokens,
+    accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message,
   });
   if (!reserved.ok) return reserved;
   return sut.settleTurnAsOperator({
@@ -66,12 +66,12 @@ async function proveTransparency(sut: DiscoverySut, w: { email(name: string): st
   const beforeReserve = await remainingOf(sut, ngo);
   const reserved = await sut.reserveTurnAsOperator({
     accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: STEPS[2].message,
-    countedInputTokens: STEPS[2].usage.inputTokens,
   });
   expect(reserved.ok).toBe(true);
   if (!reserved.ok) return;
   deltas.push((await remainingOf(sut, ngo)) - beforeReserve);
-  await sut.backdateOpenTurnAsOperator(reserved.reservation.turn.id, new Date(0).toISOString());
+  expect(await sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: reserved.reservation.turn.id, outcome: 'failed' })).toMatchObject({ ok: true });
+  deltas.push(1);
   await recordCompleted(sut, ngo, projectId, deltas, drive, STEPS[2]);
   const rows = await sut.turnRows(projectId);
   const byCredit = (left: number, right: number) => left - right;

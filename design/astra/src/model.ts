@@ -47,7 +47,6 @@ const stateSchema = z.object({
   usage: z.object({
     day: z.string(),
     dailyUsed: z.number(),
-    betaUsed: z.number(),
     allocation: z.number(),
     spent: z.number(),
     reserved: z.number(),
@@ -97,7 +96,6 @@ export function initialState(): MockState {
     usage: {
       day: utcDay(),
       dailyUsed: 0,
-      betaUsed: 8,
       allocation: 10_000_000,
       spent: 0,
       reserved: 0,

@@ -179,7 +179,8 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         if (!submitted.ok) return submitted.refusal;
       }
     }
-    const answer = await postWrite('discovery-message', session, { organizationId: actor?.org_id ?? null, projectId, message });
+    const answer = await postWrite('discovery-message', session, { organizationId: actor?.org_id ?? null, projectId, message,
+      mode: 'answer', userMessageId: crypto.randomUUID(), answers: [], expectedCharge: 'free' });
     return answer.ok ? { ok: true } : answer.refusal;
   };
 

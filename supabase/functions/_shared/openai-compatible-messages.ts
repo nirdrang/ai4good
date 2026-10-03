@@ -92,7 +92,6 @@ export function openaiCompatiblePort(): MessagesPort {
         return { ok: false, status: null, reason: error instanceof Error ? error.message : String(error) };
       }
     },
-    countTokens: async (request) => Math.ceil(JSON.stringify(requestBody(request, false)).length / 4),
     stream: async (request, onDelta, signal) => {
       const decoder = new JsonTextFieldDecoder('text');
       let argumentsText = '';

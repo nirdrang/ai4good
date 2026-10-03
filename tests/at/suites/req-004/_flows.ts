@@ -111,7 +111,6 @@ export async function expectUsage(screen: DiscoveryPage): Promise<void> {
   expect(paidAt, 'the bar names paid fuel after free replies').toBeGreaterThan(freeAt);
   const values = await screen.usage.text();
   expect(values, 'the values line names Free today').toContain('Free today');
-  expect(values, 'the values line names Beta').toContain('Beta');
   expect(values, 'the values line names Fuel').toContain('Fuel');
   const form = await screen.composer.formText();
   expect(form, 'no dollar amount sits beside Send').not.toContain('$');
@@ -164,14 +163,12 @@ export async function expectInside(screen: DiscoveryPage): Promise<void> {
   const send = await screen.sendBox();
   const message = await screen.composer.messageBox();
   const free = await screen.usage.labelBox('Free today');
-  const beta = await screen.usage.labelBox('Beta');
   const fuel = await screen.usage.labelBox('Fuel');
   for (const [what, box] of [
     ['Finish Discovery', finish],
     ['Send', send],
     ['the message box', message],
     ['Free today', free],
-    ['Beta', beta],
     ['Fuel', fuel],
   ] as const) {
     expect(box.width, `${what} has width`).toBeGreaterThan(0);
@@ -302,7 +299,6 @@ export async function expectChangeReopensDiscovery(
   await eventually('confirmation replaces the composer', () => screen.composer.formCount(), (count) => count === 0);
   const usage = await screen.usage.text();
   expect(usage, 'Free today stays 3 of 10 before the edit').toContain('3 of 10');
-  expect(usage, 'Beta stays 18 of 50 before the edit').toContain('18 of 50');
   expect(await screen.files.addDisabled(), 'a confirmed Discovery disables Add a file').toBe('true');
   expect(await screen.files.text(), 'the files card says why').toContain(TEXT.filesFinished);
 
@@ -344,7 +340,6 @@ export async function expectChangeReopensDiscovery(
   expect(saved, 'the dependent topic needs review').toContain('Needs review');
   const after = await screen.usage.text();
   expect(after, 'Free today stays 3 of 10').toContain('3 of 10');
-  expect(after, 'Beta stays 18 of 50').toContain('18 of 50');
   expect(after, 'Save change leaves the usage card unchanged').toBe(usage);
   expect(await screen.modelCalls(), 'Save change makes no model call').toEqual(calls);
   await eventually('the finished composer leaves', () => screen.composer.formCount(), (count) => count === 1);

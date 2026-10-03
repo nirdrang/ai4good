@@ -3,21 +3,20 @@ import { expect } from 'vitest';
 import { atTest, CapabilityPending } from './_bind.ts';
 import { AWAITED } from './_pending.ts';
 import { meteringPinProblems, sendSentencePinProblems } from './_source-pins.ts';
-import { DISCOVERY_INPUT_MARGIN_TOKENS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import type { AnthropicMessagesSim, ConfigRegistry } from '../../harness/contracts.ts';
 import type { DiscoverySut, DiscoveryMessageOutcome, ModelUsage } from './_contract.ts';
 import type { NgoActor } from '../req-003/_contract.ts';
 
 const INTAKE = { title: 'Grant deadline tracker', description: 'Two staff need reminders before funder reporting deadlines.' };
 type Open = () => Promise<{ w: { email(name: string): string }; sut: DiscoverySut }>;
-type Drive = (sut: DiscoverySut, ngo: NgoActor, projectId: string, usage: ModelUsage, counted?: number) => Promise<DiscoveryMessageOutcome>;
-const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, projectId, usage, counted) => {
-  sim.script([{ kind: 'text', text: 'Which reporting deadlines matter most?', usage, inputTokens: counted ?? usage.inputTokens }]);
+type Drive = (sut: DiscoverySut, ngo: NgoActor, projectId: string, usage: ModelUsage) => Promise<DiscoveryMessageOutcome>;
+const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, projectId, usage) => {
+  sim.script([{ kind: 'text', text: 'Which reporting deadlines matter most?', usage }]);
   return sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message: 'Help us scope the deadline tracker.' });
 };
-const operatorDrive: Drive = async (sut, ngo, projectId, usage, counted) => {
+const operatorDrive: Drive = async (sut, ngo, projectId, usage) => {
   const reserve = await sut.reserveTurnAsOperator({ accountId: ngo.accountId, organizationId: ngo.organizationId,
-    projectId, message: 'Help us scope the deadline tracker.', countedInputTokens: counted ?? usage.inputTokens });
+    projectId, message: 'Help us scope the deadline tracker.'});
   if (!reserve.ok) return reserve;
   return sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: reserve.reservation.turn.id,
     outcome: 'completed', reply: 'Which reporting deadlines matter most?', usage });
@@ -35,18 +34,15 @@ async function proveGrants(open: Open, config: ConfigRegistry, drive: Drive) {
     expect(sent.ok).toBe(true);
     if (!sent.ok) return;
     const grant = config.get<number>(`req-002.discovery.daily_credits.${tier}`);
+    expect(sent.turn.chargedCredits).toBe(1);
     expect(sent.allowance).toMatchObject({ dailyGrant: grant, spentToday: sent.turn.chargedCredits,
       remaining: grant - sent.turn.chargedCredits! });
     expect(await sut.turnRows(projectId)).toEqual([sent.turn]);
   }
 }
-async function proveRatio(open: Open, config: ConfigRegistry, drive: Drive) {
-  const ratio = config.get<number>('req-004.discovery.micros_per_credit');
-  const inPrice = config.get<number>('req-004.discovery.input_micros_per_token');
-  const outPrice = config.get<number>('req-004.discovery.output_micros_per_token');
-  const cap = config.get<number>('req-004.discovery.max_output_tokens');
+async function proveOneCredit(open: Open, drive: Drive) {
   const { w, sut } = await open();
-  const ngo = await sut.provisionNgo(w.email('ngo-ratio'), { emailVerified: true });
+  const ngo = await sut.provisionNgo(w.email('ngo-one-credit'), { emailVerified: true });
   const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, INTAKE);
   for (const usage of [{ inputTokens: 900, outputTokens: 400 }, { inputTokens: 2600, outputTokens: 1100 }, { inputTokens: 5200, outputTokens: 40 }]) {
     const before = await sut.readAllowance(ngo.session, ngo.organizationId);
@@ -54,12 +50,10 @@ async function proveRatio(open: Open, config: ConfigRegistry, drive: Drive) {
     const sent = await drive(sut, ngo, projectId, usage);
     expect(sent.ok).toBe(true);
     if (!sent.ok || !before.ok) return;
-    const reservedMicros = (usage.inputTokens + DISCOVERY_INPUT_MARGIN_TOKENS) * inPrice + cap * outPrice;
-    const actualMicros = usage.inputTokens * inPrice + usage.outputTokens * outPrice;
-    expect(sent.turn.reservedMicros).toBe(reservedMicros);
-    expect(sent.turn.reservedCredits).toBe(Math.ceil(reservedMicros / ratio));
-    expect(sent.turn.actualMicros).toBe(actualMicros);
-    expect(sent.turn.chargedCredits).toBe(Math.min(sent.turn.reservedCredits, Math.ceil(actualMicros / ratio)));
+    expect(sent.turn.reservedCredits).toBe(1);
+    expect(sent.turn.chargedCredits).toBe(1);
+    expect(sent.turn.actualMicros).toBe(0);
+    expect(sent.turn.reservedMicros).toBe(0);
     expect(sent.allowance?.remaining).toBe(before.allowance.remaining - sent.turn.chargedCredits!);
     expect((await sut.turnRows(projectId)).at(-1)).toEqual(sent.turn);
   }
@@ -96,37 +90,46 @@ async function proveShared(open: Open, drive: Drive) {
   let charged = 0;
   for (const title of ['First tracker', 'Second tracker']) {
     const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, { ...INTAKE, title });
+    if (title === 'First tracker') {
+      for (let daysAgo = 1; daysAgo <= 6; daysAgo++) {
+        const utcDay = utcDayOf(Date.parse(`${before.allowance.utcDay}T00:00:00Z`) - daysAgo * 86400000);
+        await sut.seedTurnsAsOperator(projectId, Array.from({ length: 10 }, () => ({
+          message: 'An earlier question.', reply: 'An earlier reply.', utcDay,
+          usage: { inputTokens: 600, outputTokens: 300 },
+        })));
+        await sut.writeSpendRowAsOperator({ organizationId: ngo.organizationId, utcDay, granted: 10, spent: 10 });
+      }
+      expect((await sut.turnRows(projectId)).length).toBe(60);
+      expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+    }
     const sent = await drive(sut, ngo, projectId, { inputTokens: 600, outputTokens: 300 });
     expect(sent.ok).toBe(true);
     if (!sent.ok) return;
     charged += sent.turn.chargedCredits!;
     expect(sent.allowance?.remaining).toBe(before.allowance.dailyGrant - charged);
   }
-  expect(await sut.spendRows(ngo.organizationId)).toEqual([{
+  expect((await sut.spendRows(ngo.organizationId)).filter((row) => row.utcDay === before.allowance.utcDay)).toEqual([{
     organizationId: ngo.organizationId, utcDay: before.allowance.utcDay, granted: before.allowance.dailyGrant, spent: charged,
   }]);
+  expect(await sut.spendLedgerInvariantProblems(ngo.organizationId)).toEqual([]);
 }
 async function proveBound(open: Open, config: ConfigRegistry, drive: Drive) {
   const { w, sut } = await open();
   const ngo = await sut.provisionNgo(w.email('ngo-bound'), { emailVerified: true });
   const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, INTAKE);
-  const sent = await drive(sut, ngo, projectId, { inputTokens: 100000, outputTokens: 400 }, 800);
+  const sent = await drive(sut, ngo, projectId, { inputTokens: 100000, outputTokens: 400 });
   expect(sent.ok).toBe(true);
   if (!sent.ok) return;
-  expect(sent.turn.chargedCredits).toBe(sent.turn.reservedCredits);
-  expect(sent.turn.overrunMicros).toBeGreaterThan(0);
-  expect(sent.allowance!.spentToday).toBeLessThanOrEqual(sent.allowance!.dailyGrant);
+  expect(sent.turn.chargedCredits).toBe(1);
+  expect(sent.turn.actualMicros).toBe(0);
   await sut.drainAllowance(ngo.session, ngo.organizationId, 1);
   const next = await drive(sut, ngo, projectId, { inputTokens: 800, outputTokens: 200 });
-  if (next.ok) {
-    expect(next.turn.maxOutputTokens).toBeLessThan(config.get<number>('req-004.discovery.max_output_tokens'));
-    expect(next.turn.maxOutputTokens).toBeGreaterThanOrEqual(config.get<number>('req-004.discovery.min_output_tokens'));
-    expect(next.turn.chargedCredits).toBeLessThanOrEqual(1);
-    expect(next.allowance!.remaining).toBeGreaterThanOrEqual(0);
-  } else {
-    expect(next.kind).toBe('debit-exceeds-remaining');
-    expect(await sut.turnRows(projectId)).toHaveLength(1);
-  }
+  expect(next.ok).toBe(true);
+  if (!next.ok) return;
+  expect(next.turn.maxOutputTokens).toBe(config.get<number>('req-004.discovery.max_output_tokens'));
+  expect(next.turn.reservedCredits).toBe(1);
+  expect(next.turn.chargedCredits).toBe(1);
+  expect(next.allowance?.remaining).toBe(0);
 }
 async function proveKeylessAndAbandon(open: Open, config: ConfigRegistry) {
   const { w, sut } = await open();
@@ -143,7 +146,7 @@ async function proveKeylessAndAbandon(open: Open, config: ConfigRegistry) {
   } else {
     expect(afterSend.every((row) => row.status === 'settled' || row.status === 'failed')).toBe(true);
   }
-  const input = { accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: 'Hello', countedInputTokens: 800 };
+  const input = { accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: 'Hello'};
   const first = await sut.reserveTurnAsOperator(input);
   expect(first.ok).toBe(true);
   if (!first.ok) return;
@@ -154,7 +157,7 @@ async function proveKeylessAndAbandon(open: Open, config: ConfigRegistry) {
   expect(second.ok).toBe(true);
   if (!second.ok) return;
   const abandoned = (await sut.turnRows(projectId)).find((row) => row.id === first.reservation.turn.id);
-  expect(abandoned).toMatchObject({ status: 'abandoned', chargedCredits: first.reservation.turn.reserved_credits });
+  expect(abandoned).toMatchObject({ status: 'abandoned', chargedCredits: 0 });
   const failed = await sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: second.reservation.turn.id, outcome: 'failed' });
   expect(failed.ok).toBe(true);
   if (!failed.ok) return;
@@ -171,11 +174,11 @@ atTest('AT-004.01', 'both NGO tiers draw the pinned daily grant through metered 
   default: async ({ open }) => { const world = await open(); const { h } = world; return proveGrants(async () => world, h.config, loopDrive(h.vendors.anthropic)); },
   integration: async ({ open }) => { const world = await open(); const { h } = world; return proveGrants(async () => world, h.config, operatorDrive); },
 });
-atTest('AT-004.02', 'each recorded turn charges at the pinned ratio with ceiling rounding', { surface: 'ui' }, {
-  default: async ({ open }) => { const world = await open(); const { h } = world; return proveRatio(async () => world, h.config, loopDrive(h.vendors.anthropic)); },
+atTest('AT-004.02', 'each completed reply costs one free credit regardless of tokens', { surface: 'ui' }, {
+  default: async ({ open }) => { const world = await open(); const { h } = world; return proveOneCredit(async () => world, loopDrive(h.vendors.anthropic)); },
   integration: async ({ open }) => {
     const world = await open();
-    await proveRatio(async () => world, world.h.config, operatorDrive);
+    await proveOneCredit(async () => world, operatorDrive);
     throw new CapabilityPending([AWAITED.discoverySurface]);
   },
 });
@@ -183,11 +186,11 @@ atTest('AT-004.08', 'the UTC day restores the grant without rolling unused credi
   default: async ({ open }) => { const world = await open(); const { h } = world; return proveReset(async () => world, loopDrive(h.vendors.anthropic)); },
   integration: ({ open }) => proveReset(open, operatorDrive),
 });
-atTest('AT-004.47', 'two projects share one NGO allowance and one daily spend row', {
+atTest('AT-004.47', 'over fifty historical replies do not cap the shared daily allowance', {
   default: async ({ open }) => { const world = await open(); const { h } = world; return proveShared(async () => world, loopDrive(h.vendors.anthropic)); },
   integration: ({ open }) => proveShared(open, operatorDrive),
 });
-atTest('AT-004.49', 'overruns remain visible and a last-credit turn never overspends', {
+atTest('AT-004.49', 'token counts cannot change a free charge and the last credit reserves once', {
   default: async ({ open }) => { const world = await open(); const { h } = world; return proveBound(async () => world, h.config, loopDrive(h.vendors.anthropic)); },
   integration: async ({ open }) => {
     const world = await open();

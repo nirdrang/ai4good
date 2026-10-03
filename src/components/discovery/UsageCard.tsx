@@ -51,10 +51,6 @@ export function UsageCard({
               <span>{view.values.daily}</span>
             </span>
             <span className="inline-flex gap-1">
-              <span>{TEXT.usageValues.beta}</span>
-              <span>{view.values.beta}</span>
-            </span>
-            <span className="inline-flex gap-1">
               <span>{TEXT.usageValues.fuel}</span>
               <span>{view.values.fuel}</span>
             </span>

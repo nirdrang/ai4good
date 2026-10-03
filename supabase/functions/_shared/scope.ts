@@ -1,8 +1,9 @@
 import type { Decision } from './accounts.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
-import { contextMessagesFrom, DISCOVERY_SYSTEM_PROMPT_TEMPLATE, parseElicitation, type DiscoveryNeed } from './discovery-prompt.ts';
+import { contextMessagesFrom, type DiscoveryNeed } from './discovery-prompt.ts';
 import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts';
 import type { Elicitation, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
+import { requiredAgreement, type BriefVersion } from './discovery-brief.ts';
 import { orgAdminActionAllowed } from './memberships.ts';
 import { needViewFromSql, type NeedIntakeSqlRow, type NeedIntakeView } from './need-intake.ts';
 import { renderCopy } from './notification-copy.ts';
@@ -188,7 +189,7 @@ export function buildScopeRequest(input: {
     maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
     effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: [
-      { text: `${DISCOVERY_SYSTEM_PROMPT_TEMPLATE}\n\n${discoverySkillsText(skills)}`, cached: true },
+      { text: `${'You are a scoping partner for an NGO with no developer on staff. Ground the scope in the recorded need.'}\n\n${discoverySkillsText(skills)}`, cached: true },
       { text: [
         `Need supplied by the NGO:\n${JSON.stringify(input.need)}`,
         `Organisation mission:\n${input.mission ?? ''}`,
@@ -427,9 +428,23 @@ function transcriptFrom(value: unknown): { user_message: string; assistant_messa
   return rows;
 }
 
+function scopeSource(value: unknown): Elicitation | null {
+  if (!isRecord(value) || value.complete !== true || !Array.isArray(value.facts)
+    || !Array.isArray(value.constraints) || !Array.isArray(value.userStories) || !Array.isArray(value.openQuestions)) return null;
+  return value as Elicitation;
+}
+/** The recorded need for the scope generator while its move to the PRD step is pending. */
+export function scopeSourceFromBrief(brief: BriefVersion): Elicitation | null {
+  if (!requiredAgreement(brief).ready) return null;
+  const facts = brief.document.topicOrder.flatMap((id) => {
+    const topic = brief.document.topics[id];
+    return topic?.state.kind === 'agreed' ? [topic.state.answer] : [];
+  });
+  return { complete: true, facts, constraints: [], userStories: [], openQuestions: [] };
+}
 export function renderScopeBegin(value: unknown): ScopeBeginSnapshot {
   if (!isRecord(value) || typeof value.done !== 'boolean') throw new Error('discovery scope begin returned no snapshot');
-  const elicitation = value.elicitation == null ? null : parseElicitation(value.elicitation);
+  const elicitation = value.elicitation == null ? null : scopeSource(value.elicitation);
   const vocabulary = Array.isArray(value.vocabulary)
     ? value.vocabulary.filter((item): item is string => typeof item === 'string') : [];
   const need = isRecord(value.need) ? needViewFromSql(value.need as NeedIntakeSqlRow) : null;

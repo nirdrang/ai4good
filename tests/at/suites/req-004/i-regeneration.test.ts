@@ -7,7 +7,7 @@ import { GRANT_TRACKER, GRANT_TRACKER_ELICITATION } from './fixtures/grant-track
 import { GRANT_TRACKER_SCOPE, GRANT_TRACKER_SCOPE_REPLY } from './fixtures/scope-tiers.ts';
 
 const ELICITATION_REPLY = {
-  kind: 'tool' as const, name: 'record_elicitation', input: GRANT_TRACKER_ELICITATION,
+  kind: 'tool' as const, name: 'reply', input: GRANT_TRACKER_ELICITATION,
   text: 'I recorded the shared deadline list and reminders.',
   usage: { inputTokens: 1600, outputTokens: 80 },
 };
@@ -207,14 +207,14 @@ atTest('AT-004.38', 'exhausting the regeneration bound escalates once and does n
   },
 });
 
-atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a different message is free again', {
+atTest('AT-004.39', 'failure releases its credit and the successful retry consumes only one credit', {
   default: async ({ open }) => {
     const { w, sut } = await open();
     const ngo = await sut.provisionNgo(w.email('retry-39'), { emailVerified: true });
     const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
     const reserved = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: MESSAGE,
     });
     expect(reserved).toMatchObject({ ok: true });
     if (!reserved.ok) return;
@@ -229,27 +229,27 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
     if (!afterFail.ok) return;
     const retry = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: MESSAGE,
     });
     expect(retry).toMatchObject({ ok: true });
     if (!retry.ok) return;
-    expect(retry.reservation.turn.billing).toBe('retry');
-    expect(retry.reservation.turn.reserved_credits).toBe(0);
+    expect(retry.reservation.turn.billing).toBe('free');
+    expect(retry.reservation.turn.reserved_credits).toBe(1);
     const afterRetryReserve = await sut.readAllowance(ngo.session, ngo.organizationId);
-    expect(afterRetryReserve.ok && afterRetryReserve.allowance.remaining).toBe(afterFail.allowance.remaining);
+    expect(afterRetryReserve.ok && afterRetryReserve.allowance.remaining).toBe(afterFail.allowance.remaining - 1);
     const completed = await sut.settleTurnAsOperator({
       accountId: ngo.accountId, turnId: retry.reservation.turn.id, outcome: 'completed',
       reply: 'Which reporting deadlines matter most?', usage: USAGE,
     });
     expect(completed).toMatchObject({ ok: true });
     if (!completed.ok) return;
-    expect(completed.turn.billing).toBe('retry');
-    expect(completed.turn.chargedCredits).toBe(0);
+    expect(completed.turn.billing).toBe('free');
+    expect(completed.turn.chargedCredits).toBe(1);
     const afterRetrySettle = await sut.readAllowance(ngo.session, ngo.organizationId);
-    expect(afterRetrySettle.ok && afterRetrySettle.allowance.remaining).toBe(afterFail.allowance.remaining);
+    expect(afterRetrySettle.ok && afterRetrySettle.allowance.remaining).toBe(afterFail.allowance.remaining - 1);
     const next = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: OTHER_MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: OTHER_MESSAGE,
     });
     expect(next).toMatchObject({ ok: true });
     if (!next.ok) return;
@@ -259,7 +259,7 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
     })).toMatchObject({ ok: true });
     const lost = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: LOST_MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: LOST_MESSAGE,
     });
     expect(lost).toMatchObject({ ok: true });
     if (!lost.ok) return;
@@ -269,12 +269,12 @@ atTest('AT-004.39', 'a retry after a failed turn costs zero credits and a differ
     if (!afterLoss.ok) return;
     const resent = await sut.reserveTurnAsOperator({
       accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: LOST_MESSAGE, countedInputTokens: USAGE.inputTokens,
+      message: LOST_MESSAGE,
     });
     expect(resent).toMatchObject({ ok: true });
     if (!resent.ok) return;
-    expect(resent.reservation.turn.billing).toBe('retry');
-    expect(resent.reservation.turn.reserved_credits).toBe(0);
+    expect(resent.reservation.turn.billing).toBe('free');
+    expect(resent.reservation.turn.reserved_credits).toBe(1);
     const afterResend = await sut.readAllowance(ngo.session, ngo.organizationId);
     expect(afterResend.ok && afterResend.allowance.remaining).toBe(afterLoss.allowance.remaining);
   },

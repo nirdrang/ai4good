@@ -93,9 +93,9 @@ export function scriptForName(name: string): FileScript {
 }
 
 export function replyKind(
-  usage: Pick<DiscoveryUsage, "dailyLeft" | "betaLeft" | "availableMicros" | "reservedMicros" | "holdMicros">,
+  usage: Pick<DiscoveryUsage, "dailyLeft" | "availableMicros" | "reservedMicros" | "holdMicros">,
 ): DiscoveryUsage["nextReply"] {
-  if (usage.dailyLeft > 0 && usage.betaLeft > 0) return "free";
+  if (usage.dailyLeft > 0) return "free";
   if (usage.availableMicros - usage.reservedMicros >= usage.holdMicros) return "paid";
   return "unavailable";
 }
@@ -305,8 +305,6 @@ function usage(): DiscoveryUsage {
   const value: DiscoveryUsage = {
     dailyLeft: 10,
     dailyGrant: 10,
-    betaLeft: 42,
-    betaGrant: 50,
     availableMicros: 5_000_000,
     reservedMicros: 0,
     allocationMicros: 10_000_000,
@@ -414,8 +412,6 @@ function midUsage(paid: boolean): DiscoveryUsage {
     ? {
         dailyLeft: 0,
         dailyGrant: 10,
-        betaLeft: 0,
-        betaGrant: 50,
         availableMicros: 1_600_000,
         reservedMicros: 0,
         allocationMicros: 10_000_000,
@@ -427,8 +423,6 @@ function midUsage(paid: boolean): DiscoveryUsage {
     : {
         dailyLeft: 3,
         dailyGrant: 10,
-        betaLeft: 18,
-        betaGrant: 50,
         availableMicros: 10_000_000,
         reservedMicros: 0,
         allocationMicros: 10_000_000,
@@ -872,8 +866,6 @@ function dailyEmptyState(): DiscoveryState {
   const usage: DiscoveryUsage = {
     dailyLeft: 0,
     dailyGrant: 10,
-    betaLeft: 18,
-    betaGrant: 50,
     availableMicros: 0,
     reservedMicros: 0,
     allocationMicros: 10_000_000,

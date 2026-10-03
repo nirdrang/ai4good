@@ -228,7 +228,8 @@ function DiscoveryChat({
             message = textOf(messages[i]);
             break;
           }
-          return { body: { organizationId, projectId, message } };
+          return { body: { organizationId, projectId, message, mode: "answer", userMessageId: messages.at(-1)?.id,
+            answers: [], expectedCharge: "free" } };
         },
       }),
     [anonKey, api, organizationId, projectId],
