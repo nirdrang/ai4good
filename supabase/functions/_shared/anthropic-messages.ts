@@ -1,5 +1,6 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.115.0';
 import { requireEnv } from './edge.ts';
+import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
 export const DISCOVERY_CLIENT_MODEL = 'claude-opus-5';
@@ -58,6 +59,8 @@ export function anthropicMessagesPort(): MessagesPort {
       let model = request.model;
       let inputTokens = 0;
       let sawStart = false;
+      let toolName = '';
+      const replyText = new JsonTextFieldDecoder('text');
       const cancelledBeforeAnswer = (): DiscoveryModelAnswer => ({
         ok: false, status: 499, reason: 'the client cancelled before the provider answered',
       });
@@ -80,9 +83,14 @@ export function anthropicMessagesPort(): MessagesPort {
           sawStart = true;
           model = event.message.model;
           inputTokens = foldedInputTokens(event.message.usage);
+        } else if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+          toolName = event.content_block.name;
         } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
           text += event.delta.text;
-          onDelta(event.delta.text);
+          if (request.toolChoice?.name !== 'reply') onDelta(event.delta.text);
+        } else if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta' && (toolName === 'reply' || request.toolChoice?.name === 'reply')) {
+          const decoded = replyText.push(event.delta.partial_json);
+          if (decoded.length > 0) onDelta(decoded);
         }
       };
       try {

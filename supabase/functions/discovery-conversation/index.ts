@@ -1,3 +1,4 @@
+import { screenUsage } from '../_shared/discovery-reply.ts';
 import { conversationAnswer } from '../_shared/discovery-turn.ts';
 import { uuidField } from '../_shared/write-routes.ts';
 import { callerReads, edgeHandler, json, readJsonBody, refusal, requireEnv, resolveCaller } from '../_shared/edge.ts';
@@ -13,6 +14,11 @@ Deno.serve(edgeHandler('discovery-conversation', async (request: Request): Promi
   if (!body.ok) return refusal(body.reason, 400);
   const projectId = uuidField(body.value.projectId);
   if (projectId === null) return refusal('a Discovery conversation must name the project as a uuid', 400);
-  const answer = await conversationAnswer(callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!), projectId);
-  return json(answer.body, answer.status);
+  const reads = callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!);
+  const answer = await conversationAnswer(reads, projectId);
+  if (answer.status !== 200) return json(answer.body, answer.status);
+  const project = await reads.project(projectId);
+  const source = project.ok ? project.rows[0] : undefined;
+  const usage = source === undefined ? null : screenUsage(await reads.discoveryUsage(caller.id, source.org_id, projectId));
+  return json(usage === null ? answer.body : { ...answer.body, usage }, answer.status);
 }));

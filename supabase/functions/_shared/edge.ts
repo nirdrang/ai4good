@@ -35,6 +35,7 @@ import * as discoveryStream from './discovery-stream.ts';
 import type { CallerReads, ReadResult } from './tenant-reads.ts';
 import type { PublicProjectReads, PublicProjectSource } from './public-project.ts';
 import {
+  isRecord,
   parseWriteRefusalKind,
   parseWriteStanding,
   rpcRefusalStatus,
@@ -320,6 +321,11 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
 }
 
+function settledRefusal(value: unknown): string | null {
+  if (!isRecord(value) || value.ok !== false || typeof value.kind !== 'string' || typeof value.reason !== 'string') return null;
+  return JSON.stringify({ kind: value.kind, reason: value.reason });
+}
+
 /** A raised exception. `stale-revision` carries the current brief in the hint. */
 function rpcRefusal(outcome: Extract<RpcOutcome, { ok: false }>): Response {
   const status = rpcRefusalStatus(outcome);
@@ -391,6 +397,7 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
       const streamAct = settle.stream!;
       const reserved = outcome.value;
       const args = decision.args;
+      const head = settle.streamHead?.(reserved, args) ?? null;
       const abort = new AbortController();
       let cancelled = false;
       let work: Promise<void>;
@@ -399,18 +406,33 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
           const encoder = new TextEncoder();
           const emit = (line: string) => { if (!cancelled) controller.enqueue(encoder.encode(line)); };
           work = (async () => {
-            const id = crypto.randomUUID();
-            emit(discoveryStream.start(id));
-            emit(discoveryStream.textStart(id));
+            const messageId = head?.messageId ?? crypto.randomUUID();
+            const textId = head?.textId ?? messageId;
+            emit(discoveryStream.start(messageId));
+            emit(discoveryStream.textStart(textId));
             try {
-              const acted = await streamAct(reserved, args, (delta) => emit(discoveryStream.textDelta(id, delta)), abort.signal);
-              emit(discoveryStream.textEnd(id));
-              if (acted.failure !== null) emit(discoveryStream.error(acted.failure));
-              if (acted.args !== null) {
-                const settled = await callDatabaseFunction(settle.rpc, acted.args);
-                if (!settled.ok) emit(discoveryStream.error(settled.message));
-                else if (acted.failure === null) emit(discoveryStream.dataTurn({ ok: true, ...(spec.render ? spec.render(settled.value) : {}) }));
-              } else if (acted.failure === null) emit(discoveryStream.error('the provider outcome is uncertain'));
+              if (head?.replay) {
+                if (head.replay.text.length > 0) emit(discoveryStream.textDelta(textId, head.replay.text));
+                emit(discoveryStream.textEnd(textId));
+                for (const part of head.replay.parts) emit(discoveryStream.dataPart(part));
+              } else {
+                if (head?.prefix) emit(discoveryStream.textDelta(textId, head.prefix));
+                const acted = await streamAct(reserved, args, (delta) => emit(discoveryStream.textDelta(textId, delta)), abort.signal);
+                if (acted.suffix) emit(discoveryStream.textDelta(textId, acted.suffix));
+                emit(discoveryStream.textEnd(textId));
+                if (acted.failure !== null) emit(discoveryStream.error(acted.failure));
+                if (!acted.skipSettle && acted.args !== null) {
+                  const settled = await callDatabaseFunction(settle.rpc, acted.args);
+                  if (!settled.ok) emit(discoveryStream.error(settled.message));
+                  else {
+                    const refused = settledRefusal(settled.value);
+                    if (refused !== null) emit(discoveryStream.error(refused));
+                    else if (acted.failure === null && acted.tail) {
+                      for (const part of acted.tail) emit(discoveryStream.dataPart(part));
+                    } else if (acted.failure === null) emit(discoveryStream.dataTurn({ ok: true, ...(spec.render ? spec.render(settled.value) : {}) }));
+                  }
+                } else if (acted.failure === null) emit(discoveryStream.error('the provider outcome is uncertain'));
+              }
             } catch (error) {
               emit(discoveryStream.error(error instanceof Error ? error.message : String(error)));
             } finally {
@@ -430,6 +452,10 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     }
     if (spec.settle) {
       const acted = await spec.settle.act(outcome.value, decision.args);
+      if (acted.skipSettle) {
+        const reserved = isRecord(outcome.value) ? { ...outcome.value, allowance: outcome.value.allowance ?? null } : {};
+        return json({ ok: true, ...(spec.render ? spec.render(reserved) : {}) }, 200);
+      }
       if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', 502);
       outcome = await callDatabaseFunction(spec.settle.rpc, acted.args);
       if (!outcome.ok) return rpcRefusal(outcome);
@@ -508,6 +534,30 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
         `${base}/projects?id=eq.${encodeURIComponent(projectId)}&select=id,name,org_id,assigned_volunteer_id,funded_at`,
         { headers },
       ),
+    discoveryUsage: async (accountId: string, organizationId: string, projectId: string): Promise<unknown> => {
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SECRET_KEY');
+      if (!serviceKey) return null;
+      try {
+        const response = await fetch(`${base}/rpc/discovery_usage`, {
+          method: 'POST',
+          headers: {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            'content-type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            p_account_id: accountId,
+            p_organization_id: organizationId,
+            p_project_id: projectId,
+          }),
+        });
+        if (!response.ok) return null;
+        return JSON.parse(await response.text()) as unknown;
+      } catch {
+        return null;
+      }
+    },
   };
 }
 

@@ -5,6 +5,7 @@ import type { ReadResult, TenantReads } from './tenant-reads.ts';
 export type DiscoveryTurnSqlRow = {
   id: string; project_id: string; org_id: string; seq: number; status: 'open' | 'settled' | 'failed' | 'abandoned';
   billing: 'free' | 'fuel' | 'retry'; utc_day: string; user_message: string; assistant_message: string | null;
+  user_message_id?: string | null; answers?: unknown; assistant_ui?: unknown; base_revision?: number | null;
   elicitation: {
     complete: true; facts: string[]; constraints: string[];
     userStories: { story: string; acceptanceCriteria: string[] }[]; openQuestions: string[];
