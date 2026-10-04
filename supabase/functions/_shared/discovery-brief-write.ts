@@ -1,5 +1,3 @@
-/** The Discovery brief write: shape the request, run the pure rules, and hand the commit a document. */
-
 import type { Caller } from './caller.ts';
 import {
   BRIEF_REASONS,
@@ -37,7 +35,6 @@ export type DiscoveryBriefCommitArgs = {
   p_person_line: PersonLine | null;
   p_confirmation: { revision: number; at: string; acceptedGaps: AcceptedGap[] } | null;
   p_turn_deadline_seconds: number;
-  /** Null means the action has no client revision (ask). Stripped before the commit. */
   clientBase?: number | null;
   sectionId?: string;
   text?: string;

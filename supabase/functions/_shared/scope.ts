@@ -376,7 +376,6 @@ function scopeSource(value: unknown): Elicitation | null {
     || !Array.isArray(value.constraints) || !Array.isArray(value.userStories) || !Array.isArray(value.openQuestions)) return null;
   return value as Elicitation;
 }
-/** The recorded need for the scope generator while its move to the PRD step is pending. */
 export function scopeSourceFromBrief(brief: BriefVersion): Elicitation | null {
   if (!requiredAgreement(brief).ready) return null;
   const facts = brief.document.topicOrder.flatMap((id) => {

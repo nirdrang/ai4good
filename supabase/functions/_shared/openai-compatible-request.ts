@@ -1,6 +1,5 @@
 import type { DiscoveryModelRequest } from './discovery-turn.ts';
 
-/** The provider request, preserving the forced tool's schema settings. */
 export function requestBody(request: DiscoveryModelRequest, stream: boolean, model: string, effort: string): Record<string, unknown> {
   return {
     model,

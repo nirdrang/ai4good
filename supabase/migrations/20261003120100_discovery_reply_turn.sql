@@ -38,7 +38,6 @@ alter table public.discovery_turns add constraint discovery_turns_abandoned_keep
   or charged_credits = reserved_credits
 );
 
--- History keeps the token-ratio checks above. This one applies to new reply rows only.
 alter table public.discovery_turns add constraint discovery_turns_reply_one_credit check (
   user_message_id is null
   or (
@@ -643,7 +642,6 @@ begin
     end if;
     v_reserved_micros := v_est_input::bigint * v_in_price + v_max_output::bigint * v_out_price;
     v_reserved_credits := 0;
-    -- the Stripe run adds perform public.project_fuel_reserve(p_project_id, v_reserved_micros, v_turn_id) here
     v_utc_day := (clock_timestamp() at time zone 'utc')::date;
   else
     v_read := public.discovery_allowance(p_account_id, p_organization_id, 'read', null);
@@ -764,7 +762,6 @@ begin
   select count(*)::integer into v_off_topic_count
     from public.discovery_turns
    where project_id = v_turn.project_id and off_topic;
-  -- the count equals the pin only on the turn that reaches it, so the flag is emitted once
   if p_outcome = 'completed'
      and coalesce(p_off_topic, false)
      and v_turn.request_settings->'guardrails'->>'active' = 'true'

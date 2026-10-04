@@ -1,8 +1,3 @@
-/**
- * Pure Discovery brief transitions. No Deno, no database, no browser.
- * A revision bumps only when the document changes meaning. Finish never bumps one.
- */
-
 export const SCOPE_CAUSE_LABELS_MAX = 3;
 export const SCOPE_CAUSE_LABEL_MAX_CHARS = 40;
 

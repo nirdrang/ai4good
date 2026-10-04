@@ -194,7 +194,6 @@ export type ReplyTurnPlan =
     }
   | { ok: false; release: true };
 
-/** An unreadable tool input releases the reserved credit and does not change the brief. */
 export function planReplyTurn(input: {
   current: BriefVersion | null;
   need: string;

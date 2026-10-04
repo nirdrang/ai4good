@@ -9,7 +9,6 @@ import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_sh
 
 export const repoRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../..');
 
-/** Prepare the wired screen through signup, email confirmation, NGO completion and submitted need. */
 export async function prepareDiscovery(outDir: string) {
   const stack = stackFromLocalStatus(repoRoot);
   const health = await fetch(`${stack.apiUrl}/auth/v1/health`);

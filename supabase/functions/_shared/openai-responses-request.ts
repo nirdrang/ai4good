@@ -26,7 +26,6 @@ export function responsesBody(request: DiscoveryModelRequest, stream: boolean, m
   };
 }
 
-/** A stable id for one conversation: its system prompt head and first message do not change between turns. */
 export async function conversationId(request: DiscoveryModelRequest): Promise<string> {
   const seed = `${request.system[0]?.text ?? ''}\n${request.messages[0]?.content ?? ''}`;
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed)));

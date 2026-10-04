@@ -1,8 +1,3 @@
--- The Discovery brief is a chain of revisions. The current brief is the highest revision.
--- A confirmation names one revision; a later revision leaves that confirmation as history.
--- Person lines are the free edits and accepted suggestions ("You changed ...").
--- Nothing here is updated or deleted. The commit function is the only write.
-
 create table public.brief_revisions (
   project_id uuid not null references public.projects (id) on delete cascade,
   revision bigint not null check (revision >= 1),
@@ -46,7 +41,6 @@ grant select on public.brief_revisions to authenticated;
 grant select on public.discovery_confirmations to authenticated;
 grant select on public.discovery_brief_messages to authenticated;
 
--- Membership is the project's organisation. These tables do not store a second organisation id.
 create policy brief_revisions_select_org_member on public.brief_revisions for select to authenticated
   using (exists (
     select 1 from public.projects p
@@ -92,7 +86,6 @@ create trigger discovery_brief_messages_immutable
   before update or delete on public.discovery_brief_messages
   for each row execute function public.discovery_brief_row_immutable();
 
--- The latest revision, the confirmation at that revision (null when it is history), and every person line.
 create function public.discovery_brief_payload(p_project_id uuid)
 returns jsonb
 language plpgsql
@@ -158,9 +151,6 @@ $$;
 revoke execute on function public.viewer_discovery_brief(uuid) from public;
 grant execute on function public.viewer_discovery_brief(uuid) to authenticated;
 
--- p_document null means the rules found no semantic change, so no revision is inserted.
--- p_confirmation is set only by finish. Accounts have no display name, so actor_name is the email.
--- A young open turn uses the same deadline the turn reserve uses.
 create function public.discovery_brief_commit(
   p_account_id uuid,
   p_organization_id uuid,
