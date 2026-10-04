@@ -4,19 +4,52 @@ import { SCREEN, TEXT } from '../../../../src/components/discovery/a11y.ts';
 import { GIVEN } from '../../../../design/astra/src/givens.ts';
 import type { DiscoveryPage } from './_screen.ts';
 
+export async function fileReady(screen: DiscoveryPage, name: string): Promise<void> {
+  if (!screen.backend) throw new Error('A backend file check needs the real route.');
+  await eventually('the stored file finishes reading', () => screen.backend!.read(), (state) => {
+    const file = state.files.find((item) => item.name === name);
+    if (file?.origin === 'discovery' && file.status.kind === 'failed') throw new Error(file.status.reason);
+    return file?.origin === 'discovery' && file.status.kind === 'ready';
+  }, 240_000);
+  if (!await screen.review.readyVisible()) await eventually('the file row shows Ready', () => screen.files.row(name), (text) => text.includes('Ready'), 10_000);
+}
+
+export async function agreeRequiredTopics(screen: DiscoveryPage): Promise<void> {
+  for (let round = 0; round < 6; round++) {
+    let state = await screen.backend!.read();
+    const open = state.brief.topics.filter((topic) => topic.required && (topic.state.kind !== 'agreed' || topic.needsReview));
+    if (open.length === 0) return;
+    let questions = state.brief.questions.filter((question) => open.some((topic) => topic.id === question.topicId));
+    if (questions.length === 0) {
+      await screen.review.open();
+      await screen.review.answerInChat(open[0]!.title);
+      state = await screen.backend!.read();
+      questions = state.brief.questions.filter((question) => open.some((topic) => topic.id === question.topicId));
+    }
+    for (const question of questions) await answerWhenAsked(screen, question.text, question.options[0]!.label);
+    const before = state.usage.dailyLeft;
+    await screen.composer.send();
+    const after = await screen.backend!.read();
+    expect(after.usage.dailyLeft).toBe(before - 1);
+    for (const question of questions) expect(after.brief.topics.find((topic) => topic.id === question.topicId)?.state.kind).toBe('agreed');
+  }
+  expect((await screen.backend!.read()).brief.topics.filter((topic) => topic.required).every((topic) => topic.state.kind === 'agreed' && !topic.needsReview)).toBe(true);
+}
+
 export async function answerWhenAsked(screen: DiscoveryPage, question: string, label: string): Promise<void> {
   const group = screen.chat.question(question);
   await eventually(`${question} is asked`, () => group.isAsked(), (asked) => asked);
   await group.pick(label);
 }
 
-function sampleFile(name: string): { name: string; mimeType: string; base64: string } {
-  return { name, mimeType: 'text/plain', base64: Buffer.from(name).toString('base64') };
+function sampleFile(name: string, real = false): { name: string; mimeType: string; base64: string } {
+  const text = real ? 'The kitchen has 45 volunteers. Last month 38 volunteers booked a shift. Shifts last four hours. Coordinators schedule Sunday shifts by phone.' : name;
+  return { name, mimeType: 'text/plain', base64: Buffer.from(text).toString('base64') };
 }
 
 export async function addRota(screen: DiscoveryPage): Promise<void> {
   await screen.files.openAdd();
-  await screen.files.choose(sampleFile('volunteer-rota.xlsx'));
+  await screen.files.choose(sampleFile('volunteer-rota.xlsx', !!screen.backend));
   await eventually(
     'choosing the file starts the read',
     () => screen.files.row('volunteer-rota.xlsx'),
@@ -37,7 +70,7 @@ export async function expectChooser(screen: DiscoveryPage, finePointer: boolean)
 
 export async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
   await addRota(screen);
-  expect(await screen.modelCalls(), 'choosing the file is one file-read and no question').toEqual(['file-read']);
+  if (!screen.backend) expect(await screen.modelCalls(), 'choosing the file is one file-read and no question').toEqual(['file-read']);
   const panel = screen.filePanel('volunteer-rota.xlsx');
   await screen.files.reopen('volunteer-rota.xlsx');
   await eventually('selecting the file opens its panel', () => panel.visible(), (open) => open);
@@ -46,7 +79,8 @@ export async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
   expect(await panel.answerCount(), 'the file panel has no answer box').toBe(0);
   expect(await panel.sendCount(), 'the file panel has no Send').toBe(0);
   await panel.close();
-  await eventually(
+  if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+  else await eventually(
     'closing the panel does not stop the read',
     () => screen.files.row('volunteer-rota.xlsx'),
     (text) => text.includes('Ready · 4 facts'),
@@ -56,8 +90,14 @@ export async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
   await screen.files.reopen('volunteer-rota.xlsx');
   await eventually('the ready file opens again', () => panel.visible(), (open) => open);
   const readyText = await panel.text();
-  expect(readyText, 'the ready panel shows Ready · 4 facts').toContain('Ready · 4 facts');
-  expect(readyText, 'the ready panel shows the facts').toContain('38 of your 45 volunteers booked at least one shift');
+  if (screen.backend) {
+    const file = (await screen.backend.read()).files.find((item) => item.name === 'volunteer-rota.xlsx');
+    expect(file?.tookFromIt).toBeTruthy();
+    expect(readyText).toContain(file!.tookFromIt!);
+  } else {
+    expect(readyText, 'the ready panel shows Ready · 4 facts').toContain('Ready · 4 facts');
+    expect(readyText, 'the ready panel shows the facts').toContain('38 of your 45 volunteers booked at least one shift');
+  }
   expect(await panel.answerCount(), 'the ready panel has no answer box').toBe(0);
   await panel.close();
   expect(await screen.files.text(), 'one Discovery file counts as 1 of 3 added').toContain('1 of 3 added');
@@ -73,7 +113,7 @@ export async function expectFileControlsFit(screen: DiscoveryPage): Promise<void
   await expectFullyVisible(screen, 'the accepted types', await screen.chooser.textBox(TEXT.acceptedTypes));
   await expectFullyVisible(screen, 'the sample-data sentence', await screen.chooser.textBox(TEXT.sampleData));
   await expectFullyVisible(screen, 'Back to chat', await screen.chooser.buttonBox(SCREEN.backToChat.name));
-  await screen.files.choose(sampleFile('volunteer-rota.xlsx'));
+  await screen.files.choose(sampleFile('volunteer-rota.xlsx', !!screen.backend));
   await eventually(
     'choosing the file closes the chooser',
     () => screen.chooser.visible(),
@@ -247,7 +287,7 @@ export async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIV
   const usageBefore = await screen.usage.text();
   const callsBefore = await screen.modelCalls();
   await screen.files.openAdd();
-  await screen.files.choose(sampleFile('shift-notes.txt'));
+  await screen.files.choose(sampleFile('shift-notes.txt', !!screen.backend));
   await eventually(
     'the new file shows Reading',
     () => screen.files.row('shift-notes.txt'),
@@ -259,7 +299,15 @@ export async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIV
   await screen.review.tick(TEXT.ack.reviewed(given.revision + 1));
   await screen.review.tick(TEXT.ack.gaps(given.open.length - 1));
   await screen.review.tick(TEXT.ack.data);
-  await eventually(
+  if (screen.backend) {
+    await fileReady(screen, 'shift-notes.txt');
+    await screen.review.back();
+    await screen.review.open();
+    const current = await screen.backend.read();
+    await screen.review.tick(TEXT.ack.reviewed(current.brief.revision));
+    await screen.review.tick(TEXT.ack.gaps(given.open.length - 1));
+    await screen.review.tick(TEXT.ack.data);
+  } else await eventually(
     'the read is ready and the hint is gone',
     () => screen.review.text(),
     (text) => text.includes('I found three facts in shift-notes.txt') && !text.includes(TEXT.fileStillReading),
@@ -269,6 +317,7 @@ export async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIV
   const callsAfter = await screen.modelCalls();
   expect(callsAfter, 'the read is one file-read').toEqual([...callsBefore, 'file-read']);
   await screen.review.finish();
+  if (screen.backend) expect((await screen.backend.read()).confirmation?.revision).toBe((await screen.backend.read()).brief.revision);
   expect(await screen.review.text(), 'Finish records Discovery finished with open questions').toContain(
     'Discovery finished with open questions',
   );
@@ -292,8 +341,11 @@ export async function expectChangeReopensDiscovery(
   await screen.review.tick(TEXT.ack.gaps(given.open.length));
   await screen.review.tick(TEXT.ack.data);
   await screen.review.finish();
-  await eventually('the sidebar shows Discovery done', () => screen.steps.done('Discovery'), (done) => done);
-  expect(await screen.steps.done('Discovery review'), 'the sidebar shows Discovery review done').toBe(true);
+  if (screen.backend) expect((await screen.backend.read()).confirmation?.revision).toBe(given.revision);
+  else {
+    await eventually('the sidebar shows Discovery done', () => screen.steps.done('Discovery'), (done) => done);
+    expect(await screen.steps.done('Discovery review'), 'the sidebar shows Discovery review done').toBe(true);
+  }
   const calls = await screen.modelCalls();
   await screen.review.back();
   await eventually('confirmation replaces the composer', () => screen.composer.formCount(), (count) => count === 0);
@@ -352,8 +404,11 @@ export async function expectChangeReopensDiscovery(
   expect(await screen.review.ticked(TEXT.ack.reviewed(given.revision + 1)), 'the review tick is clear').toBe(false);
   expect(await screen.review.ticked(TEXT.ack.data), 'the data acknowledgment is clear').toBe(false);
   expect(await screen.review.finishDisabled(), 'Finish Discovery needs the acknowledgments again').toBe(true);
-  await eventually('a change removes the Discovery check', () => screen.steps.done('Discovery'), (done) => done === false);
-  expect(await screen.steps.done('Discovery review'), 'a change removes the Discovery review check').toBe(false);
+  if (screen.backend) expect((await screen.backend.read()).confirmation).toBeNull();
+  else {
+    await eventually('a change removes the Discovery check', () => screen.steps.done('Discovery'), (done) => done === false);
+    expect(await screen.steps.done('Discovery review'), 'a change removes the Discovery review check').toBe(false);
+  }
 }
 
 export async function expectDocument(
@@ -385,8 +440,15 @@ export async function expectDocument(
   }
   for (const file of given.files) {
     expect(text, `${file.name} is in the document`).toContain(file.name);
-    expect(text, `${file.name} says what the AI took`).toContain('The AI took from it:');
-    expect(text, `${file.name} keeps what the AI took`).toContain(file.took);
+    if (screen.backend) {
+      const saved = (await screen.backend.read()).files.find((item) => item.name === file.name);
+      expect(saved).toBeDefined();
+      if (saved!.tookFromIt) expect(text).toContain(saved!.tookFromIt);
+      else expect(saved!.origin).toBe('intake');
+    } else {
+      expect(text, `${file.name} says what the AI took`).toContain('The AI took from it:');
+      expect(text, `${file.name} keeps what the AI took`).toContain(file.took);
+    }
   }
   expect(text, `the document explains Tier ${given.tier}`).toContain(`Tier ${given.tier}`);
   if (given.tier === 2) expect(text, 'Tier 2 says sample data only').toContain('sample data only');

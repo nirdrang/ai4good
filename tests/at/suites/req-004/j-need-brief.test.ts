@@ -2,11 +2,13 @@ import { expect } from 'vitest';
 import { eventually } from '../../harness/screen.ts';
 import { TEXT } from '../../../../src/components/discovery/a11y.ts';
 import { GIVEN } from '../../../../design/astra/src/givens.ts';
-import { atTest, AtPending, CapabilityPending } from './_bind.ts';
+import { atTest, AtPending, CapabilityPending, TIER } from './_bind.ts';
 import { AWAITED, notYet } from './_pending.ts';
 import { discoveryScreens } from './_screen.ts';
 import {
   addRota,
+  agreeRequiredTopics,
+  fileReady,
   answerWhenAsked,
   expectChangeReopensDiscovery,
   expectChooser,
@@ -19,13 +21,14 @@ import {
   expectUsage,
   readRotaUntilReady,
 } from './_flows.ts';
+import { FILE_PART_CHARS, fileDigestContext, splitFileText, type FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
 
 const withDiscovery = discoveryScreens();
 const SCHEMES = ['light', 'dark'] as const;
 const SIZES = ['desktop', 'phone'] as const;
 
-atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui', timeoutMs: { loop: 120_000 } }, {
-  loop: async (ctx) => {
+atTest('AT-004.61', 'the live brief updates from each reply with importance', { surface: 'ui', timeoutMs: { loop: 120_000, integration: 900_000 } }, {
+  default: async (ctx) => {
     const given = GIVEN['mid-interview'];
     await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
       const before = await screen.modelCalls();
@@ -40,17 +43,26 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
         () => screen.brief.text(),
         (text) => text.includes('From the chat, round 5'),
       );
-      expect(brief, 'an open question shows Needed before build').toContain('Needed before build');
-      expect(brief, 'an open question shows A suggestion exists').toContain('A suggestion exists');
-      expect(brief, 'an open question shows Can wait').toContain('Can wait');
+      if (screen.backend) {
+        const state = await screen.backend.read();
+        expect(state.brief.topics.find((topic) => topic.id === 'info')?.state).toMatchObject({ kind: 'agreed', answer: given.open[1].suggested });
+        expect(state.brief.revision).toBeGreaterThan(4);
+        expect(state.usage.dailyLeft).toBe(2);
+      } else {
+        expect(brief, 'an open question shows Needed before build').toContain('Needed before build');
+        expect(brief, 'an open question shows A suggestion exists').toContain('A suggestion exists');
+        expect(brief, 'an open question shows Can wait').toContain('Can wait');
+      }
       const owner = screen.chat.question(given.open[0].question);
       const measure = screen.chat.question(given.notSure.question);
       expect(await owner.isAsked(), 'the unanswered question stays in the chat').toBe(true);
       expect(await measure.isAsked(), 'the unsure question stays in the chat').toBe(true);
       expect(await owner.suggestedCount(), 'the owner question has one Suggested option').toBe(1);
       expect(await measure.suggestedCount(), 'the measure question has one Suggested option').toBe(1);
-      expect(await owner.text(), 'the owner question shows Needed before build').toContain('Needed before build');
-      expect(await measure.text(), 'the measure question shows A suggestion exists').toContain('A suggestion exists');
+      if (!screen.backend) {
+        expect(await owner.text(), 'the owner question shows Needed before build').toContain('Needed before build');
+        expect(await measure.text(), 'the measure question shows A suggestion exists').toContain('A suggestion exists');
+      }
       expect(await screen.modelCalls(), 'opening the brief makes no model call').toEqual(calls);
       await screen.review.open();
       expect(await screen.modelCalls(), 'opening Finish makes no model call').toEqual(calls);
@@ -58,7 +70,12 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
     await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
       const first = GIVEN['first-reply'];
       const mid = GIVEN['mid-interview'];
-      expect(await screen.modelCalls(), 'the opening transcript makes no model call').toEqual([]);
+      if (screen.backend) {
+        expect(await screen.modelCalls(), 'the real opening is one model call').toEqual(['chat-turn']);
+        expect((await screen.backend.read()).usage.dailyLeft, 'the opening uses no reply credit').toBe(10);
+      } else expect(await screen.modelCalls(), 'the opening transcript makes no model call').toEqual([]);
+      if (screen.backend) await agreeRequiredTopics(screen);
+      else {
       await screen.chat.question(first.questions.priority).pick(first.suggested);
       await screen.chat.question(first.questions.booking).pick(mid.agreed[1].answer);
       await screen.composer.send();
@@ -68,6 +85,7 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
       await answerWhenAsked(screen, mid.open[1].question, mid.open[1].suggested);
       await answerWhenAsked(screen, mid.next.question, 'Weekly shift limit');
       await screen.composer.send();
+      }
       await eventually('the finish invitation replaces the composer', () => screen.ready.visible(), (open) => open);
       expect(await screen.chat.lastAssistantText(), 'the reply says Discovery is ready for review').toContain(TEXT.readyReply);
       expect((await screen.ready.text()).trim(), 'the invitation points to Finish Discovery').toBe(TEXT.readyInvite);
@@ -75,12 +93,18 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
       expect(await screen.composer.messageCount(), 'the message box is gone').toBe(0);
       expect(await screen.composer.sendCount(), 'Send is gone').toBe(0);
       const calls = await screen.modelCalls();
-      expect(calls, 'three replies are three model calls').toEqual(['chat-turn', 'chat-turn', 'chat-turn']);
+      if (screen.backend) {
+        expect(calls.length).toBeGreaterThan(0);
+        expect(calls.every((kind) => kind === 'chat-turn')).toBe(true);
+      } else expect(calls, 'three replies are three model calls').toEqual(['chat-turn', 'chat-turn', 'chat-turn']);
       expect(await screen.modelCalls(), 'the ready state adds no model call').toEqual(calls);
     });
     await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop', pace: 'demo' }, async (screen) => {
       const first = GIVEN['first-reply'];
-      await screen.chat.question(first.questions.priority).pick(first.suggested);
+      if (screen.backend) {
+        const question = (await screen.backend.read()).brief.questions[0]!;
+        await screen.chat.question(question.text).pick(question.options[0]!.label);
+      } else await screen.chat.question(first.questions.priority).pick(first.suggested);
       await screen.composer.fill('note before send');
       const pending = screen.composer.send();
       await eventually(
@@ -93,9 +117,6 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
       expect(await screen.composer.value(), 'text typed during the reply stays').toBe('typed while the reply streams');
     });
   },
-  integration: async () => {
-    throw new CapabilityPending([AWAITED.discoverySurface]);
-  },
   drill: async () => {
     throw new CapabilityPending([AWAITED.discoverySurface]);
   },
@@ -103,9 +124,9 @@ atTest('AT-004.61', 'the live brief updates from each reply with importance', { 
 atTest(
   'AT-004.62',
   'Finish groups open questions by importance without a model call',
-  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  { surface: 'ui', timeoutMs: { loop: 240_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       const given = GIVEN['finish-open'];
       for (const colorScheme of SCHEMES) {
         for (const viewport of SIZES) {
@@ -139,9 +160,6 @@ atTest(
         expect(text, 'Tier 2 keeps the In practice line').toContain('In practice:');
       });
     },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
-    },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
     },
@@ -150,9 +168,9 @@ atTest(
 atTest(
   'AT-004.63',
   'the Discovery document holds the need and no technical scope',
-  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  { surface: 'ui', timeoutMs: { loop: 240_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       for (const colorScheme of SCHEMES) {
         for (const viewport of SIZES) {
           await withDiscovery(ctx, { scenario: 'confirmed-tier-2', viewport, colorScheme }, async (screen) => {
@@ -170,9 +188,6 @@ atTest(
         expect(box.x + box.width, 'the document ends inside the 320 px viewport').toBeLessThanOrEqual(screen.width + 1);
       });
     },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
-    },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
     },
@@ -181,9 +196,9 @@ atTest(
 atTest(
   'AT-004.64',
   'the review offers the chat and brief edits, never an AI rewrite',
-  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  { surface: 'ui', timeoutMs: { loop: 240_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       const given = GIVEN['finish-open'];
       for (const colorScheme of SCHEMES) {
         for (const viewport of SIZES) {
@@ -196,16 +211,13 @@ atTest(
         await expectReviewFits(screen, given);
       });
     },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
-    },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
     },
   },
 );
-atTest('AT-004.65', 'the first reply asks for files while fewer than three exist', { surface: 'ui' }, {
-  loop: async (ctx) => {
+atTest('AT-004.65', 'the first reply asks for files while fewer than three exist', { surface: 'ui', timeoutMs: { integration: 600_000 } }, {
+  default: async (ctx) => {
     const given = GIVEN['first-reply'];
     await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
       const text = await screen.chat.lastAssistantText();
@@ -215,6 +227,19 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
       }
       expect(text, 'the first reply points to Add a file').toContain('Add a file');
       expect(await screen.files.addVisible(), 'Add a file is on the screen').toBe(true);
+      if (screen.backend) {
+        const before = await screen.backend.read();
+        const question = before.brief.questions[0]!;
+        expect(before.brief.questions.length).toBeGreaterThan(0);
+        await screen.chat.question(question.text).pick(question.options[0]!.label);
+        await screen.composer.send();
+        const after = await screen.backend.read();
+        expect(after.brief.topics.find((topic) => topic.id === question.topicId)?.state).toMatchObject({ kind: 'agreed', answer: question.options[0]!.answer });
+        expect(after.brief.revision).toBeGreaterThan(before.brief.revision);
+        expect(after.usage.dailyLeft).toBe(before.usage.dailyLeft - 1);
+        expect(after.files.filter((file) => file.origin === 'discovery')).toHaveLength(0);
+        return;
+      }
       const priority = given.questions.priority;
       const question = screen.chat.question(priority);
       expect(await question.isAsked(), 'the first question is in the chat').toBe(true);
@@ -251,9 +276,6 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
       }
     });
   },
-  integration: async () => {
-    throw new CapabilityPending([AWAITED.discoverySurface]);
-  },
   drill: async () => {
     throw new CapabilityPending([AWAITED.discoverySurface]);
   },
@@ -261,9 +283,9 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
 atTest(
   'AT-004.66',
   'choosing a file starts the read and the file panel is read-only',
-  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  { surface: 'ui', timeoutMs: { loop: 240_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       for (const viewport of SIZES) {
         await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
           await expectChooser(screen, viewport === 'desktop');
@@ -277,9 +299,6 @@ atTest(
         await expectFileControlsFit(screen);
       });
     },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
-    },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
     },
@@ -288,15 +307,17 @@ atTest(
 atTest(
   'AT-004.67',
   'a file read consumes no turn and no fuel',
-  { surface: 'ui', timeoutMs: { loop: 180_000 } },
+  { surface: 'ui', timeoutMs: { loop: 180_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       for (const viewport of SIZES) {
         await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
           const before = await screen.usage.text();
+          const saved = screen.backend ? await screen.backend.read() : null;
           expect(before, 'Free today starts at 3 left today').toContain('3 left today');
           await addRota(screen);
-          await eventually(
+          if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+          else await eventually(
             'the read reaches Ready · 4 facts',
             () => screen.files.row('volunteer-rota.xlsx'),
             (text) => text.includes('Ready · 4 facts'),
@@ -304,8 +325,18 @@ atTest(
           );
           expect(await screen.usage.text(), 'adding and reading a file leaves the usage card unchanged').toBe(before);
           expect(await screen.modelCalls(), 'the read is one file-read and no turn').toEqual(['file-read']);
+          if (screen.backend) {
+            await screen.files.openAdd();
+            await screen.files.choose({ name: 'second-rota.txt', mimeType: 'text/plain', base64: Buffer.from('Kitchen coordinators fill Sunday shifts by phone.').toString('base64') });
+            await fileReady(screen, 'second-rota.txt');
+            expect((await screen.backend.read()).usage).toEqual(saved!.usage);
+            const turns = await screen.backend.sql`select charged_credits, actual_micros from public.discovery_turns where project_id = ${screen.backend.projectId}::uuid` as { charged_credits: number; actual_micros: number }[];
+            expect(turns).toHaveLength(4);
+            expect(turns.reduce((total, row) => total + Number(row.actual_micros), 0)).toBe(0);
+            expect(await screen.modelCalls()).toEqual(['file-read', 'file-read']);
+          }
         });
-        await withDiscovery(ctx, { scenario: 'mid-interview-paid', viewport }, async (screen) => {
+        if (TIER === 'loop') await withDiscovery(ctx, { scenario: 'mid-interview-paid', viewport }, async (screen) => {
           const before = await screen.usage.text();
           expect(before, 'the paid balance starts at $1.60').toContain('$1.60');
           await addRota(screen);
@@ -323,22 +354,18 @@ atTest(
           expect(await screen.modelCalls(), 'the paid read is one file-read and no turn').toEqual(['file-read']);
         });
       }
-      throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
-    },
-    integration: async () => {
-      throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
     },
     drill: async () => {
-      throw new AtPending('AT-004.67', 'sut-missing', 'the two-file ledger stays for a later unit');
+      throw new AtPending('AT-004.67', 'sut-missing', 'The drill stack is not configured.');
     },
   },
 );
 atTest(
   'AT-004.68',
   'the file is read in the background into a digest',
-  { surface: 'ui', timeoutMs: { loop: 240_000 } },
+  { surface: 'ui', timeoutMs: { loop: 240_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       const given = GIVEN['mid-interview'];
       const fact = '38 of your 45 volunteers booked at least one shift';
       for (const viewport of SIZES) {
@@ -347,25 +374,40 @@ atTest(
           const owner = screen.chat.question(given.open[0].question);
           await owner.pick(given.open[0].suggested);
           const during = await screen.composer.send();
-          expect(during, 'a main-chat reply during the read does not report 38 of your 45').not.toContain('38 of your 45');
+          if (!screen.backend) expect(during, 'a main-chat reply during the read does not report 38 of your 45').not.toContain('38 of your 45');
           const duringCalls = await screen.modelCalls();
-          expect(duringCalls, 'the read is one file-read and the reply is one turn').toEqual(['file-read', 'chat-turn']);
-          await eventually(
+          if (!screen.backend) expect(duringCalls, 'the read is one file-read and the reply is one turn').toEqual(['file-read', 'chat-turn']);
+          if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+          else await eventually(
             'the row shows Ready · 4 facts',
             () => screen.files.row('volunteer-rota.xlsx'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
-          expect(await screen.modelCalls(), 'reaching Ready makes no model call').toEqual(duringCalls);
+          if (!screen.backend) expect(await screen.modelCalls(), 'reaching Ready makes no model call').toEqual(duringCalls);
           await screen.composer.fill('What did the file show?');
           const reply = await screen.composer.send();
           const report = reply.split('\n\n')[0] ?? '';
-          expect(report, 'the report is one sentence').not.toContain('?');
-          expect(reply, 'the next reply reports what the file showed').toContain(fact);
-          expect(reply, 'the reply does not ask if the fact is right').not.toContain('Is that right?');
-          expect(reply, 'the reply does not ask the NGO to agree').not.toContain('when you agree');
+          if (!screen.backend) {
+            expect(report, 'the report is one sentence').not.toContain('?');
+            expect(reply, 'the next reply reports what the file showed').toContain(fact);
+            expect(reply, 'the reply does not ask if the fact is right').not.toContain('Is that right?');
+            expect(reply, 'the reply does not ask the NGO to agree').not.toContain('when you agree');
+          }
           await screen.brief.open();
           const brief = await screen.brief.text();
+          if (screen.backend) {
+            const rows = await screen.backend.sql`select * from public.discovery_files where project_id = ${screen.backend.projectId}::uuid` as FileRow[];
+            expect(rows[0]!.digest?.facts.length).toBeGreaterThan(0);
+            const context = fileDigestContext(rows);
+            expect(context).toHaveLength(1);
+            expect(context[0]!.content).toContain(JSON.stringify(rows[0]!.digest));
+            const state = await screen.backend.read();
+            expect(state.brief.revision).toBeGreaterThan(4);
+            expect(state.files[1]!.tookFromIt).toBeTruthy();
+            expect(brief).toContain(state.files[1]!.tookFromIt!);
+            expect(await screen.modelCalls()).toEqual(['file-read', 'chat-turn', 'chat-turn']);
+          } else {
           const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.xlsx'));
           const tookAt = brief.indexOf('The AI took from it:');
           const factAt = brief.indexOf(fact);
@@ -373,25 +415,45 @@ atTest(
           expect(tookAt, 'the brief says what the AI took from the file').toBeGreaterThan(fromAt);
           expect(factAt, 'the fact follows the took line').toBeGreaterThan(tookAt);
           expect(brief, 'a file fact is not waiting for agreement').not.toContain('Suggestion · waiting for you');
+          }
         });
       }
-      throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
-    },
-    integration: async () => {
-      throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
     },
     drill: async () => {
-      throw new AtPending('AT-004.68', 'sut-missing', 'the digest at the context boundary stays for a later unit');
+      throw new AtPending('AT-004.68', 'sut-missing', 'The drill stack is not configured.');
     },
   },
 );
-atTest('AT-004.69', 'a large file is read in parts into one digest', { default: notYet('AT-004.69') });
+atTest('AT-004.69', 'a large file is read in parts into one digest', { surface: 'ui', timeoutMs: { integration: 600_000 } }, {
+  default: async (ctx) => {
+    await ctx.open();
+    const text = 'Kitchen volunteers cover Sunday shifts. '.repeat(450);
+    const parts = splitFileText(text);
+    expect(parts.length).toBe(2);
+    expect(parts.join('')).toBe(text);
+    expect(parts.every((part) => part.length <= FILE_PART_CHARS)).toBe(true);
+    if (TIER === 'integration') await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
+      const before = await screen.backend!.read();
+      await screen.files.openAdd();
+      await screen.files.choose({ name: 'large-rota.txt', mimeType: 'text/plain', base64: Buffer.from(text).toString('base64') });
+      await fileReady(screen, 'large-rota.txt');
+      const rows = await screen.backend!.sql`select f.total_parts, f.completed_parts, f.digest, count(p.*)::integer as parts
+        from public.discovery_files f join public.discovery_file_parts p on p.file_id = f.id
+        where f.project_id = ${screen.backend!.projectId}::uuid group by f.id` as { total_parts: number; completed_parts: number; digest: { facts: unknown[] }; parts: number }[];
+      expect(rows[0]).toMatchObject({ total_parts: 2, completed_parts: 2, parts: 2 });
+      expect(rows[0]!.digest.facts.length).toBeGreaterThan(0);
+      expect((await screen.backend!.read()).usage).toEqual(before.usage);
+      expect(await screen.modelCalls()).toEqual(['file-read', 'file-read']);
+    });
+  },
+  drill: notYet('AT-004.69'),
+});
 atTest(
   'AT-004.70',
   'three Discovery files while the project is not funded',
-  { surface: 'ui', timeoutMs: { loop: 120_000 } },
+  { surface: 'ui', timeoutMs: { loop: 120_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       const given = GIVEN['first-reply'];
       for (const viewport of SIZES) {
         await withDiscovery(ctx, { scenario: 'three-files-unfunded', viewport }, async (screen) => {
@@ -427,16 +489,13 @@ atTest(
         });
       }
     },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
-    },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
     },
   },
 );
-atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { surface: 'ui', timeoutMs: { loop: 120_000 } }, {
-  loop: async (ctx) => {
+atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { surface: 'ui', timeoutMs: { loop: 120_000, integration: 900_000 } }, {
+  default: async (ctx) => {
     const given = GIVEN['mid-interview'];
     for (const viewport of SIZES) {
       await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
@@ -479,6 +538,26 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
     await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
       const first = GIVEN['first-reply'];
       const mid = GIVEN['mid-interview'];
+      if (screen.backend) {
+        let questions = (await screen.backend.read()).brief.questions;
+        if (questions.length < 2) {
+          const next = (await screen.backend.read()).brief.topics.find((topic) => !questions.some((question) => question.topicId === topic.id))!;
+          await screen.review.open();
+          await screen.review.answerInChat(next.title);
+          questions = (await screen.backend.read()).brief.questions;
+        }
+        await screen.chat.oneAtATime();
+        expect(await screen.chat.question(questions[0]!.text).isAsked()).toBe(true);
+        expect(await screen.chat.question(questions[1]!.text).isAsked()).toBe(false);
+        await screen.chat.question(questions[0]!.text).pick(questions[0]!.options[0]!.label);
+        await screen.chat.nextQuestion();
+        expect(await screen.chat.question(questions[1]!.text).isAsked()).toBe(true);
+        await screen.chat.question(questions[1]!.text).pick(questions[1]!.options[0]!.label);
+        await screen.composer.send();
+        const state = await screen.backend.read();
+        for (const question of questions.slice(0, 2)) expect(state.brief.topics.find((topic) => topic.id === question.topicId)?.state.kind).toBe('agreed');
+        return;
+      }
       await screen.chat.oneAtATime();
       const priority = screen.chat.question(first.questions.priority);
       const booking = screen.chat.question(first.questions.booking);
@@ -503,9 +582,6 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
       expect(await owner.isAsked(), 'Show questions together keeps Maintenance owner').toBe(true);
     });
   },
-  integration: async () => {
-    throw new CapabilityPending([AWAITED.discoverySurface]);
-  },
   drill: async () => {
     throw new CapabilityPending([AWAITED.discoverySurface]);
   },
@@ -513,10 +589,11 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
 atTest(
   'AT-004.72',
   'one usage bar and a growing message box',
-  { surface: 'ui', timeoutMs: { loop: 180_000 } },
+  { surface: 'ui', timeoutMs: { loop: 180_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       for (const scenario of ['mid-interview', 'mid-interview-paid'] as const) {
+        if (TIER !== 'loop' && scenario === 'mid-interview-paid') continue;
         for (const colorScheme of SCHEMES) {
           for (const viewport of SIZES) {
             await withDiscovery(ctx, { scenario, viewport, colorScheme }, async (screen) => {
@@ -549,12 +626,15 @@ atTest(
         expect(text, 'no fuel is available').toContain('$0.00');
         expect(text, 'Buy fuel shows when the next reply is not free').toContain(TEXT.buyFuel);
         expect(text, 'the note names the $50 minimum').toContain(TEXT.buyFuelNote);
-        await screen.usage.buyFuel();
-        await eventually('Buy fuel opens the fuel page', () => screen.fuel.visible(), (open) => open);
+        if (TIER === 'loop') {
+          await screen.usage.buyFuel();
+          await eventually('Buy fuel opens the fuel page', () => screen.fuel.visible(), (open) => open);
+        } else {
+          const state = await screen.backend!.read();
+          expect(state.usage.nextReply).toBe('unavailable');
+          expect(state.usage.dailyLeft).toBe(0);
+        }
       });
-    },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
     },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);
@@ -564,9 +644,9 @@ atTest(
 atTest(
   'AT-004.73',
   'the brief opens as a side panel on desktop and a full-screen panel on phone',
-  { surface: 'ui', timeoutMs: { loop: 120_000 } },
+  { surface: 'ui', timeoutMs: { loop: 120_000, integration: 900_000 } },
   {
-    loop: async (ctx) => {
+    default: async (ctx) => {
       const given = GIVEN['mid-interview'];
       for (const colorScheme of SCHEMES) {
         for (const viewport of SIZES) {
@@ -664,9 +744,6 @@ atTest(
         const log = await screen.conversationBox();
         expect(log.height, 'the chat log is at least 250 px at 320 by 700').toBeGreaterThanOrEqual(250);
       });
-    },
-    integration: async () => {
-      throw new CapabilityPending([AWAITED.discoverySurface]);
     },
     drill: async () => {
       throw new CapabilityPending([AWAITED.discoverySurface]);

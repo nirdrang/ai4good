@@ -8,6 +8,12 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 export function discoveryRefusal(value: unknown): DiscoveryRefusal {
+  if (record(value) && typeof value.kind !== "string" && typeof value.reason === "string") {
+    try {
+      const nested: unknown = JSON.parse(value.reason);
+      if (record(nested) && typeof nested.kind === "string" && typeof nested.reason === "string") return discoveryRefusal(nested);
+    } catch {}
+  }
   if (record(value) && typeof value.reason === "string") {
     return { kind: typeof value.kind === "string" ? value.kind : "refused", reason: value.reason };
   }
@@ -72,7 +78,7 @@ export function discoveryPort(scope: { organizationId: string; projectId: string
       if (response.ok && record(body) && body.ok === true && body.brief === null) {
         const opening = await request("discovery-message", { mode: "opening", message: "", answers: [], expectedCharge: "free", userMessageId: `opening-${scope.projectId}` });
         const output = await opening.text();
-        if (!opening.ok) return { ok: false, refusal: discoveryRefusal(JSON.parse(output)) } as Result<DiscoveryState>;
+        if (!opening.ok) return parseDiscoveryResponse(output, "state", isDiscoveryState);
         if (output.includes('"type":"error"')) return { ok: false, refusal: discoveryRefusal("The opening reply did not finish. Reload to try again.") } as Result<DiscoveryState>;
         response = await request("discovery-conversation", {});
         text = await response.text();
@@ -107,7 +113,11 @@ export function discoveryPort(scope: { organizationId: string; projectId: string
       prepareSendMessagesRequest: ({ body, messages }) => ({ body: { ...body, ...scope, userMessageId: messages.at(-1)?.id } }),
       fetch: async (input, init) => {
         const response = await fetch(input, init);
-        if (!response.ok || !response.body) return response;
+        if (!response.ok) {
+          const result = parseDiscoveryResponse(await response.text(), "state", isDiscoveryState);
+          if (!result.ok) throw new Error(JSON.stringify(result.refusal));
+        }
+        if (!response.body) return response;
         const body = response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
           transform(chunk, controller) { controller.enqueue(chunk); },
           flush() { void refresh(); },

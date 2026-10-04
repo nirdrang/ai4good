@@ -33,6 +33,10 @@ describe('Discovery response parsing', () => {
   it('maps a refusal without a kind', () => {
     expect(discoveryRefusal({ reason: 'Sign in' })).toEqual({ kind: 'refused', reason: 'Sign in' });
   });
+  it('unwraps a failed model turn refusal without losing its kind', () => {
+    expect(discoveryRefusal({ ok: false, reason: JSON.stringify({ kind: 'invalid-request', reason: 'the reply could not be read' }) }))
+      .toEqual({ kind: 'invalid-request', reason: 'the reply could not be read' });
+  });
   it('only discovery files being read keep polling', () => {
     expect(filesReading([{ origin: 'intake', id: 'i', name: 'intake.pdf', sizeBytes: 4, tookFromIt: null }])).toBe(false);
     for (const status of [{ kind: 'reading', percent: 0 }, { kind: 'ready', facts: 2 }, { kind: 'failed', reason: 'Bad file' }] as const) {

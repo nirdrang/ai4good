@@ -1,4 +1,4 @@
-import { functionPost, stackFromEnv } from '../../harness/live-stack.ts';
+import { authPost, functionPost, stackFromEnv } from '../../harness/live-stack.ts';
 import { seedFileProject } from '../req-032/_files.ts';
 import { openingDocument, snapshotOf, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { GIVEN, type ScreenScenario } from '../../../../design/astra/src/givens.ts';
@@ -88,18 +88,28 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
       if (answer.json.ok !== true) throw new Error(`seeding confirmation: ${answer.status} ${JSON.stringify(answer.json)}`);
     }
     const cutoff = (await sut.turnRows(seed.projectId)).length;
+    let bearer = seed.bearer;
+    async function post(name: string, body: Record<string, unknown>) {
+      const claims = JSON.parse(Buffer.from(bearer.split('.')[1]!, 'base64url').toString('utf8')) as { exp: number };
+      if (claims.exp * 1000 < Date.now() + 10_000) {
+        const login = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password: 'correct horse battery staple' });
+        if (typeof login.json.access_token !== 'string') throw new Error('The screen evidence reader could not renew its session.');
+        bearer = login.json.access_token;
+      }
+      return functionPost(stack, name, body, bearer);
+    }
     async function read(): Promise<DiscoveryState> {
-      const answer = await functionPost(stack, 'discovery-conversation', { projectId: seed.projectId }, seed.bearer);
+      const answer = await post('discovery-conversation', { projectId: seed.projectId });
       if (answer.json.state === undefined) throw new Error('The running discovery-conversation edge runtime has no screen state. It must load the updated files before the real route can run.');
       return answer.json.state as DiscoveryState;
     }
     async function modelCalls(): Promise<string[]> {
       const turns = await seed.sql`select 'chat-turn' as kind, opened_at as at from public.discovery_turns
-        where project_id = ${seed.projectId}::uuid and seq > ${cutoff} and billing <> 'opening' and status = 'settled'` as { kind: string; at: Date }[];
+        where project_id = ${seed.projectId}::uuid and seq > ${cutoff} and status = 'settled'` as { kind: string; at: Date }[];
       const parts = await seed.sql`select 'file-read' as kind, f.created_at as at from public.discovery_file_parts p
         join public.discovery_files f on f.id = p.file_id where f.project_id = ${seed.projectId}::uuid order by f.created_at, p.part_index` as { kind: string; at: Date }[];
       return [...turns, ...parts].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()).map((row) => row.kind);
     }
-    return { ...seed, scope, read, modelCalls, snapshot: snapshotOf(version) };
+    return { ...seed, scope, read, post, modelCalls, snapshot: snapshotOf(version) };
   } catch (error) { await seed.sql.close(); throw error; }
 }

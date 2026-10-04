@@ -166,7 +166,12 @@ export class DiscoveryPage {
         landmark('article', NAME.aiReply, 'last'),
       ];
       if (this.backend) {
-        await eventually('the real reply settles', () => this.backend!.modelCalls(), (next) => next.filter((kind) => kind === 'chat-turn').length > calls.filter((kind) => kind === 'chat-turn').length, 180_000);
+        await eventually('the real reply settles', async () => {
+          const next = await this.backend!.modelCalls();
+          const rows = await this.backend!.sql`select status from public.discovery_turns where project_id = ${this.backend!.projectId}::uuid order by seq desc limit 1` as { status: string }[];
+          if (rows[0]?.status === 'failed') throw new Error(`The real model turn failed: ${await readText(this.page, [{ role: 'alert' }])}`);
+          return next;
+        }, (next) => next.filter((kind) => kind === 'chat-turn').length > calls.filter((kind) => kind === 'chat-turn').length, 180_000);
       }
       return eventually('the next AI reply', () => readText(this.page, article), (text) => text.trim().length > 0 && text !== before, this.backend ? 180_000 : 5_000);
     },
@@ -538,7 +543,14 @@ export function discoveryScreens() {
     });
     try {
       if (seed) {
-        await eventually('the real Discovery brief loads', () => seed.read(), (state) => state.brief !== null, 180_000);
+        await eventually('the real Discovery brief loads', async () => {
+          const state = await seed.read();
+          if (state.brief === null) {
+            const alert = await readText(opened.page, [{ role: 'alert' }]);
+            if (alert) throw new Error(`The real opening failed: ${alert}`);
+          }
+          return state;
+        }, (state) => state.brief !== null, 180_000);
         const ready = start === 'review' ? SCREEN.review : SCREEN.progress;
         await eventually('the real Discovery screen renders', () => opened.page.visible([landmark(ready.role, ready.name)]), (visible) => visible, 30_000);
       }
