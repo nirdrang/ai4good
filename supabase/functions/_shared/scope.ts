@@ -37,7 +37,7 @@ export type Scope = {
 const strings = { type: 'array', items: { type: 'string' } };
 export const RECORD_SCOPE_TOOL = {
   name: 'record_scope',
-  description: 'Record the technical scope of this NGO software need, derived only from the completed elicitation and the conversation.',
+  description: 'Record the PRD technical scope, derived only from the confirmed Discovery document and its kept open questions.',
   strict: true,
   input_schema: {
     type: 'object' as const, additionalProperties: false,

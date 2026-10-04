@@ -60,8 +60,8 @@ atTest('AT-036.12', 'each data tier explains complexity, maintenance and public 
       }
     }
     if (TIER === 'loop') {
-      h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: { ...GRANT_TRACKER_SCOPE, summary: 'A list, roughly $4,000 to build.' }, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
-      await expect(sut.generate(confirmed(GRANT_TRACKER_SCOPE))).rejects.toThrow();
+      h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: { ...GRANT_TRACKER_SCOPE, userStories: GRANT_TRACKER_SCOPE.userStories.map((story) => ({ ...story, discoveryTopicId: 'priority' })), summary: 'A list, roughly $4,000 to build.' }, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
+      await expect(sut.generate(confirmed(GRANT_TRACKER_SCOPE))).rejects.toThrow('money');
     }
   },
 });
