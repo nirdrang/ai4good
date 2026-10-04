@@ -157,6 +157,8 @@ export class DiscoveryPage {
     send: async (): Promise<string> => {
       const before = await this.chat.lastAssistantText();
       const calls = this.backend ? await this.backend.modelCalls() : [];
+      const replies = [landmark(SCREEN.conversation.role, SCREEN.conversation.name), landmark('article', NAME.aiReply)];
+      const replyCount = this.backend ? await this.page.count(replies) : 0;
       const root = landmark(SCREEN.composer.role, SCREEN.composer.name);
       const paid = [root, landmark('button', TEXT.sendPaid)];
       const free = [root, landmark('button', TEXT.send)];
@@ -172,8 +174,10 @@ export class DiscoveryPage {
           if (rows[0]?.status === 'failed') throw new Error(`The real model turn failed: ${await readText(this.page, [{ role: 'alert' }])}`);
           return next;
         }, (next) => next.filter((kind) => kind === 'chat-turn').length > calls.filter((kind) => kind === 'chat-turn').length, 180_000);
+        await eventually('the saved reply appears in the chat', () => this.page.count(replies), (count) => count > replyCount, 10_000);
+        return readText(this.page, article);
       }
-      return eventually('the next AI reply', () => readText(this.page, article), (text) => text.trim().length > 0 && text !== before, this.backend ? 180_000 : 5_000);
+      return eventually('the next AI reply', () => readText(this.page, article), (text) => text.trim().length > 0 && text !== before, 5_000);
     },
     formText: (): Promise<string> => this.page.text([landmark(SCREEN.composer.role, SCREEN.composer.name)]),
     fill: (text: string): Promise<void> =>
