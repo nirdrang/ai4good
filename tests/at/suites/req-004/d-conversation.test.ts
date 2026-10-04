@@ -2,7 +2,6 @@ import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
 import { GRANT_TRACKER } from './fixtures/grant-tracker.ts';
-import { grantTrackerOracleProblems } from './fixtures/grant-tracker.oracle.ts';
 import { DISCOVERY_REQUEST_SETTINGS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import type { DiscoveryMessageOutcome, DiscoverySut, Session } from './_contract.ts';

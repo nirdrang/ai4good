@@ -1,11 +1,9 @@
-import { readFileSync } from 'node:fs';
 import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
 import { scopeMoneySourceProblems } from '../req-004/_source-absences.ts';
 import { TIER } from '../../harness/registry.ts';
 import { openingDocument, decideFinish } from '../../../../supabase/functions/_shared/discovery-brief.ts';
-import { buildScopeRequest, generateConfirmedScope, renderScopeMarkdown, scopeMoneyProblems, type Scope, type ConfirmedDiscovery } from '../../../../supabase/functions/_shared/scope.ts';
-import { discoveryModelPort } from '../../../../supabase/functions/_shared/discovery-model.ts';
+import { buildScopeRequest, renderScopeMarkdown, scopeMoneyProblems, type Scope, type ConfirmedDiscovery } from '../../../../supabase/functions/_shared/scope.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
 import { SCOPE_TIER_FIXTURES, GRANT_TRACKER_SCOPE, scopeContractProblems, scopeDocumentProblems } from '../req-004/fixtures/scope-tiers.ts';
 
@@ -20,22 +18,12 @@ function confirmed(scope: Scope): ConfirmedDiscovery {
   return { brief, confirmation: decision.confirmation };
 }
 
-function livePort() {
-  const values = new Map<string, string>();
-  for (const line of readFileSync('supabase/functions/.env', 'utf8').split(/\r?\n/)) {
-    const match = /^(DISCOVERY_[A-Z_]+|ANTHROPIC_API_KEY)=(.*)$/.exec(line);
-    if (match) values.set(match[1], match[2].replace(/^['"]|['"]$/g, ''));
-  }
-  Object.defineProperty(globalThis, 'Deno', { configurable: true, value: { env: { get: (name: string) => values.get(name) } } });
-  return discoveryModelPort();
-}
-
 atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technical scope with both build parts', {
   default: async ({ open }) => {
     const { h, sut } = await open();
     const input = confirmed(GRANT_TRACKER_SCOPE);
     const scope = { ...GRANT_TRACKER_SCOPE, userStories: GRANT_TRACKER_SCOPE.userStories.map((story) => ({ ...story, discoveryTopicId: 'priority' })) };
-    const generate = TIER === 'integration' ? (value: ConfirmedDiscovery) => generateConfirmedScope(value, DISCOVERY_SKILLS, livePort()) : sut.generate;
+    const generate = sut.generate;
     if (TIER === 'loop') h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: scope, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
     const generated = await generate(input);
     expect(scopeContractProblems(generated.scope)).toEqual([]);

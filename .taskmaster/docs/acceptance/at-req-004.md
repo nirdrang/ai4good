@@ -38,13 +38,13 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 
 ## D. Structured scope output
 
-- **AT-004.20 [retired ? d94: technical scope moved to AT-036.11]**
-- **AT-004.21 [retired ? d94: technical scope moved to AT-036.12]**
-- **AT-004.22 [retired ? d94: technical scope moved to AT-036.11]**
+- **AT-004.20 [retired — d94: technical scope moved to AT-036.11]**
+- **AT-004.21 [retired — d94: technical scope moved to AT-036.12]**
+- **AT-004.22 [retired — d94: technical scope moved to AT-036.11]**
 - **AT-004.23 [retired — cx: the `discovery_in_progress → scoped` confirmation transition is a REQ-005.5 lifecycle obligation → AT-REQ-005.5]**
 - **AT-004.24 (P0)** — Given a scoped project, When the INITIAL automated build backlog is decomposed [cross: REQ-026/036], Then it derives from the passing dev-authored PRD and no task decomposes Discovery output directly (later volunteer-added sub-issues / accepted scope-additions are exempt). [cx r2: scoped to initial decomposition — later sub-issues are allowed by REQ-026]
 - **AT-004.52 (P0)** — Given a completed Discovery, When PRD authoring and the completion scorer run [cross: REQ-036], Then the confirmed Discovery document is the source supplied to PRD authoring AND the reference the scorer compares the PRD against. [d94: the need contract, not a technical scope] [cx r2: covers "scope contract = PRD source + scorer gate reference", not just downstream lineage]
-- **AT-004.25 [retired ? d94: technical scope moved to AT-036.12]**
+- **AT-004.25 [retired — d94: technical scope moved to AT-036.12]**
 - **AT-004.58 (P0)** — Given a shared vocabulary already containing a cause label (fixture: "food security") and a new Discovery conversation whose problem description clearly matches that same domain, When Discovery proposes cause labels, Then the emitted cause label REUSES the existing "food security" label rather than inventing a synonymous new one (e.g. "hunger relief" or "food banks") — generation normalizes against the existing vocabulary, it does not invent freely per project. [d90] [d94: the reply proposes labels in the live brief; Finish publishes them to the project]
 - **AT-004.59 (P0)** — Given a Discovery conversation describing a domain with no matching existing label, When Discovery proposes cause labels, Then a new cause label is added to the shared vocabulary — the vocabulary grows only for genuinely new domains; and Given a conversation too thin to support a confident label, When Discovery proposes cause labels, Then zero cause labels are emitted — generation may legitimately produce none, causes are never a required output. [d90] [d94: the reply proposes labels in the live brief; Finish publishes them to the shared vocabulary]
 - **AT-004.60 (P0)** — Given a Discovery brief carrying AI-proposed cause labels, When the NGO removes one, Then it is removed; When the NGO or any other account attempts to type, create, or curate a cause label through any supported UI/API, Then no such control or endpoint exists anywhere in the product — there is no admin taxonomy-management surface either. Correction is deletion-only; invention stays machine-owned. [d90] [d94: correction uses remove-label on the live brief]
@@ -75,8 +75,8 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 
 ## G. Regeneration, retries & failure
 
-- **AT-004.37 [retired ? d94: Discovery has no regeneration; free manual edits are covered by AT-004.64]**
-- **AT-004.38 [retired ? d94: Discovery has no regeneration; free manual edits are covered by AT-004.64]**
+- **AT-004.37 [retired — d94: Discovery has no regeneration; free manual edits are covered by AT-004.64]**
+- **AT-004.38 [retired — d94: Discovery has no regeneration; free manual edits are covered by AT-004.64]**
 - **AT-004.39 (P0)** — Given a failed turn or automatic system retry, no extra free turn is consumed. A failed free turn releases its reservation once. Internal retries share the original turn and mode. [d92]
 - **AT-004.40 [retired — cx: invalid-output → bounded-retry → admin (and not silently reaching `scoped`) is a REQ-005.5 lifecycle obligation → AT-REQ-005.5]**
 

@@ -7,7 +7,7 @@ The ten existing acceptance identifiers remain stable. Their scenarios cover the
 The automatic score-to-board behavior and blanket NGO mutation denial are superseded.
 The separate Design extension retains its own implementation work and outstanding acceptance registration.
 
-Status: cases 11 and 12 have executable technical-scope tests and an expected-result manifest. Cases 01?10 are registered as pending until the PRD workspace ships.
+Status: cases 11 and 12 have executable technical-scope tests and an expected-result manifest. Cases 01–10 are registered as pending until the PRD workspace ships.
 Implementation must register each case through atTest and record honest results before any completion claim.
 No scenario below has passed merely because this document exists.
 
