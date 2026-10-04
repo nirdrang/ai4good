@@ -3,6 +3,13 @@
  * A revision bumps only when the document changes meaning. Finish never bumps one.
  */
 
+export const SCOPE_CAUSE_LABELS_MAX = 3;
+export const SCOPE_CAUSE_LABEL_MAX_CHARS = 40;
+
+export function canonicalLabel(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 export type Importance = 'needed' | 'suggested' | 'later';
 
 export type BriefSource =
@@ -647,6 +654,7 @@ export type ReplyOpenUpdate = { topicId: string; importance: Importance };
 
 export type ReplyUpdate = {
   text: string;
+  causeLabels?: readonly string[];
   questions: readonly ReplyQuestionUpdate[];
   agreed: readonly ReplyAgreedUpdate[];
   openQuestions: readonly ReplyOpenUpdate[];
@@ -756,6 +764,11 @@ export function applyReplyTurn(current: BriefVersion, input: {
     if (filedTopic) filed.push(filedTopic);
   }
   for (const open of input.update.openQuestions) applyModelOpen(document, open, input.round);
+  if (input.update.causeLabels !== undefined) {
+    document.causeLabels = [...new Set(input.update.causeLabels.map(canonicalLabel))]
+      .filter((label) => label !== '' && label.length <= SCOPE_CAUSE_LABEL_MAX_CHARS && !document.removedCauseLabels.includes(label))
+      .slice(0, SCOPE_CAUSE_LABELS_MAX);
+  }
   const modelChanged = JSON.stringify(document) !== before;
   if (!modelChanged) return answered.kind === 'changed' ? answered : unchanged(current);
   const revision = answered.kind === 'changed' ? answered.brief.revision : current.revision + 1;

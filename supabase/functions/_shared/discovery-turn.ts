@@ -287,6 +287,7 @@ async function prepareReply(
       fileReports,
     },
   };
+  request.system[1].text += `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}`;
   return { ok: true, args: {
     ...args,
     p_settings: { ...args.p_settings, model: port.model },
@@ -367,7 +368,7 @@ async function actReply(
     topicIds: prepared.reply.topicIds, opening: prepared.reply.opening,
     discoveryFileCount: prepared.reply.discoveryFileCount,
   });
-  if (!plan.ok) return failed(JSON.stringify({ kind: 'invalid-request', reason: 'the reply could not be read' }));
+  if (!plan.ok) return failed('The model did not record a valid reply tool answer.');
   if (prepared.reply.fileReports) plan.text = `${plan.prefix}${prepared.reply.fileReports}\n\n${plan.text.slice(plan.prefix.length)}`;
   const usage = screenUsage(isRecord(value) ? value.usage : null);
   if (usage === null) return failed('Discovery usage could not be read');

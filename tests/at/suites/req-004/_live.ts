@@ -4,7 +4,7 @@ import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
 import { reserveSettings, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, offTopicFlaggedNotice, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
-import { canonicalLabel, regenerationExhaustedNotice, renderDiscoveryScope, renderScopeBegin, scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
+import { canonicalLabel, renderDiscoveryScope, renderScopeBegin, scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal, ScopeWriteOutcome } from './_contract.ts';
@@ -102,15 +102,10 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
         regeneration_bound: DISCOVERY_REGENERATION_BOUND,
       };
-      const notice = action === 'regenerate' ? regenerationExhaustedNotice({
-        projectId: input.projectId, organizationId: input.organizationId,
-        regenerations: DISCOVERY_REGENERATION_BOUND, lastReason: reason ?? '',
-      }) : null;
-      const noticeJson = notice?.ok ? JSON.stringify(notice.value) : null;
       try {
         const result = await sql`select public.discovery_scope_begin(${input.accountId}::uuid, ${input.organizationId}::uuid,
           ${input.projectId}::uuid, ${action}::text, ${reason}::text, null::text,
-          ${JSON.stringify(settings)}::text::jsonb, ${noticeJson}::text::jsonb) as value` as { value: unknown }[];
+          ${JSON.stringify(settings)}::text::jsonb, null::jsonb) as value` as { value: unknown }[];
         const snapshot = renderScopeBegin(decoded(result[0].value));
         if (snapshot.scope === null) return sqlRefusal(new Error('the Discovery scope is not open'));
         return { ok: true, scopeId: snapshot.scope.id };
@@ -169,7 +164,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
           ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text,
           ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb,
-          ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb) as value` as { value: unknown }[];
+          ${input.offTopic === true}::boolean, null::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },

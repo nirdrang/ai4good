@@ -1,16 +1,13 @@
-import type { Decision } from './accounts.ts';
-import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
+import { DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed } from './discovery-prompt.ts';
 import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts';
 import type { Elicitation, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
-import { requiredAgreement, type BriefVersion } from './discovery-brief.ts';
+import { requiredAgreement, briefVersionFrom, type BriefVersion, type Confirmation } from './discovery-brief.ts';
 import { orgAdminActionAllowed } from './memberships.ts';
 import { needViewFromSql, type NeedIntakeSqlRow, type NeedIntakeView } from './need-intake.ts';
-import { renderCopy } from './notification-copy.ts';
-import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
 import { SCOPE_COPY } from './scope-copy.ts';
 import {
-  isRecord, refuseWrite, stringField, uuidField,
+  isRecord, refuseWrite, uuidField,
   type AccountWriteRouteInput, type SettleActResult, type WriteRouteDecision,
 } from './write-routes.ts';
 
@@ -20,12 +17,13 @@ export const DATA_TIERS = ['tier0', 'tier1', 'tier2'] as const;
 export type DataTier = (typeof DATA_TIERS)[number];
 export const FIT_VERDICTS = ['fit', 'declined'] as const;
 export type FitVerdict = (typeof FIT_VERDICTS)[number];
-export const SCOPE_CAUSE_LABELS_MAX = 3;
-export const SCOPE_CAUSE_LABEL_MAX_CHARS = 40;
+import { SCOPE_CAUSE_LABELS_MAX, SCOPE_CAUSE_LABEL_MAX_CHARS, canonicalLabel } from './discovery-brief.ts';
+import { discoveryModelPort } from './discovery-model.ts';
+export { SCOPE_CAUSE_LABELS_MAX, SCOPE_CAUSE_LABEL_MAX_CHARS, canonicalLabel } from './discovery-brief.ts';
 
 export type Scope = {
   summary: string;
-  userStories: { story: string; acceptanceCriteria: string[] }[];
+  userStories: { story: string; acceptanceCriteria: string[]; discoveryTopicId?: string }[];
   suggestedStack: string[];
   complexity: { tier: ComplexityTier; rationale: string; startSmallAdvice: string };
   riskFlags: string[];
@@ -47,8 +45,8 @@ export const RECORD_SCOPE_TOOL = {
       summary: { type: 'string' },
       userStories: { type: 'array', minItems: 1, items: {
         type: 'object', additionalProperties: false,
-        properties: { story: { type: 'string' }, acceptanceCriteria: strings },
-        required: ['story', 'acceptanceCriteria'],
+        properties: { story: { type: 'string' }, acceptanceCriteria: strings, discoveryTopicId: { type: 'string' } },
+        required: ['story', 'acceptanceCriteria', 'discoveryTopicId'],
       } },
       suggestedStack: { type: 'array', minItems: 1, items: { type: 'string' } },
       complexity: { type: 'object', additionalProperties: false,
@@ -106,10 +104,6 @@ function inEnum<T extends string>(value: unknown, allowed: readonly T[]): value 
   return typeof value === 'string' && (allowed as readonly string[]).includes(value);
 }
 
-export function canonicalLabel(raw: string): string {
-  return raw.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
 export function parseScope(input: unknown): Scope | null {
   if (!isRecord(input) || !exactKeys(input, SCOPE_KEYS)) return null;
   const summary = trimmed(input.summary);
@@ -119,11 +113,12 @@ export function parseScope(input: unknown): Scope | null {
   if (!Array.isArray(input.userStories) || input.userStories.length < 1) return null;
   const userStories: Scope['userStories'] = [];
   for (const item of input.userStories) {
-    if (!isRecord(item) || !exactKeys(item, ['story', 'acceptanceCriteria'])) return null;
+    if (!isRecord(item) || !exactKeys(item, item.discoveryTopicId === undefined ? ['story', 'acceptanceCriteria'] : ['story', 'acceptanceCriteria', 'discoveryTopicId'])) return null;
     const story = trimmed(item.story);
     const acceptanceCriteria = trimmedStrings(item.acceptanceCriteria, 1);
     if (story === null || acceptanceCriteria === null) return null;
-    userStories.push({ story, acceptanceCriteria });
+    if (item.discoveryTopicId !== undefined && trimmed(item.discoveryTopicId) === null) return null;
+    userStories.push({ story, acceptanceCriteria, ...(typeof item.discoveryTopicId === 'string' ? { discoveryTopicId: item.discoveryTopicId } : {}) });
   }
   if (!isRecord(input.complexity) || !exactKeys(input.complexity, ['tier', 'rationale', 'startSmallAdvice'])) return null;
   const complexityTier = input.complexity.tier;
@@ -171,37 +166,45 @@ export function parseScope(input: unknown): Scope | null {
   };
 }
 
-export const SCOPE_REQUEST_MESSAGE =
-  'Produce the technical scope now from the recorded elicitation and this conversation. Call record_scope.';
+export const SCOPE_REQUEST_MESSAGE = 'Produce the PRD technical scope from the confirmed Discovery document. Call record_scope.';
+export type ConfirmedDiscovery = { brief: BriefVersion; confirmation: Confirmation };
 
-export type ScopeRegeneration = { reason: string; previous: Scope };
-
-export function buildScopeRequest(input: {
-  need: DiscoveryNeed; mission: string | null; elicitation: Elicitation; vocabulary: readonly string[];
-  context: DiscoveryModelRequest['messages']; regeneration: ScopeRegeneration | null;
-}, skills: readonly DiscoverySkill[]): DiscoveryModelRequest {
-  const regeneration = input.regeneration === null ? [] : [
-    `Previous scope, which the NGO rejected:\n${JSON.stringify(input.regeneration.previous)}`,
-    `The NGO's reason for a new scope:\n${input.regeneration.reason}`,
-  ];
+export function buildScopeRequest(input: ConfirmedDiscovery, skills: readonly DiscoverySkill[]): DiscoveryModelRequest {
+  if (input.confirmation.revision !== input.brief.revision) throw new Error('The Discovery confirmation is stale.');
   return {
     model: DISCOVERY_REQUEST_SETTINGS.model,
     maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
     effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: [
-      { text: `${'You are a scoping partner for an NGO with no developer on staff. Ground the scope in the recorded need.'}\n\n${discoverySkillsText(skills)}`, cached: true },
-      { text: [
-        `Need supplied by the NGO:\n${JSON.stringify(input.need)}`,
-        `Organisation mission:\n${input.mission ?? ''}`,
-        `Completed elicitation:\n${JSON.stringify(input.elicitation)}`,
-        `Cause-label vocabulary:\n${JSON.stringify(input.vocabulary)}`,
-        ...regeneration,
-      ].join('\n\n'), cached: false },
+      { text: `You produce a technical scope in the PRD step. Ground every story in an agreed answer or a kept open question. Set discoveryTopicId to its topic id. Never turn uncertainty into an agreed fact. Preserve the data tier and maintainability verdict in the confirmed brief. Include both build-split parts. Never give a money figure for the project or the build.\n\n${discoverySkillsText(skills)}`, cached: true },
+      { text: `Confirmed Discovery document:\n${JSON.stringify(input)}`, cached: false },
     ],
-    messages: [...input.context, { role: 'user', content: SCOPE_REQUEST_MESSAGE }],
+    messages: [{ role: 'user', content: SCOPE_REQUEST_MESSAGE }],
     tools: [RECORD_SCOPE_TOOL],
     toolChoice: { type: 'tool', name: 'record_scope' },
   };
+}
+
+export async function generateConfirmedScope(input: ConfirmedDiscovery, skills: readonly DiscoverySkill[], port: MessagesPort = discoveryModelPort()) {
+  const request = buildScopeRequest(input, skills);
+  request.model = port.model;
+  const answer = await port.create(request);
+  if (!answer.ok) throw new Error(answer.reason);
+  const scope = answer.toolUse?.name === 'record_scope' ? parseScope(answer.toolUse.input) : null;
+  if (answer.stopReason === 'refusal' || scope === null) throw new Error('The model did not record a valid scope.');
+  const gaps = new Set(input.confirmation.acceptedGaps.map((gap) => gap.topicId));
+  for (const story of scope.userStories) {
+    const topic = input.brief.document.topics[story.discoveryTopicId ?? ''];
+    if (!topic || !((topic.state.kind === 'agreed' && !topic.needsReview) || gaps.has(topic.id))) {
+      throw new Error('A scope story has no confirmed Discovery source.');
+    }
+  }
+  const data = input.brief.document.dataTier;
+  const fit = input.brief.document.fit;
+  if (data && scope.dataSensitivity.tier !== `tier${data.tier}`) throw new Error('The scope changed the confirmed data tier.');
+  if (fit && scope.maintainabilityFit.verdict !== (fit.verdict === 'fits' ? 'fit' : 'declined')) throw new Error('The scope changed the confirmed fit verdict.');
+  if (scopeMoneyProblems(scopeModelText(scope)).length > 0) throw new Error('The scope contains a forbidden money figure.');
+  return { scope, markdown: renderScopeMarkdown(scope, { title: input.brief.document.need.text }), model: answer.model, usage: answer.usage };
 }
 
 function listBlock(items: readonly string[]): string {
@@ -320,93 +323,32 @@ export function scopeReferenceForScorer(
   return resolveScopeContract(scopes, ref);
 }
 
-const REGENERATION_EXHAUSTED_EVENT = 'discovery.regeneration_exhausted';
-export type RegenerationExhaustedNotice = {
-  readonly channels: readonly Channel[];
-  readonly copy: { readonly subject: string; readonly body: string };
-};
-export function regenerationExhaustedNotice(payload: {
-  projectId: string; organizationId: string; regenerations: number; lastReason: string;
-}, row = taxonomyRow(REGENERATION_EXHAUSTED_EVENT) ?? null): Decision<RegenerationExhaustedNotice> {
-  if (row === null) {
-    return { ok: false, reason: 'discovery.regeneration_exhausted is missing from the notification taxonomy' };
-  }
-  return {
-    ok: true,
-    value: {
-      channels: channelsFor(row),
-      copy: renderCopy(row, payload),
-    },
-  };
-}
-
 export type DiscoveryScopeArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string;
-  p_action: 'generate' | 'remove-label' | 'regenerate'; p_reason: string | null; p_label: string | null;
-  p_settings: { turn_deadline_seconds: number; regeneration_bound: number };
-  p_notice: RegenerationExhaustedNotice | null;
+  p_action: 'generate'; p_reason: null; p_label: null;
+  p_settings: { turn_deadline_seconds: number }; p_notice: null;
 };
 
-function scopeBeginSettings() {
-  return {
-    turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
-    regeneration_bound: DISCOVERY_REGENERATION_BOUND,
-  };
-}
-
 export function decideDiscoveryScope(input: AccountWriteRouteInput): WriteRouteDecision<DiscoveryScopeArgs> {
-  if (input.target === null) return refuseWrite('invalid-request', 400, 'a Discovery scope write must name its organisation');
+  if (input.target === null) return refuseWrite('invalid-request', 400, 'a PRD scope write must name its organisation');
   if (!input.standing.orgExists) return refuseWrite('no-such-organisation', 409, 'no such organisation');
   const allowed = orgAdminActionAllowed(input.standing.orgRole);
   if (!allowed.ok) return refuseWrite(allowed.kind, 403, allowed.reason);
   const projectId = uuidField(input.body.projectId);
-  if (projectId === null) return refuseWrite('invalid-request', 400, 'a Discovery scope write must name the project as a uuid');
-  const known = input.body.action === 'remove-label'
-    ? ['organizationId', 'projectId', 'action', 'label']
-    : input.body.action === 'regenerate'
-      ? ['organizationId', 'projectId', 'action', 'reason']
-      : ['organizationId', 'projectId', 'action'];
-  if (Object.keys(input.body).some((key) => !known.includes(key))) {
-    return refuseWrite('invalid-request', 400, 'a Discovery scope write contains an unknown field');
-  }
-  if (input.body.action === 'remove-label') {
-    const label = typeof input.body.label === 'string' ? canonicalLabel(input.body.label) : '';
-    if (label === '') {
-      return refuseWrite('invalid-request', 400, 'a Discovery scope write requires a label to remove');
-    }
-    return { ok: true, args: {
-      p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
-      p_action: 'remove-label', p_reason: null, p_label: label,
-      p_settings: scopeBeginSettings(), p_notice: null,
-    } };
-  }
-  if (input.body.action === 'regenerate') {
-    const reason = stringField(input.body.reason);
-    if (reason === null || reason.length > DISCOVERY_MESSAGE_MAX_CHARS) {
-      return refuseWrite('invalid-request', 400, 'a Discovery scope write requires a reason of at most ' + String(DISCOVERY_MESSAGE_MAX_CHARS) + ' characters');
-    }
-    const notice = regenerationExhaustedNotice({
-      projectId, organizationId: input.target, regenerations: DISCOVERY_REGENERATION_BOUND, lastReason: reason,
-    });
-    if (!notice.ok) return refuseWrite('invalid-request', 400, notice.reason);
-    return { ok: true, args: {
-      p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
-      p_action: 'regenerate', p_reason: reason, p_label: null,
-      p_settings: scopeBeginSettings(), p_notice: notice.value,
-    } };
-  }
-  if (input.body.action !== 'generate') {
-    return refuseWrite('invalid-request', 400, 'a Discovery scope write requires the generate, regenerate or remove-label action');
+  if (projectId === null || input.body.action !== 'generate'
+    || Object.keys(input.body).some((key) => !['organizationId', 'projectId', 'action'].includes(key))) {
+    return refuseWrite('invalid-request', 400, 'the PRD scope entry accepts only generate for a project');
   }
   return { ok: true, args: {
     p_account_id: input.caller.id, p_organization_id: input.target, p_project_id: projectId,
     p_action: 'generate', p_reason: null, p_label: null,
-    p_settings: scopeBeginSettings(), p_notice: null,
+    p_settings: { turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS }, p_notice: null,
   } };
 }
 
 export type ScopeBeginSnapshot = {
   done: boolean;
+  confirmed: ConfirmedDiscovery | null;
   escalated?: boolean;
   changed?: boolean;
   scope: ScopeSqlRow | null;
@@ -450,6 +392,7 @@ export function renderScopeBegin(value: unknown): ScopeBeginSnapshot {
   const need = isRecord(value.need) ? needViewFromSql(value.need as NeedIntakeSqlRow) : null;
   return {
     done: value.done,
+    confirmed: isRecord(value.confirmed) && isRecord(value.confirmed.confirmation) && briefVersionFrom(isRecord(value.confirmed.brief) ? value.confirmed.brief.revision : null, isRecord(value.confirmed.brief) ? value.confirmed.brief.document : null) !== null ? value.confirmed as ConfirmedDiscovery : null,
     escalated: value.escalated === true,
     changed: value.changed === true,
     scope: isRecord(value.scope) ? value.scope as ScopeSqlRow : null,
@@ -471,19 +414,9 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
         p_served_model: null, p_input_tokens: null, p_output_tokens: null, p_changed: begun.changed === true,
       }, failure: null };
     }
-    if (begun.scope === null || begun.elicitation === null || begun.need === null) {
+    if (begun.scope === null || begun.confirmed === null || begun.need === null) {
       throw new Error('discovery scope begin returned no generating snapshot');
     }
-    const request = buildScopeRequest({
-      need: {
-        title: begun.need.title, description: begun.need.description, urgency: begun.need.urgency,
-        reference_files: begun.need.referenceFiles.map((file) => file.fileName),
-      },
-      mission: begun.mission, elicitation: begun.elicitation, vocabulary: begun.vocabulary, context: begun.context,
-      regeneration: begun.scope.reason !== null && begun.previous !== null
-        ? { reason: begun.scope.reason, previous: begun.previous } : null,
-    }, skills);
-    const answer = await port.create(request);
     const failed = (reason: string, usage?: { inputTokens: number; outputTokens: number; model: string }) => ({
       args: {
         p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope!.id, p_outcome: 'failed' as const,
@@ -492,24 +425,18 @@ export function scopeAct(port: MessagesPort, skills: readonly DiscoverySkill[]) 
         p_input_tokens: usage?.inputTokens ?? null, p_output_tokens: usage?.outputTokens ?? null, p_changed: null,
       }, failure: reason,
     });
-    if (!answer.ok) return failed(answer.reason);
-    if (answer.stopReason === 'refusal') return failed('the model refused the request');
-    const parsed = answer.toolUse?.name === 'record_scope' ? parseScope(answer.toolUse.input) : null;
-    if (parsed === null) return failed('the model did not record a valid scope', {
-      inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
-    });
-    const markdown = renderScopeMarkdown(parsed, { title: begun.need.title });
-    const money = scopeMoneyProblems(scopeModelText(parsed));
-    if (money.length > 0) {
-      return failed(money[0], {
-        inputTokens: answer.usage.inputTokens, outputTokens: answer.usage.outputTokens, model: answer.model,
-      });
-    }
+    let result: Awaited<ReturnType<typeof generateConfirmedScope>>;
+    try {
+      if (begun.confirmed === null) return failed('The PRD scope needs a confirmed Discovery document.');
+      result = await generateConfirmedScope(begun.confirmed, skills, port);
+    } catch (error) { return failed(error instanceof Error ? error.message : String(error)); }
+    const parsed = result.scope;
+    const markdown = result.markdown;
     return { args: {
       p_account_id: args.p_account_id, p_project_id: args.p_project_id, p_scope_id: begun.scope.id, p_outcome: 'completed',
       p_contract: parsed, p_markdown: markdown,
-      p_labels: parsed.causeLabels, p_served_model: answer.model,
-      p_input_tokens: answer.usage.inputTokens, p_output_tokens: answer.usage.outputTokens, p_changed: null,
+      p_labels: parsed.causeLabels, p_served_model: result.model,
+      p_input_tokens: result.usage.inputTokens, p_output_tokens: result.usage.outputTokens, p_changed: null,
     }, failure: null };
   };
 }

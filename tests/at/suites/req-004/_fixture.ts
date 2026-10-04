@@ -2,11 +2,11 @@ import { briefVersionFrom, requiredAgreement, type BriefVersion } from '../../..
 import { dailyAllowanceExhaustedReason, discoveryTier } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
 import { reserveSettings,
-  DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+  DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { decideDiscoveryMessage, discoveryPrepare, discoveryAct, conversationAnswer, turnViewFromSql, renderDiscoveryMessage,
   contextMessagesFrom, offTopicFlaggedNotice,
   type CallerReads, type DiscoveryReserveArgs, type DiscoverySettleArgs, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
-import { canonicalLabel, decideDiscoveryScope, regenerationExhaustedNotice, renderDiscoveryScope, renderScopeBegin, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
+import { canonicalLabel, decideDiscoveryScope, renderDiscoveryScope, renderScopeBegin, scopeAct, scopeViewFromSql, type DiscoveryScopeArgs, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
 import { organizationIdField, writePipeline } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
@@ -201,81 +201,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     const transcript = () => (turns.get(need.projectId) ?? [])
       .filter((item) => item.status === 'settled' && !item.off_topic)
       .map((item) => ({ user_message: item.user_message, assistant_message: item.assistant_message }));
-    if (args.p_action === 'remove-label') {
-      const label = args.p_label ?? '';
-      if (label === '') return refuse('invalid-request', 'a Discovery scope write requires a label to remove');
-      const existing = scopes.get(need.projectId) ?? [];
-      const current = existing.find((row) => row.status === 'current') ?? null;
-      const held = [...(needCauseLabels.get(need.projectId) ?? need.causeLabels)];
-      if (!held.includes(label)) {
-        return { ok: true, value: {
-          done: true, changed: false, scope: current === null ? null : structuredClone(current),
-          scopes: structuredClone(existing), need: await sqlNeed(need.projectId),
-        } };
-      }
-      needCauseLabels.set(need.projectId, held.filter((item) => item !== label));
-      return { ok: true, value: {
-        done: true, changed: true, scope: current === null ? null : structuredClone(current),
-        scopes: structuredClone(existing), need: await sqlNeed(need.projectId),
-      } };
-    }
-    if (args.p_action === 'regenerate') {
-      const existing = scopes.get(need.projectId) ?? [];
-      const current = existing.find((row) => row.status === 'current');
-      if (current === undefined) return refuse('scope-not-generated', 'a scope has not been generated for this project');
-      const reason = (args.p_reason ?? '').trim();
-      if (reason === '' || reason.length > DISCOVERY_MESSAGE_MAX_CHARS) return refuse('invalid-request', 'a Discovery scope write requires a reason');
-      const snapshot = async (changed: boolean, escalated: boolean) => {
-        const held = scopes.get(need.projectId) ?? [];
-        return { ok: true as const, value: {
-          done: true, changed, escalated, scope: structuredClone(current),
-          scopes: structuredClone(held), need: await sqlNeed(need.projectId),
-        } };
-      };
-      if (existing.some((row) => row.status === 'escalated')) return snapshot(false, true);
-      const generating = existing.find((row) => row.status === 'generating');
-      if (generating && opts.clock.now() - Date.parse(generating.opened_at) < DISCOVERY_TURN_DEADLINE_SECONDS * 1000) {
-        return refuse('generation-in-flight', 'a Discovery generation is in flight');
-      }
-      if (generating) Object.assign(generating, { status: 'failed', settled_at: now() });
-      const used = existing.filter((row) => row.version > 1 && (row.status === 'current' || row.status === 'superseded')).length;
-      if (used >= args.p_settings.regeneration_bound) {
-        const row: ScopeSqlRow = {
-          id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId,
-          version: Math.max(...existing.map((item) => item.version)) + 1,
-          status: 'escalated', reason, requested_by: args.p_account_id, elicitation: current.elicitation,
-          contract: null, markdown: null, cause_labels: [], served_model: null, input_tokens: null,
-          output_tokens: null, opened_at: now(), settled_at: now(),
-        };
-        scopes.set(need.projectId, [...existing, row]);
-        notificationRows.push({
-          event: 'discovery.regeneration_exhausted',
-          payload: {
-            projectId: need.projectId, organizationId: need.organizationId,
-            regenerations: used, lastReason: reason,
-          },
-        });
-        return snapshot(true, true);
-      }
-      const held = scopes.get(need.projectId) ?? existing;
-      const turnRows = turns.get(need.projectId) ?? [];
-      const elicitation = [...turnRows].filter((item) => item.elicitation?.complete === true).at(-1)?.elicitation
-        ?? current.elicitation;
-      const row: ScopeSqlRow = {
-        id: crypto.randomUUID(), project_id: need.projectId, org_id: need.organizationId,
-        version: Math.max(...held.map((item) => item.version)) + 1,
-        status: 'generating', reason, requested_by: args.p_account_id, elicitation,
-        contract: null, markdown: null, cause_labels: [], served_model: null, input_tokens: null,
-        output_tokens: null, opened_at: now(), settled_at: null,
-      };
-      scopes.set(need.projectId, [...held, row]);
-      const profile = await organizations.profile(need.organizationId);
-      return { ok: true, value: {
-        done: false, scope: structuredClone(row), elicitation, transcript: transcript(), previous: current.contract,
-        need: await sqlNeed(need.projectId), mission: profile?.mission ?? null,
-        vocabulary: [...vocabulary.values()].map((item) => item.label).sort(),
-      } };
-    }
     if (args.p_action !== 'generate') return refuse('invalid-request', 'a Discovery scope write requires the generate, regenerate or remove-label action');
     const turnRows = turns.get(need.projectId) ?? [];
     const elicitation = [...turnRows].filter((row) => row.elicitation !== null).at(-1)?.elicitation ?? null;
@@ -435,19 +360,14 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       .sort((left, right) => left.label.localeCompare(right.label))
       .map((row) => ({ ...row })),
     beginScopeAsOperator: async (input) => {
-      const action = input.action ?? 'generate';
+      const action = 'generate' as const;
       const reason = input.reason ?? null;
-      const notice = action === 'regenerate' ? regenerationExhaustedNotice({
-        projectId: input.projectId, organizationId: input.organizationId,
-        regenerations: DISCOVERY_REGENERATION_BOUND, lastReason: reason ?? '',
-      }) : null;
       const begun = await beginScope({
         p_account_id: input.accountId, p_organization_id: input.organizationId, p_project_id: input.projectId,
         p_action: action, p_reason: reason, p_label: null,
         p_settings: {
           turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
-          regeneration_bound: DISCOVERY_REGENERATION_BOUND,
-        }, p_notice: notice?.ok ? notice.value : null,
+        }, p_notice: null,
       });
       if (!begun.ok) return begun;
       const snapshot = renderScopeBegin(begun.value);
@@ -484,7 +404,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
         p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
         p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: { replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null, baseRevision: row?.base_revision ?? null },
-        p_off_topic: input.offTopic === true, p_notice: notice?.ok ? notice.value : null,
+        p_off_topic: input.offTopic === true, p_notice: null,
       });
     },
     backdateOpenTurnAsOperator: async (id, openedAt) => {
@@ -514,7 +434,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
         discoveryScopesOf: async () => ({ ok: true, rows: visible ? structuredClone(scopes.get(request.projectId) ?? []) : [] }),
-        discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(request.projectId)?.revision ?? null, document: briefs.get(request.projectId)?.document ?? null, confirmation: null, lines: [] } }),
+        discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(request.projectId)?.revision ?? null, document: briefs.get(request.projectId)?.document ?? null, confirmation: null, lines: [], vocabulary: [...vocabulary.keys()].sort() } }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);
@@ -540,7 +460,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           org_id: need.value.need.organizationId, assigned_volunteer_id: null }] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: structuredClone(turns.get(projectId) ?? []) }),
         discoveryScopesOf: async () => ({ ok: true, rows: structuredClone(scopes.get(projectId) ?? []) }),
-        discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(projectId)?.revision ?? null, document: briefs.get(projectId)?.document ?? null, confirmation: null, lines: [] } }),
+        discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(projectId)?.revision ?? null, document: briefs.get(projectId)?.document ?? null, confirmation: null, lines: [], vocabulary: [...vocabulary.keys()].sort() } }),
         discoveryAllowance: async (organizationId) => {
           const original = [...actors.values()].find((entry) => entry.session.accountId === actor.session.accountId)!;
           const result = await organizations.readAllowance(original.session, organizationId);

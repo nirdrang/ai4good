@@ -1,5 +1,6 @@
 import {
   applyReplyTurn,
+  canonicalLabel, SCOPE_CAUSE_LABELS_MAX, SCOPE_CAUSE_LABEL_MAX_CHARS,
   openingDocument,
   requiredAgreement,
   snapshotOf,
@@ -74,6 +75,7 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
       properties: {
         text: { type: 'string' },
         offTopic: { type: 'boolean' },
+        causeLabels: { type: 'array', maxItems: SCOPE_CAUSE_LABELS_MAX, items: { type: 'string', maxLength: SCOPE_CAUSE_LABEL_MAX_CHARS } },
         questions: {
           type: 'array',
           items: {
@@ -112,7 +114,7 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
 
 export function parseReplyInput(input: unknown, topicIds: readonly string[]): ReplyUpdate | null {
   if (!isRecord(input) || !exactKeys(input, input.offTopic === undefined
-    ? ['text', 'questions', 'agreed', 'openQuestions'] : ['text', 'questions', 'agreed', 'openQuestions', 'offTopic'])
+    ? ['text', 'questions', 'agreed', 'openQuestions', ...(input.causeLabels === undefined ? [] : ['causeLabels'])] : ['text', 'questions', 'agreed', 'openQuestions', 'offTopic', ...(input.causeLabels === undefined ? [] : ['causeLabels'])])
     || (input.offTopic !== undefined && typeof input.offTopic !== 'boolean')) return null;
   const text = stringValue(input.text);
   if (text === null || !Array.isArray(input.questions) || !Array.isArray(input.agreed) || !Array.isArray(input.openQuestions)) {
@@ -146,7 +148,13 @@ export function parseReplyInput(input: unknown, topicIds: readonly string[]): Re
     if (topicId === null || !known.has(topicId) || !isImportance(item.importance)) return null;
     openQuestions.push({ topicId, importance: item.importance });
   }
-  return { text, questions, agreed, openQuestions };
+  let causeLabels: string[] | undefined;
+  if (input.causeLabels !== undefined) {
+    if (!Array.isArray(input.causeLabels) || input.causeLabels.length > SCOPE_CAUSE_LABELS_MAX
+      || !input.causeLabels.every((label) => typeof label === 'string' && canonicalLabel(label) !== '' && canonicalLabel(label).length <= SCOPE_CAUSE_LABEL_MAX_CHARS)) return null;
+    causeLabels = [...new Set(input.causeLabels.map(canonicalLabel))];
+  }
+  return { text, questions, agreed, openQuestions, ...(causeLabels === undefined ? {} : { causeLabels }) };
 }
 
 export function replySystemPrompt(need: DiscoveryNeed, topicIds: readonly string[], skills: readonly DiscoverySkill[], free = true): SystemBlock[] {
@@ -154,7 +162,7 @@ export function replySystemPrompt(need: DiscoveryNeed, topicIds: readonly string
     {
       text: `You are a scoping partner for an NGO with no developer on staff.
 Your goal is a complete brief of the software need, grounded in what the NGO says.
-Call the reply tool on every turn. Its input has text, questions, agreed, openQuestions, and optionally offTopic.
+Call the reply tool on every turn. Its input has text, questions, agreed, openQuestions, and optionally offTopic. Always include causeLabels: zero to three short domain labels. Reuse a matching existing vocabulary label. Add a new label only for a genuinely new domain. If the conversation is too thin, return []. Labels are suggestions in the live brief; finish publishes them.
 ${free ? 'Free turns only cover this need. If the request is unrelated, redirect to the need and set offTopic to true. Do not carry out the unrelated task.' : 'This is a paid turn. Free-turn scope redirects and off-topic notices do not apply.'}
 text is the reply the NGO reads. Do not list the questions in the text.
 questions is an array of {topicId, suggestion, suggested, importance, reason}. importance is needed, suggested, or later. suggested is the wording of the option you recommend.
