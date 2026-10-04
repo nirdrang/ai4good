@@ -33,7 +33,7 @@ async function returnNextDay(sut: DiscoverySut, ngo: { session: Session; organiz
   return { session, rows };
 }
 
-atTest('AT-004.10', 'the grant tracker conversation satisfies its semantic oracle', {
+atTest('AT-004.10', 'the grant tracker conversation satisfies its semantic oracle', { timeoutMs: { integration: 240_000 } }, {
   default: async ({ open }) => {
     const { w, sut, h } = await open();
     const ngo = await sut.provisionNgo(w.email('ngo-conversation'), { emailVerified: true });
@@ -65,9 +65,31 @@ atTest('AT-004.10', 'the grant tracker conversation satisfies its semantic oracl
     const read = await sut.readConversation(ngo.session, projectId);
     expect(read.ok && read.value.conversation.elicitation).toEqual(rows.at(-1)?.elicitation);
   },
-  integration: awaiting(AWAITED.anthropicLive),
+  integration: async ({ open }) => {
+    const { w, sut } = await open();
+    const ngo = await sut.provisionNgo(w.email('ngo-conversation-live'), { emailVerified: true });
+    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
+    for (const message of GRANT_TRACKER.ngoMessages) {
+      const answer = await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message });
+      expect(answer.ok, JSON.stringify(answer)).toBe(true);
+    }
+    const rows = await sut.turnRows(projectId);
+    expect(rows).toHaveLength(GRANT_TRACKER.ngoMessages.length);
+    expect(rows.every((row) => row.status === 'settled' && row.servedModel && row.assistantUI)).toBe(true);
+    const read = await sut.readConversation(ngo.session, projectId);
+    if (!read.ok || !read.value.brief) throw new Error('The real reply saved no brief.');
+    const brief = read.value.brief;
+    const record = [brief.need.text, ...brief.topics.flatMap((topic) => topic.state.kind === 'agreed' ? [topic.state.answer] : [])].join(' ');
+    for (const concept of [/funder/i, /two|2/i, /no developer|without coding/i, /remind/i, /seven|7/i]) expect(record).toMatch(concept);
+    for (const question of brief.questions) {
+      expect(question.reason.trim()).not.toBe('');
+      expect(question.options.length).toBeGreaterThan(0);
+      expect(question.options.some((option) => option.id === question.suggestedId)).toBe(true);
+    }
+    expect(brief.revision).toBeGreaterThan(0);
+  },
 });
-atTest('AT-004.11', 'a new session reads the persisted conversation and resumes with full context after the daily reset', {
+atTest('AT-004.11', 'a new session reads the persisted conversation and resumes with full context after the daily reset', { timeoutMs: { integration: 120_000 } }, {
   default: async ({ open }) => {
     const { w, sut, h } = await open();
     const ngo = await sut.provisionNgo(w.email('ngo-resume'), { emailVerified: true });
@@ -103,5 +125,8 @@ atTest('AT-004.11', 'a new session reads the persisted conversation and resumes 
     } finally {
       expect(await sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: reserved.reservation.turn.id, outcome: 'failed' })).toMatchObject({ ok: true });
     }
+    expect(await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message: 'Continue the funder deadline list. The two staff still need reminders seven days before the due date.' })).toMatchObject({ ok: true });
+    const persisted = await sut.readConversation(ngo.session, projectId);
+    expect(persisted.ok && persisted.value.brief).not.toBeNull();
   },
 });

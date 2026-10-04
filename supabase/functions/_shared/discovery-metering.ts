@@ -3,7 +3,6 @@ export const DISCOVERY_REQUEST_SETTINGS = {
 } as const;
 export const DISCOVERY_TURN_DEADLINE_SECONDS = 150;
 export const DISCOVERY_OFF_TOPIC_FLAG_STRIKES = 3;
-export const DISCOVERY_REGENERATION_BOUND = 3;
 export const DISCOVERY_MESSAGE_MAX_CHARS = 4000;
 export type ModelUsage = { inputTokens: number; outputTokens: number };
 export type DiscoveryReserveSettings = Omit<ReturnType<typeof reserveSettings>, 'model'> & {

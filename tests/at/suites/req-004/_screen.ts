@@ -530,7 +530,7 @@ export function discoveryScreens() {
     ...(stack ? { appEnv: { VITE_SUPABASE_URL: stack.apiUrl, VITE_SUPABASE_PUBLISHABLE_KEY: stack.anonKey } } : {}) });
 
   return async function withDiscovery(
-    ctx: AtContext<'req-004', 'discovery'>,
+    ctx: AtContext<'req-004', 'discovery', 'loop'> | AtContext<'req-004', 'discovery', 'integration'>,
     given: ScreenGiven,
     body: (screen: DiscoveryPage) => Promise<void>,
   ): Promise<void> {

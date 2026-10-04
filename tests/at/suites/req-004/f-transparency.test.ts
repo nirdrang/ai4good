@@ -1,6 +1,8 @@
 import { expect } from 'vitest';
-import { atTest, CapabilityPending } from './_bind.ts';
-import { AWAITED } from './_pending.ts';
+import { atTest } from './_bind.ts';
+import { discoveryScreens } from './_screen.ts';
+import { expectUsage, answerWhenAsked } from './_flows.ts';
+const withDiscovery = discoveryScreens();
 import { GRANT_TRACKER } from './fixtures/grant-tracker.ts';
 import type { AnthropicMessagesSim } from '../../harness/contracts.ts';
 import type { DiscoveryMessageOutcome, DiscoverySut, ModelUsage } from './_contract.ts';
@@ -20,15 +22,6 @@ type Drive = (sut: DiscoverySut, ngo: NgoActor, projectId: string, message: stri
 const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, projectId, message, usage, reply) => {
   sim.script([{ kind: 'text', text: reply, usage }]);
   return sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message });
-};
-const operatorDrive: Drive = async (sut, ngo, projectId, message, usage, reply) => {
-  const reserved = await sut.reserveTurnAsOperator({
-    accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message,
-  });
-  if (!reserved.ok) return reserved;
-  return sut.settleTurnAsOperator({
-    accountId: ngo.accountId, turnId: reserved.reservation.turn.id, outcome: 'completed', reply, usage,
-  });
 };
 async function remainingOf(sut: DiscoverySut, ngo: NgoActor): Promise<number> {
   const read = await sut.readAllowance(ngo.session, ngo.organizationId);
@@ -84,14 +77,29 @@ async function proveTransparency(sut: DiscoverySut, w: { email(name: string): st
   expect(read.value.conversation.turns.map((turn) => turn.chargedCredits)).toEqual(rows.map((row) => row.chargedCredits));
 }
 
-atTest('AT-004.46', 'remaining credits and every turn cost are readable, and every negative delta is one turn record or the reset', { surface: 'ui' }, {
+atTest('AT-004.46', 'remaining credits and every turn cost are readable, and every negative delta is one turn record or the reset', { surface: 'ui', timeoutMs: { integration: 240_000 } }, {
   default: async ({ open }) => {
     const { w, sut, h } = await open();
     return proveTransparency(sut, w, loopDrive(h.vendors.anthropic));
   },
-  integration: async ({ open }) => {
-    const { w, sut } = await open();
-    await proveTransparency(sut, w, operatorDrive);
-    throw new CapabilityPending([AWAITED.discoverySurface]);
+  integration: async (ctx) => {
+    for (const viewport of ['desktop', 'phone'] as const) {
+      await withDiscovery(ctx, { scenario: 'mid-interview', viewport }, async (screen) => {
+        await expectUsage(screen);
+        await screen.brief.back();
+        const before = await screen.backend!.read();
+        const question = before.brief.questions.find((question) => before.brief.topics.some((topic) => topic.id === question.topicId && topic.state.kind !== 'agreed'))!;
+        await screen.composer.fill('');
+        await answerWhenAsked(screen, question.text, question.options[0]!.label);
+        await screen.composer.send();
+        const after = await screen.backend!.read();
+        expect(after.usage.dailyLeft).toBe(before.usage.dailyLeft - 1);
+        expect(await screen.chat.lastAssistantText()).toContain('Free reply');
+        const rows = await screen.backend!.sql`select reserved_credits, charged_credits from public.discovery_turns where project_id = ${screen.backend!.projectId}::uuid order by seq desc limit 1` as { reserved_credits: number; charged_credits: number }[];
+        expect(Number(rows[0].charged_credits)).toBe(1);
+        await screen.review.open();
+        expect((await screen.backend!.read()).usage).toEqual(after.usage);
+      });
+    }
   },
 });

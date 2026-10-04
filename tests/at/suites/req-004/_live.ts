@@ -2,12 +2,12 @@ import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
 import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
-import { reserveSettings, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REGENERATION_BOUND, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { reserveSettings, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
 import { turnViewFromSql, renderReservation, renderDiscoveryMessage, offTopicFlaggedNotice, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
-import { canonicalLabel, renderDiscoveryScope, renderScopeBegin, scopeViewFromSql, type ScopeSqlRow } from '../../../../supabase/functions/_shared/scope.ts';
+import { canonicalLabel } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
-import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal, ScopeWriteOutcome } from './_contract.ts';
+import type { DiscoverySut, DiscoveryMessageOutcome, DiscoveryConversationView, DiscoverySwitchAuditRow, WriteRefusal } from './_contract.ts';
 import type { Allowance } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 
 export const requirement = 'req-004' as const;
@@ -72,12 +72,10 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         reason: String(answer.json.reason ?? answer.json.message) };
       return answer.json as Extract<DiscoveryMessageOutcome, { ok: true }>;
     },
-    writeScope: async (session, request): Promise<ScopeWriteOutcome> => {
-      const answer = await functionPost(opts.stack, 'discovery-scope', request, inner.bearerOf(session));
-      if (answer.json.ok !== true) return { ok: false, status: answer.status,
-        kind: answer.status === 401 ? 'unauthenticated' : parseWriteRefusalKind(answer.json.kind),
-        reason: String(answer.json.reason ?? answer.json.message) };
-      return answer.json as Extract<ScopeWriteOutcome, { ok: true }>;
+    briefAction: async (session, request) => {
+      const answer = await functionPost(opts.stack, 'discovery-brief', request, inner.bearerOf(session));
+      if (answer.json.ok !== true) return { ok: false, status: answer.status, kind: parseWriteRefusalKind(answer.json.kind), reason: String(answer.json.reason) };
+      return { ok: true, brief: answer.json.brief as import('../../../../supabase/functions/_shared/discovery-brief.ts').BriefSnapshot, confirmation: answer.json.confirmation as import('../../../../supabase/functions/_shared/discovery-brief.ts').Confirmation | null, lines: [] };
     },
     seedCauseLabelsAsOperator: async (labels) => {
       for (const raw of labels) {
@@ -95,44 +93,10 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
         firstProjectId: row.first_project_id === null ? null : String(row.first_project_id),
       }));
     },
-    beginScopeAsOperator: async (input) => {
-      const action = input.action ?? 'generate';
-      const reason = input.reason ?? null;
-      const settings = {
-        turn_deadline_seconds: DISCOVERY_TURN_DEADLINE_SECONDS,
-        regeneration_bound: DISCOVERY_REGENERATION_BOUND,
-      };
-      try {
-        const result = await sql`select public.discovery_scope_begin(${input.accountId}::uuid, ${input.organizationId}::uuid,
-          ${input.projectId}::uuid, ${action}::text, ${reason}::text, null::text,
-          ${JSON.stringify(settings)}::text::jsonb, null::jsonb) as value` as { value: unknown }[];
-        const snapshot = renderScopeBegin(decoded(result[0].value));
-        if (snapshot.scope === null) return sqlRefusal(new Error('the Discovery scope is not open'));
-        return { ok: true, scopeId: snapshot.scope.id };
-      } catch (error) { return sqlRefusal(error); }
-    },
-    commitScopeAsOperator: async (input) => {
-      try {
-        const labelsJson = JSON.stringify(input.labels ?? []);
-        const result = await sql`select public.discovery_scope_commit(${input.accountId}::uuid, ${input.projectId}::uuid,
-          ${input.scopeId}::uuid, ${input.outcome}::text,
-          ${input.contract == null ? null : JSON.stringify(input.contract)}::text::jsonb,
-          ${input.markdown ?? null}::text,
-          coalesce((select array_agg(value) from jsonb_array_elements_text(${labelsJson}::text::jsonb) as value), '{}'::text[]),
-          ${input.servedModel ?? null}::text, ${input.inputTokens ?? null}::integer, ${input.outputTokens ?? null}::integer, null::boolean
-        ) as value` as { value: unknown }[];
-        return { ok: true, ...renderDiscoveryScope(decoded(result[0].value)) };
-      } catch (error) { return sqlRefusal(error); }
-    },
     turnRows: async (projectId) => {
       const rows = await sql`select to_jsonb(t) as turn from public.discovery_turns t
         where project_id = ${projectId}::uuid order by seq` as { turn: unknown }[];
       return rows.map((r) => turnViewFromSql(decoded(r.turn) as DiscoveryTurnSqlRow));
-    },
-    scopeRows: async (projectId) => {
-      const rows = await sql`select to_jsonb(s) as scope from public.discovery_scopes s
-        where project_id = ${projectId}::uuid order by version` as { scope: unknown }[];
-      return rows.map((r) => scopeViewFromSql(decoded(r.scope) as ScopeSqlRow));
     },
     reserveTurnAsOperator: async (input) => {
       const settings = { ...reserveSettings(), mode: input.mode ?? 'answer', user_message_id: input.userMessageId ?? crypto.randomUUID(),
@@ -164,7 +128,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
           ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text,
           ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb,
-          ${input.offTopic === true}::boolean, null::jsonb) as value` as { value: unknown }[];
+          ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },

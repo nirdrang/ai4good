@@ -1,4 +1,4 @@
-import { requireEnv } from './edge.ts';
+import { requireEnv } from './env.ts';
 import { conversationId, responsesBody } from './openai-responses-request.ts';
 import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';

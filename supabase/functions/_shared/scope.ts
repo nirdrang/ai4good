@@ -192,6 +192,7 @@ export async function generateConfirmedScope(input: ConfirmedDiscovery, skills: 
   if (!answer.ok) throw new Error(answer.reason);
   const scope = answer.toolUse?.name === 'record_scope' ? parseScope(answer.toolUse.input) : null;
   if (answer.stopReason === 'refusal' || scope === null) throw new Error('The model did not record a valid scope.');
+  scope.causeLabels = [...input.brief.document.causeLabels];
   const gaps = new Set(input.confirmation.acceptedGaps.map((gap) => gap.topicId));
   for (const story of scope.userStories) {
     const topic = input.brief.document.topics[story.discoveryTopicId ?? ''];
@@ -255,6 +256,7 @@ export function scopeMoneyProblems(markdown: string): string[] {
 export function scopeModelText(scope: Scope): string {
   return [
     scope.summary,
+    ...scope.userStories.flatMap((story) => [story.story, ...story.acceptanceCriteria]),
     ...scope.suggestedStack,
     scope.complexity.rationale, scope.complexity.startSmallAdvice,
     ...scope.riskFlags,

@@ -1,5 +1,5 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.115.0';
-import { requireEnv } from './edge.ts';
+import { requireEnv } from './env.ts';
 import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
@@ -17,7 +17,7 @@ const paramsFor = (request: DiscoveryModelRequest) => ({
         { type: 'text' as const, text: message.content },
         ...request.images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.data } })),
       ] }
-    : message), tools: request.tools,
+    : message), tools: [...request.tools],
   ...(request.toolChoice ? { tool_choice: request.toolChoice } : {}),
   ...(servedModel() === DISCOVERY_CLIENT_MODEL ? { output_config: { effort: request.effort } } : {}),
   betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const,

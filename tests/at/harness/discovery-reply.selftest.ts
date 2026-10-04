@@ -74,3 +74,20 @@ it('releases the credit when the tool input is invalid', () => {
     topicIds: TOPICS, opening: false, discoveryFileCount: 0, toolInput: { text: 'No update.' },
   })).toEqual({ ok: false, release: true });
 });
+
+
+it('bounds, canonicalises and deduplicates labels in the reply tool', () => {
+  const input = { text: 'Recorded.', questions: [], agreed: [], openQuestions: [], causeLabels: [' Food  Security ', 'food security'] };
+  expect(parseReplyInput(input, TOPICS)?.causeLabels).toEqual(['food security']);
+  for (const causeLabels of [['a', 'b', 'c', 'd'], ['x'.repeat(41)], ['   '], [1]]) {
+    expect(parseReplyInput({ ...input, causeLabels }, TOPICS)).toBeNull();
+  }
+});
+it('a later reply cannot restore a label the NGO removed', () => {
+  const current = openingDocument({ need: 'Food bank shelf list.' });
+  current.document.removedCauseLabels = ['food security'];
+  const plan = planReplyTurn({ current, need: current.document.need.text, answers: [], userMessageId: 'turn', round: 2,
+    topicIds: TOPICS, opening: false, discoveryFileCount: 0,
+    toolInput: { text: 'Recorded.', questions: [], agreed: [], openQuestions: [], causeLabels: ['food security'] } });
+  expect(plan.ok && plan.brief.document.causeLabels).toEqual([]);
+});

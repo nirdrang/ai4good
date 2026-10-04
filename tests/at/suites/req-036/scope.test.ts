@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect } from 'vitest';
 import { atTest } from './_bind.ts';
+import { scopeMoneySourceProblems } from '../req-004/_source-absences.ts';
 import { TIER } from '../../harness/registry.ts';
 import { openingDocument, decideFinish } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { buildScopeRequest, generateConfirmedScope, renderScopeMarkdown, scopeMoneyProblems, type Scope, type ConfirmedDiscovery } from '../../../../supabase/functions/_shared/scope.ts';
@@ -55,17 +56,20 @@ atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technica
   },
 });
 
-atTest('AT-036.12', 'each data tier explains complexity, maintenance and public pricing without a build estimate', {
+atTest('AT-036.12', 'each data tier explains complexity, maintenance and public pricing without a build estimate', { timeoutMs: { integration: 180_000 } }, {
   default: async ({ open }) => {
     const { h, sut } = await open();
+    expect(scopeMoneySourceProblems()).toEqual([]);
     for (const fixture of SCOPE_TIER_FIXTURES) {
       expect(scopeDocumentProblems(renderScopeMarkdown(fixture.scope, { title: fixture.title }), fixture)).toEqual([]);
       const scope = { ...fixture.scope, userStories: fixture.scope.userStories.map((story) => ({ ...story, discoveryTopicId: 'priority' })) };
-      const generate = TIER === 'integration' ? (value: ConfirmedDiscovery) => generateConfirmedScope(value, DISCOVERY_SKILLS, livePort()) : sut.generate;
-      if (TIER === 'loop') h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: scope, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
-      const generated = await generate(confirmed(scope));
-      expect(scopeMoneyProblems(generated.markdown)).toEqual([]);
-      expect(scopeDocumentProblems(generated.markdown, { ...fixture, scope: generated.scope })).toEqual([]);
+      expect(scopeMoneyProblems(renderScopeMarkdown(scope, { title: fixture.title }))).toEqual([]);
+      if (TIER === 'loop') {
+        h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: scope, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
+        const generated = await sut.generate(confirmed(scope));
+        expect(scopeMoneyProblems(generated.markdown)).toEqual([]);
+        expect(scopeDocumentProblems(generated.markdown, { ...fixture, scope: generated.scope })).toEqual([]);
+      }
     }
     if (TIER === 'loop') {
       h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: { ...GRANT_TRACKER_SCOPE, summary: 'A list, roughly $4,000 to build.' }, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);

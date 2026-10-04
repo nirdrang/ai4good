@@ -30,7 +30,7 @@
       }
     },
     "integration": {
-      "green": ["AT-004.01","AT-004.08","AT-004.11","AT-004.13","AT-004.39","AT-004.41","AT-004.42","AT-004.43","AT-004.44","AT-004.47","AT-004.48","AT-004.49","AT-004.60","AT-004.61","AT-004.62","AT-004.63","AT-004.64","AT-004.65","AT-004.66","AT-004.67","AT-004.68","AT-004.69","AT-004.70","AT-004.71","AT-004.72","AT-004.73"],
+      "green": ["AT-004.01","AT-004.08","AT-004.11","AT-004.13","AT-004.39","AT-004.41","AT-004.42","AT-004.43","AT-004.44","AT-004.47","AT-004.48","AT-004.49","AT-004.60","AT-004.61","AT-004.62","AT-004.63","AT-004.64","AT-004.65","AT-004.66","AT-004.67","AT-004.68","AT-004.69","AT-004.70","AT-004.71","AT-004.72","AT-004.73","AT-004.10","AT-004.46","AT-004.58","AT-004.59"],
       "red": {
         "AT-004.02": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
         "AT-004.03a": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
@@ -39,7 +39,6 @@
         "AT-004.05": {"kind":"capability-pending","capabilities":["checkout.project-fuel","billing.funded-turn"]},
         "AT-004.06": {"kind":"capability-pending","capabilities":["checkout.project-fuel","billing.funded-turn"]},
         "AT-004.09": {"kind":"capability-pending","capabilities":["checkout.project-fuel"]},
-        "AT-004.10": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
         "AT-004.12": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
         "AT-004.14": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
         "AT-004.15": {"kind":"capability-pending","capabilities":["checkout.project-fuel"]},
@@ -47,8 +46,6 @@
         "AT-004.16": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
         "AT-004.18": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
         "AT-004.19": {"kind":"capability-pending","capabilities":["storage.reference-upload"]},
-        : {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
-        : {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
         "AT-004.24": {"kind":"capability-pending","capabilities":["backlog.derivation"]},
         "AT-004.26": {"kind":"capability-pending","capabilities":["discovery.sensitivity-tiers"]},
         "AT-004.27": {"kind":"capability-pending","capabilities":["discovery.sensitivity-tiers"]},
@@ -61,7 +58,6 @@
         "AT-004.34": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
         "AT-004.35": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
         "AT-004.36": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
-        "AT-004.46": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
         "AT-004.50": {"kind":"capability-pending","capabilities":["discovery.sensitivity-tiers"]},
         "AT-004.51": {"kind":"capability-pending","capabilities":["triage.queue"]},
         "AT-004.52": {"kind":"capability-pending","capabilities":["prd.authoring"]},
@@ -69,19 +65,8 @@
         "AT-004.54": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
         "AT-004.55": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
         "AT-004.56": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
-        "AT-004.57": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
-        "AT-004.58": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
-        "AT-004.59": {"kind":"capability-pending","capabilities":["vendors.anthropic"]}
+        "AT-004.57": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]}
       }
     }
-  },
-  "loopOnlySteps": {
-    "AT-004.67": [
-      "The file-read comparison with a $1.60 paid fuel balance waits for funded-turn billing."
-    ],
-    "AT-004.72": [
-      "The paid usage-bar scenario waits for funded-turn billing.",
-      "The Buy fuel navigation step waits for project fuel checkout."
-    ]
   }
 }
