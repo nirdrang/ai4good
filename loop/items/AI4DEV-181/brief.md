@@ -90,12 +90,17 @@ commit group per unit.
 At every unit boundary, after the unit's commit is on the branch and the resume note is
 rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose. Ask one
 question with three options, labelled exactly `Continue`, `Run /compact` and `Fast compact`,
-and put in its text what the unit landed, its commit, and the remaining context budget. Ask a
-second question for any decision the next unit needs from the founder. If the answer is
-`Continue`, start the next unit. If the answer is either compact option, make sure the resume
-note holds the second answer, then end the turn and start nothing. Say in one line: "If nothing
-happens in a few seconds, type /compact." The project's `self-compact-gate` plugin
-compacts and starts the next unit by itself; a session without it waits for the founder.
+and put in its text what the unit landed, its commit, and the remaining context budget. Always
+state in the question text and in the `Fast compact` option's description whether the
+`self-compact-gate` plugin is loaded in this session: loaded when an earlier gate answer in this
+session began with the plugin's "Context now:" prefix, not loaded when a check showed it absent,
+otherwise not known yet. Ask a second question for any decision the next unit needs from the
+founder. If the answer is `Continue`, start the next unit. If the answer is either compact
+option, make sure the resume note holds the second answer, then end the turn and start nothing.
+For `Fast compact`, the answer itself proves the plugin's state: it begins with "Context now:"
+only when the plugin is loaded. Say in one line which holds: "The fast compact plugin is loaded:
+it compacts now and starts the next unit." or "The fast compact plugin is not loaded in this
+session, so nothing will compact: type /compact." For `Run /compact`, say "Type /compact."
 Send lookups that do not depend on each other together in one message. Each message is one
 step, and each step re-reads the whole conversation.
 Send a question whose answer is a fact or a short list to a subagent: where something is,
