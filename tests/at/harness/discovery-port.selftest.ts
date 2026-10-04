@@ -46,6 +46,18 @@ describe('Discovery response parsing', () => {
 });
 
 describe('Discovery polling and writes', () => {
+  it('requests the edge stream with the signed-in token and screen answers', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(new Response('data: {"type":"finish"}\n\ndata: [DONE]\n\n', { headers: { 'Content-Type': 'text/event-stream' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, state })));
+    vi.stubGlobal('fetch', fetcher);
+    const port = discoveryPort({ organizationId: 'org', projectId: 'project' });
+    const stream = await port.chat.sendMessages({ trigger: 'submit-message', chatId: 'chat', messageId: undefined, abortSignal: undefined, messages: [{ id: 'answer', role: 'user', parts: [{ type: 'text', text: 'Yes' }] }],
+      body: { mode: 'answer', answers: [], message: 'Yes', expectedCharge: 'free' } });
+    expect(fetcher.mock.calls[0][1].headers).toMatchObject({ accept: 'text/event-stream', authorization: 'Bearer user-token', apikey: 'public-key' });
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toMatchObject({ organizationId: 'org', projectId: 'project', userMessageId: 'answer', mode: 'answer', message: 'Yes', expectedCharge: 'free' });
+    const reader = stream.getReader();
+    while (!(await reader.read()).done) {}
+  });
   it('polls while reading, stops at ready, and stops when the last subscriber leaves', async () => {
     vi.useFakeTimers();
     const reading = { ...state, files: [{ origin: 'discovery', id: 'f', name: 'file.txt', sizeBytes: 4, tookFromIt: null, status: { kind: 'reading', percent: 0 } }] };

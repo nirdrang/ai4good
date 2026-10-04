@@ -109,7 +109,7 @@ export function discoveryPort(scope: { organizationId: string; projectId: string
   return {
     load,
     chat: new DefaultChatTransport<DiscoveryUIMessage>({
-      api: url("discovery-message"), headers,
+      api: url("discovery-message"), headers: async () => ({ ...await headers(), Accept: "text/event-stream" }),
       prepareSendMessagesRequest: ({ body, messages }) => ({ body: { ...body, ...scope, userMessageId: messages.at(-1)?.id } }),
       fetch: async (input, init) => {
         const response = await fetch(input, init);
