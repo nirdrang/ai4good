@@ -13,6 +13,9 @@ import { NAME, SCREEN, TEXT } from '../../../../src/components/discovery/a11y.ts
 import { GIVEN, MODEL_CALL_PROBE, type ScreenScenario } from '../../../../design/astra/src/givens.ts';
 import { CapabilityPending, TIER } from './_bind.ts';
 import { AWAITED } from './_pending.ts';
+import { stackFromEnv } from '../../harness/live-stack.ts';
+import { seedDiscoveryScreen } from './_screen-live.ts';
+import type { DiscoveryState } from '../../../../src/lib/discovery-stream.ts';
 
 export type ScreenGiven = {
   scenario: ScreenScenario;
@@ -95,6 +98,7 @@ export class DiscoveryPage {
   constructor(
     private readonly page: ScreenPage,
     readonly viewport: Viewport,
+    readonly backend?: Awaited<ReturnType<typeof seedDiscoveryScreen>>,
   ) {}
 
   get width(): number {
@@ -152,6 +156,7 @@ export class DiscoveryPage {
   readonly composer = {
     send: async (): Promise<string> => {
       const before = await this.chat.lastAssistantText();
+      const calls = this.backend ? await this.backend.modelCalls() : [];
       const root = landmark(SCREEN.composer.role, SCREEN.composer.name);
       const paid = [root, landmark('button', TEXT.sendPaid)];
       const free = [root, landmark('button', TEXT.send)];
@@ -160,7 +165,10 @@ export class DiscoveryPage {
         landmark(SCREEN.conversation.role, SCREEN.conversation.name),
         landmark('article', NAME.aiReply, 'last'),
       ];
-      return eventually('the next AI reply', () => readText(this.page, article), (text) => text.trim().length > 0 && text !== before);
+      if (this.backend) {
+        await eventually('the real reply settles', () => this.backend!.modelCalls(), (next) => next.filter((kind) => kind === 'chat-turn').length > calls.filter((kind) => kind === 'chat-turn').length, 180_000);
+      }
+      return eventually('the next AI reply', () => readText(this.page, article), (text) => text.trim().length > 0 && text !== before, this.backend ? 180_000 : 5_000);
     },
     formText: (): Promise<string> => this.page.text([landmark(SCREEN.composer.role, SCREEN.composer.name)]),
     fill: (text: string): Promise<void> =>
@@ -311,6 +319,7 @@ export class DiscoveryPage {
   };
 
   readonly review = {
+    readyVisible: (): Promise<boolean> => this.page.visible([this.reviewRoot()]),
     ready: (): Promise<boolean> =>
       eventually('the review page is open', () => this.page.visible([this.reviewRoot()]), (open) => open),
     text: (): Promise<string> => this.page.text([this.reviewRoot()]),
@@ -507,26 +516,36 @@ export class DiscoveryPage {
 }
 
 export function discoveryScreens() {
-  const driver = useScreenDriver({ viteConfig: 'design/astra/vite.config.ts', enabled: TIER === 'loop' });
+  const stack = TIER === 'integration' ? stackFromEnv() : null;
+  const driver = useScreenDriver({ viteConfig: 'design/astra/vite.config.ts', enabled: TIER === 'loop' || TIER === 'integration',
+    ...(stack ? { appEnv: { VITE_SUPABASE_URL: stack.apiUrl, VITE_SUPABASE_PUBLISHABLE_KEY: stack.anonKey } } : {}) });
 
   return async function withDiscovery(
     ctx: AtContext<'req-004', 'discovery'>,
     given: ScreenGiven,
     body: (screen: DiscoveryPage) => Promise<void>,
   ): Promise<void> {
-    if (TIER !== 'loop') throw new CapabilityPending([AWAITED.discoverySurface]);
-    await ctx.open();
+    if (TIER !== 'loop' && TIER !== 'integration') throw new CapabilityPending([AWAITED.discoverySurface]);
+    const { w, sut } = await ctx.open();
+    const seed = stack ? await seedDiscoveryScreen(sut, w.email('screen'), given.scenario) : null;
     const start = GIVEN[given.scenario].start === 'review' ? 'review' : 'chat';
     const opened = await driver.open({
       viewport: given.viewport,
       colorScheme: given.colorScheme,
       probeName: MODEL_CALL_PROBE,
-      url: (base) => shellUrl(base, given.scenario, start, given.pace ?? 'test'),
+      url: (base) => seed ? `${base}/discovery/${seed.scope.organizationId}/${seed.projectId}${start === 'review' ? '#review' : ''}` : shellUrl(base, given.scenario, start, given.pace ?? 'test'),
+      ...(seed ? { storageState: (base: string) => ({ cookies: [] as never[], origins: [{ origin: base, localStorage: [{ name: `sb-${new URL(stack!.apiUrl).hostname.split('.')[0]}-auth-token`, value: JSON.stringify(seed.authSession) }] }] }) } : {}),
     });
     try {
-      await body(new DiscoveryPage(opened.page, given.viewport));
+      if (seed) {
+        await eventually('the real Discovery brief loads', () => seed.read(), (state) => state.brief !== null, 180_000);
+        const ready = start === 'review' ? SCREEN.review : SCREEN.progress;
+        await eventually('the real Discovery screen renders', () => opened.page.visible([landmark(ready.role, ready.name)]), (visible) => visible, 30_000);
+      }
+      await body(new DiscoveryPage(seed ? { ...opened.page, modelCalls: seed.modelCalls } : opened.page, given.viewport, seed ?? undefined));
     } finally {
       await opened.close();
+      await seed?.sql.close();
     }
   };
 }

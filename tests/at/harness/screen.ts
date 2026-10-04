@@ -356,20 +356,44 @@ export type ScreenDriver = {
     viewport: Viewport;
     colorScheme?: 'light' | 'dark';
     probeName?: string;
+    storageState?: (baseUrl: string) => { cookies: never[]; origins: { origin: string; localStorage: { name: string; value: string }[] }[] };
   }): Promise<{ page: ScreenPage; close(): Promise<void> }>;
 };
+
+async function serveApp(env: Record<string, string>): Promise<StaticShell> {
+  const child = spawn('node', [join(ROOT, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '0'], {
+    cwd: ROOT, env: { ...process.env, ...env, NO_COLOR: '1' }, windowsHide: true,
+  });
+  let output = '';
+  const baseUrl = await new Promise<string>((resolveStart, reject) => {
+    const timer = setTimeout(() => { child.kill(); reject(new Error(`the app did not start: ${output.slice(-2000)}`)); }, 60_000);
+    const read = (chunk: Buffer) => {
+      output += String(chunk);
+      const url = /http:\/\/127\.0\.0\.1:\d+/.exec(output)?.[0];
+      if (url) { clearTimeout(timer); resolveStart(url); }
+    };
+    child.stdout.on('data', read);
+    child.stderr.on('data', read);
+    child.once('error', (error) => { clearTimeout(timer); reject(error); });
+    child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`the app exited ${code}: ${output.slice(-2000)}`)); });
+  });
+  return { baseUrl, close: async () => {
+    if (child.exitCode !== null) return;
+    await new Promise<void>((resolveClose) => { child.once('exit', () => resolveClose()); child.kill(); });
+  } };
+}
 
 /**
  * One build, one server and one Chromium for the calling test file.
  * `enabled: false` registers nothing, so a tier that does not drive the shell builds nothing.
  * A teardown failure throws from afterAll, which the expect gate counts as a file error.
  */
-export function useScreenDriver(opts: { viteConfig: string; enabled: boolean }): ScreenDriver {
+export function useScreenDriver(opts: { viteConfig: string; enabled: boolean; appEnv?: Record<string, string> }): ScreenDriver {
   let shell: StaticShell | null = null;
   let host: ScreenHost | null = null;
   if (opts.enabled) {
     beforeAll(async () => {
-      shell = await buildAndServe({ viteConfig: opts.viteConfig });
+      shell = opts.appEnv ? await serveApp(opts.appEnv) : await buildAndServe({ viteConfig: opts.viteConfig });
       host = startHost();
       await host.call('launch', {}, 45_000);
     }, 180_000);
@@ -409,6 +433,7 @@ export function useScreenDriver(opts: { viteConfig: string; enabled: boolean }):
           phone: input.viewport !== 'desktop',
           colorScheme: input.colorScheme ?? 'light',
           probe: input.probeName,
+          storageState: input.storageState?.(activeShell.baseUrl),
         },
         20_000,
       );
