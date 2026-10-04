@@ -1,0 +1,13 @@
+PASS (opening) opening creates revision 1, the first reply, and charges nothing — status 200 events start,text-start,text-delta,text-delta,text-end,data-charge,data-question,data-question,data-brief,data-usage,finish,done revisions 1 turns 1 billing opening spent 0 type text/event-stream body data: {"type":"start","messageId":"5330a4c8-f860-4d4d-9e5b-a802ebe666b2"}
+
+data: {"type":"text-start","id":"reply"}
+
+data: {"type":"text-delta","id":"reply","delta":"Before we start: do you have files that show how you work today? A rota, a sign-up sheet, or your volunteer rules would help this need. Add a file in Your files. Attaching is free, and you can also add files later.\n\n"}
+
+data: {"type
+PASS (opening-again) a second opening returns the stored opening and charges nothing — status 200 id 5330a4c8-f860-4d4d-9e5b-a802ebe666b2 turns 1 spent 0
+PASS (answer) one answered turn costs one credit, agrees the topic, and streams the parts in order — status 200 events start,text-start,text-delta,text-end,data-filed,data-charge,data-question,data-question,data-brief,data-usage,finish,done revision 2 topic agreed charged 1 spent 1
+PASS (replay) the same message id returns the stored turn and charges nothing more — status 200 id ae19e107-5773-44e1-9bfb-6ecda4e8488c spent 1 turns 2
+PASS (mode-changed) a charge the screen did not show is refused and costs nothing — status 409 kind mode-changed spent 1 reason The reply cost changed. Review the usage card, then send again.
+PASS (reload) the conversation returns the same assistant message id and parts — status 200 id ae19e107-5773-44e1-9bfb-6ecda4e8488c parts match
+RESULT pass

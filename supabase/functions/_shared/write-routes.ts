@@ -65,6 +65,14 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'discovery_turn_reserve' },
     standing: { kind: 'account-required', admits: ['ngo'] },
   },
+  'discovery-brief': {
+    surface: { kind: 'edge', rpc: 'discovery_brief_commit' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
+  'discovery-file': {
+    surface: { kind: 'edge', rpc: 'discovery_file_commit' },
+    standing: { kind: 'account-required', admits: ['ngo'] },
+  },
   'discovery-scope': {
     surface: { kind: 'edge', rpc: 'discovery_scope_begin' },
     standing: { kind: 'account-required', admits: ['ngo'] },
@@ -91,6 +99,9 @@ export const WRITE_REFUSAL_KINDS = [
   'invalid-evidence',
   'invalid-credit-amount',
   'daily-allowance-exhausted',
+  'daily-limit',
+  'discovery-ready',
+  'mode-changed',
   'debit-exceeds-remaining',
   'email-unverified',
   'no-such-organisation',
@@ -114,6 +125,19 @@ export const WRITE_REFUSAL_KINDS = [
   'scope-not-generated',
   'scope-not-open',
   'generation-in-flight',
+  'stale-revision',
+  'finished',
+  'file-reading',
+  'file-limit',
+  'duplicate-file',
+  'file-too-large',
+  'unsupported-file-type',
+  'no-such-file',
+  'open-gaps',
+  'data-ack',
+  'unknown-section',
+  'unknown-topic',
+  'no-suggestion',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];
@@ -221,9 +245,17 @@ export type WriteRouteDecision<Args> =
       readonly status: number;
     };
 
-export type SettleActResult = { readonly args: Record<string, unknown> | null; readonly failure: string | null };
+export type SettleActResult = {
+  readonly args: Record<string, unknown> | null;
+  readonly failure: string | null;
+  readonly skipSettle?: boolean;
+  readonly suffix?: string;
+  readonly tail?: readonly Record<string, unknown>[];
+};
 export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
+  readonly readBody?: (request: Request) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string; kind?: WriteRefusalKind; status?: number }>;
+  readonly commitRefused?: (args: Args) => Promise<void>;
   readonly target?: (body: Record<string, unknown>) => string | null;
   readonly subject?: (body: Record<string, unknown>) => string | null;
   readonly from?: (body: Record<string, unknown>) => string | null;
@@ -233,6 +265,12 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
     readonly rpc: string;
     readonly act: (reserved: unknown, args: Args) => Promise<SettleActResult>;
     readonly stream?: (value: unknown, args: Args, onDelta: (text: string) => void, signal: AbortSignal) => Promise<SettleActResult>;
+    readonly streamHead?: (value: unknown, args: Args) => {
+      messageId: string;
+      textId: string;
+      prefix?: string;
+      replay: { text: string; parts: readonly Record<string, unknown>[] } | null;
+    } | null;
   };
   readonly render?: (value: unknown) => Record<string, unknown>;
 };

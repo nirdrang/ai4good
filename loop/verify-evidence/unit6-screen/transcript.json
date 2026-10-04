@@ -1,0 +1,14 @@
+[
+  {
+    "viewport": "desktop",
+    "exitCode": "[REDACTED]",
+    "stdout": "PASS desktop: signed in and the first reply is free\nPASS desktop: answer saved, brief revision rose and one credit was used\nPASS desktop: file reached read with facts and unchanged usage\nPASS desktop: review page opened\nPASS desktop: finish recorded and survived reload without charge\nPASS desktop: refusal finished\nPASS desktop: refusal stale-revision\nPASS desktop: refusal invalid-request\nPASS desktop: refusal no-such-project\n9 checks passed on desktop.\n",
+    "stderr": ""
+  },
+  {
+    "viewport": "phone",
+    "exitCode": "[REDACTED]",
+    "stdout": "PASS phone: signed in and the first reply is free\nPASS phone: answer saved, brief revision rose and one credit was used\nPASS phone: file reached read with facts and unchanged usage\nPASS phone: review page opened\nPASS phone: finish recorded and survived reload without charge\nPASS phone: refusal finished\nPASS phone: refusal stale-revision\nPASS phone: refusal invalid-request\nPASS phone: refusal no-such-project\n9 checks passed on phone.\n",
+    "stderr": ""
+  }
+]

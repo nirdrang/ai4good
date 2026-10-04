@@ -81,7 +81,7 @@ async function registerConfirmAndSignIn(
 }
 
 const SERVICE_ROLE_SELECT = new Set(['accounts', 'org_memberships']);
-const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer', 'viewer_discovery_allowance']);
+const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer', 'viewer_discovery_allowance', 'viewer_discovery_brief', 'viewer_discovery_files']);
 const PUBLIC_PAGE_KEYS = ['ok', 'organizationName', 'projectId', 'projectName'];
 
 async function assertTenantCatalog(sut: Awaited<ReturnType<Ctx['open']>>['sut']): Promise<void> {
@@ -1784,6 +1784,8 @@ function deactivatedSubject(
 ): WriteSubject {
   const organizationId = organizationOf(actors, accountType, 'deactivated');
   switch (route) {
+    case 'discovery-file':
+      return { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'remove', fileId: '00000000-0000-4000-8000-000000000002' };
     case 'project-need':
       return { route, organizationId, action: 'start', title: `Need ${tag} deactivated` };
     case 'complete-signup':
@@ -1835,11 +1837,18 @@ function deactivatedSubject(
       return { route, message: `hello ${tag} ${route} ${accountType} deactivated` };
     case 'discovery-scope':
       return { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'generate' };
+    case 'discovery-brief':
+      return {
+        route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'edit',
+        sectionId: 'need', text: `brief ${tag}`, baseRevision: 1,
+      };
   }
 }
 
 async function snapshotWrite(sut: AccountsSut, session: Session | null, subject: WriteSubject) {
   switch (subject.route) {
+    case 'discovery-file':
+      return { organization: await sut.organization(subject.organizationId) };
     case 'project-need':
       return { dashboard: await sut.organizationDashboard(session, subject.organizationId) };
     case 'create-organization':
@@ -1864,6 +1873,8 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
       return { messages: session ? await sut.discoveryMessagesBy(session.accountId) : [] };
     case 'discovery-scope':
       return { organization: await sut.organization(subject.organizationId) };
+    case 'discovery-brief':
+      return { organization: await sut.organization(subject.organizationId) };
     case 'complete-signup':
       return { account: session ? await sut.account(session.accountId) : null };
   }
@@ -1878,6 +1889,12 @@ async function provisionActiveControl(
   accountType: AccountType,
 ): Promise<{ session: Session; subject: WriteSubject }> {
   switch (route) {
+    case 'discovery-file': {
+      const ngo = await signIn(w.email(`file-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `File Host ${tag}`);
+      return { session: ngo, subject: { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'remove', fileId: '00000000-0000-4000-8000-000000000002' } };
+    }
     case 'project-need': {
       const ngo = await signIn(w.email(`need-on-${tag}`));
       await ensureVerified(sut, ngo);
@@ -2020,6 +2037,18 @@ async function provisionActiveControl(
         subject: { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'generate' },
       };
     }
+    case 'discovery-brief': {
+      const ngo = await signIn(w.email(`brief-on-${tag}`));
+      await ensureVerified(sut, ngo);
+      const organizationId = await completeNgo(sut, ngo, `Brief Host ${tag}`);
+      return {
+        session: ngo,
+        subject: {
+          route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'edit',
+          sectionId: 'need', text: `brief ${tag}`, baseRevision: 1,
+        },
+      };
+    }
   }
 }
 
@@ -2073,7 +2102,7 @@ export async function assertDeactivationGatesEveryWrite(
 
       const fresh = await provisionActiveControl(sut, w, `${tag}-${name}-${accountType}`, signIn, name, accountType);
       const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
-      if ((name === 'discovery-message' || name === 'discovery-scope') && options.discoveryNeedsProvider) {
+      if ((name === 'discovery-message' || name === 'discovery-scope' || name === 'discovery-brief' || name === 'discovery-file') && options.discoveryNeedsProvider) {
         expect(
           allowed.ok || allowed.kind !== 'account-deactivated',
           `an active ${accountType} was refused ${name} as account-deactivated`,

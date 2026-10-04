@@ -1,28 +1,31 @@
 import type { NeedReads } from './need-intake.ts';
 import type { ScopeSqlRow } from './scope.ts';
 import type { ReadResult, TenantReads } from './tenant-reads.ts';
+import type { FileRow } from './discovery-files.ts';
 
 export type DiscoveryTurnSqlRow = {
   id: string; project_id: string; org_id: string; seq: number; status: 'open' | 'settled' | 'failed' | 'abandoned';
-  billing: 'free' | 'fuel' | 'retry'; utc_day: string; user_message: string; assistant_message: string | null;
+  billing: 'free' | 'fuel' | 'retry' | 'opening'; utc_day: string; user_message: string; assistant_message: string | null;
+  user_message_id?: string | null; answers?: unknown; assistant_ui?: unknown; base_revision?: number | null;
   elicitation: {
     complete: true; facts: string[]; constraints: string[];
     userStories: { story: string; acceptanceCriteria: string[] }[]; openQuestions: string[];
   } | null;
   request_settings: {
-    model: string; max_tokens: number; effort: 'low';
+    model: string; max_tokens: number; effort: 'low'; assistant_message_id?: string;
     guardrails?: { active: boolean; off_topic_flag_strikes: number };
   };
-  max_output_tokens: number; estimated_input_tokens: number; micros_per_credit: number;
-  input_micros_per_token: number; output_micros_per_token: number; reserved_micros: number; reserved_credits: number;
+  max_output_tokens: number; reserved_micros: number; reserved_credits: number;
   input_tokens: number | null; output_tokens: number | null; stop_reason: string | null; served_model: string | null;
   actual_micros: number | null; charged_credits: number | null; overrun_micros: number | null;
   opened_at: string; settled_at: string | null; off_topic: boolean;
 };
 
 export type DiscoveryReads = {
+  discoveryFilesOf?(projectId: string): Promise<ReadResult<FileRow>>;
   discoveryTurnsOf(projectId: string): Promise<ReadResult<DiscoveryTurnSqlRow>>;
   discoveryScopesOf(projectId: string): Promise<ReadResult<ScopeSqlRow>>;
   discoveryAllowance(organizationId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;
+  discoveryBriefOf(projectId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;
 };
 export type CallerReads = TenantReads & NeedReads & DiscoveryReads;

@@ -103,7 +103,6 @@ export type ModelAnswerRecord =
 export type AnthropicMessagesPort = {
   model: string;
   create(request: ModelRequestRecord): Promise<ModelAnswerRecord>;
-  countTokens(request: ModelRequestRecord): Promise<number>;
   stream(request: ModelRequestRecord, onDelta: (text: string) => void, signal: AbortSignal): Promise<ModelAnswerRecord>;
 };
 export type AnthropicMessagesSim = {

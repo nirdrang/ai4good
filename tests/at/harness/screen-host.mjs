@@ -58,7 +58,7 @@ const ops = {
     browser ??= await chromium.launch({ headless: true });
     return null;
   },
-  async open({ url, viewport, phone, colorScheme, probe }) {
+  async open({ url, viewport, phone, colorScheme, probe, storageState }) {
     if (!browser) throw new Error('the browser is not launched');
     if (typeof url !== 'string' || url.length === 0) throw new Error('open needs a url');
     const context = await browser.newContext({
@@ -66,6 +66,7 @@ const ops = {
       isMobile: phone === true,
       hasTouch: phone === true,
       colorScheme: colorScheme === 'dark' ? 'dark' : 'light',
+      storageState,
     });
     const calls = [];
     if (typeof probe === 'string' && probe.length > 0) {

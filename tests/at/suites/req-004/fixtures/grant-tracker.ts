@@ -46,7 +46,7 @@ export const GRANT_TRACKER: {
     { kind: 'text', text: 'When should a reminder reach you?', usage: { inputTokens: 1100, outputTokens: 24 } },
     { kind: 'text', text: 'What information and staff skills should we allow for?', usage: { inputTokens: 1200, outputTokens: 32 } },
     { kind: 'text', text: 'Would a shared list and an email to both staff seven days before each deadline meet the need?', usage: { inputTokens: 1400, outputTokens: 40 } },
-    { kind: 'tool', name: 'record_elicitation', input: GRANT_TRACKER_ELICITATION,
+    { kind: 'tool', name: 'reply', input: GRANT_TRACKER_ELICITATION,
       text: 'I recorded your shared deadline list and reminders, with both staff able to keep it up to date. This completes the scoping conversation.',
       usage: { inputTokens: 1600, outputTokens: 420 } },
   ],

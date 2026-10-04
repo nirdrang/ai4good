@@ -5,27 +5,9 @@ description: Drive the real ai4good surface on the local Supabase stack (auth, e
 
 # verify-ai4good
 
-The user-facing surface today is mostly the API. `src/routes/index.tsx` renders a
-placeholder heading only, and one page, `/discovery/:organizationId/:projectId`, is a bare
-Discovery chat (`features/discovery-chat-page.md`). The fixture-built Discovery screen in
-`src/components/discovery/` is mounted by no route yet; it runs only in the design shell
-under `design/astra/`, and its own acceptance tests drive it there. A user touches: Supabase Auth
-(email and password signup with mandatory email confirmation; Google and GitHub OAuth are
-configured, but consent is a human browser step no agent performs), eighteen edge functions
-under `supabase/functions/`, and the Postgres rows they write. The functions fall into six
-groups: signup and organisations (`complete-signup`, `create-organization`,
-`update-organization`, `set-organization-profile`), tenant reads (`organization-dashboard`,
-`project-workspace`, `public-project`), platform-admin operations
-(`transfer-organization-contact`, `set-escalation-contact`, `set-account-lifecycle`,
-`set-organization-vetting`, `set-organization-discovery`), the project need intake
-(`need-intake`, `project-need`), and Discovery (`discovery-allowance`, `discovery-message`,
-`discovery-conversation`, `discovery-scope`). `discovery-message` and `discovery-scope` call
-the model and need `ANTHROPIC_API_KEY` in `supabase/functions/.env`; without it their success
-paths are unreachable and only their refusals can be driven. The registry in
-`supabase/functions/_shared/write-routes.ts` is the authority for which account types each
-write route admits. Verification drives HTTP and reads the database. The acceptance suite
-(`bun run at:verify`) is a separate, loop-tier thing; it does not replace a live drive and a
-live drive does not replace it.
+The real Discovery route `/discovery/:organizationId/:projectId` mounts the shared Discovery screen and review behind an edge-function port. Its live recipe is [features/discovery-screen.md](features/discovery-screen.md), driven by `scripts/drive-discovery-screen.ts` on desktop and phone. Setup uses email signup and confirmation, NGO completion, then project need start and submit. The screen calls conversation, message, brief, file and allowance functions; it never accesses the database directly. The retained scope entry belongs to the PRD step and requires a confirmed Discovery revision.
+
+All model calls go through `discoveryModelPort()`. `DISCOVERY_PROVIDER` selects Anthropic, OpenAI-compatible Chat Completions, or OpenAI Responses. The chosen adapter reads its model and credential settings from `supabase/functions/.env`. Never print or commit those settings. The write-route registry remains the authority for admission. Acceptance execution and the live screen drive are separate checks.
 
 **One stack per machine.** The stack on the 44321 block is THE stack, the one
 `supabase/config.toml` describes; the slot pool is parked (founder, 2026-08-29 and 2026-09-01).
@@ -99,7 +81,7 @@ the migration count, and `GET /auth/v1/health` answering 200. A report or transc
 name a key writes `sb_secret_REDACTED`. The same string already sits on `main` in three earlier
 items, so the block fires on new occurrences only.
 
-Six shipped drives cover the map between them; run them from the repo root, one at a time,
+The shipped drives cover the map between them; run them from the repo root, one at a time,
 each with an optional evidence directory as its only argument:
 
 ```
@@ -108,6 +90,7 @@ bun .claude/skills/verify-ai4good/scripts/drive-vetting.ts [outDir]          # p
 bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]      # need start, save, attach, submit, snapshot
 bun .claude/skills/verify-ai4good/scripts/drive-access-and-admin.ts [outDir] # volunteer gate, organisations, tenant reads, admin operations
 bun .claude/skills/verify-ai4good/scripts/drive-discovery-refusals.ts [outDir] # Discovery read, refusals, scope refusals, the switch; no provider key
+bun .claude/skills/verify-ai4good/scripts/drive-discovery-screen.ts [outDir] # wired screen, desktop and phone
 bun .claude/skills/verify-ai4good/scripts/drive-discovery.ts [outDir]        # Discovery sends, stream, cancel, switch, fuel, drain; NEEDS the provider key
 ```
 

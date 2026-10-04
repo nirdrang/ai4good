@@ -1,0 +1,59 @@
+{
+  "state": "running",
+  "mounts": [
+    {
+      "Type": "bind",
+      "Source": "C:\\Users\\nirdr\\Downloads\\ai4good\\.claude\\worktrees\\AI4DEV-181-unit4\\supabase\\.temp\\start-secrets\\supabase_edge_runtime_poancmeitlmxejofwzuu\\main\\index.ts",
+      "Destination": "/root/index.ts",
+      "Mode": "ro",
+      "RW": false,
+      "Propagation": "rprivate"
+    },
+    {
+      "Type": "volume",
+      "Name": "supabase_edge_runtime_poancmeitlmxejofwzuu",
+      "Source": "/var/lib/docker/volumes/supabase_edge_runtime_poancmeitlmxejofwzuu/_data",
+      "Destination": "/root/.cache/deno",
+      "Driver": "local",
+      "Mode": "rw",
+      "RW": true,
+      "Propagation": ""
+    },
+    {
+      "Type": "bind",
+      "Source": "/run/desktop/mnt/host/c/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-181-unit4/supabase/functions",
+      "Destination": "/Users/nirdr/Downloads/ai4good/.claude/worktrees/AI4DEV-181-unit4/supabase/functions",
+      "Mode": "ro",
+      "RW": false,
+      "Propagation": "rprivate"
+    }
+  ],
+  "functionNames": [
+    "complete-signup",
+    "create-organization",
+    "discovery-allowance",
+    "discovery-brief",
+    "discovery-conversation",
+    "discovery-message",
+    "discovery-scope",
+    "need-intake",
+    "organization-dashboard",
+    "project-need",
+    "project-workspace",
+    "public-project",
+    "set-account-lifecycle",
+    "set-escalation-contact",
+    "set-organization-discovery",
+    "set-organization-profile",
+    "set-organization-vetting",
+    "transfer-organization-contact",
+    "update-organization"
+  ],
+  "hasDiscoveryFile": false,
+  "model": {
+    "DISCOVERY_PROVIDER": "openai-compatible",
+    "DISCOVERY_MODEL": "space-bunny-free",
+    "DISCOVERY_BASE_URL": "https://opencode.ai/zen/v1",
+    "DISCOVERY_REASONING_EFFORT": "low"
+  }
+}

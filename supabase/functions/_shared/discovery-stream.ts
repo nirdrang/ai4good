@@ -9,6 +9,14 @@ export const textStart = (id: string): string => part({ type: 'text-start', id }
 export const textDelta = (id: string, delta: string): string => part({ type: 'text-delta', id, delta });
 export const textEnd = (id: string): string => part({ type: 'text-end', id });
 export const dataTurn = (payload: unknown): string => part({ type: 'data-turn', data: payload });
+export function dataPart(value: { type?: unknown; data?: unknown; transient?: unknown }): string {
+  const type = typeof value.type === 'string' ? value.type : 'data-unknown';
+  return part({
+    type,
+    ...(value.data !== undefined ? { data: value.data } : {}),
+    ...(value.transient === true ? { transient: true } : {}),
+  });
+}
 export const error = (errorText: string): string => part({ type: 'error', errorText });
 export const finish = (): string => part({ type: 'finish' });
 export const done = (): string => 'data: [DONE]\n\n';

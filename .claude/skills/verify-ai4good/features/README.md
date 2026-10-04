@@ -9,7 +9,7 @@ convenient entry point is incomplete when the map lists others. Keep it honest w
 ## Shared mechanics
 
 Every write route (a row of `WRITE_ROUTES` in `supabase/functions/_shared/write-routes.ts`,
-thirteen today) runs the same pipeline (`writeRoute` in `supabase/functions/_shared/edge.ts`),
+fifteen today) runs the same pipeline (`writeRoute` in `supabase/functions/_shared/edge.ts`),
 in this order. The reads (`organization-dashboard`, `project-workspace`, `public-project`,
 `need-intake`, `discovery-conversation`) do not run it. 405 for a method other than POST. 401
 when no `Authorization` header reaches the function. 400 for a body that is not a JSON object.
@@ -56,8 +56,8 @@ project is still operator SQL (see `project-workspace.md`).
 | Discovery message (count, reserve, reply and settle) | [discovery-message.md](discovery-message.md) |
 | Discovery conversation (history, elicitation and today's allowance) | [discovery-conversation.md](discovery-conversation.md) |
 | Set organization Discovery (admin per-NGO switch, audited) | [set-organization-discovery.md](set-organization-discovery.md) |
-| Discovery scope (generate, remove a label, regenerate, escalate) | [discovery-scope.md](discovery-scope.md) |
-| Discovery chat page (browser) | [discovery-chat-page.md](discovery-chat-page.md) |
+| PRD technical scope (confirmed Discovery source) | [discovery-scope.md](discovery-scope.md) |
+| Wired Discovery screen (desktop and phone) | [discovery-screen.md](discovery-screen.md) |
 
 Not mapped yet, deliberately: the other screens and the Google/GitHub OAuth consent step.
 Consent is a human browser step. Configuration well-formedness is checkable; the handshake

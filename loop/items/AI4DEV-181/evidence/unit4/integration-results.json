@@ -1,0 +1,22 @@
+[
+    {
+        "exitCode":  0,
+        "requirement":  "req-003",
+        "tier":  "integration"
+    },
+    {
+        "exitCode":  0,
+        "requirement":  "req-004",
+        "tier":  "integration"
+    },
+    {
+        "exitCode":  0,
+        "requirement":  "req-016",
+        "tier":  "integration"
+    },
+    {
+        "exitCode":  1,
+        "requirement":  "req-032",
+        "tier":  "integration"
+    }
+]

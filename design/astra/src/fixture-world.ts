@@ -118,7 +118,6 @@ function charge(usage: DiscoveryUsage): { usage: DiscoveryUsage; charge: Discove
   const next = { ...usage };
   if (kind === "free") {
     next.dailyLeft -= 1;
-    next.betaLeft -= 1;
   } else {
     next.availableMicros -= next.holdMicros;
     next.settledMicros += next.holdMicros;
@@ -212,10 +211,8 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
       const charged = charge(state.usage);
       if (!charged) {
         return refusal(
-          state.usage.betaLeft > 0 ? "daily-limit" : "beta-limit",
-          state.usage.betaLeft > 0
-            ? "Today's free replies are used and the project has no fuel for Discovery."
-            : "All beta free replies are used and the project has no fuel for Discovery.",
+          "daily-limit",
+          "Today's free replies are used and the project has no fuel for Discovery.",
         );
       }
       const userLine = userLineFrom(request, messages);

@@ -179,7 +179,8 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
         if (!submitted.ok) return submitted.refusal;
       }
     }
-    const answer = await postWrite('discovery-message', session, { organizationId: actor?.org_id ?? null, projectId, message });
+    const answer = await postWrite('discovery-message', session, { organizationId: actor?.org_id ?? null, projectId, message,
+      mode: 'answer', userMessageId: crypto.randomUUID(), answers: [], expectedCharge: 'free' });
     return answer.ok ? { ok: true } : answer.refusal;
   };
 
@@ -787,6 +788,19 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           if (subject.route !== 'discovery-scope') throw new Error('unreachable');
           const answer = await postWrite('discovery-scope', session, {
             organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
+        'discovery-file': async () => {
+          if (subject.route !== 'discovery-file') throw new Error('unreachable');
+          const answer = await postWrite('discovery-file', session, subject);
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
+        'discovery-brief': async () => {
+          if (subject.route !== 'discovery-brief') throw new Error('unreachable');
+          const answer = await postWrite('discovery-brief', session, {
+            organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action,
+            sectionId: subject.sectionId, text: subject.text, baseRevision: subject.baseRevision,
           });
           return answer.ok ? { ok: true } : answer.refusal;
         },

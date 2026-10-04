@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How the tests prove the real backend</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--box:#f3f4f6;--ok:#15803d;--bad:#b91c1c;--acc:#1d4ed8;--line:#d1d5db}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#aaa;--box:#1f2937;--ok:#4ade80;--bad:#f87171;--acc:#93c5fd;--line:#374151}}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif;margin:0;padding:16px;max-width:760px}
+h1{font-size:20px;margin:0 0 4px}h2{font-size:17px;margin:24px 0 8px}
+.mut{color:var(--mut);font-size:14px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
+.b{background:var(--box);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+.arrow{color:var(--mut)}
+.ok{color:var(--ok);font-weight:600}.bad{color:var(--bad);font-weight:600}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}
+.card h3{margin:0 0 6px;font-size:16px}
+.rec{border:2px solid var(--acc)}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+</style></head><body>
+<h1>How should the tests prove the real backend works?</h1>
+<p class="mut">One decision for the Discovery wiring item. Three pictures, then the choice.</p>
+
+<h2>1. Today: the tests run on a fake backend with a script</h2>
+<div class="flow"><span class="b">Test clicks "Send"</span><span class="arrow">→</span><span class="b">Screen</span><span class="arrow">→</span><span class="b">Fake backend<br>(fixed script)</span><span class="arrow">→</span><span class="b">Always the same reply:<br>"38 of your 45 volunteers"</span></div>
+<p>The test checks the exact words. <span class="ok">This works</span>, because the script never changes.</p>
+
+<h2>2. The problem: the real backend has a real AI</h2>
+<div class="flow"><span class="b">Test clicks "Send"</span><span class="arrow">→</span><span class="b">Screen</span><span class="arrow">→</span><span class="b">Real backend</span><span class="arrow">→</span><span class="b">Real AI (Haiku)</span><span class="arrow">→</span><span class="b">Different words<br>every time</span></div>
+<table>
+<tr><th>The test checks…</th><th>On the real backend</th></tr>
+<tr><td>Exact reply words</td><td><span class="bad">Fails</span>: the AI words it differently each time</td></tr>
+<tr><td>"38 of your 45 volunteers" from the uploaded file</td><td><span class="bad">Fails</span>: the test file is only a few letters, not a real spreadsheet</td></tr>
+<tr><td>Fuel balance "$1.60"</td><td><span class="bad">Fails</span>: fuel does not exist in the real backend yet</td></tr>
+<tr><td>Answer saved, brief updated, 1 credit used, file read, Finish recorded</td><td><span class="ok">Can pass</span>: these do not depend on the AI's words</td></tr>
+</table>
+
+<h2>3. The three choices</h2>
+<div class="card rec"><h3>A. Two levels of checking (recommended)</h3>
+<div class="flow"><span class="b">Fake backend</span><span class="arrow">→</span><span class="b">checks exact words</span></div>
+<div class="flow"><span class="b">Real backend + real AI</span><span class="arrow">→</span><span class="b">checks that things work:<br>saved, brief changed, 1 credit, file read, Finish</span></div>
+<p>Fuel steps run only on the fake backend until the fuel feature exists. No new test machinery.</p></div>
+
+<div class="card"><h3>B. A scripted fake AI behind the real backend</h3>
+<div class="flow"><span class="b">Real backend</span><span class="arrow">→</span><span class="b">Fake AI that always gives the scripted words</span></div>
+<p>The tests stay word-for-word the same. But the project rule says the test harness gets no new machinery, so this needs your exception. Fuel steps still cannot pass.</p></div>
+
+<div class="card"><h3>C. Looser checks everywhere</h3>
+<div class="flow"><span class="b">Both backends</span><span class="arrow">→</span><span class="b">check only "a reply arrived", "some facts found"</span></div>
+<p>Simple, but the fake-backend tests also become weaker.</p></div>
+</body></html>

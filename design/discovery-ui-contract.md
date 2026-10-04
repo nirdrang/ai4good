@@ -109,14 +109,13 @@ Verify that the last answer stops questioning, finishing is free, and repeated c
 
 ## Funding panel
 
-Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily, beta, and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. On a phone, the bar sits directly above the message box.
+Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily turns left of the grant and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. On a phone, the bar sits directly above the message box.
 
 | Value | Example | Rule |
 | --- | --- | --- |
-| Daily free turns | 3 of 10 remaining today | One completed free reply consumes one turn. |
-| Beta free turns | 18 of 50 remaining | The counter persists after the daily reset. |
+| Daily free turns | 3 of 10 remaining today | One completed free reply consumes one turn. The daily grant is 10, or 30 when vetted. |
 | Paid fuel available | $10.00 | This is available USD allocated to this gate, after reservations. |
-| Next reply | Free · 1 turn | Free applies when both free counters have capacity. |
+| Next reply | Free · 1 turn | Free applies when daily capacity remains. |
 | Reset | Resets at 03:00 in your time zone | Convert 00:00 UTC to the viewer's actual local time. |
 
 If free capacity is exhausted, show **Paid · actual usage in USD** before Send.
@@ -126,7 +125,7 @@ A submission labeled Free cannot silently become Paid.
 
 The **Buy fuel** action uses the existing project checkout, acknowledgment, and $50 minimum.
 There is no separate paid-credit SKU. A $10.00 example is a remaining balance, not a new minimum purchase.
-Buying fuel does not replenish daily or beta turns.
+Buying fuel does not replenish daily turns.
 
 After a paid reply, show AI usage, the platform fee, and the total debit in USD.
 For example: $0.040 AI usage + $0.006 platform fee = $0.046 total.
@@ -143,25 +142,23 @@ Use the unrounded percentage consumed when choosing the color:
 | 80% through 95%, inclusive | Yellow |
 | Above 95% through 100% | Red |
 
-In free mode, the gauge uses the more consumed percentage of the daily and beta limits.
-Its label identifies that limit. The two counters remain visible as text.
+In free mode, the gauge uses the percentage consumed of the daily grant.
+Its label identifies the daily limit. Today's turns left of the grant remain visible as text.
 In paid mode, it shows consumption against the current gate's paid allocation.
 Label reservations separately from settled charges. A paid allocation of zero has an empty state, not a division by zero.
 Use labels and numbers in addition to color. Red is a usage warning and does not itself block a funded reply.
 
 When the NGO approves the gate, carry available paid funds to the next allocation once.
 Retain pending reservations until settlement. A transfer cannot increase project fuel.
-Free turns never become dollars. The prototype's former per-gate free grants do not apply to this beta.
+Free turns never become dollars. The prototype's former per-gate free grants do not apply to this pilot.
 
 ## Required states
 
 | State | Visible behavior |
 | --- | --- |
-| Free capacity available | Free label, both counters, paid balance, active composer. |
-| Daily cap reached, beta remains, fuel available | Paid label, USD balance, next reset. |
-| Beta cap reached, fuel available | Paid label and beta exhausted notice; no promise of free turns tomorrow. |
+| Free capacity available | Free label, daily turns left of the grant, paid balance, active composer. |
+| Daily cap reached, fuel available | Paid label, USD balance, next reset. |
 | Daily cap reached, no fuel | Preserve draft; show Buy fuel and applicable reset. |
-| Beta cap reached, no fuel | Preserve draft; show Buy fuel; no reset remedy. |
 | Fuel exhausted, free eligible | Free composer remains available. |
 | Streaming | Show progress; prevent duplicate submission. |
 | Failure or automatic retry | Preserve answers; no extra free charge; show retry state. |
@@ -200,7 +197,7 @@ The rules below stay inside the sections above. They say how the screen presents
 ### Usage and money
 
 - The usage card starts with one plain sentence. The sentence says whether the next reply is free and how many free replies remain today.
-  If a limit stops free replies, the sentence names the limit and says when free replies return, or that beta replies do not reset.
+  If a limit stops free replies, the sentence names the limit and says when free replies return at the next UTC reset.
 - If no reply is possible, the next-reply value is "Not available now". The card and composer then omit the paid hold.
 - In paid mode, the usage card headline shows paid mode, the fuel left, a low-fuel warning at yellow and red, and the per-reply hold. No usage line sits beside Send (revision 12).
 - Buy fuel appears only when free replies are used up. It states the $50 minimum and that fuel does not add free replies.
@@ -315,7 +312,7 @@ AI4DEV-139 (free-first paid routing) owns mode selection and metering.
 
 Run the revised acceptance criteria against the implementation, including both themes and narrow screens.
 Exercise usage boundaries at 79.99%, 80%, 95%, 95.01%, and 100%.
-Exercise a funded free turn, paid spillover, UTC reset, beta exhaustion, and a stale Free preview.
+Exercise a funded free turn, paid spillover, UTC reset, vetted daily grant, and a stale Free preview.
 Old completion evidence does not establish compliance with these revised requirements.
 Check each rule in the usability section on the wired screen, on desktop and at phone width.
 

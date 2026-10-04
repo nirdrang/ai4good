@@ -13,8 +13,9 @@
        here would change class semantics in the harness at runtime. */
     "target": "ES2022",
     "module": "ESNext",
-    "lib": ["ES2022"],
-    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "paths": { "@/*": ["../../src/*"] },
 
     /* The harness imports with explicit .ts specifiers ('./registry.ts'), which only Bundler
        resolution accepts; TypeScript requires noEmit alongside allowImportingTsExtensions. */

@@ -65,6 +65,13 @@ describe('scanDocumentContentSinks refusals', () => {
     expect(problems.some((problem) => /object storage/.test(problem))).toBe(true);
   });
 
+  it('allows upload media declarations without a document response', () => {
+    expect(scanDocumentContentSinks({ ...clean, files: [
+      { path: 'supabase/migrations/a.sql', text: TABLE },
+      { path: 'supabase/functions/_shared/discovery-files.ts', text: "export const types = ['application/pdf'];" },
+    ] })).toEqual([]);
+  });
+
   it('fails a document content type in a product module', () => {
     const problems = scanDocumentContentSinks({
       ...clean,

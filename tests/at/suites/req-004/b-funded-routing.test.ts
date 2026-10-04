@@ -17,7 +17,7 @@ const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, project
 };
 const operatorDrive: Drive = async (sut, ngo, projectId) => {
   const reserve = await sut.reserveTurnAsOperator({ accountId: ngo.accountId, organizationId: ngo.organizationId,
-    projectId, message: MESSAGE, countedInputTokens: USAGE.inputTokens });
+    projectId, message: MESSAGE});
   if (!reserve.ok) return reserve;
   return sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: reserve.reservation.turn.id,
     outcome: 'completed', reply: 'Which reporting deadlines matter most?', usage: USAGE });
@@ -29,11 +29,11 @@ async function proveExhausted(open: Open, drive: Drive, name: string) {
   await sut.setProjectFundingAsOperator(projectId, { fundedAt: new Date().toISOString(), fuelMicros: 0 });
   const before = await sut.readAllowance(ngo.session, ngo.organizationId);
   const refused = await drive(sut, ngo, projectId);
-  expect(refused).toMatchObject({ ok: false, kind: 'fuel-exhausted', status: 409 });
-  if (refused.ok) return;
-  expect(refused.reason).toMatch(/top up project fuel/i);
-  expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
-  expect(await sut.turnRows(projectId)).toEqual([]);
+  expect(refused.ok).toBe(true);
+  if (!refused.ok || !before.ok) return;
+  expect(refused.turn.billing).toBe('free');
+  expect(refused.turn.chargedCredits).toBe(1);
+  expect(refused.allowance?.remaining).toBe(before.allowance.remaining - 1);
 }
 async function proveFundedBillsFuel(open: Open, drive: Drive) {
   const { w, sut } = await open();
@@ -45,9 +45,10 @@ async function proveFundedBillsFuel(open: Open, drive: Drive) {
   const sent = await drive(sut, ngo, projectId);
   expect(sent.ok).toBe(true);
   if (!sent.ok || !before.ok) return;
-  expect(sent.turn.billing).toBe('fuel');
-  expect(sent.turn.reservedCredits).toBe(0);
-  expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+  expect(sent.turn.billing).toBe('free');
+  expect(sent.turn.reservedCredits).toBe(1);
+  expect(sent.turn.chargedCredits).toBe(1);
+  expect(sent.allowance?.remaining).toBe(before.allowance.remaining - 1);
 }
 async function proveIsolation(open: Open, drive: Drive) {
   const { w, sut } = await open();
@@ -62,17 +63,17 @@ async function proveIsolation(open: Open, drive: Drive) {
   const sentA = await drive(sut, ngo, a.projectId);
   expect(sentA.ok).toBe(true);
   if (!sentA.ok) return;
-  expect(sentA.turn.billing).toBe('fuel');
-  expect(sentA.turn.reservedCredits).toBe(0);
+  expect(sentA.turn.billing).toBe('free');
+  expect(sentA.turn.reservedCredits).toBe(1);
   const fuelAfter = await sut.projectFundingAsOperator(a.projectId);
-  expect(fuelAfter.fuelMicros).toBe(fuelBefore.fuelMicros - sentA.turn.actualMicros!);
-  expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+  expect(fuelAfter.fuelMicros).toBe(fuelBefore.fuelMicros);
+  expect(sentA.allowance?.remaining).toBe(before.allowance.remaining - 1);
   const sentB = await drive(sut, ngo, b.projectId);
   expect(sentB.ok).toBe(true);
   if (!sentB.ok) return;
   expect(sentB.turn.billing).toBe('free');
   const after = await sut.readAllowance(ngo.session, ngo.organizationId);
-  expect(after.ok && after.allowance.remaining).toBe(before.allowance.remaining - sentB.turn.chargedCredits!);
+  expect(after.ok && after.allowance.remaining).toBe(before.allowance.remaining - 2);
 }
 async function proveSwitch(open: Open, drive: Drive) {
   const { w, sut } = await open();
@@ -89,8 +90,8 @@ async function proveSwitch(open: Open, drive: Drive) {
   const third = await drive(sut, ngo, projectId);
   expect(third.ok).toBe(true);
   if (!third.ok) return;
-  expect(second.turn.billing).toBe('fuel');
-  expect(third.turn.billing).toBe('fuel');
+  expect(second.turn.billing).toBe('free');
+  expect(third.turn.billing).toBe('free');
 }
 async function proveSettings(open: Open, drive: Drive) {
   const { w, sut } = await open();
@@ -105,11 +106,11 @@ async function proveSettings(open: Open, drive: Drive) {
   const funded = await drive(sut, ngo, projectId);
   expect(funded.ok).toBe(true);
   if (!funded.ok) return;
-  expect(funded.turn.billing).toBe('fuel');
+  expect(funded.turn.billing).toBe('free');
   expect(funded.turn.requestSettings).toEqual(free.turn.requestSettings);
 }
 
-atTest('AT-004.04', 'a funded project bills fuel and never the free pool', {
+atTest('AT-004.04', 'a funded project uses free turns before fuel', {
   default: async ({ open }) => { const world = await open(); return proveFundedBillsFuel(async () => world, loopDrive(world.h.vendors.anthropic)); },
   integration: async ({ open }) => {
     const world = await open();
@@ -117,7 +118,7 @@ atTest('AT-004.04', 'a funded project bills fuel and never the free pool', {
     throw new CapabilityPending([AWAITED.projectFuelCheckout, AWAITED.fundedTurnBilling]);
   },
 });
-atTest('AT-004.05', 'a funded project bills its fuel and an unfunded sibling draws the pool', {
+atTest('AT-004.05', 'free replies leave each project fuel balance intact', {
   default: async ({ open }) => { const world = await open(); return proveIsolation(async () => world, loopDrive(world.h.vendors.anthropic)); },
   integration: async ({ open }) => {
     const world = await open();
@@ -125,7 +126,7 @@ atTest('AT-004.05', 'a funded project bills its fuel and an unfunded sibling dra
     throw new CapabilityPending([AWAITED.projectFuelCheckout, AWAITED.fundedTurnBilling]);
   },
 });
-atTest('AT-004.06', 'funding mid-conversation bills fuel from the next turn onward', {
+atTest('AT-004.06', 'funding mid-conversation preserves free-first routing', {
   default: async ({ open }) => { const world = await open(); return proveSwitch(async () => world, loopDrive(world.h.vendors.anthropic)); },
   integration: async ({ open }) => {
     const world = await open();
@@ -133,7 +134,7 @@ atTest('AT-004.06', 'funding mid-conversation bills fuel from the next turn onwa
     throw new CapabilityPending([AWAITED.projectFuelCheckout, AWAITED.fundedTurnBilling]);
   },
 });
-atTest('AT-004.48', 'a funded project with no fuel is refused and never draws the free pool', {
+atTest('AT-004.48', 'a funded project with exhausted fuel still uses eligible free turns', {
   default: async ({ open }) => { const world = await open(); return proveExhausted(async () => world, loopDrive(world.h.vendors.anthropic), 'ngo-48'); },
   integration: async ({ open }) => { const world = await open(); return proveExhausted(async () => world, operatorDrive, 'ngo-48'); },
 });

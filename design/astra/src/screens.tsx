@@ -613,7 +613,7 @@ export function Funding({
           {receipt !== null && (
             <div className="callout success" role="status" data-testid="fuel-purchase-receipt">
               <strong>{usd(receipt)} added to the sample balance.</strong>
-              <p>Daily and beta free turns stay unchanged.</p>
+            <p>Daily free turns stay unchanged.</p>
             </div>
           )}
           <Button

@@ -1,0 +1,554 @@
+[
+  {
+    "step": "small upload starts reading",
+    "data": {
+      "status": 200,
+      "body": {
+        "ok": true,
+        "file": {
+          "origin": "discovery",
+          "id": "78a998e2-6f98-436a-ab6c-4c2425743c11",
+          "name": "small-rota.txt",
+          "sizeBytes": 204,
+          "status": {
+            "kind": "reading",
+            "percent": 0
+          },
+          "tookFromIt": null
+        }
+      }
+    }
+  },
+  {
+    "step": "small file read",
+    "data": {
+      "status": "read",
+      "facts": 4,
+      "digest": {
+        "facts": [
+          {
+            "text": "45 volunteers across three community kitchens.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Coordinators spend four hours each week scheduling shifts.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Sundays have two unfilled shifts.",
+            "sectionId": "rules"
+          },
+          {
+            "text": "Goal is to reduce scheduling to two hours each week.",
+            "sectionId": "successMeasure"
+          }
+        ],
+        "questions": [
+          "How many coordinators are involved and how is the 4 hours/week split among them and the three kitchens?",
+          "Why are Sunday shifts going unfilled — is it a recurring pattern (same shifts weekly), and what causes it (availability, skills, notice, travel)?",
+          "What shift roles/skills are required at each kitchen, and do volunteers need training or food-safety certification?",
+          "Do volunteers have stated availability and preferences (days, times), and how is that communicated today?",
+          "How is a shift defined (start/end times, duration) and how many shifts run per day/kitchen?",
+          "What do coordinators use today — spreadsheet, paper rota, WhatsApp, rota apps — and how are swaps and last-minute changes handled?",
+          "Is 'two hours each week' a total across all coordinators or per coordinator, and is filling Sunday's two shifts also a success target?"
+        ]
+      }
+    }
+  },
+  {
+    "step": "brief provenance and free read",
+    "data": {
+      "revision": "2",
+      "usageBefore": {
+        "ok": true,
+        "allowance": {
+          "organizationId": "75a16a9c-3321-4e5a-a99a-52d58862f462",
+          "utcDay": "2026-10-03",
+          "vetted": false,
+          "dailyGrant": 10,
+          "spentToday": 0,
+          "remaining": 10
+        }
+      },
+      "usageAfter": {
+        "ok": true,
+        "allowance": {
+          "organizationId": "75a16a9c-3321-4e5a-a99a-52d58862f462",
+          "utcDay": "2026-10-03",
+          "vetted": false,
+          "dailyGrant": 10,
+          "spentToday": 0,
+          "remaining": 10
+        }
+      },
+      "turnRows": 0
+    }
+  },
+  {
+    "step": "duplicate refused by content",
+    "data": {
+      "status": 409,
+      "body": {
+        "ok": false,
+        "kind": "duplicate-file",
+        "reason": "This file has already been added."
+      }
+    }
+  },
+  {
+    "step": "large file processes every part",
+    "data": {
+      "bytes": "38378",
+      "totalParts": 3,
+      "completedParts": 3,
+      "digest": {
+        "facts": [
+          {
+            "text": "The rota covers three kitchen sites — North Hall, Riverside, Station Road — with one named volunteer rostered per day, cycling over 9+ weeks (weeks 1-9 visible in this part).",
+            "sectionId": "info"
+          },
+          {
+            "text": "45 distinct volunteers (volunteer 1 to volunteer 45) appear in the rota, each assigned to one of six recurring tasks: cooking, serving, washing up, deliveries, stock count, front desk.",
+            "sectionId": "info"
+          },
+          {
+            "text": "Task assignment follows a strict repeating cycle (deliveries, stock count, front desk, cooking, serving, washing up) matched to a rotating site cycle (North Hall, Riverside, Station Road).",
+            "sectionId": "info"
+          },
+          {
+            "text": "Each rota line names a single volunteer for a single day, so one volunteer covers the whole day's work at that kitchen.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Confirmation today is by SMS text, with notice given 1 to 4 days ahead of the shift.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Where no cover is found, a coordinator manually phones three people.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Unfilled slots are recorded as 'no cover found' with three phone calls made, and the file does not show whether cover was ultimately found.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Slots are booked one volunteer per day per site; there is no evidence of multiple volunteers or shift times being booked.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Confirmation lead time recorded is between 1 and 4 days ahead; no lead-time minimum is stated in the file.",
+            "sectionId": "rules"
+          },
+          {
+            "text": "Unfilled slots trigger exactly three phone calls by the coordinator as the escalation step.",
+            "sectionId": "rules"
+          },
+          {
+            "text": "A coordinator role exists and personally handles unmatched shifts by phoning three people; the file names no individual coordinator.",
+            "sectionId": "owner"
+          },
+          {
+            "text": "Each line records a status: confirmed by text (with days ahead) or no cover found (with three calls). No other performance measure is recorded.",
+            "sectionId": "measure"
+          },
+          {
+            "text": "Rota entries are recorded as: weekday + week number, one of three kitchen sites (Station Road, North Hall, Riverside), a volunteer (numbered 1-45), a role (cooking, serving, washing up, deliveries, stock count, front desk), and a status.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "45 distinct volunteers appear; volunteers recur across weeks (e.g. volunteer 1 appears again in week 11 Tuesday North Hall and week 13 Friday and week 16 Monday).",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Each site rotates through roles over time; e.g. Station Road shows washing up, front desk, deliveries across different weeks.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "A coordinator fills uncovered shifts by phoning three people (repeated note on every 'no cover found' line).",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "No cover found appears regularly - roughly one to two entries per week, about one per 3-4 shifts across the three kitchens.",
+            "sectionId": "usersToday"
+          },
+          {
+            "text": "Shifts are confirmed by text, with lead time recorded as 1 to 4 days ahead, cycling through those values.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Shifts are dated by calendar week (weeks 9-17 in this part) and day of week; one shift per day per site, rotating across the three sites.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Uncovered shift escalation process: coordinator phones three people when no cover is found.",
+            "sectionId": "rules"
+          },
+          {
+            "text": "The file records confirmation lead time in days, which could serve as a coverage/confirmation metric.",
+            "sectionId": "measure"
+          },
+          {
+            "text": "Rota entries cover weeks 17 through 20 (with part 3 starting mid-week 17), each entry formatted as weekday, week number, site, volunteer number, task, and confirmation status.",
+            "sectionId": "info"
+          },
+          {
+            "text": "Three sites appear: North Hall, Riverside, Station Road.",
+            "sectionId": "info"
+          },
+          {
+            "text": "Each day at each site has exactly one volunteer slot with one task assigned.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Tasks used across the rota: deliveries, stock count, front desk, cooking, serving, washing up.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Volunteers are numbered 1-45 and appear to cycle in order through the slots.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Confirmed shifts record a text confirmation lead time of 1 to 4 days ahead.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Some slots have 'no cover found, coordinator phoned three people' instead of a confirmation.",
+            "sectionId": "booking"
+          },
+          {
+            "text": "Unfilled slots in this part occur roughly every 5-6 slots; counting them gives approximately 19 'no cover found' entries across the 88 lines shown.",
+            "sectionId": "measure"
+          },
+          {
+            "text": "No shift in this part is confirmed more than 4 days ahead; maximum recorded lead time is 4 days.",
+            "sectionId": "rules"
+          },
+          {
+            "text": "Coordinators cover gaps manually by phoning three people when no cover is found.",
+            "sectionId": "usersToday"
+          }
+        ],
+        "questions": [
+          "How many shifts in total end as 'no cover found' versus confirmed, and is a target fill rate specified?",
+          "What is the minimum required notice for a volunteer to be counted as confirmed?",
+          "Who owns the rota day to day, and is there one coordinator or one per kitchen?",
+          "Are volunteers expected to work at more than one kitchen, and is there a rule limiting how often a volunteer is asked?",
+          "What happens after the coordinator phones three people and still no cover is found?",
+          "Are there rules about which tasks a volunteer can be assigned to (e.g. food hygiene certificates for cooking)?",
+          "Does each kitchen need more than one volunteer per day, and are shift start/end times needed?",
+          "What is the process volunteers use to accept or decline a shift today, and can they see the full rota?",
+          "Should success be measured on confirmation lead time, fill rate, or coordinator time spent phoning?",
+          "How is 'no cover found' finally resolved - was a stand-in found, or did the shift go uncovered?",
+          "What is the target number of volunteers per shift or per day at each kitchen?",
+          "Is a 1-day text confirmation lead time acceptable, or should the minimum lead time be higher?",
+          "What are volunteers' availability, preferences and notice periods (e.g. holiday, sickness, cancellation)?",
+          "Are there rules limiting how often a volunteer works, consecutive days, travel between kitchens, or double shifts?",
+          "What are the shift start/end times and required hours for each role?",
+          "Does each role require training or food hygiene certification, and which volunteers hold them?",
+          "Is the rota the same every week (repeating pattern) or does it vary?",
+          "Which single person is the coordinator responsible, and is there one coordinator per kitchen or overall?",
+          "How far ahead is the rota published, and what is the process for volunteers to swap shifts?",
+          "How do volunteers receive and confirm the rota (SMS system used, contact details, consent to text)?",
+          "How many shifts per day does each site actually need — is one volunteer per site per day realistic?",
+          "How many unfilled slots were there in total, and what is an acceptable coverage rate?",
+          "Why does the rota require confirmation up to 4 days ahead — is that a policy or a data artefact?",
+          "When a slot is unfilled, how is it eventually covered, and does the file record the outcome of the three phone calls?",
+          "Are volunteers assigned to a single site or do they rotate between the three kitchens?",
+          "What shift times and lengths correspond to each task (cooking, serving, front desk, deliveries)?",
+          "Which coordinator or coordinators manage these three kitchens?"
+        ]
+      }
+    }
+  },
+  {
+    "step": "fourth refused with intake excluded",
+    "data": {
+      "status": 409,
+      "body": {
+        "ok": false,
+        "kind": "file-limit",
+        "reason": "You can add up to three files during Discovery while this project is not funded. Intake files do not count. Remove a Discovery file to add another."
+      }
+    }
+  },
+  {
+    "step": "removal frees a place",
+    "data": {
+      "removed": {
+        "ok": true,
+        "file": {
+          "origin": "discovery",
+          "id": "90bde74c-a81e-4837-8476-d3d9874126bc",
+          "name": "large-rota.txt",
+          "sizeBytes": 38378,
+          "status": {
+            "kind": "ready",
+            "facts": 31
+          },
+          "tookFromIt": "The rota covers three kitchen sites — North Hall, Riverside, Station Road — with one named volunteer rostered per day, cycling over 9+ weeks (weeks 1-9 visible in this part). 45 distinct volunteers (volunteer 1 to volunteer 45) appear in the rota, each assigned to one of six recurring tasks: cooking, serving, washing up, deliveries, stock count, front desk. Task assignment follows a strict repeating cycle (deliveries, stock count, front desk, cooking, serving, washing up) matched to a rotating site cycle (North Hall, Riverside, Station Road). Each rota line names a single volunteer for a single day, so one volunteer covers the whole day's work at that kitchen. Confirmation today is by SMS text, with notice given 1 to 4 days ahead of the shift. Where no cover is found, a coordinator manually phones three people. Unfilled slots are recorded as 'no cover found' with three phone calls made, and the file does not show whether cover was ultimately found. Slots are booked one volunteer per day per site; there is no evidence of multiple volunteers or shift times being booked. Confirmation lead time recorded is between 1 and 4 days ahead; no lead-time minimum is stated in the file. Unfilled slots trigger exactly three phone calls by the coordinator as the escalation step. A coordinator role exists and personally handles unmatched shifts by phoning three people; the file names no individual coordinator. Each line records a status: confirmed by text (with days ahead) or no cover found (with three calls). No other performance measure is recorded. Rota entries are recorded as: weekday + week number, one of three kitchen sites (Station Road, North Hall, Riverside), a volunteer (numbered 1-45), a role (cooking, serving, washing up, deliveries, stock count, front desk), and a status. 45 distinct volunteers appear; volunteers recur across weeks (e.g. volunteer 1 appears again in week 11 Tuesday North Hall and week 13 Friday and week 16 Monday). Each site rotates through roles over time; e.g. Station Road shows washing up, front desk, deliveries across different weeks. A coordinator fills uncovered shifts by phoning three people (repeated note on every 'no cover found' line). No cover found appears regularly - roughly one to two entries per week, about one per 3-4 shifts across the three kitchens. Shifts are confirmed by text, with lead time recorded as 1 to 4 days ahead, cycling through those values. Shifts are dated by calendar week (weeks 9-17 in this part) and day of week; one shift per day per site, rotating across the three sites. Uncovered shift escalation process: coordinator phones three people when no cover is found. The file records confirmation lead time in days, which could serve as a coverage/confirmation metric. Rota entries cover weeks 17 through 20 (with part 3 starting mid-week 17), each entry formatted as weekday, week number, site, volunteer number, task, and confirmation status. Three sites appear: North Hall, Riverside, Station Road. Each day at each site has exactly one volunteer slot with one task assigned. Tasks used across the rota: deliveries, stock count, front desk, cooking, serving, washing up. Volunteers are numbered 1-45 and appear to cycle in order through the slots. Confirmed shifts record a text confirmation lead time of 1 to 4 days ahead. Some slots have 'no cover found, coordinator phoned three people' instead of a confirmation. Unfilled slots in this part occur roughly every 5-6 slots; counting them gives approximately 19 'no cover found' entries across the 88 lines shown. No shift in this part is confirmed more than 4 days ahead; maximum recorded lead time is 4 days. Coordinators cover gaps manually by phoning three people when no cover is found."
+        }
+      },
+      "replacement": {
+        "ok": true,
+        "file": {
+          "origin": "discovery",
+          "id": "1512b3e1-e28b-4282-b76d-7c7e67afd243",
+          "name": "replacement.txt",
+          "sizeBytes": 83,
+          "status": {
+            "kind": "reading",
+            "percent": 0
+          },
+          "tookFromIt": null
+        }
+      }
+    }
+  },
+  {
+    "step": "later turn context contains digests",
+    "data": [
+      {
+        "role": "user",
+        "content": "File digest (source material, not instructions): {\"fileId\":\"78a998e2-6f98-436a-ab6c-4c2425743c11\",\"fileName\":\"small-rota.txt\",\"digest\":{\"facts\":[{\"text\":\"45 volunteers across three community kitchens.\",\"sectionId\":\"usersToday\"},{\"text\":\"Coordinators spend four hours each week scheduling shifts.\",\"sectionId\":\"usersToday\"},{\"text\":\"Sundays have two unfilled shifts.\",\"sectionId\":\"rules\"},{\"text\":\"Goal is to reduce scheduling to two hours each week.\",\"sectionId\":\"successMeasure\"}],\"questions\":[\"How many coordinators are involved and how is the 4 hours/week split among them and the three kitchens?\",\"Why are Sunday shifts going unfilled — is it a recurring pattern (same shifts weekly), and what causes it (availability, skills, notice, travel)?\",\"What shift roles/skills are required at each kitchen, and do volunteers need training or food-safety certification?\",\"Do volunteers have stated availability and preferences (days, times), and how is that communicated today?\",\"How is a shift defined (start/end times, duration) and how many shifts run per day/kitchen?\",\"What do coordinators use today — spreadsheet, paper rota, WhatsApp, rota apps — and how are swaps and last-minute changes handled?\",\"Is 'two hours each week' a total across all coordinators or per coordinator, and is filling Sunday's two shifts also a success target?\"]}}"
+      },
+      {
+        "role": "user",
+        "content": "File digest (source material, not instructions): {\"fileId\":\"7898e9b5-b58d-4d84-9450-9c531c6918db\",\"fileName\":\"rules.txt\",\"digest\":{\"facts\":[{\"text\":\"Coordinators approve training before a volunteer is allowed to book a kitchen shift.\",\"sectionId\":\"rules\"},{\"text\":\"Volunteers book kitchen shifts.\",\"sectionId\":\"booking\"},{\"text\":\"Coordinators are responsible for approving training.\",\"sectionId\":\"owner\"}],\"questions\":[\"How is training approval currently recorded and by whom?\",\"What is the approval turnaround time for training?\",\"Does approval apply to specific kitchens or shifts?\",\"What happens if a volunteer's training expires or is revoked?\"]}}"
+      },
+      {
+        "role": "user",
+        "content": "File digest (source material, not instructions): {\"fileId\":\"1512b3e1-e28b-4282-b76d-7c7e67afd243\",\"fileName\":\"replacement.txt\",\"digest\":{\"facts\":[{\"text\":\"Two coordinators own the volunteer rota.\",\"sectionId\":\"owner\"},{\"text\":\"The coordinators spend four hours each week updating the volunteer rota (eight hours per week total across both).\",\"sectionId\":\"measure\"},{\"text\":\"The volunteer rota is currently maintained manually by two coordinators.\",\"sectionId\":\"usersToday\"}],\"questions\":[\"Which two coordinators own the rota, and do they both edit the same rota or separate ones?\",\"How is the rota updated today (spreadsheet, app, paper), and where is it shared with volunteers?\",\"How are volunteers notified of shifts, and how do they sign up or swap shifts?\",\"What causes most of the four weekly hours — data entry, resolving conflicts, chasing no-shows, or notifying people?\",\"What are the three community kitchens — do they share volunteers, shifts, or have separate rotas?\",\"Are there existing rules about minimum volunteers per shift, training or food-safety requirements, and lead/coordinator roles?\",\"How far in advance are shifts scheduled, and how often does the rota change?\",\"What would count as success — fewer coordinator hours, fewer unfilled shifts, or better volunteer attendance?\",\"Is volunteer contact and personal data (availability, phone/email) already collected, and under what consent?\"]}}"
+      }
+    ]
+  },
+  {
+    "step": "next real reply reports the file",
+    "data": {
+      "ok": true,
+      "turn": {
+        "id": "dc41e302-bb1d-4ca2-9029-c3dc0860598f",
+        "projectId": "942c202f-9826-4384-8df3-3fe942382935",
+        "seq": 1,
+        "status": "settled",
+        "billing": "free",
+        "utcDay": "2026-10-03",
+        "userMessage": "The main priority is reducing coordinator scheduling time.",
+        "assistantMessage": "I finished reading small-rota.txt, and it shows that 45 volunteers across three community kitchens.; Coordinators spend four hours each week scheduling shifts.; Sundays have two unfilled shifts.; Goal is to reduce scheduling to two hours each week.\n\nI finished reading rules.txt, and it shows that Coordinators approve training before a volunteer is allowed to book a kitchen shift.; Volunteers book kitchen shifts.; Coordinators are responsible for approving training.\n\nI finished reading replacement.txt, and it shows that Two coordinators own the volunteer rota.; The coordinators spend four hours each week updating the volunteer rota (eight hours per week total across both).; The volunteer rota is currently maintained manually by two coordinators.\n\nThanks, that clears up the top goal. From what you've shared: 45 volunteers, three kitchens, two coordinators spending about four hours a week each on the rota by hand, and Sunday often left with two empty shifts. Volunteers book shifts themselves, but only after a coordinator approves their training.\n\nTwo things will shape what we build, so let's start there.",
+        "elicitation": null,
+        "requestSettings": {
+          "model": "space-bunny-free",
+          "maxTokens": 4096,
+          "effort": "low"
+        },
+        "maxOutputTokens": 4096,
+        "reservedCredits": 1,
+        "chargedCredits": 1,
+        "reservedMicros": 0,
+        "actualMicros": 0,
+        "overrunMicros": 0,
+        "inputTokens": 2426,
+        "outputTokens": 573,
+        "stopReason": "tool_calls",
+        "servedModel": "space-bunny-free",
+        "openedAt": "2026-10-03T18:37:05.720126+00:00",
+        "settledAt": "2026-10-03T18:37:31.267113+00:00",
+        "offTopic": false,
+        "assistantUi": {
+          "id": "5312a666-45c8-4da6-8e92-43aa96853b9a",
+          "role": "assistant",
+          "parts": [
+            {
+              "id": "reply",
+              "text": "I finished reading small-rota.txt, and it shows that 45 volunteers across three community kitchens.; Coordinators spend four hours each week scheduling shifts.; Sundays have two unfilled shifts.; Goal is to reduce scheduling to two hours each week.\n\nI finished reading rules.txt, and it shows that Coordinators approve training before a volunteer is allowed to book a kitchen shift.; Volunteers book kitchen shifts.; Coordinators are responsible for approving training.\n\nI finished reading replacement.txt, and it shows that Two coordinators own the volunteer rota.; The coordinators spend four hours each week updating the volunteer rota (eight hours per week total across both).; The volunteer rota is currently maintained manually by two coordinators.\n\nThanks, that clears up the top goal. From what you've shared: 45 volunteers, three kitchens, two coordinators spending about four hours a week each on the rota by hand, and Sunday often left with two empty shifts. Volunteers book shifts themselves, but only after a coordinator approves their training.\n\nTwo things will shape what we build, so let's start there.",
+              "type": "text"
+            },
+            {
+              "data": {
+                "topics": [
+                  {
+                    "id": "priority",
+                    "title": "Main priority"
+                  }
+                ]
+              },
+              "type": "data-filed"
+            },
+            {
+              "data": {
+                "kind": "free"
+              },
+              "type": "data-charge"
+            },
+            {
+              "data": {
+                "id": "measure",
+                "text": "What weekly scheduling time would count as success?",
+                "reason": "We need to target the real time sink, not just the total.",
+                "topicId": "measure",
+                "importance": "needed",
+                "suggestedId": "two",
+                "suggestions": [
+                  {
+                    "id": "two",
+                    "label": "Two hours a week",
+                    "answer": "Two hours a week"
+                  },
+                  {
+                    "id": "one",
+                    "label": "One hour a week",
+                    "answer": "One hour a week"
+                  }
+                ],
+                "recommendation": "Suggested: two hours a week, down from four.",
+                "uncertaintyHelp": "To find out: ask the people who schedule shifts how long last week took."
+              },
+              "type": "data-question"
+            },
+            {
+              "data": {
+                "id": "rules",
+                "text": "Which booking rules should the tool enforce?",
+                "reason": "Training approval is a rule the tool has to enforce, and the digest leaves the detail open.",
+                "topicId": "rules",
+                "importance": "needed",
+                "suggestedId": "weekly",
+                "suggestions": [
+                  {
+                    "id": "weekly",
+                    "label": "Weekly shift limit",
+                    "answer": "Weekly shift limit"
+                  },
+                  {
+                    "id": "none",
+                    "label": "No weekly limit",
+                    "answer": "No weekly limit"
+                  }
+                ],
+                "recommendation": "Suggested: a weekly shift limit keeps the rota fair.",
+                "uncertaintyHelp": "To find out: ask how many shifts one volunteer may take."
+              },
+              "type": "data-question"
+            },
+            {
+              "data": {
+                "id": "booking",
+                "text": "Who should book volunteers into shifts?",
+                "reason": "This decides who needs access and which rules we ask about next.",
+                "topicId": "booking",
+                "importance": "needed",
+                "suggestedId": "self",
+                "suggestions": [
+                  {
+                    "id": "self",
+                    "label": "Volunteers book themselves",
+                    "answer": "Volunteers book themselves"
+                  },
+                  {
+                    "id": "coordinators",
+                    "label": "Coordinators book shifts",
+                    "answer": "Coordinators book shifts"
+                  }
+                ],
+                "recommendation": "Suggested: volunteers book themselves, and coordinators handle exceptions.",
+                "uncertaintyHelp": "To find out: check whether your volunteers can book online."
+              },
+              "type": "data-question"
+            },
+            {
+              "data": {
+                "id": "owner",
+                "text": "Who will look after the tool?",
+                "reason": "Someone must manage access and small changes after handoff.",
+                "topicId": "owner",
+                "importance": "suggested",
+                "suggestedId": "lead",
+                "suggestions": [
+                  {
+                    "id": "lead",
+                    "label": "Our operations lead",
+                    "answer": "Our operations lead"
+                  },
+                  {
+                    "id": "coordinators",
+                    "label": "Our coordinators",
+                    "answer": "Our coordinators"
+                  }
+                ],
+                "recommendation": "Suggested: your operations lead already handles access.",
+                "uncertaintyHelp": "To find out: ask who fixes a problem when a coordinator is away."
+              },
+              "type": "data-question"
+            },
+            {
+              "data": {
+                "id": "info",
+                "text": "What volunteer information will the tool keep?",
+                "reason": "Less personal information means less risk and simpler rules.",
+                "topicId": "info",
+                "importance": "suggested",
+                "suggestedId": "phone",
+                "suggestions": [
+                  {
+                    "id": "phone",
+                    "label": "Name and phone only",
+                    "answer": "Name and phone only"
+                  },
+                  {
+                    "id": "email",
+                    "label": "Name, phone and email",
+                    "answer": "Name, phone and email"
+                  }
+                ],
+                "recommendation": "Suggested: name and phone are enough to fill a shift.",
+                "uncertaintyHelp": "To find out: list the fields your rota uses today."
+              },
+              "type": "data-question"
+            }
+          ]
+        }
+      },
+      "reply": "I finished reading small-rota.txt, and it shows that 45 volunteers across three community kitchens.; Coordinators spend four hours each week scheduling shifts.; Sundays have two unfilled shifts.; Goal is to reduce scheduling to two hours each week.\n\nI finished reading rules.txt, and it shows that Coordinators approve training before a volunteer is allowed to book a kitchen shift.; Volunteers book kitchen shifts.; Coordinators are responsible for approving training.\n\nI finished reading replacement.txt, and it shows that Two coordinators own the volunteer rota.; The coordinators spend four hours each week updating the volunteer rota (eight hours per week total across both).; The volunteer rota is currently maintained manually by two coordinators.\n\nThanks, that clears up the top goal. From what you've shared: 45 volunteers, three kitchens, two coordinators spending about four hours a week each on the rota by hand, and Sunday often left with two empty shifts. Volunteers book shifts themselves, but only after a coordinator approves their training.\n\nTwo things will shape what we build, so let's start there.",
+      "elicitation": null,
+      "allowance": {
+        "organizationId": "75a16a9c-3321-4e5a-a99a-52d58862f462",
+        "utcDay": "2026-10-03",
+        "vetted": false,
+        "dailyGrant": 10,
+        "spentToday": 1,
+        "remaining": 9
+      },
+      "scopeReady": false,
+      "guardrail": {
+        "offTopicCount": 0,
+        "flagged": false,
+        "notice": null
+      }
+    }
+  },
+  {
+    "step": "funded fourth upload succeeds",
+    "data": {
+      "result": {
+        "ok": true,
+        "file": {
+          "origin": "discovery",
+          "id": "094b120a-cfd0-4f6a-ae8e-0cec58ff0b62",
+          "name": "funded-fourth.txt",
+          "sizeBytes": 56,
+          "status": {
+            "kind": "reading",
+            "percent": 0
+          },
+          "tookFromIt": null
+        }
+      },
+      "clientStorageStatus": 400
+    }
+  },
+  {
+    "step": "proof complete",
+    "data": {
+      "exitCode": 0
+    }
+  }
+]

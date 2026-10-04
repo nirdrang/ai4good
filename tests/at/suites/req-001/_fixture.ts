@@ -1,5 +1,6 @@
 import { decideDiscoveryMessage, type DiscoveryReserveArgs } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { decideDiscoveryScope, type DiscoveryScopeArgs } from '../../../../supabase/functions/_shared/scope.ts';
+import { decideDiscoveryBrief, type DiscoveryBriefCommitArgs } from '../../../../supabase/functions/_shared/discovery-brief-write.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -354,6 +355,9 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
   const DISCOVERY_SCOPE: WriteRouteSpec<DiscoveryScopeArgs, AccountWriteRouteInput> = {
     name: 'discovery-scope', target: organizationIdField, decide: decideDiscoveryScope,
   };
+  const DISCOVERY_BRIEF: WriteRouteSpec<DiscoveryBriefCommitArgs, AccountWriteRouteInput> = {
+    name: 'discovery-brief', target: organizationIdField, decide: decideDiscoveryBrief,
+  };
 
   const appendAudit = (
     eventKind: AuditEventKind,
@@ -682,6 +686,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
       const membership = [...state.memberships.values()].find((row) => row.accountId === caller.id);
       const run = runWrite(DISCOVERY_MESSAGE, session, {
         organizationId: membership?.organizationId ?? null, projectId: crypto.randomUUID(), message: body,
+        mode: 'answer', userMessageId: crypto.randomUUID(), answers: [], expectedCharge: 'free',
       }, null);
       if (!run.ok) return run;
       const allowed = discoveryMessageAllowed({ emailVerified: caller.emailVerified });
@@ -1106,6 +1111,27 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             DISCOVERY_SCOPE,
             session,
             { organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action },
+            null,
+          );
+          if (!run.ok) return run;
+          return { ok: true };
+        },
+        'discovery-file': async () => {
+          if (subject.route !== 'discovery-file') throw new Error('unreachable');
+          const { decideDiscoveryFile } = await import('../../../../supabase/functions/_shared/discovery-file-write.ts');
+          const run = runWrite({ name: 'discovery-file', target: organizationIdField, decide: decideDiscoveryFile }, session,
+            { organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action, file: { id: subject.fileId } }, null);
+          return run.ok ? { ok: true } : run;
+        },
+        'discovery-brief': async () => {
+          if (subject.route !== 'discovery-brief') throw new Error('unreachable');
+          const run = runWrite(
+            DISCOVERY_BRIEF,
+            session,
+            {
+              organizationId: subject.organizationId, projectId: subject.projectId, action: subject.action,
+              sectionId: subject.sectionId, text: subject.text, baseRevision: subject.baseRevision,
+            },
             null,
           );
           if (!run.ok) return run;

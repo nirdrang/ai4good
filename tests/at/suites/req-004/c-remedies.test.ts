@@ -16,7 +16,7 @@ const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, project
 };
 const operatorDrive: Drive = async (sut, ngo, projectId) => {
   const reserve = await sut.reserveTurnAsOperator({ accountId: ngo.accountId, organizationId: ngo.organizationId,
-    projectId, message: MESSAGE, countedInputTokens: USAGE.inputTokens });
+    projectId, message: MESSAGE});
   if (!reserve.ok) return reserve;
   return sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: reserve.reservation.turn.id,
     outcome: 'completed', reply: 'Which reporting deadlines matter most?', usage: USAGE });
@@ -31,7 +31,7 @@ async function proveUnverified(open: Open, drive: Drive, vettedGrant: number) {
   await sut.drainAllowance(ngo.session, ngo.organizationId);
   const before = await sut.readAllowance(ngo.session, ngo.organizationId);
   const blocked = await drive(sut, ngo, projectId);
-  expect(blocked).toMatchObject({ ok: false, kind: 'daily-allowance-exhausted', status: 409 });
+  expect(blocked).toMatchObject({ ok: false, kind: 'daily-limit', status: 409 });
   if (blocked.ok) return;
   const remedies = remediesOf(blocked.reason);
   expect(remedies).toHaveLength(3);
@@ -50,7 +50,7 @@ async function proveVetted(open: Open, drive: Drive) {
   await sut.drainAllowance(ngo.session, ngo.organizationId);
   const before = await sut.readAllowance(ngo.session, ngo.organizationId);
   const blocked = await drive(sut, ngo, projectId);
-  expect(blocked).toMatchObject({ ok: false, kind: 'daily-allowance-exhausted', status: 409 });
+  expect(blocked).toMatchObject({ ok: false, kind: 'daily-limit', status: 409 });
   if (blocked.ok) return;
   const remedies = remediesOf(blocked.reason);
   expect(remedies).toHaveLength(2);

@@ -1,0 +1,97 @@
+{
+  "email": "verify-discovery-1791128199136-a7dc77@example.com",
+  "organizationId": "7435ce69-e638-4f60-bfb2-cd5bc89945a8",
+  "projectId": "0625ac87-05e5-4650-bd01-a1c154577e0c",
+  "transcript": [
+    {
+      "name": "complete-signup",
+      "request": {
+        "accountType": "ngo",
+        "organizationName": "Discovery drive 1791128199365",
+        "acknowledgmentTextVersion": "tos-platform-promise-v1",
+        "signerName": "Discovery verifier",
+        "signerTitle": "Coordinator",
+        "authorityAttestation": "I attest that I have the authority to make this acknowledgment for my organisation — to bind it, to fund non-refundable model-fuel purchases, and to accept services that carry no SLA."
+      },
+      "status": 200,
+      "response": {
+        "ok": true,
+        "accountId": "88350a2c-ab94-4dbb-a9fd-4c0cbda26d75",
+        "accountType": "ngo",
+        "organizationId": "7435ce69-e638-4f60-bfb2-cd5bc89945a8"
+      }
+    },
+    {
+      "name": "project-need",
+      "request": {
+        "organizationId": "7435ce69-e638-4f60-bfb2-cd5bc89945a8",
+        "action": "start",
+        "title": "Volunteer scheduling",
+        "description": "We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week. We need a shared shift rota to reduce coordination time.",
+        "urgency": "soon"
+      },
+      "status": 200,
+      "response": {
+        "ok": true,
+        "changed": true,
+        "need": {
+          "projectId": "0625ac87-05e5-4650-bd01-a1c154577e0c",
+          "organizationId": "7435ce69-e638-4f60-bfb2-cd5bc89945a8",
+          "title": "Volunteer scheduling",
+          "description": "We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week. We need a shared shift rota to reduce coordination time.",
+          "urgency": "soon",
+          "stage": "draft",
+          "causeLabels": [],
+          "referenceFiles": [],
+          "tier2ClassifiedAt": null,
+          "upload": {
+            "disclosure": {
+              "level": "base",
+              "acknowledgmentRequired": false,
+              "heading": "Redacted or sample data only.",
+              "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+              "acknowledgment": null
+            }
+          },
+          "submittedAt": null,
+          "updatedAt": "2026-10-04T15:36:39.498241+00:00"
+        }
+      }
+    },
+    {
+      "name": "project-need",
+      "request": {
+        "organizationId": "7435ce69-e638-4f60-bfb2-cd5bc89945a8",
+        "projectId": "0625ac87-05e5-4650-bd01-a1c154577e0c",
+        "action": "submit"
+      },
+      "status": 200,
+      "response": {
+        "ok": true,
+        "changed": true,
+        "need": {
+          "projectId": "0625ac87-05e5-4650-bd01-a1c154577e0c",
+          "organizationId": "7435ce69-e638-4f60-bfb2-cd5bc89945a8",
+          "title": "Volunteer scheduling",
+          "description": "We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week. We need a shared shift rota to reduce coordination time.",
+          "urgency": "soon",
+          "stage": "discovery_in_progress",
+          "causeLabels": [],
+          "referenceFiles": [],
+          "tier2ClassifiedAt": null,
+          "upload": {
+            "disclosure": {
+              "level": "base",
+              "acknowledgmentRequired": false,
+              "heading": "Redacted or sample data only.",
+              "body": "Redacted or sample data only. Files here are seen by ai4good and by your volunteer once matched. Never upload real names, contact details, case notes or anything you would not hand to a stranger — make a copy with sample rows instead.",
+              "acknowledgment": null
+            }
+          },
+          "submittedAt": "2026-10-04T15:36:39.571209+00:00",
+          "updatedAt": "2026-10-04T15:36:39.571209+00:00"
+        }
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.115.0';
-import { requireEnv } from './edge.ts';
+import { requireEnv } from './env.ts';
+import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
 export const DISCOVERY_CLIENT_MODEL = 'claude-opus-5';
@@ -11,7 +12,12 @@ const systemFor = (request: DiscoveryModelRequest) => request.system.map((block)
 const servedModel = () => Deno.env.get('DISCOVERY_MODEL') ?? DISCOVERY_CLIENT_MODEL;
 const paramsFor = (request: DiscoveryModelRequest) => ({
   model: servedModel(), max_tokens: request.maxTokens, system: systemFor(request),
-  messages: request.messages, tools: request.tools,
+  messages: request.messages.map((message, index) => index === request.messages.length - 1 && request.images?.length
+    ? { role: message.role, content: [
+        { type: 'text' as const, text: message.content },
+        ...request.images.map((image) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: image.mediaType, data: image.data } })),
+      ] }
+    : message), tools: [...request.tools],
   ...(request.toolChoice ? { tool_choice: request.toolChoice } : {}),
   ...(servedModel() === DISCOVERY_CLIENT_MODEL ? { output_config: { effort: request.effort } } : {}),
   betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const,
@@ -46,43 +52,26 @@ export function anthropicMessagesPort(): MessagesPort {
       try { return answerFrom(await clientForCall().beta.messages.create(paramsFor(request))); }
       catch (error) { return failure(error); }
     },
-    countTokens: async (request) => {
-      const count = await clientForCall().messages.countTokens({
-        model: servedModel(), system: systemFor(request), messages: request.messages, tools: request.tools,
-        ...(request.toolChoice ? { tool_choice: request.toolChoice } : {}),
-      });
-      return count.input_tokens;
-    },
     stream: async (request, onDelta, signal) => {
       let text = '';
       let model = request.model;
       let inputTokens = 0;
-      let sawStart = false;
+      let toolName = '';
+      const replyText = new JsonTextFieldDecoder('text');
       const cancelledBeforeAnswer = (): DiscoveryModelAnswer => ({
         ok: false, status: 499, reason: 'the client cancelled before the provider answered',
       });
-      const countedOutput = async (client: Anthropic): Promise<number | null> => {
-        try {
-          const count = await client.messages.countTokens({
-            model, messages: [{ role: 'assistant', content: text }],
-          });
-          return Number.isSafeInteger(count.input_tokens) && count.input_tokens >= 0 ? count.input_tokens : null;
-        } catch {
-          return null;
-        }
-      };
-      const stopped = async (client: Anthropic): Promise<DiscoveryModelAnswer> => ({
-        ok: true, text, model, stopReason: 'user_stopped',
-        usage: { inputTokens, outputTokens: await countedOutput(client) ?? request.maxTokens }, toolUse: null,
-      });
       const observe = (event: Anthropic.Beta.Messages.BetaRawMessageStreamEvent) => {
         if (event.type === 'message_start') {
-          sawStart = true;
           model = event.message.model;
           inputTokens = foldedInputTokens(event.message.usage);
+        } else if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+          toolName = event.content_block.name;
         } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
           text += event.delta.text;
-          onDelta(event.delta.text);
+        } else if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta' && (toolName === 'reply' || request.toolChoice?.name === 'reply')) {
+          const decoded = replyText.push(event.delta.partial_json);
+          if (decoded.length > 0) onDelta(decoded);
         }
       };
       try {
@@ -91,9 +80,9 @@ export function anthropicMessagesPort(): MessagesPort {
         const stream = client.beta.messages.stream(paramsFor(request), { signal });
         stream.on('streamEvent', observe);
         const message = await stream.finalMessage();
-        return signal.aborted ? (sawStart ? await stopped(client) : cancelledBeforeAnswer()) : answerFrom(message);
+        return signal.aborted ? cancelledBeforeAnswer() : answerFrom(message);
       } catch (error) {
-        return signal.aborted ? (sawStart ? await stopped(clientForCall()) : cancelledBeforeAnswer()) : failure(error);
+        return signal.aborted ? cancelledBeforeAnswer() : failure(error);
       }
     },
   };
