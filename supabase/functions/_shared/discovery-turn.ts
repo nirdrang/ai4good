@@ -21,7 +21,7 @@ export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discove
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
 export type DiscoveryModelRequest = {
   model: string; maxTokens: number; effort: 'low'; system: SystemBlock[];
-  tools: readonly { name: string; description: string; input_schema: { type: 'object'; [key: string]: unknown } }[];
+  tools: readonly { name: string; description: string; strict?: boolean; input_schema: { type: 'object'; [key: string]: unknown } }[];
   images?: { mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }[];
   toolChoice?: { type: 'tool'; name: string };
   messages: { role: 'user' | 'assistant'; content: string }[];

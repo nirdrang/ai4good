@@ -80,7 +80,8 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
             type: 'object',
             additionalProperties: false,
             properties: {
-              topicId, suggestion: { type: 'string' }, suggested: { type: 'string' }, importance, reason: { type: 'string' },
+              topicId, suggestion: { type: 'string', description: 'The approach you recommend for this topic.' },
+              suggested: { type: 'string', description: 'Required alongside suggestion: the label of the answer option you recommend.' }, importance, reason: { type: 'string' },
             },
             required: ['topicId', 'suggestion', 'suggested', 'importance', 'reason'],
           },
@@ -157,6 +158,7 @@ Call the reply tool on every turn. Its input has text, questions, agreed, openQu
 ${free ? 'Free turns only cover this need. If the request is unrelated, redirect to the need and set offTopic to true. Do not carry out the unrelated task.' : 'This is a paid turn. Free-turn scope redirects and off-topic notices do not apply.'}
 text is the reply the NGO reads. Do not list the questions in the text.
 questions is an array of {topicId, suggestion, suggested, importance, reason}. importance is needed, suggested, or later. suggested is the wording of the option you recommend.
+Every question must include both suggestion and suggested. They are separate required fields. Never omit either field.
 agreed is an array of {topicId, answer} and only for an answer the NGO gave on this turn.
 openQuestions is an array of {topicId, importance}. Use an empty array when you have none.
 When a required topic is still open, questions names one or two of those topic ids. Never invent an answer the NGO did not give. Stay within the stated need.

@@ -1,4 +1,5 @@
 import { requireEnv } from './edge.ts';
+import { requestBody } from './openai-compatible-request.ts';
 import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
@@ -9,33 +10,6 @@ const completionsUrl = (): string => {
 
 const servedModel = (): string => requireEnv('DISCOVERY_MODEL');
 
-function requestBody(request: DiscoveryModelRequest, stream: boolean): Record<string, unknown> {
-  return {
-    model: servedModel(),
-    messages: [
-      { role: 'system', content: request.system.map((block) => block.text).join('\n\n') },
-      ...request.messages.map((message, index) => index === request.messages.length - 1 && request.images?.length
-        ? { role: message.role, content: [
-            { type: 'text', text: message.content },
-            ...request.images.map((image) => ({ type: 'image_url', image_url: { url: `data:${image.mediaType};base64,${image.data}` } })),
-          ] }
-        : message),
-    ],
-    max_tokens: request.maxTokens,
-    tools: request.tools.map((tool) => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.input_schema,
-      },
-    })),
-    ...(request.toolChoice ? { tool_choice: { type: 'function', function: { name: request.toolChoice.name } } } : {}),
-    reasoning_effort: Deno.env.get('DISCOVERY_REASONING_EFFORT') || request.effort,
-    ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
-  };
-}
-
 async function post(request: DiscoveryModelRequest, stream: boolean, signal?: AbortSignal): Promise<Response> {
   return fetch(completionsUrl(), {
     method: 'POST',
@@ -43,7 +17,7 @@ async function post(request: DiscoveryModelRequest, stream: boolean, signal?: Ab
       authorization: `Bearer ${requireEnv('DISCOVERY_API_KEY')}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify(requestBody(request, stream)),
+    body: JSON.stringify(requestBody(request, stream, servedModel(), Deno.env.get('DISCOVERY_REASONING_EFFORT') || request.effort)),
     signal: signal ?? AbortSignal.timeout(120_000),
   });
 }
