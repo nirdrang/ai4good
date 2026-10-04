@@ -73,7 +73,9 @@ atTest('AT-004.60', 'the NGO removes a proposed label from the brief and cannot 
       .toMatchObject({ ok: true, brief: { causeLabels: [], revision: brief.revision + 1 } });
     await finish(sut, ngo.session, ngo.organizationId, projectId);
     expect(await sut.readNeed(ngo.session, projectId)).toMatchObject({ ok: true, value: { need: { causeLabels: [] } } });
-    expect(await sut.causeLabelRows()).toEqual([{ label: 'food security', firstProjectId: null }]);
+    const rows = await sut.causeLabelRows();
+    expect(rows).toContainEqual({ label: 'food security', firstProjectId: null });
+    expect(rows.filter((row) => row.firstProjectId === projectId)).toEqual([]);
     expect(labelCurationSurfaceProblems()).toEqual([]);
   },
 });

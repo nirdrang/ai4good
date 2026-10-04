@@ -542,7 +542,7 @@ atTest('AT-004.71', 'the Questions card shows states and jumps to the chat', { s
       const mid = GIVEN['mid-interview'];
       if (screen.backend) {
         let questions = (await screen.backend.read()).brief.questions;
-        if (questions.length < 2) {
+        for (let attempt = 0; attempt < 3 && questions.length < 2; attempt++) {
           const next = (await screen.backend.read()).brief.topics.find((topic) => !questions.some((question) => question.topicId === topic.id))!;
           await screen.review.open();
           await screen.review.answerInChat(next.title);

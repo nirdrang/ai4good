@@ -18,7 +18,6 @@ export type DataTier = (typeof DATA_TIERS)[number];
 export const FIT_VERDICTS = ['fit', 'declined'] as const;
 export type FitVerdict = (typeof FIT_VERDICTS)[number];
 import { SCOPE_CAUSE_LABELS_MAX, SCOPE_CAUSE_LABEL_MAX_CHARS, canonicalLabel } from './discovery-brief.ts';
-import { discoveryModelPort } from './discovery-model.ts';
 export { SCOPE_CAUSE_LABELS_MAX, SCOPE_CAUSE_LABEL_MAX_CHARS, canonicalLabel } from './discovery-brief.ts';
 
 export type Scope = {
@@ -185,7 +184,7 @@ export function buildScopeRequest(input: ConfirmedDiscovery, skills: readonly Di
   };
 }
 
-export async function generateConfirmedScope(input: ConfirmedDiscovery, skills: readonly DiscoverySkill[], port: MessagesPort = discoveryModelPort()) {
+export async function generateConfirmedScope(input: ConfirmedDiscovery, skills: readonly DiscoverySkill[], port: MessagesPort) {
   const request = buildScopeRequest(input, skills);
   request.model = port.model;
   const answer = await port.create(request);
