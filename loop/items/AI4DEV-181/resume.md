@@ -68,6 +68,8 @@ Rewritten at the unit 4 gate, 2026-10-03.
 
 ## Next: unit 5 (real route)
 
+Founder at the unit 4 gate, 2026-10-04: writer "Codex sol at high (Recommended)". The session resumes in the main folder: run `/controller AI4DEV-181` first to enter the worktree, restart the stack from the unit 5 writer's worktree before launch.
+
 Per plan.md: the real `DiscoveryPort` in `src/lib/discovery-port.ts` over the edge functions only
 (`discovery-conversation` load, `discovery-message`, `discovery-brief`, `discovery-file`),
 `subscribe` polling `load` while a file reads and once after each write; `DiscoveryScreen` and
