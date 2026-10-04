@@ -22,6 +22,9 @@ Deno.serve(edgeHandler('discovery-conversation', async (request: Request): Promi
   if (answer.status !== 200) return json(answer.body, answer.status);
   const project = await reads.project(projectId);
   const source = project.ok ? project.rows[0] : undefined;
+  if (source === undefined) throw new Error('The Discovery project could not be read.');
+  const organization = await reads.organization(source.org_id);
+  if (!organization.ok || organization.rows[0] === undefined) throw new Error('The Discovery organisation could not be read.');
   const usage = source === undefined ? null : screenUsage(await reads.discoveryUsage(caller.id, source.org_id, projectId));
   const files = await reads.discoveryFilesOf!(projectId);
   if (!files.ok) throw new Error(files.detail);
@@ -32,8 +35,21 @@ Deno.serve(edgeHandler('discovery-conversation', async (request: Request): Promi
   }
   const need = await needIntakeAnswer(reads, projectId);
   if (need.status !== 200) return json(need.body, need.status);
-  return json({ ...answer.body, ...(usage === null ? {} : { usage }), files: [
+  const filesView = [
     ...need.body.need.referenceFiles.map((file) => ({ origin: 'intake', id: file.id, name: file.fileName, sizeBytes: file.byteSize, tookFromIt: null })),
     ...files.rows.map(screenFile),
-  ] }, answer.status);
+  ];
+  const transcript: unknown[] = [];
+  const lines = [...answer.body.lines];
+  for (const turn of answer.body.conversation.turns) {
+    while (lines.length > 0 && Number(lines[0].id.replace('you-', '')) <= turn.baseRevision) transcript.push(lines.shift());
+    if (turn.status !== 'settled') continue;
+    if (turn.billing !== 'opening') transcript.push({ id: turn.userMessageId, role: 'user', parts: [{ type: 'text', text: turn.userMessage }] });
+    if (turn.assistantUI !== null) transcript.push(turn.assistantUI);
+    else if (turn.assistantMessage) transcript.push({ id: `${turn.id}:assistant`, role: 'assistant', parts: [{ type: 'text', text: turn.assistantMessage }] });
+  }
+  transcript.push(...lines);
+  return json({ ...answer.body, ...(usage === null ? {} : { usage }), files: filesView,
+    state: { project: { title: source.name, organizationName: organization.rows[0].name, funded: source.funded_at != null },
+      transcript, brief: answer.body.brief, files: filesView, usage, confirmation: answer.body.confirmation } }, answer.status);
 }));

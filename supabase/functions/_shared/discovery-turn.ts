@@ -42,6 +42,8 @@ export type MessagesPort = {
 export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
   return {
     id: row.id, projectId: row.project_id, seq: row.seq, status: row.status, billing: row.billing,
+    userMessageId: row.user_message_id ?? `${row.id}:user`, assistantUI: row.assistant_ui ?? null,
+    baseRevision: row.base_revision ?? 0,
     utcDay: row.utc_day.slice(0, 10), userMessage: row.user_message, assistantMessage: row.assistant_message,
     elicitation: row.elicitation, requestSettings: {
       model: row.request_settings.model, maxTokens: row.request_settings.max_tokens, effort: row.request_settings.effort,
