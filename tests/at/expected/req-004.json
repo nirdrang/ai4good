@@ -30,7 +30,7 @@
       }
     },
     "integration": {
-      "green": ["AT-004.01","AT-004.08","AT-004.11","AT-004.13","AT-004.21","AT-004.25","AT-004.37","AT-004.38","AT-004.39","AT-004.41","AT-004.42","AT-004.43","AT-004.44","AT-004.47","AT-004.48","AT-004.49","AT-004.60","AT-004.62","AT-004.63","AT-004.64","AT-004.66","AT-004.67","AT-004.69","AT-004.73"],
+      "green": ["AT-004.01","AT-004.08","AT-004.11","AT-004.13","AT-004.21","AT-004.25","AT-004.37","AT-004.38","AT-004.39","AT-004.41","AT-004.42","AT-004.43","AT-004.44","AT-004.47","AT-004.48","AT-004.49","AT-004.60","AT-004.61","AT-004.62","AT-004.63","AT-004.64","AT-004.65","AT-004.66","AT-004.67","AT-004.68","AT-004.69","AT-004.70","AT-004.71","AT-004.72","AT-004.73"],
       "red": {
         "AT-004.02": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
         "AT-004.03a": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
@@ -71,13 +71,7 @@
         "AT-004.56": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
         "AT-004.57": {"kind":"capability-pending","capabilities":["discovery.fit-decline"]},
         "AT-004.58": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
-        "AT-004.59": {"kind":"capability-pending","capabilities":["vendors.anthropic"]},
-        "AT-004.61": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
-        "AT-004.65": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
-        "AT-004.68": {"kind":"pending","phase":"sut-missing"},
-        "AT-004.70": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
-        "AT-004.71": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]},
-        "AT-004.72": {"kind":"capability-pending","capabilities":["ui.discovery-surface"]}
+        "AT-004.59": {"kind":"capability-pending","capabilities":["vendors.anthropic"]}
       }
     }
   },

@@ -1,6 +1,6 @@
 # Resume note for AI4DEV-181 (Discovery wired to backend)
 
-Rewritten at the unit 4 gate, 2026-10-03.
+Rewritten at the unit 5 gate, 2026-10-04.
 
 ## Where the run is
 
@@ -66,17 +66,36 @@ Rewritten at the unit 4 gate, 2026-10-03.
   004, 032 0; loop req-004 44, req-032 1; integration req-001 29, req-002 19, req-003 10, req-004 17,
   req-016 12, req-032 1, all matching; unit 2 proof 6 of 6.
 
-## Next: unit 5 (real route)
+- **Unit 5 (real route) is merged on the item branch** (writer codex gpt-6.1-sol high, 72 min,
+  eight commits; report `unit5-report.md`, `evidence/unit5/writer-output.md`). `src/lib/discovery-port.ts`
+  over the four edge functions, the route mounts `DiscoveryScreen` and `DiscoveryReview` behind
+  sign-in, `src/lib/discovery-chat.ts` deleted, the screen driver serves the real app at the
+  integration tier (`tests/at/suites/req-004/_screen-live.ts`). The writer left six section J tests
+  red: the free model drops required reply fields ("the reply could not be read").
+- **The integration model is muse** (founder 2026-10-04, after Haiku, free muse and Go chat
+  completions were tried): `DISCOVERY_PROVIDER=openai-responses`, `DISCOVERY_MODEL=muse-spark-1.3-contributor`,
+  `DISCOVERY_BASE_URL=https://opencode.ai/zen/go/v1`, key `DISCOVERY_API_KEY` (the opencode key).
+  New adapter `openai-responses-messages.ts` and `openai-responses-request.ts`: muse accepts only
+  `tool_choice: auto` (the forced tool is asked for in the instructions) and its strict mode
+  rejects optional properties (strict off); the adapter sends `x-opencode-session` (a hash of the
+  conversation's system head and first message) and user agent `ai4good-discovery/1.0`. Muse's
+  tool arguments arrive at the end of the turn, so reply text does not stream word by word.
+  Free muse on Zen refuses outside OpenCode; opencode's Go docs describe Go as for coding-agent
+  traffic, and the founder chose it for testing.
+- Lead fix: AT-004.65's three-files scenario no longer checks file kinds at the integration tier
+  (the reply's file report names `volunteer-rota.xlsx`).
+- Checks at the unit 5 gate, on muse, stack started from this worktree: typecheck 0; build 0;
+  at:selftest 515; at:check 001, 002, 004, 032 0; loop req-004 47, req-032 1; integration req-001 29,
+  req-002 19, req-003 10, req-004 30 (all 13 of section J), req-016 12, req-032 1, all matching;
+  unit 2 proof 6 of 6; unit 4 proof passes. Logs for bunny, Haiku and muse runs in `evidence/unit5/`.
 
-Founder at the unit 4 gate, 2026-10-04: writer "Codex sol at high (Recommended)". The session resumes in the main folder: run `/controller AI4DEV-181` first to enter the worktree, restart the stack from the unit 5 writer's worktree before launch.
+## Next: unit 6 (scope move and close-out)
 
-Per plan.md: the real `DiscoveryPort` in `src/lib/discovery-port.ts` over the edge functions only
-(`discovery-conversation` load, `discovery-message`, `discovery-brief`, `discovery-file`),
-`subscribe` polling `load` while a file reads and once after each write; `DiscoveryScreen` and
-`DiscoveryReview` mounted on `src/routes/discovery/$organizationId.$projectId.tsx` behind sign-in;
-the section J screen bodies run against the real route at the integration tier with seeded worlds
-and state checks (founder's two levels); the model-call counter reads the stack. Unit 6 follows
-plan.md.
+Per plan.md: AT-004.20, .22, .25 move to AT-036.11, .12 (new suite under `tests/at/suites/req-036/`
+with its declaration); AT-004.37, .38 retired; AT-004.58, .59 (and .60, .21 if they depend on the
+scope route) re-homed into the live brief; AT-004.10, .11, .46 checked green at integration; the
+verify-ai4good feature file and drive for the wired screen on desktop and phone; update
+`design/discovery-model-calls.md`. Then the comment audit, the pull request, and CI.
 
 ## Unit 3 scope, as decided at the unit 2 gate
 
@@ -112,5 +131,5 @@ The `--expect` declarations change only for the tests it moves. Units 4 to 6 fol
 
 ## Worktrees kept
 
-`.claude/worktrees/AI4DEV-181-unit1` (lane/ai4dev-181/unit1) and `.claude/worktrees/AI4DEV-181-unit2`
-(lane/ai4dev-181/unit2). No deletion without a founder decision.
+`.claude/worktrees/AI4DEV-181-unit1` to `-unit5` (lanes `lane/ai4dev-181/unit1` to `unit5`). No
+deletion without a founder decision.

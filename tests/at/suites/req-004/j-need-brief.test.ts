@@ -268,8 +268,10 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
       expect(text, 'three Discovery files: the first reply does not ask for files that show how you work today').not.toContain(
         given.filePhrase,
       );
-      for (const kind of given.fileKinds) {
-        expect(text, `three Discovery files: the first reply does not name ${kind}`).not.toContain(kind);
+      if (!screen.backend) {
+        for (const kind of given.fileKinds) {
+          expect(text, `three Discovery files: the first reply does not name ${kind}`).not.toContain(kind);
+        }
       }
       for (const name of GIVEN['first-reply-three-files'].files) {
         expect(await screen.files.has(name), `${name} is listed`).toBe(true);
