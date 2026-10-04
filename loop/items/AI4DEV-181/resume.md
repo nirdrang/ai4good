@@ -91,6 +91,8 @@ Rewritten at the unit 5 gate, 2026-10-04.
 
 ## Next: unit 6 (scope move and close-out)
 
+Founder at the unit 5 gate, 2026-10-04: writer "Codex sol at high (Recommended)". Before launch, copy `supabase/functions/.env` (muse settings) into the unit 6 worktree and start the stack from it.
+
 Per plan.md: AT-004.20, .22, .25 move to AT-036.11, .12 (new suite under `tests/at/suites/req-036/`
 with its declaration); AT-004.37, .38 retired; AT-004.58, .59 (and .60, .21 if they depend on the
 scope route) re-homed into the live brief; AT-004.10, .11, .46 checked green at integration; the
