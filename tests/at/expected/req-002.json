@@ -30,7 +30,7 @@
         "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
         "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
-        "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow", "triage.queue"] },
+        "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
         "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] }
       }
     },
@@ -63,7 +63,7 @@
         "AT-002.31": { "kind": "capability-pending", "capabilities": ["checkout.project-fuel"] },
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
         "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
-        "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow", "triage.queue"] },
+        "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
         "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] }
       }
     }

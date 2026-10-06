@@ -17,12 +17,12 @@ Source: requirements/req-013.md (prd-mvp.md REQ-013). Dependencies: REQ-005.5, R
 
 ## C. Needs-action surface
 
-- **AT-013.06 (P0)** — Given one item of each needs-action kind — an open blocker, an open scope-addition discussion, and a triage decision awaiting the NGO (three fixtures), When the dashboard renders, Then each appears on the needs-action surface, whose prominence is observable: a top-level region with a needs-action heading, visible on dashboard load WITHOUT opening any project detail or secondary panel; and When each item is resolved/closed, Then it leaves the surface. [cx: "prominent" given an observable criterion] [cross: AT-024/025/023 own the underlying flows]
+- **AT-013.06 (P0)** — Given one item of each needs-action kind — an open blocker, an open scope-addition discussion, and a background-review return awaiting the NGO (three fixtures) [d96], When the dashboard renders, Then each appears on the needs-action surface, whose prominence is observable: a top-level region with a needs-action heading, visible on dashboard load WITHOUT opening any project detail or secondary panel; and When each item is resolved/closed, Then it leaves the surface. [cx: "prominent" given an observable criterion] [cross: AT-024/025/023 own the underlying flows]
 - **AT-013.08 (P0)** — Given projects with structurally EMPTY data — one pre-match (no assigned volunteer), one pre-task (zero total tasks, no current requirement, no commit yet) — When the dashboard renders, Then every such project is still LISTED and each unavailable field renders its CONFIGURED empty-state sentinel — an explicit expected value per field defined in the test configuration (the copy itself is a product choice, the test pins that the configured sentinel and not a fabricated datum renders), with the zero-total-tasks percent complete rendering the configured zero-state value rather than an error or an invented number. [cx: added] [cx r2: "defined empty state" de-circularized — expected observables come from test configuration, matching the suite's configured-threshold discipline]
 
 ## D. Scope & authorization
 
-- **AT-013.07 (P0)** — Given the NGO account and a second unrelated NGO whose project carries its OWN open blocker, scope-addition discussion, and awaiting-triage item (seeded), When the dashboard renders for the first NGO, Then it is ONE NGO-wide view listing all of that NGO's projects and NONE of the other NGO's — and NONE of the other NGO's action items appears anywhere on the first NGO's needs-action surface (cross-tenant isolation covers the aggregation, not just the project list); and no applicant-queue surface exists anywhere on it (concierge — absence probe). [cx r2: needs-action leakage was untested]
+- **AT-013.07 (P0)** — Given the NGO account and a second unrelated NGO whose project carries its OWN open blocker, scope-addition discussion, and background-review return awaiting it (seeded) [d96], When the dashboard renders for the first NGO, Then it is ONE NGO-wide view listing all of that NGO's projects and NONE of the other NGO's — and NONE of the other NGO's action items appears anywhere on the first NGO's needs-action surface (cross-tenant isolation covers the aggregation, not just the project list); and no applicant-queue surface exists anywhere on it (concierge — absence probe). [cx r2: needs-action leakage was untested]
 
 ## Coverage map
 
@@ -33,6 +33,6 @@ Source: requirements/req-013.md (prd-mvp.md REQ-013). Dependencies: REQ-005.5, R
 | Current state, not stale (exact deltas; unaffected signals hold) | 03 [cx r2] |
 | Cross-project fuel summary | 04 |
 | General balance = redeployable credit (non-cash, no expiry — year-scale advance with jobs drained; completion-settlement fixture) | 05 [cx r2] |
-| Needs-action surface (blockers, scope discussions, awaiting-NGO triage), observably prominent, live | 06 [cx] |
+| Needs-action surface (blockers, scope discussions, background-review returns awaiting the NGO), observably prominent, live | 06 [cx] [d96] |
 | One NGO-wide view; own projects only incl. needs-action cross-tenant isolation; no applicant queue | 07 [cx r2] |
 | Empty states listed, configured sentinels, never fabricated (pre-match / zero-requirement fixtures) | 08 [cx r2] |

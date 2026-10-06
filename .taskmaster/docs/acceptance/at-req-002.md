@@ -42,7 +42,7 @@ Source: prd-mvp.md REQ-002 (+ REQ-004 two-layer money for allowance behavior at 
 ## E. What vetting gates (and what it never gates)
 
 - **AT-002.19 (P0)** — Given an unvetted NGO with a completed scope, When it attempts to publish, Then publishing is blocked (UI and API) while the project may sit at `scoped` indefinitely [cross: REQ-005/005.5].
-- **AT-002.20 (P0)** — Given a vetted NGO with a completed scope, When it publishes, Then the project enters triage [cross: REQ-005/023].
+- **AT-002.20 (P0)** — Given a vetted NGO with a confirmed Discovery document, When it publishes, Then the project is `open` on the marketplace at once [cross: REQ-005/023]. [d96: replaces entering triage]
 - **AT-002.28 (P0)** — Given pilot enrollment, concierge onboarding records the audited vet action and sponsored project. At most 20 NGOs enroll, one sponsored project each. Concurrent admissions cannot create a twenty-first sponsorship. Vetting raises the daily grant from 10 to 30 and never creates a second sponsorship. [d95]
 - **AT-002.21 (P0)** — Given an unvetted NGO, When it runs Discovery within its allowance, Then Discovery is never blocked by vetting status — vetting gates publishing, never Discovery.
 - **AT-002.22 (P0)** — Given an email-unverified NGO, When it attempts any Discovery message, Then it is blocked — email verification precedes Discovery, at every tier.

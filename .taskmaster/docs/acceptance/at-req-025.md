@@ -20,9 +20,9 @@ Source: requirements/req-025.md (prd-mvp.md REQ-025). Dependencies: REQ-015, REQ
 - **AT-025.07 (P0)** — Given the NGO raises an idea, When it lands (any ordinary notification being governed by REQ-015/016, not asserted here), Then no forced assignment occurs, the volunteer's active task is unchanged, no queue-jump happens, and no blocking workflow interruption exists. [cx r2: notification delivery removed as a pass condition — it belongs to the owning suites]
 - **AT-025.08 (P0)** — Given the comment-thread addition flow (the v1 surface — the structured CR surface is deferred), When the NGO engages it, Then the disclosure is observably delivered there (or via the auditable concierge disclosure): additions consume existing fuel, may extend the timeline, and are volunteer-optional — plus the never-paste-beneficiary-data/secrets/credentials warning. [cx r2: anchored to the existing thread flow — no dedicated CR surface exists to render on]
 
-## C. Re-triage guard
+## C. Founder review guard
 
-- **AT-025.09 (P0)** — Given an accepted addition that changes data sensitivity, AUP/compliance posture, or open-source fit (three fixtures), When work would start, Then the addition is paused for founder re-triage and no work on it proceeds until the re-triage passes. [cx: the converse (no-change → no re-triage) removed — discretionary re-triage is not prohibited] [cross: REQ-023]
+- **AT-025.09 (P0)** — Given an accepted addition that changes data sensitivity, AUP/compliance posture, or open-source fit (three fixtures), When work would start, Then the addition is paused for founder review and no work on it proceeds until the founder clears it. [cx: the converse (no-change → no review) removed — discretionary review is not prohibited] [cross: REQ-023] [d96: wording; this mid-build pause is unchanged and is not the background publication review]
 
 ## Coverage map
 
@@ -34,4 +34,4 @@ Source: requirements/req-025.md (prd-mvp.md REQ-025). Dependencies: REQ-015, REQ
 | One active discussion per project (outcome-based) | 06 |
 | Normal notification, but no forced assignment / task change / queue-jump / blocking interrupt | 07 |
 | NGO disclosure (fuel, timeline, optional) + data warning | 08 |
-| Sensitivity/AUP/open-source change → founder re-triage pause | 09 |
+| Sensitivity/AUP/open-source change → founder review pause | 09 |

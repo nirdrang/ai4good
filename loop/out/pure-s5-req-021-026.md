@@ -37,19 +37,19 @@ Lovable is the deliverable vehicle and the NGO's durable maintenance home: after
 
 ---
 
-#### REQ-023: Platform Triage Gate (compliance review before marketplace)
+#### REQ-023: Platform Background Review (governance guardrail after a project goes public)
 
-Every project passes a compliance gate between scope completion and publication, catching policy violations before volunteers see it. **v1: every publish is decided by the founder-reviewer; an AI advisory pass assists but holds no authority.** Nothing reaches the marketplace without a recorded human decision. The autonomous screener is deferred (→ RM-64), where the v1 review records become its calibration dataset.
+Visibility is never gated. A project is public from intake submission (REQ-005.5); the founder reviews it afterwards as a background governance guardrail, catching policy violations and taking the project down when needed. **v1: every project is read by the founder-reviewer once, when its intake card first goes public; an AI advisory pass assists but holds no authority.** Discovery, publishing, later edits, and republishes are not queued. The autonomous screener is deferred (→ RM-64), where the v1 review records become its calibration dataset.
 
-**Advisory pass (evidence, never authority):** at publish, a structured AI review evaluates the final scope snapshot on six dimensions — open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; a confidential-codebase need is flagged categorical); nonprofit purpose against the vetted profile; scope reasonableness against the complexity tier (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); data-tier correctness (Tier-2 requires a fixtures-only plan); and Discovery risk flags. It attaches versioned per-check evidence to the queue item. It never transitions project state, never emits an approve/decline recommendation (evidence only), and its unavailability never blocks review — the reviewer proceeds unaided.
+**Advisory pass (evidence, never authority):** when the intake card first goes public, a structured AI review evaluates the public intake snapshot on five dimensions — open-source alignment (all projects public MIT; commercial or closed-source-for-resale work is prohibited; a confidential-codebase need is flagged categorical); nonprofit purpose against the NGO's profile and its vetting state; scope reasonableness against the stated need (abusive scope caught here); acceptable use (no surveillance, spam, illegal use); and personal data in the public text (names, health, or other personal details of beneficiaries). The data-sensitivity tier is Discovery's and final (REQ-004); the review does not confirm it. It attaches versioned per-check evidence to the queue item. It never transitions project state, never emits a keep/return/decline recommendation (evidence only), and its unavailability never blocks review — the reviewer proceeds unaided.
 
 **Acceptance criteria:**
-- [ ] Publishing routes every project into the review queue, never directly to the marketplace; the project stays publicly invisible until a human decision.
-- [ ] The reviewer has exactly three actions: **approve → `open`**, **return to `scoped`** (a reason note to the NGO; editing and republishing re-enters review and stays invisible; prior notes visible), or **terminal decline** (non-remediable — cannot be edited and resubmitted).
-- [ ] Every decision is recorded: reviewer, timestamp, decision, reason, per-check dispositions, policy version, advisory output + version (or its recorded absence), data tier, scope snapshot — the record doubles as RM-64's evaluation dataset.
-- [ ] Queue items expose their age; the internal review target is end of the next business day (an ops target, never an NGO-facing SLA). v1 names no backup reviewer — the queue pauses during founder absence, a knowingly accepted limit.
-- [ ] A break-glass unpublish recovers an erroneous approval (REQ-031).
-- [ ] NGO copy: every publish shows an "under review" state with no formal SLA; marketplace visibility begins only at approval.
+- [ ] The intake card going public adds the project's one item to the review queue; Discovery, publishing, later edits, and republishes add none. Nothing in intake, Discovery, publishing, listing, or matching waits on the queue.
+- [ ] The reviewer has exactly three actions: **keep** (no transition), **return to `scoped`** (only while `open` with no volunteer consent; closes matching and returns the card to the intake need, releases a pending match, and sends the NGO a reason note; the NGO edits in the Discovery screen and republishes without a new queue item; prior notes visible), or **terminal decline** (→ `cancelled` from any pre-completion state, with the ordinary cancellation side effects; non-remediable — cannot be edited and resubmitted). A project still in intake or Discovery, or past consent, that needs taking down without a decline is hidden with break-glass (REQ-031).
+- [ ] Every decision is recorded: reviewer, timestamp, decision, reason, per-check dispositions, policy version, advisory output + version (or its recorded absence), the public intake snapshot — the record doubles as RM-64's evaluation dataset.
+- [ ] Queue items expose their age; the internal review target is end of the next business day (an ops target, never an NGO-facing SLA). v1 names no backup reviewer — the queue waits during founder absence while projects stay listed, a knowingly accepted limit.
+- [ ] A break-glass hide recovers a project kept in error (REQ-031).
+- [ ] NGO copy: intake submission and publishing say the project is public; no "under review" state exists. A return or decline reaches the NGO with its reason (REQ-016).
 
 ---
 
@@ -77,7 +77,7 @@ Blockers are independent of lifecycle status, separating "ghosting" from "waitin
 - An accepted addition is either top-priority (completion-blocking) or explicitly NGO-acknowledged as optional and non-blocking before completion.
 - One active scope-addition discussion per project; further asks wait or become a follow-up project.
 - The NGO is told that additions consume existing fuel, may extend the timeline, and are volunteer-optional; never paste beneficiary data, secrets, or credentials.
-- An addition that changes data sensitivity, AUP/compliance posture, or open-source fit pauses for founder re-triage before work starts.
+- An addition that changes data sensitivity, AUP/compliance posture, or open-source fit pauses for founder review before work starts.
 
 (→ RM-10, RM-29)
 

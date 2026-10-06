@@ -3,6 +3,7 @@ import { CapabilityPending } from './_bind.ts';
 export const AWAITED = {
   referenceUpload: 'storage.reference-upload',
   uploadSurface: 'ui.reference-upload-surface',
+  publishFlow: 'publish.flow',
 } as const;
 
 export type AwaitedSurface = (typeof AWAITED)[keyof typeof AWAITED];

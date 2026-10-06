@@ -45,7 +45,7 @@ async function vetOrganisation(sut: OrganizationsSut, admin: Session, organizati
 describe('AT-REQ-002 E — what vetting gates, and what it never gates', () => {
   atTest('AT-002.19', 'an unvetted NGO with a completed scope is blocked from publishing in the UI and at the API while the project may sit at scoped indefinitely', awaiting(AWAITED.publishFlow));
 
-  atTest('AT-002.20', 'a vetted NGO with a completed scope publishes and the project enters triage', awaiting(AWAITED.publishFlow, AWAITED.triageQueue));
+  atTest('AT-002.20', 'a vetted NGO with a confirmed Discovery document publishes and the project is open on the marketplace at once', awaiting(AWAITED.publishFlow));
 
   atTest(
     'AT-002.28',

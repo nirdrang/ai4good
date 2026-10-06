@@ -18,7 +18,7 @@ Source: requirements/req-031.md (prd-mvp.md REQ-031, incl. d75). Dependencies: R
 - **AT-031.07 (P0)** — Given the hide and the un-hide, When the audit record is read, Then each action carries the actor, the timestamp, and the target project — both directions audited, and the un-hide is the SAME action in reverse (same audit record type, inverse effect).
 - **AT-031.08 (P0)** — Given every non-founder role (NGO admin, the assigned volunteer, an unrelated authenticated account) AND an UNAUTHENTICATED caller, When each attempts break-glass or un-hide, Then each is rejected with NO visibility change and NO audit mutation — founder-only in both directions, including against anonymous requests. [cx r2: the unauthenticated case was missing]
 - **AT-031.09 (P0)** — Given a project hidden while `in_progress`, When the build-side surfaces are probed, Then the NGO and assigned volunteer retain their authenticated project access (dashboard, thread, Linear/mirror) AND their explicit REPO permissions (the volunteer can still push; the NGO can still read), while secret scanning and push protection remain active on the now-private repo (a sentinel-secret push is still blocked) — break-glass hides PUBLIC surfaces, it does not revoke participant access or suspend scanning. [d79: repo access + scanning continuity during the hide]
-- **AT-031.10 (P0)** — Given an erroneously APPROVED project now `open`, When break-glass fires, Then it is hidden pending the founder's follow-up through normal paths — the recovery path for a wrong triage approval exists. [cross: AT-023.17 owns the triage-side fixtures]
+- **AT-031.10 (P0)** — Given an `open` project the background review KEPT in error, When break-glass fires, Then it is hidden pending the founder's follow-up through normal paths — the recovery path for a wrong keep exists. [cross: AT-023.17 owns the review-side fixtures] [d96: keep replaces approve]
 
 ## Coverage map
 
@@ -32,4 +32,4 @@ Source: requirements/req-031.md (prd-mvp.md REQ-031, incl. d75). Dependencies: R
 | Audited both directions; un-hide = same action in reverse | 07 |
 | Founder-only (incl. unauthenticated rejection, no visibility/audit mutation) | 08 [cx r2] |
 | Public surfaces only — participant platform + repo access retained; scanning/push-protection continuous during hide | 09 [d79] |
-| Recovers erroneous triage approval | 10 |
+| Recovers a project the background review kept in error [d96] | 10 |
