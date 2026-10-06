@@ -2,7 +2,7 @@ import { AtPending, CapabilityPending } from '../../harness/pending.ts';
 export const AWAITED = {
   discoverySurface: 'ui.discovery-surface', projectFuelCheckout: 'checkout.project-fuel',
   fundedTurnBilling: 'billing.funded-turn', anthropicLive: 'vendors.anthropic',
-  referenceUpload: 'storage.reference-upload', publishFlow: 'publish.flow', triageQueue: 'triage.queue',
+  referenceUpload: 'storage.reference-upload', publishFlow: 'publish.flow',
   sensitivityTiers: 'discovery.sensitivity-tiers', fitDecline: 'discovery.fit-decline',
   prdAuthoring: 'prd.authoring', backlogDerivation: 'backlog.derivation',
 } as const;

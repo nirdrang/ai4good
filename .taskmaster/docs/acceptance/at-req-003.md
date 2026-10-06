@@ -12,7 +12,7 @@ Source: prd-mvp.md REQ-003 (isolated: requirements/req-003.md). Dependencies: RE
 - **AT-003.04 (P0)** — Given an NGO member WITHOUT the admin role (or a volunteer/visitor), When it attempts to start a Project Need for its own NGO, Then the attempt is rejected — an NGO admin starts the Need. [cx: reworded — "any NGO incl. unvetted can create a draft" (REQ-005.5) means the gate is the admin *role*, not the NGO; cross-org isolation is AT-REQ-001] [cross: REQ-001]
 - **AT-003.17 (P0)** — Given a freshly created draft (pre-Discovery), When its cause labels are read through any supported UI/API, Then none are shown — a draft legitimately carries zero cause labels until Discovery runs and generates them (REQ-004). [d90]
 
-## B. Draft autosave
+- **AT-003.18 (P0)** — Given the intake form, When it renders before submission, Then it states plainly that the title and description will be public on submission and must not contain names, health details, or other personal details of beneficiaries; and When the intake is submitted, Then its intake card is public at once (title, description, urgency) while every reference file stays private [cross: AT-011.15]. [d96]
 
 - **AT-003.05 (P0)** — Given an NGO admin typing intake content, When they navigate away or close the session WITHOUT any explicit save action, Then returning shows the draft with the typed content intact — drafts persist automatically.
 - **AT-003.06 [retired — cx: crash/network-recovery is not a REQ-003 clause; AT-003.05 already covers deterministic autosave→restore]**
@@ -46,4 +46,4 @@ Source: prd-mvp.md REQ-003 (isolated: requirements/req-003.md). Dependencies: RE
 | Drafts persist automatically, no explicit save | 05 |
 | On submission Discovery begins | 12 |
 | Raw intake retained for audit (snapshot at submission + later immutability) | 14, 16 |
-
+| Intake form warns the description is public; card public on submission, files private [d96] | 18 |

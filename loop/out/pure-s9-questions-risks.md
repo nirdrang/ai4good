@@ -18,7 +18,7 @@
 - OD-5: deferred second spend-verification layer scope → v1.5
 - OD-6: usage-metering operational home (deferred) → REQ-009
 - OD-7: PRD completion-gate threshold + scorer configuration (pilot-tuned) → REQ-036
-- OD-8: retired — v1 background review has no autonomous screener (every first publish is founder-read, REQ-023); the threshold/model questions move to RM-64's activation gate
+- OD-8: retired — v1 background review has no autonomous screener (every project is founder-read once when it goes public, REQ-023); the threshold/model questions move to RM-64's activation gate
 
 ### Risks & Mitigation
 
@@ -26,7 +26,7 @@ Rows: risk (severity): mitigation → contingency.
 
 - Volunteers exceed fuel without enforcement (High): low-balance alerts, a hard zero cut-off, a transparent ledger → NGO top-up; the platform absorbs week-1 pilot overruns.
 - AI consumes fuel with no viable deliverable (High): the first-match disclaimer, a per-project fuel cap bounding exposure, user-test checkpoints during builds, the Goal 4 target, and burn-per-deliverable on the NGO panel (REQ-034) → transparency + post-mortem; no refund; the completion record notes the outcome (REQ-012).
-- Malicious NGO posts a commercial need (High): the founder vetting gate + founder background review of every first publish (assisted by advisory findings) → return, decline, or break-glass hide; deactivate; policy documented. Accepted exposure: a listing is live before review, and later edits are not re-reviewed.
+- Malicious NGO posts a commercial need (High): the founder vetting gate + founder background review of every project when its intake goes public (assisted by advisory findings) → return, decline, or break-glass hide; deactivate; policy documented. Accepted exposure: every NGO's intake — vetted or not — is public before review; personal data typed into an intake is public until hidden (the form warns); later edits and the Discovery document are not re-reviewed.
 - Volunteers ghost mid-project (High): a 14-day inactivity reminder → 21-day auto-release → re-opened; the NGO can request re-match; responsiveness shown on the project page.
 - Payment succeeds but fuel is not credited (High): tight-cadence reconciliation detects and auto-corrects to Stripe truth → undecidable cases surface to the founder (money dashboard + notification).
 - Anthropic outage stops Discovery (High): a "service degraded" banner, queued intakes, a manual scope option → alternate provider post-v1.

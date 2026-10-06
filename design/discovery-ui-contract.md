@@ -35,13 +35,13 @@ Assess the shared process bar separately from those screens.
 
 After the NGO confirms Discovery, the process bar highlights **Volunteer match**, before PRD.
 The finished screen offers **Find a volunteer**. This action publishes the project at once; only a vetted NGO can publish.
-The founder reviews the first publish in the background; nothing waits on that review. ai4good then coordinates a volunteer match.
+The project has been public since intake as an intake card; publishing swaps the intake need for the Discovery document and opens matching. ai4good then coordinates a volunteer match.
 The volunteer must consent, and the NGO must fund kickoff before PRD work begins.
 The matching step covers publishing, finding a volunteer, consent, and funding readiness.
 These are existing workflow actions and lifecycle states. The label adds no lifecycle state and grants no approval.
 The completed Discovery chat stays complete while matching proceeds.
-Until a volunteer consents, the NGO keeps reviewing and editing the Discovery document in this screen; a confirmed edit updates the live listing.
-From volunteer consent onward this screen is read-only: it shows the consented revision with no message box, no Edit, no file add or remove, and no confirm (d96, AT-004.74).
+Until the matched volunteer starts work in the PRD screen, the NGO keeps reviewing and editing the Discovery document here; a confirmed edit updates the project page. No public surface shows that an edit happened.
+When the volunteer starts PRD work, Discovery closes: the document is frozen as the PRD's source and this screen is read-only, with no message box, no Edit, no file add or remove, and no confirm (d96, AT-004.74).
 
 ## Workspace layout
 

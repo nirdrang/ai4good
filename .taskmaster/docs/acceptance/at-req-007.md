@@ -21,7 +21,7 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 - **AT-007.07 [retired — d68: no window to shorten]**
 - **AT-007.08 (P0)** — Given an open project with zero candidates, When time passes (controlled clock), Then it stays `open` under Goal-5 aging, still publicly listed — no matching deadline of any kind exists for it. [cx r2] [d68: window reference dropped]
 
-## C. Enforce-match & consent gates
+- **AT-007.32 (P0)** — Given a project still in intake or Discovery, When a volunteer marks interest on its intake card, Then the candidacy is recorded in the match log; When the admin attempts to create a match for that project, Then it is rejected until the project is `open`; and after publish the earlier candidacy is in the pool. [d96]
 
 - **AT-007.09 (P0)** — Given a project with a non-empty candidate pool, When the admin creates a match with one of the candidates, Then a match record in state `invited` exists, and no NGO approve/decline surface exists for it — the match is binding on the NGO.
 - **AT-007.10 (P0)** — Given a project with a non-empty candidate pool, When the admin attempts an enforce-match with a volunteer NOT in that pool, Then it is rejected — matching draws from the candidate pool.
@@ -52,7 +52,7 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 ## G. Public listing (read-only v1)
 
 - **AT-007.25 (P0)** — Given two open projects posted at different times, When the public listing renders, Then they appear newest-first and each row exposes exactly: title, summary, complexity tier, needed skills, cause tags, NGO name, and posted date.
-- **AT-007.26 (P0)** — Given projects in EVERY lifecycle state other than `open` (`draft`, `discovery_in_progress`, `scoped`, `matched_pending_fuel`, `in_progress`, `completed`, `cancelled`) [d96: `triage` removed], When the OPEN-projects listing renders, Then none of them appears in it — that listing is `open` projects only. The public in-progress showcase is a different surface, owned by REQ-011. [cx: showcase split out] [cx r2: sweep completed — discovery_in_progress and completed were missing] [cross: REQ-005.5/011]
+- **AT-007.26 (P0)** — Given projects in EVERY lifecycle state, When the projects listing renders, Then it holds `discovery_in_progress` and `scoped` projects as intake cards and `open` projects as open cards, and none of `draft`, `matched_pending_fuel`, `in_progress`, `completed`, `cancelled` [d96: `triage` removed; intake-stage projects listed]. The public in-progress showcase is a different surface, owned by REQ-011. [cx: showcase split out] [cx r2: sweep completed — discovery_in_progress and completed were missing] [cross: REQ-005.5/011]
 - **AT-007.27 (P0)** — Given the public listing, When its UI, URL/query parameters, and API paths are each probed, Then no browse/sort/filter machinery responds anywhere and no public verification badge exists (deferred), while the in-product mark-interest action IS present for signed-in volunteers. [cx r2: functional probes added — control absence alone missed working query params/endpoints]
 - **AT-007.28 (P0)** — Given v1, When any surface is probed for an organic apply/accept flow, Then none exists: no volunteer self-apply endpoint creates a match, volunteer-CREATED matches and all NGO create/approve/decline operations are rejected, and mark-interest produces only a candidacy record — while a volunteer's consent to an ADMIN-created invitation remains the one allowed volunteer action on a match. [cx: added] [cx r2: actor matrix split — the blanket rejection wrongly swallowed the consent gate]
 - **AT-007.29 (P0)** — Given a logged-out visitor, When they request an open project's page, Then its public content renders — project pages are public. [cx: added] [cross: AT-001.24 owns the public/authenticated split; REQ-010 owns page content]
@@ -81,3 +81,4 @@ Source: requirements/req-007.md (prd-mvp.md REQ-007 + Promise §9 disclaimer re-
 | Org membership at first consent, never signup; recorded + audited | 19, 20 |
 | Org removal: voluntary / AUP ("promptly" = provisional 15-min bound, founder number pending) / 24-month inactivity (boundary + persisted-access probes); reversal = AUP-path re-enable + key re-issue only | 21–24 |
 | Public listing: newest-first, exact field set, open-only (in_progress showcase → REQ-011), read-only v1 (no sort/filter/badge; mutation rejected) | 25–27, 30 [cx] |
+| Mark interest from the intake card; matching only once `open` [d96] | 32 |

@@ -2,9 +2,9 @@
 
 Source: prd-mvp.md REQ-005 (isolated: requirements/req-005.md). Dependencies: REQ-004, REQ-023.
 
-**Boundary note [cx] [d96]:** REQ-005 owns the public-MIT-no-choice invariant, the publish gates (vetted, owner, no fuel deposit), `scoped → open` on publish, what the listing shows, unpublish-before-consent, and return-to-scoped visibility. Tested elsewhere (setup/cross only here): editing and confirming the Discovery document, and its read-only lock at consent → AT-REQ-004; confidential-codebase **decline at Discovery** + Tier-2 fixtures-only → AT-REQ-004; the background review **queue mechanics** → AT-REQ-023; publish/return **notifications** → AT-REQ-016; the $25/mo maintenance/pricing copy → AT-REQ-036.
+**Boundary note [cx] [d96]:** REQ-005 owns the public-MIT-no-choice invariant, the publish gates (vetted, owner, no fuel deposit), `scoped → open` on publish, what the listing shows, unpublish-before-consent, and return-to-scoped visibility. Tested elsewhere (setup/cross only here): editing and confirming the Discovery document, and its freeze when the volunteer starts PRD work → AT-REQ-004; the intake card before publish → AT-REQ-011 and AT-REQ-003; confidential-codebase **decline at Discovery** + Tier-2 fixtures-only → AT-REQ-004; the background review **queue mechanics** → AT-REQ-023; publish/return **notifications** → AT-REQ-016; the $25/mo maintenance/pricing copy → AT-REQ-036.
 
-> **d96 (2026-10-06):** there is no separate scope editor and no review gate. The NGO reviews and edits the Discovery document in the Discovery screen until a volunteer consents. Publishing lists the project at once; the founder reviews the first publish in the background (REQ-023).
+> **d96 (2026-10-06):** there is no separate scope editor and no review gate. Every project is public from intake submission as an intake card; the founder reviews it once in the background (REQ-023). The NGO reviews and edits the Discovery document in the Discovery screen until the matched volunteer starts PRD work. Publishing makes the project `open` and puts the Discovery document on its card.
 
 ## A. What the listing shows
 
@@ -12,8 +12,8 @@ Source: prd-mvp.md REQ-005 (isolated: requirements/req-005.md). Dependencies: RE
 - **AT-005.02 [retired — d96: the no-cost rule for the Discovery document is AT-004.63]**
 - **AT-005.03 [retired — d96: non-owner edits of the Discovery document are rejected by the Discovery screen's ownership rules, AT-004.64 and REQ-001]**
 - **AT-005.04 [retired — d96: free editing before consent is AT-004.64]**
-- **AT-005.19 (P0)** — Given a confirmed Discovery document carrying unique sentinel values in every section, When the NGO publishes, Then both the marketplace listing and the snapshot on the first-publish background review item contain those exact values from the latest confirmed revision — not stale content. [cx r2: end-to-end edit→publish fidelity] [d96: the snapshot is the Discovery document; the listing is checked too]
-- **AT-005.21 (P0)** — Given an `open` project before any volunteer consent, When the NGO edits the Discovery document in the Discovery screen and confirms the new revision, Then the live listing shows the new revision; and Given an edit that is saved but not yet confirmed, Then the listing still shows the last confirmed revision. [d96]
+- **AT-005.19 (P0)** — Given a confirmed Discovery document carrying unique sentinel values in every section, When the NGO publishes, Then the published project's page and card contain those exact values from the latest confirmed revision, replacing the intake need — not stale content. [cx r2: end-to-end edit→publish fidelity] [d96: the review snapshot is the intake now (AT-023.14); this checks what volunteers read]
+- **AT-005.21 (P0)** — Given an `open` project, When the NGO edits the Discovery document in the Discovery screen and confirms the new revision, Then the project page shows the new revision; Given an edit that is saved but not yet confirmed, Then the page still shows the last confirmed revision; and in both cases the card shows only the project's state — no edit marker, edit count, or "updated" signal appears anywhere public. [d96]
 
 ## B. Public MIT — no visibility choice
 
@@ -27,18 +27,18 @@ Source: prd-mvp.md REQ-005 (isolated: requirements/req-005.md). Dependencies: RE
 - **AT-005.20 (P0)** — Given an otherwise-publishable project owned by NGO A, When a different NGO, a volunteer, or a visitor attempts to publish it, Then the request is rejected and the project state is unchanged — only the owning NGO publishes. [cx r2: publish authorization, distinct from the vetting gate]
 - **AT-005.08 (P0)** — Given a vetted NGO with zero fuel on the project, When it publishes, Then publishing succeeds — no fuel deposit is required (fuel is required only at volunteer acceptance, match-first) [cross: REQ-006].
 - **AT-005.09 (P0)** — Given any publish by a vetted owning NGO, When the transition fires, Then the project moves `scoped → open` in one step; no intermediate state exists and no human or AI decision is awaited [cross: REQ-005.5/023]. [d96: replaces `scoped → triage`]
-- **AT-005.10 (P0)** — Given a publish, When it completes, Then the project is live on the marketplace immediately, before the founder has acted on its background review item [cross: REQ-023]. [d96: replaces live-only-after-approval]
+- **AT-005.10 (P0)** — Given a publish, When it completes, Then the project is `open` and matchable immediately, its card shows the Discovery document in place of the intake need, and no new background review item is created [cross: REQ-023/011]. [d96: replaces live-only-after-approval]
 - **AT-005.11 (P0)** — Given ANY publish, When the NGO views its project, Then it shows as live on the marketplace, and no "under review" or pending-approval state appears anywhere for the NGO. [d96: the under-review state is gone]
 - **AT-005.12 (P0)** — Given a project at `scoped`, When a controlled clock advances beyond every configured lifecycle deadline and the NGO takes no action, Then the project remains `scoped` — no expiry-driven or nag transition is configured for `scoped`. [cx: deterministic clock]
 
 ## D. Return-to-scoped & republish
 
-- **AT-005.13 (P0)** — Given an `open` project with no volunteer consent, When the founder's background review returns it to `scoped` with a unique non-empty reason note, Then the project moves to `scoped`, leaves the marketplace, and that exact reason value is visible to the NGO in the Discovery screen [cross: REQ-023]. [cx r2: unique reason value] [d96: return acts on a live project]
-- **AT-005.14 (P0)** — Given a project returned to `scoped` and edited in the Discovery screen, When the NGO republishes, Then it goes live at once and no new background review item is created [cross: REQ-023]. [d96: replaces re-entering review]
+- **AT-005.13 (P0)** — Given an `open` project with no volunteer consent, When the founder's background review returns it to `scoped` with a unique non-empty reason note, Then the project moves to `scoped`, matching closes and its card returns to the intake need, and that exact reason value is visible to the NGO in the Discovery screen [cross: REQ-023]. [cx r2: unique reason value] [d96: return acts on a live project]
+- **AT-005.14 (P0)** — Given a project returned to `scoped` and edited in the Discovery screen, When the NGO republishes, Then it is `open` again at once and no new background review item is created [cross: REQ-023]. [d96: replaces re-entering review]
 
 ## E. Unpublish
 
-- **AT-005.15 (P0)** — Given an `open` project before any volunteer consent, When the NGO unpublishes, Then the project returns to `scoped` and leaves the marketplace [cross: REQ-005.5].
+- **AT-005.15 (P0)** — Given an `open` project before any volunteer consent, When the NGO unpublishes, Then the project returns to `scoped`, matching closes, and its card returns to the intake need [cross: REQ-005.5]. [d96: scoped projects stay public as intake cards]
 - **AT-005.16 (P0)** — Given an `open` project with a pending (not yet consented) match invitation, When the NGO unpublishes, Then the project returns to `scoped` AND the pending match is released [cross: REQ-005.5/007]. [cx: added the return-to-scoped assertion; volunteer notification → AT-REQ-016]
 - **AT-005.17 (P0)** — Given a project after volunteer consent (`matched_pending_fuel` or `in_progress`), When the NGO attempts unpublish, Then the unpublish path is unavailable — pre-consent only. [cx: dropped the "cancel is the remaining exit" parenthetical — cancel is pre-completion-only per REQ-005.5, tested there]
 
@@ -50,9 +50,9 @@ Source: prd-mvp.md REQ-005 (isolated: requirements/req-005.md). Dependencies: RE
 
 | REQ-005 clause | Tests |
 |---|---|
-| Publishes the confirmed Discovery document; listing and review snapshot show the latest confirmed revision | 19 [d96] |
-| Before consent, a confirmed edit updates the listing; an unconfirmed edit never reaches it | 21 [d96] |
-| No separate scope editor; editing and the consent lock live in the Discovery screen | → AT-004.64, AT-004.74 [d96] |
+| Publishes the confirmed Discovery document; the card and page switch from the intake need to its latest confirmed revision | 19 [d96] |
+| A confirmed edit updates the project page; an unconfirmed edit never reaches it; no public edit signal | 21 [d96] |
+| No separate scope editor; editing and the PRD-start freeze live in the Discovery screen | → AT-004.64, AT-004.74 [d96] |
 | All projects public MIT; no visibility choice (UI absence + forbidden-mutation rejected) | 05, 05b |
 | May stay `scoped` indefinitely | 12 |
 | Publish requires vetted + owned by NGO + no mandatory funding step | 07, 08, 20 — "picks fuel amount at match acceptance" → AT-REQ-006 [cx] |
