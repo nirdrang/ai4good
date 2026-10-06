@@ -22,3 +22,4 @@ atTest('AT-004.54', 'Discovery criterion 54 awaits fitDecline', { default: await
 atTest('AT-004.55', 'Discovery criterion 55 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.56', 'Discovery criterion 56 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.57', 'Discovery criterion 57 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
+atTest('AT-004.74', 'the Discovery screen locks read-only at volunteer consent, in the UI and at the API', { default: awaiting(AWAITED.publishFlow) });

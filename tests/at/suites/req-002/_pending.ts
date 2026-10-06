@@ -5,7 +5,6 @@ export const AWAITED = {
   projectFuelCheckout: 'checkout.project-fuel',
   fundedTurnBilling: 'billing.funded-turn',
   publishFlow: 'publish.flow',
-  triageQueue: 'triage.queue',
   publicListingScreens: 'ui.public-listing-screens',
 } as const;
 

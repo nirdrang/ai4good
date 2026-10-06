@@ -58,7 +58,7 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 - **AT-004.30 (P0)** — Given genuine uncertainty about the data, When tiered, Then Tier 2 is assigned (unsure → Tier 2).
 - **AT-004.31 (P0)** — Given a no-restriction tool (no personal data), When tiered, Then Tier 0 is assigned. [cx: promoted P1→P0]
 - **AT-004.50 (P0)** — Given a tier assignment, When it lands, Then the data-exposure responsibility is attributed to the NGO, and a data-responsibility acknowledgment is required in the tier flows that mandate one (Tier 1 and Tier 2) — not universally for Tier 0. [cx r2: acknowledgment only where the tier rules require it]
-- **AT-004.51 (P0)** — Given a Discovery-assigned data tier — including one where post-Discovery scope EDITS changed the data surface (second fixture), When the project reaches triage [cross: REQ-023], Then the tier and the final edited scope are presented to the HUMAN reviewer with the advisory pass's data-tier evidence, and the tier is confirmed by the reviewer's decision — never treated as final without human confirmation. [cx: added] [d74: confirmation is the reviewer's, informed by advisory evidence; post-edit drift covered]
+- **AT-004.51 (P0)** — Given a Discovery-assigned data tier — including one where post-Discovery scope EDITS changed the data surface (second fixture), When the project is first published [cross: REQ-023], Then the tier and the Discovery document as published are presented to the HUMAN reviewer on the background review item with the advisory pass's data-tier evidence, the tier is recorded as unconfirmed until the reviewer's decision, and the decision records it as confirmed — never treated as confirmed without that human decision. [cx: added] [d74: confirmation is the reviewer's, informed by advisory evidence; post-edit drift covered] [d96: the review follows publication and reads the first-published document; the project is listed meanwhile]
 
 ## F. Maintainability-fit check & declines
 
@@ -109,6 +109,7 @@ Founder rulings on 2026-09-29, from the Discovery screen design session. Discove
 - **AT-004.71 (P0)** — Given asked questions in every state, When the Questions card renders beside the chat, Then each question shows Answered, Not sure, Open, Ready to send, or Coming next. Answer on an open question focuses that question in the chat. View on an answered question scrolls to and highlights its answer in the chat. Write my own opens free text for any question. Send works with at least one answer; unanswered questions carry over to the next round, marked as still open.
 - **AT-004.72 (P0)** — Given free and paid modes, When the usage display renders, Then one bar shows free replies first and paid fuel after, with daily and fuel values in one card; the card stays visible while the brief is open; no usage text sits beside Send; and on a 390-pixel phone the bar sits directly above the message box. The message box starts at one line and grows with the text. [d95]
 - **AT-004.73 (P0)** — Given the live brief, When the NGO opens it on desktop, Then a side panel opens beside the chat with each section's status and an Edit per section that reopens that question in the chat. When opened on a phone, Then a full-screen panel labeled as the live brief opens with Back to chat.
+- **AT-004.74 (P0)** — Given a project at `scoped` and the same project at `open` before any volunteer consent, When the NGO opens the Discovery screen, Then it can chat, edit a section, add or remove a file, and confirm a new revision. Given the project after volunteer consent (`matched_pending_fuel` and `in_progress` fixtures), When the NGO opens the Discovery screen, Then it shows the consented revision read-only: no message box, no Edit, no file add or remove, no confirm; and a direct API attempt at each of those actions is rejected with the document unchanged. [d96] [cross: REQ-005.5 owns the consent transition]
 
 ## Coverage map
 
@@ -124,7 +125,7 @@ Founder rulings on 2026-09-29, from the Discovery screen design session. Discove
 | Cause-taxonomy generation: reuses existing vocabulary before inventing; grows only for genuinely new domains; may legitimately emit zero | 58, 59 [d90] |
 | Correction is remove-only; no NGO/admin control to invent or curate a cause label anywhere | 60 [d90] |
 | Scope contract — Discovery is PRD source + scorer reference; initial backlog from the gated PRD, never Discovery | 24, 52 |
-| Sensitivity tiers 0/1/2, ask-first, unsure→2, category floor; NGO owns risk (ack per tier rules); triage confirms tier; per-tier doc explanation | 25, 26–31, 50, 51 |
+| Sensitivity tiers 0/1/2, ask-first, unsure→2, category floor; NGO owns risk (ack per tier rules); background review confirms tier [d96]; per-tier doc explanation | 25, 26–31, 50, 51 |
 | Maintainability fit + declines (recorded, no waitlist); sensitivity never a decline reason | 32–36 |
 | Decline-then-review: one event → NGO message + durable project record + exactly one ops item + admin notice | 53 [d89] |
 | Declined project stays visible in the NGO's list; decline copy carries the oversight sentence | 54 [d89] |
@@ -141,5 +142,6 @@ Founder rulings on 2026-09-29, from the Discovery screen design session. Discove
 | First reply asks for files; automatic read; background digest; large files in parts | 65, 66, 68, 69 [d94] [founder decision 2026-10-01] |
 | Three Discovery files while not funded; intake excluded | 70 [d94] |
 | Questions card, usage bar, growing message box, brief panel on desktop and phone | 71, 72, 73 [d94] |
+| The Discovery screen is the one editor before and after publishing; read-only from volunteer consent (UI and API) | 74 [d96] |
 | Moving to the PRD step in the Discovery screen item | 20, 22, 25, 37, 38 [d94] |
 | Retired to owning suites [cx]: valid-output→scoped + invalid→retry→admin (REQ-005.5); ledger label (REQ-006); category attribution (REQ-034) | — |

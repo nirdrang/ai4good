@@ -7,7 +7,7 @@
 > This private participant workspace supplements the public project page. The NGO never receives development board access.
 
 > **Source of truth:** `.taskmaster/docs/prd-mvp.md` (v1 build spec, pure requirements).
-> **Written 2026-07-16; updated 2026-07-18** to the d74–d81 decisions: founder-decided triage
+> **Updated 2026-10-06 (d96):** publishing is never gated — a publish is live at once and the founder reviews the first publish in the background; the Discovery screen is the only editor of the Discovery document and is read-only from volunteer consent. Rows 8, 9 and 25 and the lifecycle below follow d96. to the d74–d81 decisions: founder-decided triage
 > (no auto-publish), break-glass = audited visibility switch, assistant window = first kickoff →
 > terminal, participants-only comment thread + the two-layer public-page rule, status
 > provenance (self-assign → In Progress, verified merge → Done), candidacy window removed (d68).
@@ -53,7 +53,7 @@ NGO owns and keeps evolving itself via chat**. ai4good is a *coordination layer*
   One volunteer per project (REQ-001). Their real workbench is Claude Code + the ai4good Skill;
   the platform UI is their coordination surface (candidacies, consent, key, blockers, done).
   Tolerates density.
-- **Platform admin / founder-concierge.** Internal operator: vetting, exception triage, match
+- **Platform admin / founder-concierge.** Internal operator: vetting, background publication review, match
   concierge, money oversight. Density and control over polish.
 - **Logged-out visitor.** Project pages and listings are public (REQ-010/011) — the public sees
   what ai4good is building. Design public surfaces to read well with zero context.
@@ -158,7 +158,7 @@ contract rather than to classes, structure, or button text.
 - **Role-aware primary nav** (starting hypothesis — refine in Batch 0):
   - NGO: Dashboard · My Projects · Post a need · Credit & funding · Help
   - Volunteer: Dashboard · Open projects · My projects · Profile · Help
-  - Admin: Concierge (matching + vetting) · Exceptions (triage) · Money · Ops
+  - Admin: Concierge (matching + vetting) · Review queue · Money · Ops
 - **"Action needed" rail** — a recurring panel surfacing the user's next required action (fund
   a match, answer a clarification, resolve a blocker, top up fuel, complete Lovable setup).
   A signature pattern: design it once, reuse on both dashboards and the project page.
@@ -171,8 +171,8 @@ It can appear above a stage screen, including Discovery, without becoming part o
 The bar displays workflow state. Gate actions retain their existing authorization and approval rules.
 Assess the bar separately. A Discovery screen does not need to contain the other stages or publishing screens.
 These process labels do not add lifecycle states.
-After Discovery confirmation, highlight Volunteer match and offer Find a volunteer through the existing publication review flow.
-Human review, volunteer consent, and funding kickoff precede PRD work. Discovery remains complete while matching proceeds.
+After Discovery confirmation, highlight Volunteer match and offer Find a volunteer, which publishes the project at once (vetted NGOs only).
+Volunteer consent and funding kickoff precede PRD work. The NGO can keep editing the Discovery document in the Discovery screen until a volunteer consents; from consent the screen is read-only.
 
 ## 7. Reusable components (design once in Batch 0, reuse verbatim)
 
@@ -277,7 +277,7 @@ Human review, volunteer consent, and funding kickoff precede PRD work. Discovery
 
 ## 9. Lifecycle: exactly 9 states (drive every status chip and available action)
 
-`draft → discovery_in_progress → scoped → triage → open → matched_pending_fuel → in_progress
+`draft → discovery_in_progress → scoped → open → matched_pending_fuel → in_progress
 → completed`, plus `cancelled` (terminal). (REQ-005.5)
 
 - **No `paused` state** — never design pause/resume. Unpublish is `open → scoped`.
@@ -291,7 +291,7 @@ Human review, volunteer consent, and funding kickoff precede PRD work. Discovery
   stays visible in the NGO's complete project list, carrying its durable decline record
   (cause, date, reshaping suggestion). The **only reverse transition in the table**: the
   platform admin, disposing the decline's review item as OVERTURNED, reopens Discovery —
-  same conversation, NGO notified. Human-chosen cancellations (the NGO's own, the triage
+  same conversation, NGO notified. Human-chosen cancellations (the NGO's own, the background-review
   decline) remain irreversibly terminal. Fuel released to the general balance at decline
   does not return on reopen — the reopened Discovery runs on free daily credits.
 - Each screen reflects state: a project in `open` shows "mark interest" (volunteer view); in
@@ -341,8 +341,8 @@ lifecycle badges.
 | 5 | Project intake | Title, problem description, cause tags, urgency; optional reference-file upload; **drafts persist automatically** (no save button) | — | REQ-003 |
 | 6 | **Discovery chat** | NGO and AI question workspace with live brief. Reuse intake facts; order dependent questions; support suggested, custom, and uncertain answers. Show only the Discovery gauge, daily turns left of the grant, paid USD, and Free/Paid before Send. Inherit the app font and src/styles.css tokens. NGO confirms the current brief. Revision 5 usability rules: a compact progress strip keeps Finish Discovery on screen; one finish action; each AI reply lists the brief topics it added; labeled Edit buttons; the brief before the usage card; one plain cost sentence first in the usage card; fuel left and low-fuel warning beside Send in paid mode; Buy fuel only after free replies are used, with its $50 minimum. Revisions 7 to 9: independent questions together by default; a suggested approach on each question; guidance on uncertain answers; "Send paid reply" in paid mode; "More fuel needed to reply" when fuel cannot cover the hold; expandable brief sections and a whole-brief view with Back to chat; no opening View brief shortcut. Revision 10: Finish Discovery is always active; review lists missing critical information; the NGO can acknowledge the gaps and finish anyway; accepted gaps stay in the brief and coverage stays accurate. See discovery-ui-contract.md (section "Usability rules from the NGO critique") and change orders 008, 009, 010, and 011 | free; paid; daily cap; no fuel; pending usage; streaming; retry; edited answer needs review; brief ready; approved; existing decline and admin-overturn states | REQ-004/002/005.5/006 |
 | 7 | Reference files | Upload at intake, mid-Discovery, or from project page (pre-completion). List with name/type/uploader/description; data-responsibility disclosure ("redacted/sample data only — ai4good and the volunteer will see these"); downloads restricted to NGO/volunteer/admin | default disclosure / **Tier-2 hard fixtures-only acknowledgment** / upload error | REQ-032 |
-| 8 | Scope document editor | Editable: summary, user stories + nested ACs, suggested stack. Read-only context: complexity tier + rationale (**no dollars**), data-sensitivity tier (Tier-2 renders fixtures-only plan), maintainability verdict, Lovable recommendation + build split, "Lovable paid directly ~$25/mo" disclaimer, start-small advice. The NGO's Discovery review is the last step of Discovery: explain Lovable in plain words; say ai4good gives no support after handoff in v1; keep the confirmation card in view (fixed jump bar on narrow screens); no success mark before confirmation; a plain explanation under the data-responsibility checkbox (change order 009) | invalid-output retry | REQ-005 |
-| 9 | Publish → triage | Publish CTA (vetted only; unvetted see "get vetted to publish"). **Every publish is founder-reviewed (d74 — no auto-publish exists):** every NGO sees the same calm "under review" state (no SLA promise). Exactly three outcomes: approved → live / returned-to-scoped with the founder's reason note (edit + republish) / terminally declined | unvetted-blocked / under-review / returned-to-scoped / terminally-declined | REQ-005/023 |
+| 8 | Discovery document (no separate editor) | **Retired as a separate screen (d94, d96).** The NGO reviews and edits the Discovery document only in the Discovery screen (`design/discovery-ui-contract.md`); the technical scope is in the PRD workspace. Editable at `scoped` and `open`; read-only from volunteer consent, showing the consented revision | read-only after consent | REQ-004/005 |
+| 9 | Publish → live | Publish CTA (vetted only; unvetted see "get vetted to publish"). **Publishing is never gated (d96):** the project is live on the marketplace at once and the NGO sees it as live — no "under review" state. The founder's background review may later return it to scoped with a reason note (edit in Discovery + republish, live again at once) or terminally decline it | unvetted-blocked / live / returned-to-scoped / terminally-declined | REQ-005/023 |
 
 ### Batch 3 — NGO: dashboard, fund, run, complete
 | # | Screen | Purpose & key elements | States | REQ |
@@ -374,7 +374,7 @@ lifecycle badges.
 | # | Screen | Purpose & key elements | States | REQ |
 |---|--------|------------------------|--------|-----|
 | 24 | Concierge console | Candidate pools per project (**no candidacy window / no countdown — d68 removed it**; the concierge matches from the pool at their own judgment); create enforce-match (binding, no NGO approval); **match log** (candidacy/invite/consent/decline/expiry/release, timestamps, reasons); unmatched-aging queue (7d); audited **vet/unvet action** (legal name, public reference link, contact name+title+attestation, evidence type, note) | — | REQ-007/002 |
-| 25 | Founder review queue (triage, d74) | **Every publish lands here** — no auto-approval exists. Per item: the no-authority ADVISORY panel (versioned per-check evidence across the six dimensions; deliberately NO recommendation; advisory outage never blocks deciding). Three decision actions: approve → live / return-to-scoped (reason note to NGO) / terminal decline — each recorded with per-check dispositions, policy + advisory versions, and an override-rationale field (the RM-64 calibration dataset). Item age exposed; the queue simply pauses during founder absence (accepted). **Break-glass** = the d75/d79 visibility switch: one audited, reversible, founder-only action hiding listing + showcase + page + repo — never a lifecycle change; un-hide is the same action in reverse | aging item / advisory-unavailable / hidden-project | REQ-023/031 |
+| 25 | Founder review queue (background, d96) | **Every first publish lands here, already live** — the queue never holds a project; later edits and republishes add no item. Per item: the no-authority ADVISORY panel (versioned per-check evidence across the six dimensions; deliberately NO recommendation; advisory outage never blocks deciding). Three decision actions: keep (no change, no notice) / return-to-scoped (only before volunteer consent; takes it off the marketplace, reason note to NGO) / terminal decline — each recorded with per-check dispositions, policy + advisory versions, and an override-rationale field (the RM-64 calibration dataset). Item age exposed; during founder absence items wait and projects stay listed (accepted). **Break-glass** = the d75/d79 visibility switch: one audited, reversible, founder-only action hiding listing + showcase + page + repo — never a lifecycle change; un-hide is the same action in reverse; it covers problems found after consent | aging item / advisory-unavailable / hidden-project | REQ-023/031 |
 | 26 | Money dashboard (the one v1 dashboard) | Funding, consumption, platform share, reconciliation status, chargebacks; auto-corrections visible (never approved — visibility only); **undecidable drift** surfaced for human attention; founder-read daily | drift-flagged | REQ-030 |
 | 27 | Ops items | Work items vs service targets (vetting batch, provisioning failures, chargeback reviews, incidents); **fit-decline review items are a NEW KIND (d89) — a machine decision awaiting a human, not an incident; read differently from incidents. Each shows the project, the decline cause, and the full Discovery conversation, with exactly two dispositions: uphold (item closes quietly; project stays cancelled; no NGO notification) / overturn (the ONLY door back from cancelled — reopens Discovery + notifies the NGO; give the action that weight). Dispositions are recorded — the decline evaluator's calibration dataset**; admin actions: per-NGO Discovery kill switch, account deactivation (AUP), contact-transfer/recovery. (Break-glass hide/un-hide lives on screen 25 — one audited visibility switch, not a repo-only action) | — | REQ-006/030/031 |
 
