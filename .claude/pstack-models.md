@@ -22,7 +22,7 @@ arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, cl
 arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: grok:grok-4.7@xhigh
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
-interrogate reviewers: codex:gpt-6.1-sol@high, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
+interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@high
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -33,6 +33,20 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### The fork is retired and the two opencode lanes leave, 2026-10-12
+
+By founder ruling and not by measurement: the project installs plain upstream open-pstack 1.6.1
+(`pstack@open-pstack`) instead of the fork `nirdrang/open-pstack`. Upstream has no opencode
+provider, so the runner would refuse both opencode lanes. `interrogate reviewers` drops from five
+lanes to three: the muse lane and the DeepSeek Flash lane leave, and the sol, grok and opus lanes
+are unchanged. No other row named opencode.
+
+There is no undo on this sheet alone: the two lanes need the fork's opencode provider back. With
+it, the two descriptors were:
+
+    opencode:opencode-go/muse-spark-1.3-contributor@xhigh
+    opencode:opencode-go/deepseek-v4.1-flash@max
 
 ### Sol down to high everywhere, opus takes hillclimb and hardest tasks, 2026-10-02, second change
 

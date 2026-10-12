@@ -48,20 +48,14 @@
     "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nirdr\\Downloads\\ai4good\\loop\\work\\statusline.ps1\""
   },
   "enabledPlugins": {
-    "pstack@open-pstack-nirdrang": true,
-    "self-compact-gate@ai4good-local": true
+    "self-compact-gate@ai4good-local": true,
+    "pstack@open-pstack": true
   },
   "extraKnownMarketplaces": {
     "open-pstack": {
       "source": {
         "source": "github",
         "repo": "ericlitman/open-pstack"
-      }
-    },
-    "open-pstack-nirdrang": {
-      "source": {
-        "source": "github",
-        "repo": "nirdrang/open-pstack"
       }
     },
     "ai4good-local": {
