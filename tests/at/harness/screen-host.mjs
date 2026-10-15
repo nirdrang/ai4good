@@ -40,12 +40,15 @@ function locate(page, chain) {
   let loc = page;
   for (const step of chain) {
     const exact = step.exact !== false;
-    if (typeof step.role === 'string') {
+    if (typeof step.testId === 'string') {
+      loc = loc.getByTestId(step.testId);
+      if (typeof step.text === 'string') loc = loc.filter({ hasText: step.text });
+    } else if (typeof step.role === 'string') {
       loc = loc.getByRole(step.role, { name: step.name, exact });
     } else if (typeof step.text === 'string') {
       loc = loc.getByText(step.text, { exact });
     } else {
-      throw new Error('a locator step needs a role or text');
+      throw new Error('a locator step needs a testId, a role, or text');
     }
     if (step.position === 'last') loc = loc.last();
     else if (typeof step.position === 'number') loc = loc.nth(step.position);

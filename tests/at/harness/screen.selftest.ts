@@ -3,14 +3,20 @@ import { eventually, mimeType, shellUrl } from './screen.ts';
 
 describe('shellUrl', () => {
   it('opens the chat for a scenario', () => {
-    expect(shellUrl('http://127.0.0.1:9', 'first-reply', 'chat')).toBe(
+    expect(shellUrl('http://127.0.0.1:9', 'first-reply', 'discovery')).toBe(
       'http://127.0.0.1:9/?scenario=first-reply&pace=test#discovery',
     );
   });
 
   it('opens the review for a scenario', () => {
-    expect(shellUrl('http://127.0.0.1:9', 'first-reply', 'review')).toBe(
+    expect(shellUrl('http://127.0.0.1:9', 'first-reply', 'discovery-review')).toBe(
       'http://127.0.0.1:9/?scenario=first-reply&pace=test#discovery-review',
+    );
+  });
+
+  it('adds query params before the route', () => {
+    expect(shellUrl('http://127.0.0.1:9', 'first-reply', 'prd-workspace', 'demo', { viewer: 'Maya Levi' })).toBe(
+      'http://127.0.0.1:9/?scenario=first-reply&pace=demo&viewer=Maya%20Levi#prd-workspace',
     );
   });
 });

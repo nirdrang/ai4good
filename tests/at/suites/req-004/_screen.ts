@@ -538,11 +538,12 @@ export function discoveryScreens() {
     const { w, sut } = await ctx.open();
     const seed = stack ? await seedDiscoveryScreen(sut, w.email('screen'), given.scenario) : null;
     const start = GIVEN[given.scenario].start === 'review' ? 'review' : 'chat';
+    const route = start === 'review' ? 'discovery-review' : 'discovery';
     const opened = await driver.open({
       viewport: given.viewport,
       colorScheme: given.colorScheme,
       probeName: MODEL_CALL_PROBE,
-      url: (base) => seed ? `${base}/discovery/${seed.scope.organizationId}/${seed.projectId}${start === 'review' ? '#review' : ''}` : shellUrl(base, given.scenario, start, given.pace ?? 'test'),
+      url: (base) => seed ? `${base}/discovery/${seed.scope.organizationId}/${seed.projectId}${start === 'review' ? '#review' : ''}` : shellUrl(base, given.scenario, route, given.pace ?? 'test'),
       ...(seed ? { storageState: (base: string) => ({ cookies: [] as never[], origins: [{ origin: base, localStorage: [{ name: `sb-${new URL(stack!.apiUrl).hostname.split('.')[0]}-auth-token`, value: JSON.stringify(seed.authSession) }] }] }) } : {}),
     });
     try {
