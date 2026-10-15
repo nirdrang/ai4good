@@ -55,6 +55,17 @@
       "status": "draft"
     },
     {
+      "id": "prd-workspace",
+      "title": "PRD workspace",
+      "canvas": "https://claude.ai/artifact/2C3E67dNymAStfLY5GSdxn",
+      "canvasCopy": "design/canvas/prd-workspace/project/",
+      "audience": "developer-and-ngo",
+      "status": "design-complete",
+      "reviewRevision": 65,
+      "reviewDocument": "design/canvas/prd-workspace/review.md",
+      "contract": "design/prd-ui-contract.md"
+    },
+    {
       "id": "design",
       "title": "Design workspace",
       "source": "design-review.html",

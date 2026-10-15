@@ -4,7 +4,7 @@ Codex plays the screen's user and operates a local copy of the canvas. It report
 
 ## The model
 
-The founder chose GPT-6.1 Sol at `high` effort on 2026-10-01. The Codex id is `gpt-6.1-sol`. Name the model and the effort in every run, so the run does not depend on the local Codex default.
+GPT-6 Astra at `low` effort, by founder ruling on 2026-10-11: "which model are you using this should be astra low". The Codex id is `gpt-6-astra`; the local Codex model list on 2026-10-11 lists `low` for it. Name the model and the effort in every run, so the run does not depend on the local Codex default. Until 2026-10-11 it was GPT-6.1 Sol at `high` (founder, 2026-10-01); to undo, use `-m gpt-6.1-sol -c model_reasoning_effort=high`.
 
 ## Run it
 
@@ -13,7 +13,7 @@ The founder chose GPT-6.1 Sol at `high` effort on 2026-10-01. The Codex id is `g
 3. Write the prompt file from the template below, and run Codex as a background command:
 
    ```powershell
-   Get-Content <prompt file> -Raw | codex exec -m gpt-6.1-sol -c model_reasoning_effort=high --skip-git-repo-check -C <empty folder> -o <report file> -
+   Get-Content <prompt file> -Raw | codex exec -m gpt-6-astra -c model_reasoning_effort=low --skip-git-repo-check -C <empty folder> -o <report file> -
    ```
 
 4. Stop the server. Its background task then reports exit code 255; that is expected.
