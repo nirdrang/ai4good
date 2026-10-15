@@ -20,7 +20,7 @@ why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
 arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
-swarm workers: grok:grok-4.7@xhigh
+swarm workers: claude:sonnet@high
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
 interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@high
 
@@ -33,6 +33,16 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Swarm workers move from grok to Sonnet, 2026-10-14
+
+By founder ruling and not by measurement. Written by hand on pstack 1.6.1, which had no Sonnet
+row in its model matrix. pstack 1.8.0, installed 2026-10-15, adds the Sonnet family and ships the
+`pstack-sonnet-*` agents, so the lane dispatches natively through `pstack-sonnet-high`.
+
+To undo:
+
+    grok:grok-4.7@xhigh
 
 ### The fork is retired and the two opencode lanes leave, 2026-10-12
 
