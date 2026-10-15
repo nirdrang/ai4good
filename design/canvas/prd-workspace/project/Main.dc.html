@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PRD workspace desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a;background:#ffffff}
+a{color:#0f172a}a:hover{color:#334155}
+button,select,textarea{font:inherit;color:inherit}
+.chip:hover{border-color:#64748b}
+.topic:hover{background:#f8fafc}
+.textlink:hover{color:#0f172a;text-decoration:underline}
+.grow{field-sizing:content;max-height:140px}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #ffffff; overflow: hidden">
+<div style="height: 56px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid #e2e8f0">
+<span style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em">ai4good</span>
+<span style="width: 1px; height: 22px; background: #e2e8f0"></span>
+<span style="font-size: 14px; color: #64748b">Harbor Community Kitchen · Volunteer scheduling</span>
+<span style="flex-grow: 1"></span>
+<span data-testid="prototype-viewer-switch" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px dashed #94a3b8; border-radius: 10px; font-size: 11px; color: #64748b">Prototype only · view as
+<button type="button" onClick="{{ viewDev }}" aria-pressed="{{ isDev }}" style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid {{ devSwBorder }}; background: {{ devSwBg }}; color: {{ devSwFg }}; font-size: 12px; font-weight: 600; cursor: pointer">Priya (Dev)</button>
+<button type="button" onClick="{{ viewNgo }}" aria-pressed="{{ isNgo }}" style="min-height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid {{ ngoSwBorder }}; background: {{ ngoSwBg }}; color: {{ ngoSwFg }}; font-size: 12px; font-weight: 600; cursor: pointer">Maya (NGO)</button>
+</span>
+</div>
+<nav aria-label="Project stages" data-testid="process-bar" style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 10px 24px; border-bottom: 1px solid #e2e8f0; font-size: 12px">
+<sc-for list="{{ stages }}" as="s" hint-placeholder-count="8">
+<span data-testid="process-stage" data-testkey="{{ s.key }}" aria-current="{{ s.current }}" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid {{ s.border }}; background: {{ s.bg }}; color: {{ s.fg }}; font-weight: {{ s.weight }}">
+<sc-if value="{{ s.done }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg></sc-if>
+{{ s.label }}</span>
+</sc-for>
+</nav>
+<sc-if value="{{ closed }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-closed-banner" role="status" style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #86efac; background: #f0fdf4; font-size: 13px; color: #166534">
+<strong style="flex-grow: 1; min-width: 0; font-weight: 600">{{ bannerText }}</strong>
+<sc-if value="{{ hasBannerNote }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #475569">{{ bannerNote }}</span></sc-if>
+<sc-if value="{{ showOpenDesign }}" hint-placeholder-val="{{ false }}"><button type="button" data-testid="prd-open-ui-design" onClick="{{ openDesign }}" style="min-height: 36px; padding: 0 14px; border-radius: 8px; border: 0; background: #0f172a; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Open UI Design</button></sc-if>
+</div>
+<sc-if value="{{ designNote }}" hint-placeholder-val="{{ false }}"><div role="status" data-testid="prd-ui-design-note" style="flex-shrink: 0; padding: 8px 24px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #334155">This opens the UI Design screen. It is designed in its own item, so this preview ends here.</div></sc-if>
+</sc-if>
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 0">
+<aside aria-label="Project PRD" style="min-height: 0; display: flex; flex-direction: column; border-right: 1px solid #e2e8f0; padding: 20px; gap: 16px">
+<div>
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h2 style="margin: 0; font-size: 16px">Project PRD</h2>
+<span data-testid="prd-revision" style="font-size: 12px; color: #64748b">Revision {{ rev }}</span>
+</div>
+<div data-testid="prd-topic-progress" style="margin-top: 10px">
+<div style="font-size: 13px; color: #334155"><strong style="font-size: 18px; color: #0f172a">{{ confirmed }} of {{ total }}</strong> required topics confirmed</div>
+<div style="margin-top: 8px; height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden"><div style="height: 8px; width: {{ progressWidth }}; background: #16a34a"></div></div>
+</div>
+<div data-testid="prd-close-panel" data-ready="{{ closeReady }}" style="margin-top: 12px; padding: 10px 12px; border: 1px solid {{ closeFrame }}; border-radius: 10px; background: {{ closeBg }}; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; font-weight: 700; color: #0f172a">{{ closeTitle }}</div>
+<sc-if value="{{ closeHasItems }}" hint-placeholder-val="{{ true }}">
+<ul data-testid="prd-close-remaining" style="margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.5; color: #475569">
+<sc-for list="{{ closeItems }}" as="ci" hint-placeholder-count="3"><li data-testid="prd-close-remaining-item" data-testkey="{{ ci.key }}">{{ ci.text }}</li></sc-for>
+</ul>
+</sc-if>
+<sc-if value="{{ closeLink }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-close-button" onClick="{{ closePrd }}" style="border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; min-height: 40px; border-radius: 8px; background: #2563eb; color: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none">Close PRD</button>
+</sc-if>
+<sc-if value="{{ ngoCloseNote }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #64748b">Only Priya can close the PRD.</div>
+</sc-if>
+</div>
+</div>
+<ul data-testid="prd-topic-list" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; min-height: 0">
+<li>
+<button type="button" class="topic" data-testid="prd-main-chat-item" aria-pressed="{{ onMain }}" onClick="{{ showMain }}" style="width: 100%; text-align: left; cursor: pointer; padding: 10px 12px; border-radius: 10px; border: 1px solid {{ mainItemFrame }}; background: {{ mainItemBg }}; display: flex; align-items: center; gap: 8px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+<span style="flex-grow: 1; font-size: 14px; font-weight: 600">Main chat</span>
+</button>
+</li>
+<sc-for list="{{ topics }}" as="tp" hint-placeholder-count="6">
+<li>
+<button type="button" class="topic" data-testid="prd-topic-item" data-testkey="{{ tp.id }}" aria-pressed="{{ tp.selected }}" onClick="{{ tp.focus }}" style="width: 100%; text-align: left; cursor: pointer; padding: 10px 12px; border-radius: 10px; border: 1px solid {{ tp.frame }}; background: {{ tp.bg }}; display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; align-items: center; gap: 8px">
+<span style="flex-grow: 1; font-size: 14px; font-weight: 600">{{ tp.name }}</span>
+<span data-testid="prd-topic-state" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px {{ tp.badgeLine }} {{ tp.badgeBorder }}; background: {{ tp.badgeBg }}; color: {{ tp.badgeFg }}">
+<sc-if value="{{ tp.isConfirmed }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg></sc-if>
+{{ tp.state }}</span>
+</span>
+<sc-if value="{{ tp.hasBlocker }}" hint-placeholder-val="{{ false }}">
+<span data-testid="prd-topic-blocker" style="font-size: 12px; color: {{ tp.blockerColor }}">{{ tp.blocker }}</span>
+</sc-if>
+</button>
+</li>
+</sc-for>
+</ul>
+<div style="margin-top: auto; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px" data-testid="prd-usd-gauge" data-band="{{ band }}">
+<div style="font-size: 12px; font-weight: 600; color: #0f172a">PRD funds</div>
+<div style="margin: 8px 0; height: 8px; border-radius: 4px; background: #e2e8f0; overflow: hidden; display: flex"><div style="height: 8px; width: {{ spentWidth }}; background: {{ bandColor }}"></div><div style="height: 8px; width: {{ pendingWidth }}; background: repeating-linear-gradient(45deg, #94a3b8 0 4px, #cbd5e1 4px 8px)"></div></div>
+<div style="font-size: 13px; color: {{ bandText }}"><strong data-testid="prd-usd-available">{{ availText }}</strong> left of {{ allocText }}<sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}"><span data-testid="prd-usd-pending" style="color: #64748b"> · {{ pendingText }} pending</span></sc-if></div>
+<sc-if value="{{ lowFunds }}" hint-placeholder-val="{{ false }}"><div data-testid="prd-usd-out" style="margin-top: 4px; font-size: 12px; font-weight: 600; color: #991b1b">Not enough left for another AI reply. The kitchen adds funds to continue.</div></sc-if>
+</div>
+</aside>
+<section aria-label="PRD chat" style="min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 16px 24px 20px; gap: 12px">
+<sc-if value="{{ onMain }}" hint-placeholder-val="{{ true }}">
+<div id="chat-scroll" data-testid="prd-chat" style="flex-grow: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 6px">
+<sc-for list="{{ turns }}" as="t" hint-placeholder-count="5">
+<sc-if value="{{ t.isDay }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-day-divider" style="display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 600; color: #64748b"><span style="flex-grow: 1; height: 1px; background: #e2e8f0"></span>{{ t.dayText }}<span style="flex-grow: 1; height: 1px; background: #e2e8f0"></span></div>
+</sc-if>
+<sc-if value="{{ t.isEvent }}" hint-placeholder-val="{{ false }}">
+<div id="{{ t.id }}" data-testid="prd-section-event" style="align-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 12px; color: #1e40af"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>{{ t.eventText }}<sc-if value="{{ t.hasSectionLink }}" hint-placeholder-val="{{ false }}"><button type="button" class="textlink" data-testid="prd-open-section-chat" onClick="{{ t.openSectionLink }}" style="margin-left: 4px; padding: 0; border: 0; background: transparent; font-size: 12px; font-weight: 700; color: #1e40af; cursor: pointer">Open</button></sc-if></div>
+</sc-if>
+<sc-if value="{{ t.isHuman }}" hint-placeholder-val="{{ false }}">
+<div id="{{ t.id }}" tabindex="-1" data-testid="prd-turn" data-testkey="{{ t.id }}" data-actor="dev" style="outline: none; align-self: flex-end; max-width: 74%; padding: 10px 14px; border-radius: 12px 12px 3px 12px; border: 1px solid #bfdbfe; background: #eff6ff; box-shadow: {{ t.ring }}; transition: box-shadow 0.4s; font-size: 13px; line-height: 1.5">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #2563eb; margin-bottom: 2px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb"></span>Priya (Dev)</div>
+<sc-for list="{{ t.lines }}" as="l" hint-placeholder-count="1"><div>{{ l }}</div></sc-for>
+<sc-if value="{{ t.hasBrief }}" hint-placeholder-val="{{ false }}">
+<dl data-testid="prd-claim-brief" style="margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: #ffffff; border: 1px solid #bfdbfe; display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{ t.brief }}" as="b" hint-placeholder-count="4"><div><dt style="display: inline; font-size: 12px; font-weight: 700; color: #1e40af">{{ b.label }}: </dt><dd style="display: inline; margin: 0; font-size: 13px; color: #0f172a">{{ b.text }}</dd></div></sc-for>
+</dl>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ t.isAi }}" hint-placeholder-val="{{ true }}">
+<div id="{{ t.id }}" tabindex="-1" data-testid="prd-turn" data-testkey="{{ t.id }}" data-actor="ai" style="outline: none; display: flex; gap: 10px; border-radius: 12px; box-shadow: {{ t.ring }}; transition: box-shadow 0.4s">
+<span style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; background: #6d28d9; color: #ffffff; display: flex; align-items: center; justify-content: center">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"></path></svg>
+</span>
+<div style="min-width: 0; max-width: 86%; font-size: 13px; line-height: 1.55; color: #334155">
+<div style="font-size: 11px; font-weight: 700; color: #6d28d9; margin-bottom: 2px">ai4good AI</div>
+<sc-if value="{{ t.hasUpdated }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #64748b; margin-bottom: 4px">Updated in the PRD: {{ t.updated }}</div>
+</sc-if>
+<sc-if value="{{ t.isTyping }}" hint-placeholder-val="{{ false }}"><div data-testid="prd-ai-answering" role="status" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: #f5f3ff; color: #5b21b6; font-size: 12px; font-weight: 600"><span style="width: 6px; height: 6px; border-radius: 50%; background: #6d28d9"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: #8b5cf6"></span><span style="width: 6px; height: 6px; border-radius: 50%; background: #c4b5fd"></span>Answering…</div></sc-if>
+<sc-for list="{{ t.lines }}" as="l" hint-placeholder-count="1"><p style="margin: 0 0 6px">{{ l }}</p></sc-for>
+<sc-if value="{{ t.hasSectionLink }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-open-section-chat" onClick="{{ t.openSectionLink }}" style="margin: 2px 0 8px; min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #2563eb; background: #ffffff; color: #1d4ed8; font-size: 12px; font-weight: 600; cursor: pointer">{{ t.sectionLinkLabel }}</button>
+</sc-if>
+<sc-if value="{{ t.hasGaps }}" hint-placeholder-val="{{ false }}">
+<ul data-testid="prd-check-gaps" style="list-style: none; margin: 2px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{ t.gapItems }}" as="g" hint-placeholder-count="2">
+<li data-testid="prd-check-gap" data-testkey="{{ g.id }}" style="padding: 10px 12px; border: 1px solid #fca5a5; border-radius: 10px; background: #fef2f2">
+<div style="font-size: 12px; font-weight: 700; color: #991b1b">{{ g.name }}</div>
+<div style="margin-top: 2px; font-size: 13px; color: #0f172a">{{ g.gap }}</div>
+<sc-if value="{{ g.open_ }}" hint-placeholder-val="{{ true }}"><button type="button" data-testid="prd-check-gap-open" onClick="{{ g.open }}" style="margin-top: 8px; min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #b91c1c; background: #ffffff; color: #991b1b; font-size: 12px; font-weight: 600; cursor: pointer">Open {{ g.name }}</button></sc-if>
+<sc-if value="{{ g.fixed }}" hint-placeholder-val="{{ false }}"><div style="margin-top: 6px; font-size: 12px; font-weight: 600; color: #166534">Gap closed</div></sc-if>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+<sc-if value="{{ t.hasAfter }}" hint-placeholder-val="{{ false }}"><sc-for list="{{ t.after }}" as="l2" hint-placeholder-count="1"><p style="margin: 0 0 6px">{{ l2 }}</p></sc-for></sc-if>
+<sc-if value="{{ t.showCloseAsk }}" hint-placeholder-val="{{ false }}"><div data-testid="prd-close-warning" style="margin: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 8px"><button type="button" data-testid="prd-close-anyway" onClick="{{ t.closeAnyway }}" style="min-height: 36px; padding: 0 14px; border-radius: 8px; border: 0; background: #2563eb; color: #ffffff; font-size: 12px; font-weight: 600; cursor: pointer">Close anyway</button><button type="button" data-testid="prd-close-keep" onClick="{{ t.keepWorking }}" style="min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; font-size: 12px; font-weight: 600; cursor: pointer">Keep working</button></div></sc-if>
+<sc-for list="{{ t.ngoAsks }}" as="na" hint-placeholder-count="0">
+<div id="intro-{{ na.id }}" tabindex="-1" data-testid="prd-ngo-question-intro" data-testkey="{{ na.id }}" data-status="{{ na.status }}" style="outline: none; margin: 4px 0 8px; padding: 8px 12px; border: 1px dashed #f59e0b; border-radius: 10px; background: #fffbeb; box-shadow: {{ na.ring }}; transition: box-shadow 0.4s">
+<div style="font-size: 11px; font-weight: 700; color: #92400e">{{ na.heading }}</div>
+<div style="font-size: 13px; font-weight: 600; color: #0f172a">{{ na.text }}</div>
+<sc-if value="{{ na.showAnswer }}" hint-placeholder-val="{{ false }}"><button type="button" data-testid="prd-ngo-question-answer" onClick="{{ na.answer }}" style="margin-top: 8px; min-height: 36px; padding: 0 14px; border-radius: 8px; border: 0; background: #b45309; color: #ffffff; font-size: 12px; font-weight: 600; cursor: pointer">Answer it</button></sc-if>
+<sc-if value="{{ na.showPost }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-post-question" onClick="{{ na.post }}" style="margin-top: 8px; min-height: 36px; padding: 0 14px; border-radius: 8px; border: 0; background: #2563eb; color: #ffffff; font-size: 12px; font-weight: 600; cursor: pointer">Post to Maya</button>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ t.showClose }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-recommendation" data-kind="close" style="margin: 8px 0 4px; padding: 12px 14px; border: 1px solid #ddd6fe; border-radius: 12px; background: #f5f3ff">
+<div style="font-size: 14px; font-weight: 700; color: #0f172a">Close the PRD</div>
+<div style="margin: 4px 0 10px; font-size: 12px; color: #475569">{{ t.closeReason }}</div>
+<sc-if value="{{ t.closeButton }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-close-button" onClick="{{ t.closePrd }}" style="border: 0; cursor: pointer; display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 8px; background: #2563eb; color: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none">Close PRD</button>
+</sc-if>
+<sc-if value="{{ t.closeNote }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #64748b">Only Priya can close the PRD.</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</sc-for>
+</div>
+<sc-if value="{{ devWrite }}" hint-placeholder-val="{{ true }}">
+<div data-testid="prd-composer" style="flex-shrink: 0; border: 2px solid #2563eb; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; color: #64748b">{{ composerHint }}</div>
+<sc-if value="{{ hasQueue }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-queue" style="display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 10px; background: #f8fafc; border: 1px dashed #94a3b8">
+<div style="font-size: 11px; font-weight: 700; color: #334155">Queued ({{ queueCount }}) · each one sends on its own when the AI finishes</div>
+<sc-for list="{{ queueItems }}" as="qi" hint-placeholder-count="1">
+<div data-testid="prd-queue-item" data-testkey="{{ qi.id }}" style="display: flex; align-items: center; gap: 8px; font-size: 13px">
+<span style="flex-grow: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{ qi.text }}</span>
+<button type="button" class="textlink" data-testid="prd-queue-edit" onClick="{{ qi.edit }}" style="min-height: 32px; border: 0; background: transparent; font-size: 12px; color: #334155; cursor: pointer">Edit</button>
+<button type="button" class="textlink" data-testid="prd-queue-remove" onClick="{{ qi.remove }}" style="min-height: 32px; border: 0; background: transparent; font-size: 12px; color: #b91c1c; cursor: pointer">Remove</button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: flex; align-items: flex-end; gap: 10px">
+<textarea class="grow" rows="1" data-testid="prd-composer-input" aria-label="Message to ai4good AI" placeholder="Write to the AI" value="{{ draft }}" onChange="{{ onDraft }}" style="flex-grow: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px; resize: none; font-size: 13px; line-height: 19px; outline: none"></textarea>
+<button type="button" data-testid="prd-send-button" aria-label="{{ sendLabel }}" title="{{ sendLabel }}" disabled="{{ sendDisabled }}" onClick="{{ send }}" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 0; background: {{ sendBg }}; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: {{ sendCursor }}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
+</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ isNgo }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-readonly-banner" style="flex-shrink: 0; padding: 12px 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; font-size: 13px; color: #334155"><strong style="color: #92400e">Priya works on the PRD with the AI here.</strong> You can read along and browse topics. Your questions are in the list on the right.</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{ onSection }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-section" data-testkey="{{ focusId }}" data-state="{{ focusState }}" style="flex-shrink: 0; max-height: 380px; overflow: auto; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 12px; background: #f8fafc; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="font-size: 11px; font-weight: 600; color: #64748b">PRD section</span>
+<strong style="font-size: 16px">{{ focusName }}</strong>
+<span data-testid="prd-section-state" style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px {{ focusBadgeLine }} {{ focusBadgeBorder }}; background: {{ focusBadgeBg }}; color: {{ focusBadgeFg }}">{{ focusState }}</span>
+</div>
+<ul data-testid="prd-section-text" style="margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: #0f172a">
+<sc-for list="{{ focusLines }}" as="fl" hint-placeholder-count="3"><li>{{ fl }}</li></sc-for>
+</ul>
+<div style="font-size: 11px; color: #64748b">Sources: {{ focusSources }}</div>
+<sc-if value="{{ hasFocusStories }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-section-stories" style="margin-top: 4px; font-size: 13px; font-weight: 700; color: #0f172a">User stories</div>
+<ol style="margin: 0; padding-left: 20px; font-size: 12px; line-height: 1.5; color: #0f172a"><sc-for list="{{ focusStories }}" as="st" hint-placeholder-count="8"><li data-testid="prd-section-story">{{ st.text }}</li></sc-for></ol>
+</sc-if>
+<div data-testid="prd-section-status" style="font-size: 12px; font-weight: 600; color: {{ focusNextColor }}">{{ focusNext }}</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<sc-if value="{{ focusCanConfirm }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-section-confirm" onClick="{{ confirmFocus }}" style="min-height: 40px; padding: 0 16px; border-radius: 8px; border: 0; background: #2563eb; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Confirm section</button>
+</sc-if>
+<sc-if value="{{ focusCanReopen }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-section-reopen" onClick="{{ reopenFocus }}" style="min-height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: #ffffff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer">Reopen for review</button>
+</sc-if>
+<sc-if value="{{ focusWaitNote }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #64748b">The AI marks this section ready when every decision is in. Then you can confirm it.</span>
+</sc-if>
+<sc-if value="{{ focusNgoNote }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #64748b">Priya confirms sections.</span>
+</sc-if>
+</div>
+</div>
+<div id="sec-scroll" data-testid="prd-section-chat" style="flex-grow: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 6px">
+<sc-for list="{{ secMsgs }}" as="m" hint-placeholder-count="2">
+<sc-if value="{{ m.isAi }}" hint-placeholder-val="{{ true }}">
+<div data-testid="prd-section-message" data-actor="ai" style="display: flex; gap: 10px">
+<span style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: #6d28d9; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"></path></svg></span>
+<div style="min-width: 0; max-width: 88%; font-size: 13px; line-height: 1.55; color: #334155">
+<div style="font-size: 11px; font-weight: 700; color: #6d28d9; margin-bottom: 2px">ai4good AI</div>
+<sc-for list="{{ m.lines }}" as="l" hint-placeholder-count="1"><p style="margin: 0 0 6px">{{ l }}</p></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ m.isDev }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-section-message" data-actor="dev" style="align-self: flex-end; max-width: 78%; padding: 10px 14px; border-radius: 12px 12px 3px 12px; border: 1px solid #bfdbfe; background: #eff6ff; font-size: 13px; line-height: 1.5">
+<div style="font-size: 11px; font-weight: 700; color: #2563eb; margin-bottom: 2px">Priya (Dev)</div>
+<sc-for list="{{ m.lines }}" as="l" hint-placeholder-count="1"><div>{{ l }}</div></sc-for>
+</div>
+</sc-if>
+</sc-for>
+<sc-if value="{{ showQuestions }}" hint-placeholder-val="{{ false }}">
+<div style="margin-left: 36px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{ questions }}" as="q" hint-placeholder-count="2">
+<div id="q-{{ q.id }}" data-testid="prd-question" data-testkey="{{ q.id }}" style="padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff">
+<strong style="display: block; font-size: 14px">{{ q.text }}</strong>
+<div style="margin: 4px 0 10px; font-size: 12px; color: #64748b">Why now: {{ q.why }}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{ q.options }}" as="o" hint-placeholder-count="3">
+<button type="button" class="chip" data-testid="prd-question-option" disabled="{{ o.disabled }}" onClick="{{ o.pick }}" aria-pressed="{{ o.pressed }}" style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 18px; font-size: 12px; cursor: {{ o.cursor }}; border: 1px solid {{ o.border }}; background: {{ o.bg }}; color: {{ o.fg }}">
+{{ o.label }}
+<sc-if value="{{ o.suggested }}" hint-placeholder-val="{{ false }}"><span style="margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: #dcfce7; color: #166534; font-size: 10px; font-weight: 600">Suggested</span></sc-if>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ secTyping }}" hint-placeholder-val="{{ false }}"><div role="status" data-testid="prd-ai-answering" style="align-self: flex-start; margin-left: 36px; padding: 6px 10px; border-radius: 10px; background: #f5f3ff; color: #5b21b6; font-size: 12px; font-weight: 600">Answering…</div></sc-if>
+</div>
+<sc-if value="{{ devWrite }}" hint-placeholder-val="{{ true }}">
+<div data-testid="prd-section-composer" style="flex-shrink: 0; border: 2px solid #2563eb; border-radius: 14px; padding: 8px 12px; display: flex; align-items: flex-end; gap: 10px">
+<textarea class="grow" rows="1" data-testid="prd-section-input" aria-label="Message to the AI about {{ focusName }}" placeholder="{{ secPlaceholder }}" value="{{ secDraft }}" onChange="{{ onSecDraft }}" style="flex-grow: 1; box-sizing: border-box; padding: 8px 10px; border: 0; resize: none; font-size: 13px; line-height: 19px; outline: none"></textarea>
+<button type="button" data-testid="prd-section-send" aria-label="Send" disabled="{{ secSendDisabled }}" onClick="{{ secSend }}" style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 0; background: {{ secSendBg }}; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
+</button>
+</div>
+</sc-if>
+<sc-if value="{{ isNgo }}" hint-placeholder-val="{{ false }}">
+<div style="flex-shrink: 0; padding: 10px 12px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; font-size: 12px; color: #334155">Priya works on this section with the AI. You can read along.</div>
+</sc-if>
+</sc-if>
+</section>
+<aside aria-label="Questions for the NGO" style="min-height: 0; overflow: auto; border-left: 1px solid #e2e8f0; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+<sc-if value="{{ noThread }}" hint-placeholder-val="{{ true }}">
+<ul data-testid="prd-participant-list" aria-label="People in this PRD" style="list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 6px">
+<li style="font-size: 12px; color: #64748b; margin-right: 2px">People</li>
+<sc-for list="{{ people }}" as="p" hint-placeholder-count="3">
+<li data-testid="prd-participant" data-testkey="{{ p.key }}" title="{{ p.name }} · {{ p.role }}" aria-label="{{ p.name }}, {{ p.role }}" style="width: 26px; height: 26px; border-radius: 50%; background: {{ p.color }}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{ p.initial }}</li>
+</sc-for>
+</ul>
+<div data-testid="prd-ngo-questions">
+<h3 style="margin: 0; font-size: 13px">{{ qTitle }}</h3>
+<p style="margin: 4px 0 8px; font-size: 12px; line-height: 1.45; color: #64748b">{{ listNote }}</p>
+<ul data-testid="prd-ngo-question-list" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{ openQuestions }}" as="nq" hint-placeholder-count="2">
+<li data-testid="prd-ngo-question" data-testkey="{{ nq.id }}" data-blocking="{{ nq.blocking }}" data-status="{{ nq.status }}" style="border: 1px solid {{ nq.frame }}; border-radius: 10px; background: #ffffff; overflow: hidden">
+<button type="button" class="topic" data-testid="prd-ngo-question-open" onClick="{{ nq.open }}" style="width: 100%; text-align: left; cursor: pointer; padding: 10px 12px; border: 0; background: transparent; display: block">
+<span style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px"><span style="color: #64748b">{{ nq.topic }}</span><span style="font-weight: 700; color: {{ nq.blockColor }}">{{ nq.blockLabel }}</span></span>
+<span style="display: block; margin-top: 2px; font-size: 13px; font-weight: 600; line-height: 1.4">{{ nq.text }}</span>
+<span style="display: block; margin-top: 4px; font-size: 12px; font-weight: 600; color: {{ nq.statusColor }}">{{ nq.statusText }}</span>
+<sc-if value="{{ nq.showSent }}" hint-placeholder-val="{{ false }}"><span data-testid="prd-ngo-question-sent" style="display: block; margin-top: 4px; font-size: 12px; line-height: 1.45; color: #334155"><strong>Sent to Priya:</strong> {{ nq.sent }}</span></sc-if>
+</button>
+<sc-if value="{{ nq.canClaim }}" hint-placeholder-val="{{ false }}"><div style="display: flex; border-top: 1px solid #bfdbfe"><button type="button" data-testid="prd-ngo-question-view" onClick="{{ nq.view }}" style="flex: 1; min-height: 40px; border: 0; border-right: 1px solid #bfdbfe; background: #ffffff; color: #1d4ed8; font-size: 13px; font-weight: 600; cursor: pointer">View answer</button><button type="button" data-testid="prd-ngo-question-claim" onClick="{{ nq.claim }}" style="flex: 1; min-height: 40px; border: 0; border-right: 0; background: #2563eb; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Use answer</button></div></sc-if>
+</li>
+</sc-for>
+</ul>
+<sc-if value="{{ hasAnswered }}" hint-placeholder-val="{{ false }}">
+<button type="button" class="textlink" data-testid="prd-answered-toggle" aria-expanded="{{ answeredOpen }}" onClick="{{ toggleAnswered }}" style="margin-top: 12px; padding: 6px 0; border: 0; background: transparent; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer">{{ answeredLabel }}</button>
+<sc-if value="{{ answeredOpen }}" hint-placeholder-val="{{ false }}">
+<ul data-testid="prd-answered-list" style="list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{ answeredQuestions }}" as="aq" hint-placeholder-count="1">
+<li data-testid="prd-answered-question" data-testkey="{{ aq.id }}">
+<button type="button" class="topic" onClick="{{ aq.open }}" style="width: 100%; text-align: left; cursor: pointer; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; display: block">
+<span style="display: block; font-size: 11px; color: #64748b">{{ aq.topic }} · used</span>
+<span style="display: block; font-size: 12px; font-weight: 600">{{ aq.answer }}</span>
+</button>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ hasPeek }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-answer-review" style="display: flex; flex-direction: column; gap: 10px; ">
+<button type="button" class="textlink" onClick="{{ closePeek }}" style="align-self: flex-start; min-height: 32px; padding: 0 4px; border: 0; background: transparent; font-size: 12px; color: #334155; cursor: pointer">← All questions</button>
+<div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px"><span style="color: #64748b">{{ pk.topic }}</span><span style="font-weight: 700; color: {{ pk.blockColor }}">{{ pk.blockLabel }}</span><span style="font-weight: 600; color: #1d4ed8">· Maya marked it complete</span></div>
+<div style="margin-top: 2px; font-size: 14px; font-weight: 700; line-height: 1.4">{{ pk.text }}</div>
+</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #334155">Maya’s answer · you can edit it
+<textarea class="grow" rows="2" data-testid="prd-answer-review-answer" value="{{ peekAnswer }}" onChange="{{ onPeekAnswer }}" style="box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px; resize: none; font-size: 13px; font-weight: 400; line-height: 1.45; outline: none"></textarea>
+</label>
+<dl style="margin: 0; display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{ pk.rows }}" as="r" hint-placeholder-count="3"><div><dt style="display: inline; font-size: 12px; font-weight: 700; color: #334155">{{ r.label }}: </dt><dd style="display: inline; margin: 0; font-size: 12px; color: #475569">{{ r.text }}</dd></div></sc-for>
+</dl>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #334155">Note for the AI (optional)
+<textarea class="grow" rows="1" data-testid="prd-answer-review-note" placeholder="For example: the export follows the same rule" value="{{ peekNote }}" onChange="{{ onPeekNote }}" style="box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px; resize: none; font-size: 13px; font-weight: 400; line-height: 1.45; outline: none"></textarea>
+</label>
+<button type="button" data-testid="prd-answer-review-claim" disabled="{{ peekDisabled }}" onClick="{{ peekClaim }}" style="min-height: 40px; border-radius: 8px; border: 0; background: {{ peekClaimBg }}; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Use answer</button>
+<div style="font-size: 12px; color: #64748b">Using it sends this to the AI as your message in the main chat.</div>
+</div>
+</sc-if>
+<sc-if value="{{ hasThread }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-side-chat" data-testkey="{{ th.id }}" data-status="{{ th.status }}" style="display: flex; flex-direction: column; gap: 10px; min-height: 0; flex-grow: 1">
+<button type="button" class="textlink" data-testid="prd-side-chat-back" onClick="{{ closeThread }}" style="align-self: flex-start; padding: 6px 0; border: 0; background: transparent; font-size: 12px; color: #334155; cursor: pointer">← All questions</button>
+<div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px"><span style="color: #64748b">{{ th.topic }}</span><span style="font-weight: 700; color: {{ th.blockColor }}">{{ th.blockLabel }}</span><span style="font-weight: 600; color: {{ th.statusColor }}">· {{ th.statusText }}</span></div>
+<div style="margin-top: 2px; font-size: 14px; font-weight: 700; line-height: 1.4">{{ th.text }}</div>
+</div>
+<div id="thread-scroll" data-testid="prd-side-chat-messages" style="flex-grow: 1; min-height: 120px; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc">
+<sc-for list="{{ th.messages }}" as="m" hint-placeholder-count="2">
+<div data-testid="prd-side-chat-message" data-actor="{{ m.actor }}" style="align-self: {{ m.align }}; max-width: 90%; padding: 8px 10px; border-radius: 10px; border: 1px solid {{ m.border }}; background: {{ m.bg }}; font-size: 12px; line-height: 1.5">
+<div style="font-size: 10px; font-weight: 700; color: {{ m.nameColor }}">{{ m.name }}</div>
+<div>{{ m.text }}</div>
+</div>
+</sc-for>
+<sc-if value="{{ th.typing }}" hint-placeholder-val="{{ false }}"><div role="status" style="align-self: flex-start; padding: 6px 10px; border-radius: 10px; background: #f5f3ff; color: #5b21b6; font-size: 12px; font-weight: 600">Answering…</div></sc-if>
+</div>
+<sc-if value="{{ th.ngoCanWrite }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ th.options }}" as="o" hint-placeholder-count="3">
+<button type="button" class="chip" data-testid="prd-side-chat-option" onClick="{{ o.pick }}" style="min-height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid #fde68a; background: #ffffff; font-size: 12px; cursor: pointer">{{ o.label }}</button>
+</sc-for>
+</div>
+<div style="display: flex; align-items: flex-end; gap: 8px; border: 2px solid #b45309; border-radius: 12px; padding: 6px 8px">
+<textarea class="grow" rows="1" data-testid="prd-side-chat-input" aria-label="Your answer for the AI" placeholder="Answer in your own words" value="{{ ngoDraft }}" onChange="{{ onNgoDraft }}" style="flex-grow: 1; min-width: 0; box-sizing: border-box; padding: 6px 8px; border: 0; resize: none; font-size: 13px; line-height: 19px; outline: none; background: transparent"></textarea>
+<button type="button" data-testid="prd-side-chat-send" aria-label="Send" disabled="{{ th.sendDisabled }}" onClick="{{ ngoSend }}" style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; border: 0; background: {{ th.sendBg }}; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
+</button>
+</div>
+<button type="button" data-testid="prd-side-chat-complete" disabled="{{ th.completeDisabled }}" onClick="{{ markComplete }}" style="min-height: 40px; border-radius: 8px; border: 0; background: {{ th.completeBg }}; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Mark answer complete</button>
+<sc-if value="{{ th.hasCompleteHint }}" hint-placeholder-val="{{ false }}"><div data-testid="prd-side-chat-complete-hint" style="flex-shrink: 0; font-size: 12px; font-weight: 600; color: #92400e">{{ th.completeHint }}</div></sc-if>
+</sc-if>
+<sc-if value="{{ th.showClaim }}" hint-placeholder-val="{{ false }}">
+<button type="button" data-testid="prd-side-chat-claim" onClick="{{ th.claim }}" style="min-height: 40px; border-radius: 8px; border: 0; background: #2563eb; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer">Use answer</button>
+</sc-if>
+<sc-if value="{{ th.hasNote }}" hint-placeholder-val="{{ false }}">
+<div data-testid="prd-side-chat-note" style="font-size: 12px; color: #475569; line-height: 1.45">{{ th.note }}</div>
+</sc-if>
+</div>
+</sc-if>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"viewer":{"editor":"enum","options":["Priya (Dev)","Maya (NGO)"],"default":"Priya (Dev)"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      viewer: props.viewer === 'Maya (NGO)' ? 'ngo' : 'dev',
+      rev: 13, focus: null, picks: {}, devDone: false, draft: '', busy: false, queue: [], extra: [],
+      spent: 11.2, pending: 0, flash: null, closeShown: false, confirmed: { users: true, notify: true }, review: {}, tab: 'main', secThreads: {}, secDraft: '', secBusy: null,
+      nq: { retention: { posted: true, status: 'open' }, logo: { posted: true, status: 'open' }, success: { posted: false, status: 'open' } },
+      threads: { retention: [], logo: [], success: [] }, answers: {}, ngoDraft: '', thread: null, threadBusy: null, answeredOpen: false,
+      ptab: props.viewer === 'Maya (NGO)' ? 'questions' : 'chat', recorded: {}, peek: null, peekAnswer: '', peekNote: '', checkRuns: 0, gaps: {}, gapFixed: {}, secNotes: {}, discussOpen: {}, closed: false, designNote: false, closeCheck: false, closeWarn: null, closeOpen: 0, closedOpen: 0
+    };
+  }
+  componentDidMount() { this.toBottom(); }
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.extra.length !== this.state.extra.length || (prevState.tab !== this.state.tab && this.state.tab === 'main')) this.toBottom();
+    if (prevState.secThreads !== this.state.secThreads || prevState.tab !== this.state.tab || prevState.secBusy !== this.state.secBusy) {
+      const sec = document.getElementById('sec-scroll');
+      if (sec) sec.scrollTop = sec.scrollHeight;
+      const page = document.getElementById('sec-page');
+      if (page) page.scrollTop = prevState.tab !== this.state.tab ? 0 : page.scrollHeight;
+    }
+    const el = document.getElementById('thread-scroll');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+  componentWillUnmount() { clearTimeout(this.flashTimer); clearTimeout(this.replyTimer); clearTimeout(this.threadTimer); clearTimeout(this.secTimer); }
+  toBottom() {
+    const el = document.getElementById('chat-scroll');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+  jump(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus({ preventScroll: true });
+    }
+    this.setState({ flash: id });
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => this.setState({ flash: null }), 1800);
+  }
+  go(id) {
+    if (this.state.tab !== 'main' || this.state.ptab !== 'chat') this.setState({ tab: 'main', ptab: 'chat' });
+    setTimeout(() => this.jump(id), 60);
+  }
+  openSection(id) {
+    this.setState({ tab: id, secDraft: '', ptab: 'prd' });
+  }
+  gapDefs() {
+    return {
+      shifts: { gap: 'Discovery says the kitchen closes on 6 public holidays a year. The PRD only lets the coordinator cancel one shift at a time.', fix: 'Holidays: the coordinator sets the closed days once a year, and no shifts are published on them.' },
+      users: { gap: 'Discovery mentions volunteers aged 16 and 17. Users and roles does not say whether they can join.', fix: 'Volunteers aged 16 and 17 can join with a parent’s consent, which the coordinator records.' }
+    };
+  }
+  secOpener(id, s) {
+    const names = this.topicNames();
+    const state = this.topicState(id, s);
+    let next = 'Tell me what to change, or ask me anything about this section.';
+    if (s.gaps[id]) next = 'The completion check found a gap here: ' + this.gapDefs()[id].gap + ' Tell me how to cover it.';
+    else if (id === 'shifts' && !s.devDone) next = 'Two decisions are still open. Pick an answer for each one, then send.';
+    else if (state === 'Ready to confirm' || state === 'Needs review') next = 'Every decision is recorded. Read the section above, then confirm it or tell me what to change.';
+    else if (state === 'Confirmed') next = 'This section is confirmed. If you change something here, it goes back to you for review.';
+    else if (id === 'data' || id === 'success') next = 'This section waits for Maya’s answer to a blocking question. You can still discuss it here.';
+    else if (id === 'scope') next = 'This section waits on the shift rules, because the swap rule changes which stories we need.';
+    if (s.viewer === 'ngo') next = s.gaps[id] ? 'The completion check found a gap here: ' + this.gapDefs()[id].gap + ' Priya covers it.' : 'Priya works on this section with the AI. Questions for you are under Questions.';
+    return { actor: 'ai', lines: ['This chat is about ' + names[id] + '. I read it against the current PRD and the Discovery document.', next] };
+  }
+  secSend() {
+    const s = this.state;
+    const sid = s.tab;
+    if (sid === 'main' || s.secBusy || this.avail(s) < 0.55) return;
+    const text = s.secDraft.trim();
+    const answered = sid === 'shifts' && !s.devDone && this.devQuestions().every((q) => !!s.picks[q.id]);
+    if (!text && !answered) return;
+    const lines = answered ? this.devQuestions().map((q) => q.text.replace(/\?$/, '') + ': ' + s.picks[q.id]) : [];
+    if (text) lines.push(text);
+    const thread = (s.secThreads[sid] || []).concat([{ actor: 'dev', lines }]);
+    if (s.gaps[sid] && text) {
+      this.setState({ secThreads: Object.assign({}, s.secThreads, { [sid]: thread }), secDraft: '', secBusy: sid, pending: 0.55 });
+      clearTimeout(this.secTimer);
+      this.secTimer = setTimeout(() => {
+        const st = this.state;
+        const name = this.topicNames()[sid];
+        const gaps = Object.assign({}, st.gaps);
+        delete gaps[sid];
+        const ev = { id: 'x' + st.extra.length, actor: 'event', topics: [sid], text: name + ' updated in its section chat · completion check gap closed', sectionLink: sid };
+        this.setState({ secThreads: Object.assign({}, st.secThreads, { [sid]: st.secThreads[sid].concat([{ actor: 'ai', lines: ['Added to ' + name + ': ' + this.clean(text), 'The gap is closed. Read the section above and confirm it again.'] }]) }), secBusy: null, gaps, gapFixed: Object.assign({}, st.gapFixed, { [sid]: text }), rev: st.rev + 1, extra: st.extra.concat([ev]), spent: st.spent + 0.55 * 0.935, pending: 0 });
+      }, 1800);
+      return;
+    }
+    this.setState({ secThreads: Object.assign({}, s.secThreads, { [sid]: thread }), secDraft: '', secBusy: sid, pending: 0.55 });
+    clearTimeout(this.secTimer);
+    this.secTimer = setTimeout(() => {
+      const st = this.state;
+      const names = this.topicNames();
+      const reply = answered
+        ? ['Shift scheduling rules has every decision it needs now. I also updated Technical scope with ' + this.swapLine(st.picks) + ', so that section is complete too.', 'This section is ready for you to confirm above. Technical scope is ready as well; open it on the left.']
+        : ['Noted. I updated the ' + names[sid] + ' draft with this.' + (st.confirmed[sid] ? ' It changed a confirmed section, so it goes back to you for review.' : '')];
+      const ev = { id: 'x' + st.extra.length, actor: 'event', topics: [sid], text: (answered ? 'Shift scheduling rules and Technical scope updated' : names[sid] + ' updated') + ' in its section chat', sectionLink: sid };
+      const secNotes = !answered && text ? Object.assign({}, st.secNotes, { [sid]: (st.secNotes[sid] || []).concat([text]) }) : st.secNotes;
+      const review = !answered && st.confirmed[sid] ? Object.assign({}, st.review, { [sid]: true }) : st.review;
+      const confirmed = !answered && st.confirmed[sid] ? Object.assign({}, st.confirmed, { [sid]: false }) : st.confirmed;
+      this.setState({ secThreads: Object.assign({}, st.secThreads, { [sid]: st.secThreads[sid].concat([{ actor: 'ai', lines: reply }]) }), secBusy: null, secNotes, devDone: st.devDone || answered, rev: st.rev + 1, extra: st.extra.concat([ev]), review, confirmed, closeShown: confirmed !== st.confirmed ? false : st.closeShown, spent: st.spent + 0.55 * 0.935, pending: 0 });
+    }, 1800);
+  }
+  closePrd() {
+    const s = this.state;
+    if (s.closed || s.busy) return;
+    if (s.closeShown) { this.setState({ closed: true, closeWarn: null, tab: 'main', ptab: 'chat' }); return; }
+    if (this.avail(s) < 0.55) return;
+    const all = ['users', 'shifts', 'notify', 'data', 'scope', 'success'];
+    const ev = { id: 'x' + s.extra.length, actor: 'event', topics: all, text: 'Priya pressed Close PRD · revision ' + s.rev };
+    const ai = { id: 'x' + (s.extra.length + 1), actor: 'ai', typing: true, topics: all, lines: ['I am running the completion check on revision ' + s.rev + ' before closing.'] };
+    this.addAiTurn(s.extra.concat([ev]), s, null, ai, { closeCheck: true, closeWarn: null, tab: 'main', ptab: 'chat' });
+  }
+  closeAnyway() {
+    this.setState({ closed: true, closeWarn: null, closedOpen: this.state.closeOpen, tab: 'main', ptab: 'chat' });
+  }
+  craft(qid, raw) {
+    const parts = String(raw || '').split('; ').map((x) => x.trim()).filter(Boolean);
+    const first = (parts[0] || '').replace(/[.\s]+$/, '');
+    const rest = parts.slice(1).join('. ');
+    const yes = /^(yes|ok|okay|fine|sure|agreed?)\b/i.test(rest);
+    const low = (t) => t.charAt(0).toLowerCase() + t.slice(1);
+    if (qid === 'retention') {
+      const p = low(first).replace(/^for /, '');
+      return 'Keep a volunteer’s ' + (yes ? 'email and phone ' : 'contact details ') + (/^until/.test(p) ? '' : 'for ') + p + ', then delete them.' + (yes ? ' Shift history stays, without names.' : rest ? ' ' + this.clean(rest) : '');
+    }
+    if (qid === 'logo') {
+      const plain = /plain|^no\b/i.test(first);
+      const extra = rest && !yes && !/^(no|nope|nothing)\b/i.test(rest) ? ' ' + this.clean(rest) : '';
+      return (plain ? 'Reminder emails are plain text, with no logo.' : 'Reminder emails show the kitchen’s logo.' + (yes ? ' Until the logo file is ready, they go out in plain text.' : '')) + extra;
+    }
+    if (qid === 'success') {
+      const how = /month/i.test(rest) ? ' Maya gets the count in a monthly email.' : /week|app/i.test(rest) || yes ? ' The coordinator sees the count in the app each week.' : rest ? ' ' + this.clean(rest) : '';
+      return 'Success means ' + low(first) + '.' + how;
+    }
+    return this.clean(parts.join('. '));
+  }
+  clean(x) {
+    const t = String(x || '').trim().replace(/[.;,\s]+$/, '');
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) + '.' : '';
+  }
+  money(v) { return '$' + v.toFixed(2); }
+  avail(s) { return 20 - s.spent - s.pending; }
+  swapLine(p) {
+    if (!p.swap) return 'the swap story';
+    if (p.swap.indexOf('No swaps') === 0) return 'no swap story, because volunteers cancel instead';
+    if (p.swap.indexOf('coordinator') !== -1) return 'the swap approval story';
+    return 'the story for volunteers swapping with each other';
+  }
+  ngoDefs() {
+    return {
+      retention: { topic: 'data', optional: false, intro: 't1', text: 'How long should the kitchen keep a volunteer’s contact details?', why: 'only the kitchen can decide what it keeps about people.', options: ['12 months after their last shift', 'Until the volunteer asks to be removed', '24 months after their last shift'], qa: 'Yes. A volunteer can always ask to be removed earlier, and the coordinator then deletes their details. That is their right, separate from the rule you set here.', changes: 'Data handling gets its retention rule, and the export story must drop volunteers past it.', discuss: 'Should the coordinator’s export follow the same rule, or keep everyone for the yearly report?' },
+      logo: { topic: 'notify', optional: true, intro: 't3', text: 'Should reminder emails show the kitchen’s logo?', why: 'a small branding choice for the reminder emails. It does not block anything.', options: ['Yes, show the logo', 'No, plain text emails'], qa: 'The logo only changes how the email looks. The text and the reminder times stay the same.', changes: 'One line in Notifications about the reminder email layout.', discuss: '' },
+      success: { topic: 'success', optional: false, intro: 't4', text: 'What would show the kitchen that the tool works?', why: 'success criteria must come from the kitchen, not from the developer.', options: ['Every Saturday shift is full 48 hours ahead', 'The coordinator spends under 1 hour a week on scheduling', 'Both of these'], expand: { 'Both of these': 'every Saturday shift is full 48 hours ahead, and the coordinator spends under 1 hour a week on scheduling' }, qa: 'The app counts this for you each week; nobody has to count by hand.', changes: 'Success criteria gets its measures, and the build needs a way to check them.', discuss: 'How do we measure it? I suggest a weekly count of Saturday shifts that were full 48 hours ahead.' }
+    };
+  }
+  devQuestions() {
+    return [
+      { id: 'swap', topic: 'shifts', text: 'Can volunteers swap a shift themselves?', why: 'the swap rule decides which screens the stories need.', options: ['Volunteers swap with each other', 'The coordinator approves each swap', 'No swaps; volunteers cancel instead'], suggested: 1 },
+      { id: 'publish', topic: 'shifts', text: 'How far ahead are shifts published?', why: 'reminders and the Saturday shortage check count from this date.', options: ['Two weeks ahead', 'One month ahead', 'Every Monday for the next week'], suggested: 0 }
+    ];
+  }
+  topicNames() {
+    return { users: 'Users and roles', shifts: 'Shift scheduling rules', notify: 'Notifications', data: 'Data handling', scope: 'Technical scope', success: 'Success criteria' };
+  }
+  aiReady(id, s) {
+    if (id === 'users' || id === 'notify') return true;
+    if (id === 'shifts' || id === 'scope') return s.devDone;
+    const q = id === 'data' ? 'retention' : 'success';
+    return !!s.recorded[q] && !s.discussOpen[q];
+  }
+  topicState(id, s) {
+    if (s.review[id]) return 'Needs review';
+    if (s.confirmed[id]) return 'Confirmed';
+    if (this.aiReady(id, s)) return 'Ready to confirm';
+    if (id === 'data' || id === 'success') return ['complete', 'claimed'].indexOf(s.nq[id === 'data' ? 'retention' : 'success'].status) !== -1 ? 'Draft' : 'Open';
+    return 'Draft';
+  }
+  topicBlocker(id, s) {
+    const state = this.topicState(id, s);
+    if (s.gaps[id]) return { text: 'Completion check gap · fix it in this section', color: '#991b1b' };
+    if (state === 'Confirmed') return null;
+    if (state === 'Ready to confirm') return { text: 'AI: every decision is in · Priya can confirm', color: '#1d4ed8' };
+    if (state === 'Needs review') return { text: 'Reopened · Priya reviews and confirms again', color: '#991b1b' };
+    if (id === 'scope') return { text: 'Waits on Shift scheduling rules', color: '#475569' };
+    if (id === 'shifts') return { text: '2 questions ready for Priya', color: '#1d4ed8' };
+    const q = s.nq[id === 'data' ? 'retention' : 'success'];
+    if (!q.posted) return { text: 'Question for Maya not posted yet', color: '#475569' };
+    const t = { open: 'Waiting for Maya’s answer', answering: 'Maya is answering', complete: 'Maya answered · Priya can use it', claimed: 'One point to settle in the main chat' };
+    return { text: t[q.status], color: '#92400e' };
+  }
+  sectionLines(id, s) {
+    const p = s.picks;
+    const a = s.answers;
+    const texts = {
+      users: ['Three roles: the kitchen coordinator, shift leads, and volunteers.', 'About 60 active volunteers and 3 shift leads. Maya is the coordinator.', 'A shift lead sees and marks attendance for their own shift only.', 'Volunteers sign in with email. There is no public sign-up.'],
+      notify: ['An email reminder goes to each volunteer 24 hours before their shift.', 'The coordinator gets an email when a Saturday shift is still short 48 hours ahead.', 'Text messages are a later option, not part of the first version.'].concat(s.recorded.logo ? [this.clean(a.logo)] : []),
+      shifts: ['Saturdays: two shifts, 8:00 to 12:00 and 12:00 to 16:00, 6 volunteers each.', 'Weekdays: one evening shift, 17:00 to 20:00, 4 volunteers.', 'The coordinator can cancel a single shift; its volunteers get an email.', 'Swaps: ' + (s.devDone ? p.swap : 'open question for Priya') + '.', 'Publishing: ' + (s.devDone ? p.publish : 'open question for Priya') + '.'],
+      scope: s.devDone ? [this.stories(p, s).length + ' user stories, listed below, with ' + this.swapLine(p) + '.', 'Stack: Lovable app on Supabase, with a one-time import from the kitchen’s Google Sheet.', 'Complexity: small.', 'Build split: Lovable builds the volunteer and coordinator screens; Claude Code builds the reminder job and the Saturday shortage check.'] : ['7 user stories so far, listed below; the swap rule may add one.', 'Stack: Lovable app on Supabase, with a one-time import from the kitchen’s Google Sheet.', 'Complexity: small.'],
+      data: s.recorded.retention ?[this.clean(a.retention), 'Only the coordinator can export the volunteer list.'] : ['No text yet. It waits for Maya’s answer on how long the kitchen keeps volunteer data.'],
+      success: s.recorded.success ?[this.clean(a.success)] : ['No text yet. It waits for Maya’s answer on what success means for the kitchen.']
+    };
+    const base = s.gapFixed[id] ? texts[id].concat([this.clean(s.gapFixed[id])]) : texts[id];
+    return base.concat((s.secNotes[id] || []).map((x) => this.clean(x)));
+  }
+  stories(p, s) {
+    const swap = !p.swap ? null : p.swap.indexOf('No swaps') === 0 ? null : p.swap.indexOf('coordinator') !== -1 ? 'A volunteer asks to swap a shift, and the coordinator approves it' : 'Two volunteers swap a shift with each other';
+    return ['A volunteer signs in with email', 'A volunteer sees the shift calendar', 'A volunteer claims an open slot'].concat(swap ? [swap] : []).concat(['The coordinator cancels a shift, and its volunteers get an email', 'A volunteer gets a reminder 24 hours before a shift', 'The coordinator gets an email when a Saturday is still short 48 hours ahead', 'The roster is imported once from the kitchen’s Google Sheet']).concat(s && s.recorded.retention ? ['Volunteer contact details are removed after the retention period'] : []).concat(s && s.recorded.success ? ['The coordinator sees the weekly success count in the app'] : []);
+  }
+  sectionSources(id) {
+    return { users: 'Discovery revision 12 · Monday’s chat', notify: 'Tuesday’s chat', shifts: 'Wednesday’s chat · today’s answers', scope: 'Tuesday’s chat · today’s answers', data: 'Maya’s side chat', success: 'Maya’s side chat' }[id];
+  }
+  confirmSection(id) {
+    const s = this.state;
+    const names = this.topicNames();
+    const n = s.extra.length;
+    const ev = { id: 'x' + n, actor: 'event', topics: [id], text: 'Priya confirmed ' + names[id] + ' · revision ' + s.rev };
+    const confirmed = Object.assign({}, s.confirmed, { [id]: true });
+    const review = Object.assign({}, s.review, { [id]: false });
+    if (!s.closeShown && this.allConfirmed(Object.assign({}, s, { confirmed, review }))) {
+      const ai = { id: 'x' + (n + 1), actor: 'ai', typing: true, topics: ['users', 'notify', 'shifts', 'scope', 'data', 'success'], lines: ['All six sections are confirmed. I am running the completion check.'] };
+      this.addAiTurn(s.extra.concat([ev]), s, null, ai, { confirmed, review, tab: 'main' });
+    } else {
+      this.setState({ extra: s.extra.concat([ev]), confirmed, review });
+    }
+  }
+  reopenSection(id) {
+    const s = this.state;
+    const names = this.topicNames();
+    const ev = { id: 'x' + s.extra.length, actor: 'event', topics: [id], text: 'Priya reopened ' + names[id] + ' for review' };
+    this.setState({ extra: s.extra.concat([ev]), confirmed: Object.assign({}, s.confirmed, { [id]: false }), review: Object.assign({}, s.review, { [id]: true }), closeShown: false });
+  }
+  badge(state) {
+    if (state === 'Confirmed') return { bg: '#dcfce7', fg: '#166534', border: '#86efac', line: 'solid' };
+    if (state === 'Ready to confirm') return { bg: '#dbeafe', fg: '#1e40af', border: '#93c5fd', line: 'solid' };
+    if (state === 'Needs review') return { bg: '#fee2e2', fg: '#991b1b', border: '#fca5a5', line: 'solid' };
+    if (state === 'Draft') return { bg: '#ffffff', fg: '#334155', border: '#64748b', line: 'dashed' };
+    return { bg: '#f1f5f9', fg: '#334155', border: '#cbd5e1', line: 'solid' };
+  }
+  baseTurns() {
+    return [
+      { id: 'd-mon', actor: 'day', text: 'Monday 5 October' },
+      { id: 't1', actor: 'ai', topics: ['users', 'notify', 'shifts', 'scope', 'data', 'success'], updated: 'Users and roles', lines: ['I read the confirmed Discovery document, revision 12. I carried over 14 agreed answers, so nobody needs to repeat them.', 'Six PRD topics are required: Users and roles, Shift scheduling rules, Notifications, Data handling, Technical scope, and Success criteria. Discovery already answers everything Users and roles needs, so it is ready for you to confirm.'] },
+      { id: 'h1', actor: 'dev', topics: ['users'], lines: ['Some numbers before we start: about 60 active volunteers and 3 shift leads. Maya coordinates everything herself.'] },
+      { id: 'a1', actor: 'ai', topics: ['users'], updated: 'Users and roles', lines: ['Added the numbers to Users and roles.', 'One check: can a shift lead see only their own shift’s roster, or every shift?'] },
+      { id: 'h2', actor: 'dev', topics: ['users'], lines: ['Only their own shift. They mark attendance for it and nothing else.'] },
+      { id: 'a2', actor: 'ai', topics: ['users', 'data'], updated: 'Users and roles', lines: ['Recorded: shift leads see and mark attendance for their own shift only. Users and roles is ready for you to confirm.', 'Discovery does not say how long the kitchen keeps volunteer data. Priya posted this question to Maya:'], asksNgo: ['retention'] },
+      { id: 'e1', actor: 'event', topics: ['users'], text: 'Priya confirmed Users and roles · revision 4' },
+      { id: 'd-tue', actor: 'day', text: 'Tuesday 6 October' },
+      { id: 't2', actor: 'dev', topics: ['notify'], lines: ['Reminders by email only. The coordinator also wants a warning when a Saturday is short.'] },
+      { id: 't3', actor: 'ai', topics: ['notify'], updated: 'Notifications', lines: ['Notifications has every decision it needs: an email 24 hours before each shift, and a coordinator email when a Saturday shift is still short 48 hours ahead. It is ready for you to confirm.', 'One optional detail is the kitchen’s choice. Priya posted it to Maya:'], asksNgo: ['logo'] },
+      { id: 'e2', actor: 'event', topics: ['notify'], text: 'Priya confirmed Notifications · revision 8' },
+      { id: 'h3', actor: 'dev', topics: ['notify'], lines: ['Could we add text messages later if the kitchen asks?'] },
+      { id: 'a3', actor: 'ai', topics: ['notify'], lines: ['Yes. I noted text messages as a later option, not part of the first version. It adds a paid provider, so the kitchen would need to approve the cost first.'] },
+      { id: 'h4', actor: 'dev', topics: ['scope'], lines: ['What stack do you suggest? Maya’s team keeps the roster in a Google Sheet today.'] },
+      { id: 'a4', actor: 'ai', topics: ['scope'], updated: 'Technical scope', lines: ['I suggest a Lovable app on Supabase, with a one-time import from the Google Sheet.', 'Keeping the sheet as the live source would make the Saturday shortage check unreliable, because anyone can edit the sheet without the app knowing. I added this as a draft to Technical scope.'] },
+      { id: 'h5', actor: 'dev', topics: ['scope'], lines: ['Agreed. Import once, then the app is the only source.'] },
+      { id: 'a5', actor: 'ai', topics: ['scope', 'shifts'], lines: ['Recorded. Technical scope stays a draft until the shift rules are settled, because the swap rule changes which stories we need.'] },
+      { id: 'd-wed', actor: 'day', text: 'Wednesday 7 October' },
+      { id: 'h6', actor: 'dev', topics: ['shifts'], lines: ['Let’s do shifts. Saturdays have two shifts, 8:00 to 12:00 and 12:00 to 16:00, with 6 volunteers each.'] },
+      { id: 'a6', actor: 'ai', topics: ['shifts'], updated: 'Shift scheduling rules', lines: ['Added to Shift scheduling rules: two Saturday shifts of 6 volunteers each.', 'What about weekdays?'] },
+      { id: 'h7', actor: 'dev', topics: ['shifts'], lines: ['Weekdays have one evening shift, 17:00 to 20:00, with 4 volunteers.'] },
+      { id: 'a7', actor: 'ai', topics: ['shifts'], updated: 'Shift scheduling rules', lines: ['Added. That is 9 shifts and 48 volunteer slots a week.', 'Shift scheduling rules is still a draft: the swap rule and the publishing window are open.'] },
+      { id: 'h8', actor: 'dev', topics: ['shifts'], lines: ['Holidays? The kitchen closes on some public holidays.'] },
+      { id: 'a8', actor: 'ai', topics: ['shifts'], lines: ['I suggest the coordinator can cancel a single shift, and the volunteers on it get an email. I added that to the draft. Tell me if the kitchen needs a full holiday calendar instead.'] },
+      { id: 'd-today', actor: 'day', text: 'Today' },
+      { id: 't4', actor: 'ai', topics: ['shifts', 'scope', 'success'], lines: ['Two shift questions are ready for you, Priya, in the Shift scheduling rules chat.'], sectionLink: 'shifts' },
+      { id: 't5', actor: 'ai', topics: ['success'], lines: ['Success criteria must come from the kitchen. I suggest posting this question to Maya:'], asksNgo: ['success'] }
+    ];
+  }
+  allConfirmed(s) {
+    return ['users', 'shifts', 'notify', 'data', 'scope', 'success'].every((id) => this.topicState(id, s) === 'Confirmed');
+  }
+  addAiTurn(extra, s, human, ai, patch) {
+    this.setState(Object.assign({ extra: extra.concat(human ? [human, ai] : [ai]), busy: true, pending: 0.55, focus: null }, patch));
+    clearTimeout(this.replyTimer);
+    this.replyTimer = setTimeout(() => this.finishReply(), 4000);
+  }
+  finishReply() {
+    const s = this.state;
+    let extra = s.extra.map((t) => (t.typing ? Object.assign({}, t, { typing: false }) : t));
+    let closeShown = s.closeShown;
+    let fail = null;
+    if (s.closeCheck) {
+      const all = ['users', 'shifts', 'notify', 'data', 'scope', 'success'];
+      const names = this.topicNames();
+      const gapIds = s.checkRuns === 0 ? Object.keys(this.gapDefs()) : Object.keys(s.gaps);
+      const open = all.filter((id) => gapIds.indexOf(id) === -1 && this.topicState(id, s) !== 'Confirmed');
+      const head = 'Completion check on revision ' + s.rev + ': the PRD covers ' + (gapIds.length ? 84 : 91) + '% of the confirmed Discovery document. The configured threshold is [THRESHOLD — pilot decision], so it ' + (gapIds.length ? 'does not pass.' : 'passes.');
+      if (!gapIds.length && !open.length) {
+        extra = extra.concat([{ id: 'x' + extra.length, actor: 'ai', topics: all, lines: [head, 'The PRD is closed at revision ' + s.rev + '. UI Design starts from it.'] }]);
+        closeShown = true;
+        fail = { closeCheck: false, closed: true, checkRuns: s.checkRuns + 1 };
+      } else {
+        const id = 'x' + extra.length;
+        const lines = [head].concat(gapIds.length ? ['It found ' + (gapIds.length === 1 ? 'one gap' : gapIds.length + ' gaps') + ':'] : []);
+        extra = extra.concat([{ id, actor: 'ai', topics: all, lines, gapLinks: gapIds.length ? gapIds : undefined, after: (open.length ? ['Not confirmed yet: ' + open.map((x) => names[x]).join(', ') + '.'] : []).concat(['You can close anyway; these stay recorded as open in the closed revision. Or keep working and close later.']), closeAsk: true }]);
+        const gaps = {};
+        const confirmed = Object.assign({}, s.confirmed);
+        const review = Object.assign({}, s.review);
+        gapIds.forEach((g) => { gaps[g] = true; confirmed[g] = false; review[g] = true; });
+        fail = { closeCheck: false, closeWarn: id, closeOpen: gapIds.length + open.length, gaps, confirmed, review, checkRuns: s.checkRuns + 1 };
+      }
+    } else if (!closeShown && this.allConfirmed(s) && s.checkRuns === 0) {
+      const ids = Object.keys(this.gapDefs());
+      extra = extra.concat([{ id: 'x' + extra.length, actor: 'ai', topics: ['users', 'notify', 'shifts', 'scope', 'data', 'success'], lines: ['Completion check on revision ' + s.rev + ': the PRD covers 84% of the confirmed Discovery document. The configured threshold is [THRESHOLD — pilot decision], so it does not pass yet.', 'I found two gaps, each in a section. Open each one, tell me how to cover it, then confirm the section again. The check runs again when all six are confirmed.'], gapLinks: ids }]);
+      const gaps = {};
+      ids.forEach((id) => { gaps[id] = true; });
+      fail = { gaps, checkRuns: 1, confirmed: Object.assign({}, s.confirmed, { shifts: false, users: false }), review: Object.assign({}, s.review, { shifts: true, users: true }) };
+    } else if (!closeShown && this.allConfirmed(s)) {
+      extra = extra.concat([{ id: 'x' + extra.length, actor: 'ai', topics: ['users', 'notify', 'shifts', 'scope', 'data', 'success'], lines: ['Completion check on revision ' + s.rev + ': the PRD covers 91% of the confirmed Discovery document. The configured threshold is [THRESHOLD — pilot decision], so it passes.', 'All six required topics are confirmed and no blocking question is open.'], close: true }]);
+      closeShown = true;
+    }
+    const nextMsg = s.queue[0];
+    this.setState(Object.assign({ extra, busy: false, closeShown, spent: s.spent + s.pending * 0.935, pending: 0, queue: nextMsg ? s.queue.slice(1) : s.queue }, fail || {}), () => { if (nextMsg) this.request(nextMsg.text, false); });
+  }
+  send() {
+    const s = this.state;
+    const text = s.draft.trim();
+    if (s.busy) {
+      if (!text) return;
+      this.qid = (this.qid || 0) + 1;
+      this.setState({ queue: s.queue.concat([{ id: 'm' + this.qid, text }]), draft: '' });
+      return;
+    }
+    if (!text) return;
+    if (this.avail(s) < 0.55) return;
+    this.request(text, false);
+  }
+  request(text, answered) {
+    const s = this.state;
+    if (this.avail(s) < 0.55) return;
+    const lines = answered ? this.devQuestions().map((q) => q.text.replace(/\?$/, '') + ': ' + s.picks[q.id]) : [];
+    if (text) lines.push(text);
+    const n = s.extra.length;
+    const human = { id: 'x' + n, actor: 'dev', topics: answered ? ['shifts'] : s.focus ? [s.focus] : [], lines };
+    const ai = answered
+      ? { id: 'x' + (n + 1), actor: 'ai', typing: true, topics: ['shifts', 'scope'], updated: 'Shift scheduling rules, Technical scope', lines: ['Shift scheduling rules and Technical scope have every decision they need now. Technical scope now has ' + this.swapLine(s.picks) + '.', 'Both sections are ready for you to confirm. Open each one on the left to read it.'] }
+      : { id: 'x' + (n + 1), actor: 'ai', typing: true, topics: human.topics, lines: this.mainReply(text, s) };
+    const open = Object.keys(s.discussOpen)[0];
+    if (open && !answered) {
+      const def = this.ngoDefs()[open];
+      const name = this.topicNames()[def.topic];
+      const discussOpen = Object.assign({}, s.discussOpen);
+      delete discussOpen[open];
+      human.topics = [def.topic];
+      const settled = { id: 'x' + (n + 1), actor: 'ai', typing: true, topics: [def.topic], updated: name, lines: ['Recorded in ' + name + ': ' + text, name + ' is ready for you to confirm.'] };
+      this.addAiTurn(s.extra, s, human, settled, { draft: '', discussOpen, rev: s.rev + 1, secNotes: Object.assign({}, s.secNotes, { [def.topic]: (s.secNotes[def.topic] || []).concat([text]) }) });
+      return;
+    }
+    this.addAiTurn(s.extra, s, human, ai, { draft: '', devDone: s.devDone || answered, rev: answered ? s.rev + 1 : s.rev });
+  }
+  mainReply(text, s) {
+    if (/cost|price|charge|spend|money|fund/i.test(text)) return ['Each AI reply holds up to $0.55 of PRD funds until the real cost comes in; most replies cost about $0.50. The completion check costs about the same. ' + this.money(this.avail(s)) + ' is left now, about ' + this.money(Math.max(0, this.avail(s) - 0.51)) + ' after this reply.'];
+    if (/block|missing|left|close|next|remain/i.test(text)) {
+      const items = this.renderVals().closeItems.map((x) => x.text);
+      return items.length ? ['Still open: ' + items.join('; ') + '.', 'You can close the PRD at any time. Close PRD runs the completion check first and shows what is still open.'] : ['Nothing is left. The completion check passed, so you can close the PRD.'];
+    }
+    return ['Noted. I added this to the PRD notes. It does not change a confirmed topic.'];
+  }
+  setQ(qid, patch) {
+    const nq = Object.assign({}, this.state.nq, { [qid]: Object.assign({}, this.state.nq[qid], patch) });
+    this.setState({ nq });
+  }
+  briefFor(qid, s) {
+    const def = this.ngoDefs()[qid];
+    const said = s.threads[qid].filter((m) => m.actor === 'ngo').length;
+    return [
+      { label: 'Question', text: def.text },
+      { label: 'Maya’s answer', text: s.answers[qid] },
+      { label: 'How she got there', text: 'Settled with the AI in ' + said + (said === 1 ? ' message' : ' messages') + ', then marked complete.' },
+      { label: 'What it changes', text: def.changes }
+    ].concat(def.discuss ? [{ label: 'To discuss', text: def.discuss }] : []);
+  }
+  openPeek(qid) {
+    this.setState({ peek: qid, peekAnswer: this.state.answers[qid] || '', peekNote: '', thread: null, ptab: 'questions' });
+  }
+  claim(qid, edits) {
+    const s = this.state;
+    if (this.avail(s) < 0.55) return;
+    const def = this.ngoDefs()[qid];
+    const names = this.topicNames();
+    const answer = edits && edits.answer.trim() ? edits.answer.trim() : s.answers[qid];
+    const changed = answer !== s.answers[qid];
+    const note = edits ? edits.note.trim() : '';
+    let brief = this.briefFor(qid, s);
+    if (changed) brief.splice(2, 0, { label: 'I changed it to', text: answer });
+    if (note) brief = brief.concat([{ label: 'My note', text: note }]);
+    const human = { id: 'claim-' + qid, actor: 'dev', topics: [def.topic], brief, lines: ['I’m using Maya’s answer for ' + names[def.topic] + '. Brief:'] };
+    const ai = { id: 'x' + (s.extra.length + 1), actor: 'ai', typing: true, topics: [def.topic], updated: names[def.topic], lines: ['Recorded in ' + names[def.topic] + ': ' + this.clean(answer)].concat(changed ? ['I will tell Maya you adjusted her answer, so she sees the final wording.'] : []).concat(note ? ['Noted: ' + note] : []).concat(def.discuss && !note ? ['One point to settle: ' + def.discuss + ' Answer here, and I will mark the section ready.'] : def.discuss ? ['Your note settles the open point. ' + names[def.topic] + ' is ready for you to confirm.'] : def.optional ? [] : [names[def.topic] + ' is ready for you to confirm.']) };
+    const nq = Object.assign({}, s.nq, { [qid]: Object.assign({}, s.nq[qid], { status: 'claimed' }) });
+    this.addAiTurn(s.extra, s, human, ai, { nq, rev: s.rev + 1, answers: Object.assign({}, s.answers, { [qid]: answer }), recorded: Object.assign({}, s.recorded, { [qid]: true }), secNotes: note ? Object.assign({}, s.secNotes, { [def.topic]: (s.secNotes[def.topic] || []).concat([note]) }) : s.secNotes, discussOpen: def.discuss && !note ? Object.assign({}, s.discussOpen, { [qid]: true }) : s.discussOpen, thread: null, peek: null, tab: 'main', ptab: 'chat' });
+  }
+  ngoSend() {
+    const s = this.state;
+    const qid = s.thread;
+    const text = s.ngoDraft.trim();
+    if (!qid || !text || s.threadBusy || this.avail(s) < 0.3) return;
+    const msgs = s.threads[qid].concat([{ actor: 'ngo', text }]);
+    const threads = Object.assign({}, s.threads, { [qid]: msgs });
+    const def = this.ngoDefs()[qid];
+    const asking = /\?\s*$/.test(text);
+    const stored = (def.expand && def.expand[text]) || text;
+    const answers = asking ? s.answers : Object.assign({}, s.answers, { [qid]: s.answers[qid] ? s.answers[qid] + '; ' + stored : stored });
+    const round = s.threads[qid].filter((m) => m.actor === 'ngo' && !/\?\s*$/.test(m.text)).length;
+    this.setState({ threads, answers, ngoDraft: '', threadBusy: qid, pending: 0.3 });
+    if (s.nq[qid].status === 'open') this.setQ(qid, { status: 'answering' });
+    clearTimeout(this.threadTimer);
+    this.threadTimer = setTimeout(() => {
+      const st = this.state;
+      const follow = {
+        retention: 'That works for most kitchens. One check: does “contact details” mean email and phone only? I suggest keeping shift history without names after that, so your yearly numbers still add up. Is that all right?',
+        logo: /plain/i.test(answers[qid] || '') ? 'Noted: plain text emails, with no logo. Anything else to add?' : 'Noted. If the logo file is not ready yet, the emails start in plain text and the logo comes later. Is that fine?',
+        success: 'Good. Someone has to count this. Should you see the number in the app each week, or is a monthly email to you enough?'
+      }[qid];
+      const reply = { actor: 'ai', text: asking ? def.qa + (answers[qid] ? '' : ' What is your answer?') : round === 0 ? follow : 'Thanks, I have what I need. Mark the answer complete and I will write it up for Priya.' };
+      this.setState({ threads: Object.assign({}, st.threads, { [qid]: st.threads[qid].concat([reply]) }), threadBusy: null, spent: st.spent + 0.3 * 0.935, pending: 0 });
+    }, 1600);
+  }
+  renderVals() {
+    const s = this.state;
+    const isDev = s.viewer === 'dev';
+    const names = this.topicNames();
+    const defs = this.ngoDefs();
+    const statusText = { open: isDev ? 'Waiting for Maya' : 'Open · answer it', answering: 'Maya is answering', complete: isDev ? 'Maya marked it complete · use it' : 'Complete · waiting for Priya to use it', claimed: 'Used by Priya' };
+    const statusColor = { open: '#475569', answering: '#92400e', complete: '#1d4ed8', claimed: '#166534' };
+    const all = this.baseTurns().concat(s.extra);
+    const turns = all.filter((t) => !s.focus || (t.topics && t.topics.indexOf(s.focus) !== -1)).map((t) => {
+      const ring = s.flash === t.id ? '0 0 0 3px ' + (t.actor === 'dev' ? '#2563eb' : t.actor === 'claim' ? '#b45309' : '#6d28d9') : 'none';
+      const base = { id: t.id, isDay: t.actor === 'day', dayText: t.text || '', isEvent: t.actor === 'event', eventText: t.text || '', isAi: t.actor === 'ai', isHuman: t.actor === 'dev', isClaim: t.actor === 'claim', ring, isTyping: !!t.typing, lines: t.typing ? [] : (t.lines || []), hasUpdated: !t.typing && !!t.updated, updated: t.updated || '', hasSectionLink: !t.typing && !!t.sectionLink, sectionLinkLabel: t.sectionLink ? 'Open the ' + names[t.sectionLink] + ' chat' : '', openSectionLink: () => this.openSection(t.sectionLink), hasGaps: !t.typing && !!t.gapLinks, gapItems: (t.gapLinks || []).map((gid) => ({ id: gid, name: names[gid], gap: this.gapDefs()[gid].gap, open: () => this.openSection(gid), open_: !!s.gaps[gid], fixed: !s.gaps[gid] })), hasBrief: t.actor === 'dev' && !!t.brief, brief: t.brief || [] };
+      const ngoAsks = (t.typing ? [] : (t.asksNgo || [])).map((qid) => {
+        const q = s.nq[qid];
+        const heading = q.posted ? 'Question for Maya (NGO) · ' + (defs[qid].optional ? 'not blocking' : 'blocking') + ' · ' + statusText[q.status].toLowerCase() : 'Suggested question for Maya (NGO) · not posted yet';
+        return { id: qid, status: q.posted ? q.status : 'suggested', text: defs[qid].text, heading, showPost: !q.posted && isDev, post: () => this.setQ(qid, { posted: true }), showAnswer: !isDev && q.posted && (q.status === 'open' || q.status === 'answering'), answer: () => this.setState({ thread: qid, ngoDraft: '', peek: null, ptab: 'questions' }), ring: s.flash === 'intro-' + qid ? '0 0 0 3px #b45309' : 'none' };
+      });
+      return Object.assign(base, { ngoAsks, hasAfter: !t.typing && !!t.after, after: t.after || [], showCloseAsk: !t.typing && !!t.closeAsk && s.closeWarn === t.id && isDev && !s.closed, closeAnyway: () => this.closeAnyway(), keepWorking: () => this.setState({ closeWarn: null }), showClose: !t.typing && !!t.close && s.closeShown, closeButton: isDev && !s.closed, closeNote: !isDev && !s.closed, closePrd: () => this.closePrd(), closeReason: s.closed ? 'The PRD is closed.' : 'The completion check passes for revision ' + s.rev + '. Closing freezes it, and UI Design starts from it.' });
+    });
+    const topicIds = ['users', 'shifts', 'notify', 'data', 'scope', 'success'];
+    const topics = topicIds.map((id) => {
+      const state = this.topicState(id, s);
+      const b = this.badge(state);
+      const blk = this.topicBlocker(id, s);
+      const sel = s.tab === id;
+      return { id, name: names[id], state, isConfirmed: state === 'Confirmed', badgeBg: b.bg, badgeFg: b.fg, badgeBorder: b.border, badgeLine: b.line, hasBlocker: !!blk, blocker: blk ? blk.text : '', blockerColor: blk ? blk.color : '#475569', selected: sel, frame: sel ? '#0f172a' : '#e2e8f0', bg: sel ? '#f8fafc' : '#ffffff', focus: () => this.openSection(id) };
+    });
+    const confirmed = topics.filter((t) => t.isConfirmed).length;
+    const dq = s.devDone ? [] : this.devQuestions();
+    const questions = dq.filter((q) => !s.focus || q.topic === s.focus).map((q) => ({
+      id: q.id, text: q.text, why: q.why, topicName: names[q.topic],
+      options: q.options.map((label, i) => {
+        const pressed = s.picks[q.id] === label;
+        return { label, pressed, suggested: i === q.suggested, disabled: !isDev, cursor: isDev ? 'pointer' : 'default', border: pressed ? '#2563eb' : '#cbd5e1', bg: pressed ? '#2563eb' : '#ffffff', fg: pressed ? '#ffffff' : '#0f172a', pick: () => this.setState({ picks: Object.assign({}, s.picks, { [q.id]: label }) }) };
+      })
+    }));
+    const answered = dq.length > 0 && dq.every((q) => !!s.picks[q.id]);
+    const hasText = !!s.draft.trim();
+    const lowFunds = this.avail(s) < 0.55;
+    const canSend = hasText && !lowFunds;
+    const secAnswered = s.tab === 'shifts' && answered;
+    const canSecSend = !lowFunds && s.tab !== 'main' && !s.secBusy && (!!s.secDraft.trim() || secAnswered);
+    const posted = Object.keys(defs).filter((qid) => s.nq[qid].posted);
+    const openQuestions = posted.filter((qid) => s.nq[qid].status !== 'claimed').map((qid) => {
+      const d = defs[qid];
+      const st = s.nq[qid].status;
+      return {
+        id: qid, text: d.text, topic: names[d.topic], blocking: d.optional ? 'false' : 'true', status: st,
+        blockLabel: d.optional ? 'Not blocking' : 'Blocks ' + names[d.topic], blockColor: d.optional ? '#475569' : '#b91c1c',
+        statusText: statusText[st], statusColor: statusColor[st], frame: st === 'complete' ? '#2563eb' : st === 'answering' ? '#f59e0b' : '#e2e8f0',
+        showSent: !isDev && st === 'complete', sent: s.answers[qid] || '',
+        canClaim: isDev && st === 'complete' && !s.busy && !lowFunds, claim: () => this.claim(qid), view: () => this.openPeek(qid),
+        open: () => { this.setState({ thread: qid, ngoDraft: '' }); this.go('intro-' + qid); },
+        openPhone: () => this.setState({ thread: qid, ngoDraft: '' })
+      };
+    });
+    const answeredQuestions = posted.filter((qid) => s.nq[qid].status === 'claimed').map((qid) => ({ id: qid, topic: names[defs[qid].topic], answer: s.answers[qid], open: () => this.go('claim-' + qid) }));
+    let th = { id: '', status: '' };
+    if (s.thread) {
+      const d = defs[s.thread];
+      const st = s.nq[s.thread].status;
+      const opener = { actor: 'ai', text: 'Priya asks: ' + d.text + ' This matters because ' + d.why + ' Pick an answer below or write your own.' };
+      const msgs = [opener].concat(s.threads[s.thread]).map((m) => ({ actor: m.actor, text: m.text, name: m.actor === 'ngo' ? 'Maya (NGO)' : 'ai4good AI', nameColor: m.actor === 'ngo' ? '#92400e' : '#6d28d9', align: m.actor === 'ngo' ? 'flex-end' : 'flex-start', bg: m.actor === 'ngo' ? '#fffbeb' : '#ffffff', border: m.actor === 'ngo' ? '#fde68a' : '#e2e8f0' }));
+      const ngoCanWrite = !isDev && (st === 'open' || st === 'answering');
+      const canNgoSend = !!s.ngoDraft.trim() && !s.threadBusy && this.avail(s) >= 0.3;
+      const last = s.threads[s.thread].slice(-1)[0];
+      const followOpen = !!last && last.actor === 'ai' && /\?\s*$/.test(last.text);
+      const canComplete = !!s.answers[s.thread] && !s.threadBusy && !followOpen;
+      let note = '';
+      if (isDev && (st === 'open' || st === 'answering')) note = 'Maya answers here with the AI. You can read along.';
+      if (!isDev && st === 'complete') note = 'You marked this answer complete. Priya will use it and continue in the main chat.';
+      if (st === 'claimed') note = 'Priya used this answer. It is now in the main chat.';
+      th = {
+        id: s.thread, status: st, text: d.text, topic: names[d.topic], blockLabel: d.optional ? 'Not blocking' : 'Blocks ' + names[d.topic], blockColor: d.optional ? '#475569' : '#b91c1c',
+        statusText: statusText[st], statusColor: statusColor[st], messages: msgs, typing: s.threadBusy === s.thread,
+        ngoCanWrite, options: d.options.map((label) => ({ label, pick: () => this.setState({ ngoDraft: label }) })),
+        sendDisabled: !canNgoSend, sendBg: canNgoSend ? '#b45309' : '#cbd5e1',
+        completeDisabled: !canComplete, completeBg: canComplete ? '#b45309' : '#cbd5e1',
+        showClaim: isDev && st === 'complete' && !s.busy && !lowFunds, claim: () => this.claim(s.thread),
+        hasNote: !!note, note,
+        hasCompleteHint: !!s.answers[s.thread] && followOpen && !s.threadBusy, completeHint: 'Answer the AI’s question first.'
+      };
+    }
+    const canClaimCount = openQuestions.filter((q) => q.status === 'complete').length;
+    const ngoToAnswer = openQuestions.filter((q) => q.status === 'open' || q.status === 'answering').length;
+    const qBadge = isDev ? canClaimCount : ngoToAnswer;
+    const alloc = 20;
+    const pct = (s.spent / alloc) * 100;
+    const band = pct < 80 ? 'green' : pct <= 95 ? 'yellow' : 'red';
+    const f = s.tab !== 'main' ? s.tab : null;
+    const fState = f ? this.topicState(f, s) : 'Open';
+    const fb = this.badge(fState);
+    const fBlk = f ? this.topicBlocker(f, s) : null;
+    const stageList = ['Intake', 'Discovery', 'Volunteer match', 'PRD', 'UI Design', 'Build plan', 'Build', 'Handoff'];
+    const stages = stageList.map((label, i) => ({ key: label.toLowerCase().replace(/ /g, '-'), label, done: i < 3, current: i === 3 ? 'step' : 'false', border: i === 3 ? '#0f172a' : '#e2e8f0', bg: i === 3 ? '#0f172a' : i < 3 ? '#f8fafc' : '#ffffff', fg: i === 3 ? '#ffffff' : i < 3 ? '#334155' : '#64748b', weight: i === 3 ? 700 : 500 }));
+    const openBlocking = openQuestions.filter((q) => q.blocking === 'true').length;
+    const blockingIds = Object.keys(defs).filter((qid) => !defs[qid].optional);
+    const unposted = blockingIds.filter((qid) => !s.nq[qid].posted).length;
+    const waiting = blockingIds.filter((qid) => s.nq[qid].posted && (s.nq[qid].status === 'open' || s.nq[qid].status === 'answering')).length;
+    const toClaim = blockingIds.filter((qid) => s.nq[qid].status === 'complete').length;
+    const notConfirmed = topics.length - confirmed;
+    const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+    const closeItems = [];
+    const gapN = Object.keys(s.gaps).length;
+    const readyCount = topics.filter((t) => (t.state === 'Ready to confirm' || t.state === 'Needs review') && !s.gaps[t.id]).length;
+    if (readyCount) closeItems.push({ key: 'ready', text: plural(readyCount, 'section', 'sections') + ' ready for you to confirm' });
+    if (notConfirmed - readyCount - gapN) closeItems.push({ key: 'topics', text: plural(notConfirmed - readyCount - gapN, 'section', 'sections') + ' still being written' });
+    if (unposted) closeItems.push({ key: 'unposted', text: plural(unposted, 'blocking question', 'blocking questions') + ' not posted to Maya' });
+    if (waiting) closeItems.push({ key: 'waiting', text: plural(waiting, 'blocking question', 'blocking questions') + ' waiting for Maya' });
+    if (toClaim) closeItems.push({ key: 'claim', text: plural(toClaim, 'answer', 'answers') + ' from Maya to use' });
+    const gapCount = Object.keys(s.gaps).length;
+    if (gapCount) closeItems.push({ key: 'gaps', text: plural(gapCount, 'gap', 'gaps') + ' from the completion check to fix' });
+    if (!s.closeShown) closeItems.push({ key: 'check', text: 'Completion check runs when you close, or when all sections are confirmed' });
+    if (s.closed) closeItems.length = 0;
+    const closeReady = s.closeShown;
+    return {
+      closeReady, closeItems, closeHasItems: closeItems.length > 0,
+      closeTitle: s.closed ? 'Closed at revision ' + s.rev : closeReady ? 'Ready to close · completion check passed' : 'Still open',
+      closeFrame: closeReady ? '#86efac' : '#e2e8f0', closeBg: closeReady ? '#f0fdf4' : '#ffffff',
+      closeLink: isDev && !s.closed, ngoCloseNote: !isDev && !s.closed,
+      closePrd: () => this.closePrd(), closed: s.closed, devWrite: isDev && !s.closed,
+      bannerText: 'PRD closed at revision ' + s.rev + (s.closedOpen ? ' with ' + s.closedOpen + ' open ' + (s.closedOpen === 1 ? 'point' : 'points') : '') + ' · UI Design starts from it', bannerNote: isDev ? '' : 'Priya opens UI Design next.', hasBannerNote: !isDev, showOpenDesign: isDev,
+      openDesign: () => this.setState({ designNote: true }), designNote: s.designNote,
+      isDev, isNgo: !isDev,
+      viewDev: () => this.setState({ viewer: 'dev', ptab: 'chat' }), viewNgo: () => this.setState({ viewer: 'ngo', ptab: 'questions' }),
+      devSwBorder: isDev ? '#2563eb' : '#cbd5e1', devSwBg: isDev ? '#2563eb' : '#ffffff', devSwFg: isDev ? '#ffffff' : '#334155',
+      ngoSwBorder: !isDev ? '#b45309' : '#cbd5e1', ngoSwBg: !isDev ? '#b45309' : '#ffffff', ngoSwFg: !isDev ? '#ffffff' : '#334155',
+      stages, rev: s.rev, confirmed, total: topics.length, progressWidth: Math.round((confirmed / topics.length) * 100) + '%', topics,
+      onMain: !f, onSection: !!f, showMain: () => this.setState({ tab: 'main' }), mainItemFrame: !f ? '#0f172a' : '#e2e8f0', mainItemBg: !f ? '#f8fafc' : '#ffffff',
+      secMsgs: f ? [this.secOpener(f, s)].concat(s.secThreads[f] || []).map((m) => ({ isAi: m.actor === 'ai', isDev: m.actor === 'dev', lines: m.lines })) : [],
+      secTyping: !!f && s.secBusy === f, secDraft: s.secDraft, onSecDraft: (e) => this.setState({ secDraft: e.target.value }), secSend: () => this.secSend(),
+      secSendDisabled: !canSecSend, secSendBg: canSecSend ? '#2563eb' : '#cbd5e1',
+      secPlaceholder: f === 'shifts' && !s.devDone ? 'Pick both answers above, add a note if you like, then send' : 'Write to the AI about this section',
+      turns, showQuestions: f === 'shifts' && questions.length > 0, questions,
+      hasFocus: !!f, focusId: f || '', focusName: f ? names[f] : '', focusState: fState, focusBadgeBg: fb.bg, focusBadgeFg: fb.fg, focusBadgeBorder: fb.border, focusBadgeLine: fb.line,
+      focusLines: f ? this.sectionLines(f, s) : [], focusSources: f ? this.sectionSources(f) : '',
+      focusStories: f === 'scope' ? this.stories(s.devDone ? s.picks : {}, s).map((x, i) => ({ n: String(i + 1), text: x })) : [], hasFocusStories: f === 'scope',
+
+      focusNext: f && s.gaps[f] ? 'Gap from the completion check: ' + this.gapDefs()[f].gap : { 'Confirmed': 'Confirmed by Priya.', 'Ready to confirm': 'The AI checked this section: every decision is recorded. Read it and confirm.', 'Needs review': 'Reopened. Read it again and confirm.' }[fState] || (fBlk ? fBlk.text : 'The AI is still writing this section.'),
+      focusNextColor: f && s.gaps[f] ? '#991b1b' : fState === 'Confirmed' ? '#166534' : fBlk ? fBlk.color : '#475569',
+      focusCanConfirm: isDev && !s.closed && (fState === 'Ready to confirm' || fState === 'Needs review') && !s.busy && !s.gaps[f], focusCanReopen: isDev && !s.closed && fState === 'Confirmed' && !s.busy,
+      focusWaitNote: isDev && (fState === 'Open' || fState === 'Draft'), focusNgoNote: !isDev,
+      confirmFocus: () => this.confirmSection(f), reopenFocus: () => this.reopenSection(f),
+      clearFocus: () => this.setState({ focus: null }),
+      lowFunds, composerHint: lowFunds ? 'PRD funds are used up. The AI cannot answer until the kitchen adds funds.' : s.busy ? 'The AI is answering. Send adds your message to the queue.' : 'Main chat: about the whole PRD. To work on one section, open it on the left.',
+      hasQueue: s.queue.length > 0, queueCount: s.queue.length,
+      queueItems: s.queue.map((m) => ({ id: m.id, text: m.text, edit: () => this.setState({ queue: this.state.queue.filter((x) => x.id !== m.id), draft: this.state.draft ? this.state.draft + ' ' + m.text : m.text }), remove: () => this.setState({ queue: this.state.queue.filter((x) => x.id !== m.id) }) })),
+      draft: s.draft, onDraft: (e) => this.setState({ draft: e.target.value }),
+      sendLabel: s.busy ? 'Add to queue' : 'Send', sendDisabled: !canSend, sendBg: canSend ? '#2563eb' : '#cbd5e1', sendCursor: canSend ? 'pointer' : 'not-allowed', send: () => this.send(),
+      people: [
+        { key: 'ai', initial: 'AI', name: 'ai4good AI', role: 'Drafts the PRD and helps both people', color: '#6d28d9' },
+        { key: 'dev', initial: 'P', name: 'Priya Shah', role: 'Developer · works on the PRD with the AI', color: '#2563eb' },
+        { key: 'ngo', initial: 'M', name: 'Maya Levi', role: 'NGO · Harbor Community Kitchen · answers questions', color: '#b45309' }
+      ],
+      openCount: openQuestions.length, openQuestions, qTitle: isDev ? 'Questions for Maya (NGO) · ' + openQuestions.length + ' open' : 'Questions for you · ' + openQuestions.filter((q) => q.status === 'open' || q.status === 'answering').length + ' to answer',
+      listNote: isDev ? (openBlocking ? openBlocking + ' blocking. Keep working; use each answer when Maya marks it complete.' : 'No blocking question is open.') : 'Open a question to answer it with the AI. Mark it complete when you are done.',
+      hasAnswered: answeredQuestions.length > 0, answeredQuestions, answeredOpen: s.answeredOpen, answeredLabel: (s.answeredOpen ? '▾ ' : '▸ ') + 'Answered (' + answeredQuestions.length + ')',
+      toggleAnswered: () => this.setState({ answeredOpen: !s.answeredOpen }),
+      noThread: !s.thread && !s.peek, hasThread: !!s.thread, th, closeThread: () => this.setState({ thread: null }),
+      ptabChat: s.ptab === 'chat', ptabPrd: s.ptab === 'prd', ptabQuestions: s.ptab === 'questions',
+      toChat: () => this.setState({ ptab: 'chat' }), toPrd: () => this.setState({ ptab: 'prd' }), toQuestions: () => this.setState({ ptab: 'questions' }),
+      tabChatFg: s.ptab === 'chat' ? '#0f172a' : '#64748b', tabPrdFg: s.ptab === 'prd' ? '#0f172a' : '#64748b', tabQFg: s.ptab === 'questions' ? '#0f172a' : '#64748b',
+      tabChatBar: s.ptab === 'chat' ? '#0f172a' : 'transparent', tabPrdBar: s.ptab === 'prd' ? '#0f172a' : 'transparent', tabQBar: s.ptab === 'questions' ? '#0f172a' : 'transparent',
+      qBadge: String(qBadge), hasQBadge: qBadge > 0, qBadgeBg: isDev ? '#2563eb' : '#b45309',
+      phoneNoQThread: !s.thread && !s.peek,
+      hasPeek: !!s.peek && !s.thread, pk: s.peek ? { text: defs[s.peek].text, topic: names[defs[s.peek].topic], blockLabel: defs[s.peek].optional ? 'Not blocking' : 'Blocks ' + names[defs[s.peek].topic], blockColor: defs[s.peek].optional ? '#475569' : '#b91c1c', rows: this.briefFor(s.peek, s).filter((b) => b.label !== 'Question' && b.label !== 'Maya’s answer') } : { text: '', topic: '', blockLabel: '', blockColor: '#475569', rows: [] },
+      peekAnswer: s.peekAnswer, onPeekAnswer: (e) => this.setState({ peekAnswer: e.target.value }), peekNote: s.peekNote, onPeekNote: (e) => this.setState({ peekNote: e.target.value }),
+      peekDisabled: s.busy || lowFunds, peekClaimBg: s.busy || lowFunds ? '#cbd5e1' : '#2563eb', peekClaim: () => this.claim(s.peek, { answer: s.peekAnswer, note: s.peekNote }), closePeek: () => this.setState({ peek: null }),
+      ngoDraft: s.ngoDraft, onNgoDraft: (e) => this.setState({ ngoDraft: e.target.value }), ngoSend: () => this.ngoSend(),
+      markComplete: () => { const qid = s.thread; this.setQ(qid, { status: 'complete' }); this.setState({ thread: null, answers: Object.assign({}, this.state.answers, { [qid]: this.craft(qid, s.answers[qid]) }) }); },
+      band, bandColor: { green: '#16a34a', yellow: '#ca8a04', red: '#dc2626' }[band], bandText: { green: '#166534', yellow: '#854d0e', red: '#991b1b' }[band],
+      allocText: this.money(alloc), pendingText: this.money(s.pending), hasPending: s.pending > 0, availText: this.money(alloc - s.spent - s.pending),
+      spentWidth: Math.min(100, pct) + '%', pendingWidth: Math.min(100, (s.pending / alloc) * 100) + '%'
+    };
+  }
+}
+</script>
+</body>
+</html>

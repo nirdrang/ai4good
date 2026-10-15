@@ -46,6 +46,30 @@
         "AT-036.10": {
           "kind": "pending",
           "phase": "sut-missing"
+        },
+        "AT-036.13": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.14": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.15": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.16": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.17": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.18": {
+          "kind": "pending",
+          "phase": "sut-missing"
         }
       }
     },
@@ -92,6 +116,30 @@
           "phase": "sut-missing"
         },
         "AT-036.10": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.13": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.14": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.15": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.16": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.17": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.18": {
           "kind": "pending",
           "phase": "sut-missing"
         }
@@ -153,6 +201,30 @@
             "fixtures.worlds",
             "sut.scope"
           ]
+        },
+        "AT-036.13": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.14": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.15": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.16": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.17": {
+          "kind": "pending",
+          "phase": "sut-missing"
+        },
+        "AT-036.18": {
+          "kind": "pending",
+          "phase": "sut-missing"
         }
       }
     }

@@ -11,3 +11,9 @@ atTest('AT-036.07', 'PRD workspace case 7 awaits its implementation', { default:
 atTest('AT-036.08', 'PRD workspace case 8 awaits its implementation', { default: async () => { throw new AtPending('AT-036.08', 'sut-missing', 'The PRD workspace has not shipped.'); } });
 atTest('AT-036.09', 'PRD workspace case 9 awaits its implementation', { default: async () => { throw new AtPending('AT-036.09', 'sut-missing', 'The PRD workspace has not shipped.'); } });
 atTest('AT-036.10', 'PRD workspace case 10 awaits its implementation', { default: async () => { throw new AtPending('AT-036.10', 'sut-missing', 'The PRD workspace has not shipped.'); } });
+atTest('AT-036.13', 'PRD workspace case 13 awaits its implementation', { default: async () => { throw new AtPending('AT-036.13', 'sut-missing', 'The PRD workspace has not shipped.'); } });
+atTest('AT-036.14', 'PRD workspace case 14 awaits its implementation', { default: async () => { throw new AtPending('AT-036.14', 'sut-missing', 'The PRD workspace has not shipped.'); } });
+atTest('AT-036.15', 'PRD workspace case 15 awaits its implementation', { default: async () => { throw new AtPending('AT-036.15', 'sut-missing', 'The PRD workspace has not shipped.'); } });
+atTest('AT-036.16', 'PRD workspace case 16 awaits its implementation', { default: async () => { throw new AtPending('AT-036.16', 'sut-missing', 'The PRD workspace has not shipped.'); } });
+atTest('AT-036.17', 'PRD workspace case 17 awaits its implementation', { default: async () => { throw new AtPending('AT-036.17', 'sut-missing', 'The PRD workspace has not shipped.'); } });
+atTest('AT-036.18', 'PRD workspace case 18 awaits its implementation', { default: async () => { throw new AtPending('AT-036.18', 'sut-missing', 'The PRD workspace has not shipped.'); } });
