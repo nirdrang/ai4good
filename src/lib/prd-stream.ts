@@ -67,7 +67,12 @@ export type NgoQuestion = QuestionCommon &
         readonly complete: Availability<Action<"complete-answer">>;
       }
     | { readonly kind: "complete"; readonly answer: string; readonly canUse: boolean }
-    | { readonly kind: "used"; readonly answer: string; readonly briefTurn: TurnId; readonly changed: boolean }
+    | {
+        readonly kind: "used";
+        readonly answer: string;
+        readonly briefTurn: TurnId;
+        readonly changed: boolean;
+      }
   );
 
 export type DevQuestion = Readonly<{
@@ -144,7 +149,11 @@ export type PrdSnapshot = Readonly<{
 
 export type PrdIntent =
   | { readonly kind: "text"; readonly text: string }
-  | { readonly kind: "answers"; readonly picks: Readonly<Record<string, string>>; readonly text: string }
+  | {
+      readonly kind: "answers";
+      readonly picks: Readonly<Record<string, string>>;
+      readonly text: string;
+    }
   | {
       readonly kind: "use-answer";
       readonly questionId: QuestionId;
@@ -178,7 +187,10 @@ export function scopeKey(scope: ChatScope): string {
 }
 
 function idSchema<K extends string>() {
-  return z.string().min(1).transform((value): Id<K> => value as Id<K>);
+  return z
+    .string()
+    .min(1)
+    .transform((value): Id<K> => value as Id<K>);
 }
 
 const topicIdSchema = idSchema<"topic">();

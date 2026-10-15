@@ -6,10 +6,19 @@ import type {
   PrdRefusal,
   PrdSnapshot,
   PrdUIMessage,
+  QuestionId,
   Result,
+  TopicId,
 } from "@/lib/prd-stream";
 
 export type { PrdRefusal, Result };
+
+export type Selection =
+  | { readonly kind: "main" }
+  | { readonly kind: "topic"; readonly topicId: TopicId }
+  | { readonly kind: "questions" }
+  | { readonly kind: "side"; readonly questionId: QuestionId }
+  | { readonly kind: "review"; readonly questionId: QuestionId };
 
 /**
  * Everything the PRD workspace screen reads or writes.
