@@ -13,6 +13,17 @@ Copy for screen build: `design/canvas/prd-workspace/project/` (both boards and `
 - Step 7: `acceptance/at-req-036.md` amends cases 01 to 10 and adds cases 13 to 18, bound to the boards' `data-testid` handles; the six new ids are pending stubs and are in the `verify:` field of the screen wiring leaf (D7.L3).
 - Known gaps, not changed here because no ruling names them: REQ-010 (project page) still describes the private PRD workspace with one active human and materialization; REQ-026 still says developer-started PRD materialization creates the plan after close and that each Design sign-off creates its UI item; the Design review part of REQ-036 and `design/design-ui-contract.md` still have turns, handover, and per-screen sign-off creating the UI item, and say "Design" for the phase; the manifest leaves D2 to D6 of `loop/decomp/req-036.md` and their board items still describe turns, request effort, and materialize at close; the process bar keeps a Build plan stage although the planning package is now written at the end of UI Design.
 
+## Plan for screen wiring: the model route
+
+Recorded 2026-10-14 for the screen wiring brief. The founder asked whether the backend could "utilze codex with luna model for best utilization of credits" and whether the Vercel chat SDK can use Codex. After the recommendation below, the founder answered "yes record it in the wiring brief".
+
+- The PRD backend uses the AI SDK (Vercel), with the model provider chosen by an environment setting. The chat code is the same for every provider.
+- Development and testing: the community provider `ai-sdk-provider-codex-cli`, on the founder's ChatGPT subscription, so test runs spend no money. It needs Node 18 or newer and a globally installed Codex CLI, so it cannot run inside a Deno edge function; screen wiring settles how the local stack reaches it (for example a local Node service the edge function calls only in development). Codex runs its own tools, so AI SDK tools are not passed through; the recording tools must not depend on that provider in tests that check them.
+- Production: the OpenRouter provider (`@openrouter/ai-sdk-provider`), with the key only in the edge function's environment. The model is luna if OpenRouter or OpenAI offers it as a paid API model, otherwise Haiku; screen wiring checks availability and the price per reply first and asks the founder. This keeps the PRD as written (all PRD model calls through OpenRouter, real cost settled per generation).
+- Production does not run through Codex on a subscription: one account would serve every kitchen, it has no per-reply cost to charge to a project's funds, and a personal subscription is likely not meant to serve other people's requests (not checked against OpenAI's terms).
+- Discovery's backend calls the Anthropic SDK directly (`supabase/functions/_shared/anthropic-messages.ts`), so the AI SDK is a new pattern here.
+- Order, founder answer "Build first, then wire (Recommended)": screen build on sample data first, then screen wiring.
+
 ## Rulings
 
 ### 2026-10-13 and 2026-10-14, step 6: which marked rulings go into the PRD
