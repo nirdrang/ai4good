@@ -1,6 +1,6 @@
 # ai4good — UI/UX Instructions for the Screen-Design Pass (v2)
 
-> **PRD workspace update, 2026-09-21:** Follow [the PRD contract](prd-ui-contract.md) for shared chat, topic progress, focused chat, actor turns, USD usage, and inline state-change recommendations. The flow includes PRD materialize before Design. These private authoring phases preserve the public PM projection and project lifecycle states.
+> **PRD workspace update, 2026-09-21, revised 2026-10-14 from the approved screen design:** Follow [the PRD contract](prd-ui-contract.md) for the developer-driven main chat, topic chats, NGO questions answered in AI side chats, topic progress, USD usage, and Close PRD. There are no turns or handovers. Close PRD freezes the PRD and opens UI Design; the planning package is written once after UI Design. The approved canvas is in `design/canvas/prd-workspace/project/`. These private authoring phases preserve the public PM projection and project lifecycle states.
 
 > **Design workspace update, 2026-09-21:** The founder accepted the Astra Design screen after PRD materialization.
 > Follow [the Design contract](design-ui-contract.md) for screen badges, actor turns, NGO handoff, and sign-off into Build.
@@ -166,7 +166,7 @@ contract rather than to classes, structure, or button text.
   degraded-service banner (see §13).
 
 **Process bar, clarified 2026-09-21:** the shared project workspace owns the compact view of the process Kanban.
-It shows Intake, Discovery, Volunteer match, PRD, PRD materialize, Design, Build, and Handoff, with the current stage identified.
+It shows Intake, Discovery, Volunteer match, PRD, UI Design, Build plan, Build, and Handoff, with the current stage identified (revised 2026-10-14 by the PRD workspace screen design).
 It can appear above a stage screen, including Discovery, without becoming part of that screen's scope.
 The bar displays workflow state. Gate actions retain their existing authorization and approval rules.
 Assess the bar separately. A Discovery screen does not need to contain the other stages or publishing screens.
