@@ -1,0 +1,254 @@
+import type {
+  Action,
+  Availability,
+  Funds,
+  NgoQuestion,
+  PrdSnapshot,
+  PrdUIMessage,
+  Topic,
+  TopicId,
+} from "@/lib/prd-stream";
+import { COPY, STATE_LABEL, money } from "./copy";
+
+export type Names = Readonly<{
+  dev: string;
+  ngo: string;
+  devLabel: string;
+  ngoLabel: string;
+  ai: string;
+}>;
+
+export type Tone = "muted" | "dev" | "ngo" | "stop" | "ok";
+
+export type FundsView = Readonly<{
+  available: string;
+  allocation: string;
+  pending: string | null;
+  band: "ok" | "warn" | "stop";
+  low: boolean;
+  spentPercent: number;
+  pendingPercent: number;
+}>;
+
+export type TopicView = Readonly<{
+  topic: Topic;
+  label: string;
+  blockerTone: Tone;
+}>;
+
+export type QuestionView = Readonly<{
+  question: NgoQuestion;
+  topicTitle: string;
+  blockLabel: string;
+  statusText: string;
+  statusTone: Tone;
+  sent: string | null;
+  canUse: boolean;
+}>;
+
+export type CloseView = Readonly<{
+  title: string;
+  ready: boolean;
+  remaining: readonly string[];
+  action: Action<"close"> | null;
+  reason: string | null;
+}>;
+
+export type PrdView = Readonly<{
+  snapshot: PrdSnapshot;
+  names: Names;
+  isDev: boolean;
+  closed: Readonly<{ revision: number; openPoints: number }> | null;
+  progress: Readonly<{ confirmed: number; total: number }>;
+  funds: FundsView;
+  canAffordReply: boolean;
+  close: CloseView;
+  topics: readonly TopicView[];
+  open: readonly QuestionView[];
+  answered: readonly QuestionView[];
+  listTitle: string;
+  listNote: string;
+  badge: number;
+}>;
+
+function firstName(name: string): string {
+  return name.split(" ")[0] ?? name;
+}
+
+export function namesOf(snapshot: PrdSnapshot): Names {
+  const person = (role: "dev" | "ngo" | "ai") =>
+    snapshot.people.find((item) => item.role === role)?.name ?? role;
+  const dev = firstName(person("dev"));
+  const ngo = firstName(person("ngo"));
+  return { dev, ngo, devLabel: `${dev} (Dev)`, ngoLabel: `${ngo} (NGO)`, ai: person("ai") };
+}
+
+export function availableMicros(funds: Funds): number {
+  return funds.allocationMicros - funds.settledMicros - funds.pendingMicros;
+}
+
+export function canAfford(funds: Funds): boolean {
+  return availableMicros(funds) >= funds.replyHoldMicros;
+}
+
+export function fundsView(funds: Funds): FundsView {
+  const spent = funds.settledMicros * 100;
+  const band =
+    spent < funds.allocationMicros * 80
+      ? "ok"
+      : spent <= funds.allocationMicros * 95
+        ? "warn"
+        : "stop";
+  const share = (micros: number) =>
+    funds.allocationMicros > 0 ? Math.min(100, (micros / funds.allocationMicros) * 100) : 0;
+  return {
+    available: money(Math.max(0, availableMicros(funds))),
+    allocation: money(funds.allocationMicros),
+    pending: funds.pendingMicros > 0 ? money(funds.pendingMicros) : null,
+    band,
+    low: !canAfford(funds),
+    spentPercent: share(funds.settledMicros),
+    pendingPercent: share(funds.pendingMicros),
+  };
+}
+
+export function actionOf<T>(availability: Availability<T>): T | null {
+  return availability.kind === "available" ? availability.action : null;
+}
+
+export function reasonOf<T>(availability: Availability<T>): string | null {
+  return availability.kind === "unavailable" ? availability.reason : null;
+}
+
+export function topicTitle(snapshot: PrdSnapshot, id: TopicId): string {
+  return snapshot.topics.find((topic) => topic.id === id)?.title ?? id;
+}
+
+function blockerTone(topic: Topic): Tone {
+  if (topic.state === "needs-review") return "stop";
+  if (topic.state === "ready") return "dev";
+  return "muted";
+}
+
+function questionStatus(
+  question: NgoQuestion,
+  isDev: boolean,
+  names: Names,
+): { text: string; tone: Tone } {
+  switch (question.kind) {
+    case "suggested":
+      return { text: COPY.status.suggested, tone: "muted" };
+    case "posted":
+      return {
+        text: isDev ? COPY.status.waitingFor(names.ngo) : COPY.status.openAnswer,
+        tone: "muted",
+      };
+    case "answering":
+      return { text: COPY.status.answering(names.ngo), tone: "ngo" };
+    case "complete":
+      return {
+        text: isDev ? COPY.status.completeDev(names.ngo) : COPY.status.completeNgo(names.dev),
+        tone: "dev",
+      };
+    case "used":
+      return { text: COPY.status.used(names.dev), tone: "ok" };
+  }
+}
+
+export function questionStatusText(question: NgoQuestion, isDev: boolean, names: Names): string {
+  return questionStatus(question, isDev, names).text;
+}
+
+function questionView(snapshot: PrdSnapshot, question: NgoQuestion, names: Names): QuestionView {
+  const isDev = snapshot.viewer.role === "dev";
+  const title = topicTitle(snapshot, question.topicId);
+  const status = questionStatus(question, isDev, names);
+  return {
+    question,
+    topicTitle: title,
+    blockLabel: question.blocking ? COPY.blocks(title) : COPY.notBlocking,
+    statusText: status.text,
+    statusTone: status.tone,
+    sent: !isDev && question.kind === "complete" ? question.answer : null,
+    canUse: question.kind === "complete" && question.canUse,
+  };
+}
+
+export function waiting(question: NgoQuestion): boolean {
+  return question.kind === "posted" || question.kind === "answering";
+}
+
+/** Everything the screen shows, derived from one snapshot. It decides no rule of its own. */
+export function present(snapshot: PrdSnapshot): PrdView {
+  const names = namesOf(snapshot);
+  const isDev = snapshot.viewer.role === "dev";
+  const required = snapshot.topics.filter((topic) => topic.required);
+  const progress = {
+    confirmed: required.filter((topic) => topic.state === "confirmed").length,
+    total: required.length,
+  };
+  const passed =
+    snapshot.check !== null &&
+    snapshot.check.passed &&
+    snapshot.check.revision === snapshot.revision &&
+    progress.confirmed === progress.total;
+  const closeState = snapshot.close;
+  const close: CloseView =
+    closeState.kind === "closed"
+      ? {
+          title: COPY.closedAt(closeState.revision),
+          ready: false,
+          remaining: [],
+          action: null,
+          reason: null,
+        }
+      : {
+          title: passed ? COPY.readyToClose : COPY.stillOpen,
+          ready: passed,
+          remaining: closeState.remaining,
+          action: actionOf(closeState.close),
+          reason: reasonOf(closeState.close),
+        };
+  const views = snapshot.questions
+    .filter((question) => question.kind !== "suggested")
+    .map((question) => questionView(snapshot, question, names));
+  const open = views.filter((view) => view.question.kind !== "used");
+  const answered = views.filter((view) => view.question.kind === "used");
+  const toAnswer = open.filter((view) => waiting(view.question)).length;
+  const blockingOpen = open.filter((view) => view.question.blocking).length;
+  return {
+    snapshot,
+    names,
+    isDev,
+    closed:
+      closeState.kind === "closed"
+        ? { revision: closeState.revision, openPoints: closeState.openPoints }
+        : null,
+    progress,
+    funds: fundsView(snapshot.funds),
+    canAffordReply: canAfford(snapshot.funds),
+    close,
+    topics: snapshot.topics.map((topic) => ({
+      topic,
+      label: STATE_LABEL[topic.state],
+      blockerTone: blockerTone(topic),
+    })),
+    open,
+    answered,
+    listTitle: isDev ? COPY.devListTitle(names.ngoLabel, open.length) : COPY.ngoListTitle(toAnswer),
+    listNote: isDev ? COPY.devListNote(blockingOpen, names.ngo) : COPY.ngoListNote,
+    badge: isDev ? open.filter((view) => view.canUse).length : toAnswer,
+  };
+}
+
+export function messageTextOf(message: PrdUIMessage): string {
+  return message.parts.map((part) => (part.type === "text" ? part.text : "")).join("\n");
+}
+
+export function sameMessages(
+  left: readonly PrdUIMessage[],
+  right: readonly PrdUIMessage[],
+): boolean {
+  if (left.length !== right.length) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
