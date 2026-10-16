@@ -39,7 +39,7 @@ export function AnswerReview({
     { label: COPY.whatItChanges, text: question.impact },
     ...(question.openPoint !== null ? [{ label: COPY.toDiscuss, text: question.openPoint }] : []),
   ];
-  const usable = question.canUse;
+  const usable = question.canUse && !controller.answerQueued(question.id);
   return (
     <div data-testid={testIds.prdAnswerReview} className="flex flex-col gap-2.5">
       <button

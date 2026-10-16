@@ -3,6 +3,7 @@ import {
   availableMicros,
   firstName,
   topicState,
+  waitingDependency,
   type PrdRecord,
   type QuestionRecord,
   type StoredMessage,
@@ -84,6 +85,7 @@ type QuestionScript = {
   why: string;
   options: string[];
   aside: string;
+  asides: string[];
   impact: string;
   openPoint: string | null;
   expand: Record<string, string>;
@@ -102,6 +104,7 @@ const QUESTIONS: Record<QuestionId, QuestionScript> = {
     ],
     aside:
       "Yes. A volunteer can always ask to be removed earlier, and the coordinator then deletes their details. That is their right, separate from the rule you set here.",
+    asides: ["removed earlier", "ask to be removed", "delete their details"],
     impact:
       "Data handling gets its retention rule, and the export story must drop volunteers past it.",
     openPoint:
@@ -116,6 +119,7 @@ const QUESTIONS: Record<QuestionId, QuestionScript> = {
     options: ["Yes, show the logo", "No, plain text emails"],
     aside:
       "The logo only changes how the email looks. The text and the reminder times stay the same.",
+    asides: ["what does the logo change", "does the logo change", "change the text"],
     impact: "One line in Notifications about the reminder email layout.",
     openPoint: null,
     expand: {},
@@ -131,6 +135,7 @@ const QUESTIONS: Record<QuestionId, QuestionScript> = {
       "Both of these",
     ],
     aside: "The app counts this for you each week; nobody has to count by hand.",
+    asides: ["who counts", "count it by hand", "count this by hand", "who has to count"],
     impact: "Success criteria gets its measures, and the build needs a way to check them.",
     openPoint:
       "How do we measure it? I suggest a weekly count of Saturday shifts that were full 48 hours ahead.",
@@ -343,6 +348,9 @@ function openerLine(record: PrdRecord, topic: TopicRecord, role: Role): string {
   );
   if (asked) return "Two decisions are still open. Pick an answer for each one, then send.";
   const state = topicState(topic);
+  if (state !== "confirmed" && waitingDependency(record, topic) !== null) {
+    return "This section waits on the shift rules, because the swap rule changes which stories we need.";
+  }
   if (state === "ready" || state === "needs-review") {
     return "Every decision is recorded. Read the section above, then confirm it or tell me what to change.";
   }
@@ -354,9 +362,6 @@ function openerLine(record: PrdRecord, topic: TopicRecord, role: Role): string {
   );
   if (waiting) {
     return `This section waits for ${ngo}’s answer to a blocking question. You can still discuss it here.`;
-  }
-  if (topic.dependsOn.length > 0) {
-    return "This section waits on the shift rules, because the swap rule changes which stories we need.";
   }
   return "Tell me what to change, or ask me anything about this section.";
 }
@@ -376,6 +381,19 @@ export function topicOpeners(record: PrdRecord, topic: TopicRecord, at: string):
       ...(asked.length > 0 ? [{ type: "data-dev-questions" as const, data: { ids: asked } }] : []),
     ]),
   }));
+}
+
+/** Rewrites each topic chat's opener from the topic's current state, while that chat holds nothing but its openers. */
+export function refreshOpeners(record: PrdRecord): PrdRecord {
+  const chats = { ...record.chats };
+  for (const topic of record.topics) {
+    const key = `topic:${topic.id}`;
+    const stored = chats[key] ?? [];
+    if (stored.some((entry) => !entry.message.id.startsWith(`opener-${topic.id}-`))) continue;
+    const at = stored[0]?.message.metadata?.at ?? new Date(0).toISOString();
+    chats[key] = topicOpeners(record, topic, at);
+  }
+  return { ...record, chats };
 }
 
 export function sideOpener(record: PrdRecord, question: QuestionRecord, at: string): StoredMessage {
@@ -413,10 +431,16 @@ export function questionRecord(
     briefTurn: null,
     changed: false,
     pointOpen: false,
+    using: false,
   };
 }
 
-/** The AI's scripted side-chat reply. A message ending in a question mark is a question to the AI, not an answer. */
+function isAside(script: QuestionScript, text: string): boolean {
+  const said = text.toLowerCase();
+  return script.asides.some((phrase) => said.includes(phrase));
+}
+
+/** The AI's scripted side-chat reply. A message the script lists as a question to the AI is an aside; anything else is part of the answer. */
 export function sideReply(
   record: PrdRecord,
   question: QuestionRecord,
@@ -424,7 +448,7 @@ export function sideReply(
 ): { text: string; evidence: string[]; followUp: QuestionRecord["followUp"] } {
   const script = QUESTIONS[question.id];
   if (!script) return { text: "Noted.", evidence: question.evidence, followUp: question.followUp };
-  if (/\?\s*$/.test(text)) {
+  if (isAside(script, text)) {
     return {
       text: `${script.aside}${question.evidence.length > 0 ? "" : " What is your answer?"}`,
       evidence: question.evidence,
@@ -766,16 +790,14 @@ export function prdTodayRecord(now: Date): PrdRecord {
       ]),
       ask(QUESTION.logo),
     ]),
-    eventMessage("e2", tue(5), "Priya confirmed Notifications · revision 8", null),
     devMessage("h3", tue(9), textParts(["Could we add text messages later if the kitchen asks?"])),
     aiMessage(
       "a3",
       tue(10),
       textParts([
-        "Yes. I noted text messages as a later option, not part of the first version. It adds a paid provider, so the kitchen would need to approve the cost first.",
+        "Yes. I noted text messages as a later option, not part of the first version. It adds a paid provider, so the kitchen would need to approve the cost first. Notifications is still ready for you to confirm.",
       ]),
     ),
-    eventMessage("e3", tue(12), "Priya reopened Notifications for review", null),
     devMessage(
       "h4",
       tue(20),
@@ -791,13 +813,8 @@ export function prdTodayRecord(now: Date): PrdRecord {
       ]),
     ]),
     devMessage("h5", tue(25), textParts(["Agreed. Import once, then the app is the only source."])),
-    aiMessage(
-      "a5",
-      tue(26),
-      textParts([
-        "Recorded. Technical scope stays a draft until the shift rules are settled, because the swap rule changes which stories we need.",
-      ]),
-    ),
+    aiMessage("a5", tue(26), textParts(["Recorded. Technical scope is ready for you to confirm."])),
+    eventMessage("e2", tue(28), "Priya confirmed Technical scope · revision 10", null),
     devMessage(
       "h6",
       wed(0),
@@ -822,8 +839,15 @@ export function prdTodayRecord(now: Date): PrdRecord {
       ...textParts([
         "Added. That is 9 shifts and 48 volunteer slots a week.",
         "Shift scheduling rules is still a draft: the swap rule and the publishing window are open.",
+        "The swap rule changes which stories Technical scope needs, so I sent Technical scope back for review. You can confirm it again once the shift rules are ready.",
       ]),
     ]),
+    eventMessage(
+      "e3",
+      wed(6),
+      "Technical scope reopened for review · it waits on Shift scheduling rules",
+      null,
+    ),
     devMessage("h8", wed(8), textParts(["Holidays? The kitchen closes on some public holidays."])),
     aiMessage(
       "a8",
@@ -858,7 +882,6 @@ export function prdTodayRecord(now: Date): PrdRecord {
       topicRecord(TOPIC.shifts, { body: [], sources: ["Wednesday’s chat", "today’s answers"] }),
       topicRecord(TOPIC.notify, {
         aiReady: true,
-        review: true,
         body: NOTIFY_LINES,
         sources: ["Tuesday’s chat"],
       }),
@@ -871,6 +894,7 @@ export function prdTodayRecord(now: Date): PrdRecord {
       }),
       topicRecord(TOPIC.scope, {
         aiReady: true,
+        review: true,
         body: [],
         sources: ["Tuesday’s chat", "today’s answers"],
       }),

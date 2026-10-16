@@ -1,10 +1,11 @@
 import type {
   Action,
   Availability,
-  Funds,
+  FundsState,
   NgoQuestion,
   PrdSnapshot,
   PrdUIMessage,
+  SendAvailability,
   Topic,
   TopicId,
 } from "@/lib/prd-stream";
@@ -43,6 +44,7 @@ export type QuestionView = Readonly<{
   statusText: string;
   statusTone: Tone;
   sent: string | null;
+  canView: boolean;
   canUse: boolean;
 }>;
 
@@ -61,7 +63,6 @@ export type PrdView = Readonly<{
   closed: Readonly<{ revision: number; openPoints: number }> | null;
   progress: Readonly<{ confirmed: number; total: number }>;
   funds: FundsView;
-  canAffordReply: boolean;
   close: CloseView;
   topics: readonly TopicView[];
   open: readonly QuestionView[];
@@ -83,33 +84,26 @@ export function namesOf(snapshot: PrdSnapshot): Names {
   return { dev, ngo, devLabel: `${dev} (Dev)`, ngoLabel: `${ngo} (NGO)`, ai: person("ai") };
 }
 
-export function availableMicros(funds: Funds): number {
-  return funds.allocationMicros - funds.settledMicros - funds.pendingMicros;
-}
+const BAND = { green: "ok", yellow: "warn", red: "stop" } as const;
 
-export function canAfford(funds: Funds): boolean {
-  return availableMicros(funds) >= funds.replyHoldMicros;
-}
-
-export function fundsView(funds: Funds): FundsView {
-  const spent = funds.settledMicros * 100;
-  const band =
-    spent < funds.allocationMicros * 80
-      ? "ok"
-      : spent <= funds.allocationMicros * 95
-        ? "warn"
-        : "stop";
+export function fundsView(funds: FundsState): FundsView {
   const share = (micros: number) =>
     funds.allocationMicros > 0 ? Math.min(100, (micros / funds.allocationMicros) * 100) : 0;
   return {
-    available: money(Math.max(0, availableMicros(funds))),
+    available: money(funds.availableMicros),
     allocation: money(funds.allocationMicros),
     pending: funds.pendingMicros > 0 ? money(funds.pendingMicros) : null,
-    band,
-    low: !canAfford(funds),
+    band: BAND[funds.band],
+    low: !funds.replyFunded,
     spentPercent: share(funds.settledMicros),
     pendingPercent: share(funds.pendingMicros),
   };
+}
+
+const NO_CHAT: SendAvailability = { kind: "unavailable", block: "role", reason: "" };
+
+export function sendOf(snapshot: PrdSnapshot, key: string): SendAvailability {
+  return snapshot.send[key] ?? NO_CHAT;
 }
 
 export function actionOf<T>(availability: Availability<T>): T | null {
@@ -170,6 +164,7 @@ function questionView(snapshot: PrdSnapshot, question: NgoQuestion, names: Names
     statusText: status.text,
     statusTone: status.tone,
     sent: !isDev && question.kind === "complete" ? question.answer : null,
+    canView: isDev && question.kind === "complete" && snapshot.close.kind === "open",
     canUse: question.kind === "complete" && question.canUse,
   };
 }
@@ -187,11 +182,6 @@ export function present(snapshot: PrdSnapshot): PrdView {
     confirmed: required.filter((topic) => topic.state === "confirmed").length,
     total: required.length,
   };
-  const passed =
-    snapshot.check !== null &&
-    snapshot.check.passed &&
-    snapshot.check.revision === snapshot.revision &&
-    progress.confirmed === progress.total;
   const closeState = snapshot.close;
   const close: CloseView =
     closeState.kind === "closed"
@@ -203,8 +193,8 @@ export function present(snapshot: PrdSnapshot): PrdView {
           reason: null,
         }
       : {
-          title: passed ? COPY.readyToClose : COPY.stillOpen,
-          ready: passed,
+          title: closeState.path === "close" ? COPY.readyToClose : COPY.stillOpen,
+          ready: closeState.path === "close",
           remaining: closeState.remaining,
           action: actionOf(closeState.close),
           reason: reasonOf(closeState.close),
@@ -226,7 +216,6 @@ export function present(snapshot: PrdSnapshot): PrdView {
         : null,
     progress,
     funds: fundsView(snapshot.funds),
-    canAffordReply: canAfford(snapshot.funds),
     close,
     topics: snapshot.topics.map((topic) => ({
       topic,
@@ -237,12 +226,8 @@ export function present(snapshot: PrdSnapshot): PrdView {
     answered,
     listTitle: isDev ? COPY.devListTitle(names.ngoLabel, open.length) : COPY.ngoListTitle(toAnswer),
     listNote: isDev ? COPY.devListNote(blockingOpen, names.ngo) : COPY.ngoListNote,
-    badge: isDev ? open.filter((view) => view.canUse).length : toAnswer,
+    badge: isDev ? open.filter((view) => view.canView).length : toAnswer,
   };
-}
-
-export function messageTextOf(message: PrdUIMessage): string {
-  return message.parts.map((part) => (part.type === "text" ? part.text : "")).join("\n");
 }
 
 export function sameMessages(

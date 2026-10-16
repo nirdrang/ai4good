@@ -28,7 +28,7 @@ import { PrdWorkspaceScreen } from "@/components/prd-workspace";
 import {
   openPrdWorld,
   prdFixturePort,
-  prdFixtureSelection,
+  prdShellSelection,
   prdStartSelection,
 } from "./prd-fixture-port";
 import { PrdShell } from "./PrdShell";
@@ -316,7 +316,7 @@ export default function App() {
   useEffect(() => {
     if (route === "discovery" || route === "discovery-review") cameFrom.current = route;
   }, [route]);
-  const [prdSelection] = useState(() => prdFixtureSelection());
+  const [prdSelection] = useState(() => prdShellSelection());
   const [prdViewer, setPrdViewer] = useState(prdSelection.viewer);
   const prdWorld = useMemo(
     () =>

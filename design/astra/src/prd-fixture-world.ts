@@ -16,13 +16,15 @@ import {
 } from "../../../src/lib/prd-stream";
 import {
   CLOSE_TARGET,
+  FUNDS_REASON,
   allRequiredConfirmed,
   askTarget,
   briefRows,
   canAffordReply,
-  canWriteChat,
   checkPassedForRevision,
+  closeBlock,
   closeRemaining,
+  confirmBlock,
   firstName,
   holdReply,
   issueToken,
@@ -31,6 +33,7 @@ import {
   questionTarget,
   refusal,
   releaseHolds,
+  sendRefusal,
   settleReply,
   spend,
   topicState,
@@ -62,6 +65,7 @@ import {
   mainReplyLines,
   ngoMessage,
   prdTodayRecord,
+  refreshOpeners,
   rewriteSections,
   scoreGaps,
   settleLines,
@@ -85,7 +89,7 @@ import {
 } from "./prd-givens";
 
 type Part = PrdUIMessage["parts"][number];
-type KeyValueStore = Pick<Storage, "getItem" | "setItem">;
+type KeyValueStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 type Later = { call: PrdModelCall; finish: (record: PrdRecord, at: string) => PrdRecord };
 
@@ -98,8 +102,6 @@ type Begun =
       aiId: string;
       finish: (record: PrdRecord, at: string) => { record: PrdRecord; message: PrdUIMessage };
     };
-
-const NO_FUNDS = "Not enough left for another AI reply. The kitchen adds funds to continue.";
 
 function topicOf(record: PrdRecord, id: TopicId): TopicRecord {
   const topic = record.topics.find((item) => item.id === id);
@@ -156,14 +158,23 @@ function runCheck(record: PrdRecord): { gaps: number; checkId: string } {
   return { gaps: gaps.length, checkId };
 }
 
+function checkPart(record: PrdRecord, checkId: string): Part {
+  return {
+    type: "data-check",
+    data: { checkId, gaps: (record.check?.gaps ?? []).map((gap) => ({ ...gap })) },
+  };
+}
+
 function confirmCheckFinish(record: PrdRecord, at: string, id: string): PrdRecord {
   const next = structuredClone(record);
+  delete next.busy.main;
+  if (next.closed !== null) return { ...next, funds: settleReply(next.funds, 0) };
   const total = next.topics.filter((topic) => topic.required).length;
   const { gaps, checkId } = runCheck(next);
   const parts: Part[] = [
     ...textParts([checkHead(next.revision, gaps, false), ...confirmCheckLines(total, gaps)]),
     gaps > 0
-      ? { type: "data-check", data: { checkId } }
+      ? checkPart(next, checkId)
       : {
           type: "data-recommendation",
           data: {
@@ -182,14 +193,6 @@ function revise(record: PrdRecord, changed: readonly TopicId[]): void {
   record.topics = markDependents(record.topics, changed);
 }
 
-function refuseWrite(record: PrdRecord, role: Role, scope: ChatScope): Result<never> {
-  const dev = firstName(record, "dev");
-  const ngo = firstName(record, "ngo");
-  if (scope.kind !== "side") return refusal("forbidden", `Only ${dev} writes to the AI here.`);
-  if (role === "dev") return refusal("forbidden", `Only ${ngo} answers in her side chat.`);
-  return refusal("forbidden", "This question is not open for an answer.");
-}
-
 /** Validates a chat send and records its start: the person's message, the held funds, and the busy chat. */
 export function startSend(
   record: PrdRecord,
@@ -206,8 +209,10 @@ export function startSend(
     if (!reply) return refusal("busy", "This message is still being answered.");
     return { ok: true, value: { kind: "replay", message: structuredClone(reply.message) } };
   }
-  if (record.closed !== null) return refusal("closed", "The PRD is closed.");
-  if (!canWriteChat(record, role, key)) return refuseWrite(record, role, body.scope);
+  const blocked = sendRefusal(record, role, key);
+  if (blocked && (blocked.kind === "closed" || blocked.kind === "forbidden")) {
+    return { ok: false, refusal: blocked };
+  }
   const intent = body.intent;
   const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
@@ -241,6 +246,7 @@ export function startSend(
       return refusal("stale", "This answer was already used.");
     if (question.status !== "complete")
       return refusal("invalid", `${ngo} has not completed this answer.`);
+    if (question.using) return refusal("busy", "This answer is already being used.");
     if (body.baseRevision !== record.revision)
       return refusal("stale", "The PRD changed. Review the answer again.");
     const answer = intent.answer?.trim() || question.answer || "";
@@ -271,8 +277,7 @@ export function startSend(
       null,
     );
   }
-  if (record.busy[key]) return refusal("busy", "The AI is still answering in this chat.");
-  if (!canAffordReply(record.funds)) return refusal("funds", NO_FUNDS);
+  if (blocked) return { ok: false, refusal: blocked };
 
   const next = structuredClone(record);
   chat(next, key).push(shared(human));
@@ -282,6 +287,10 @@ export function startSend(
   if (body.scope.kind === "side") {
     const question = questionOf(next, body.scope.questionId);
     if (question && question.status === "posted") question.status = "answering";
+  }
+  if (intent.kind === "use-answer") {
+    const question = questionOf(next, intent.questionId);
+    if (question) question.using = true;
   }
   const aiId = `${body.requestId}-ai`;
   const call: PrdModelCall =
@@ -312,6 +321,12 @@ function finishSend(
   const next = structuredClone(record);
   const key = scopeKey(body.scope);
   const intent = body.intent;
+  if (next.closed !== null) {
+    next.requests[body.requestId] = { chat: key, reply: aiId };
+    delete next.busy[key];
+    next.funds = settleReply(next.funds, 0);
+    return { record: next, message: aiMessage(aiId, at, []) };
+  }
   const event = (text: string, topicId: TopicId) =>
     chat(next, "main").push(shared(eventMessage(`${body.requestId}-event`, at, text, topicId)));
   let parts: Part[];
@@ -386,6 +401,7 @@ function finishSend(
       ...textParts(answerUsedLines(next, question, { answer, changed, note })),
     ];
     question.status = "used";
+    question.using = false;
     question.answer = answer;
     question.changed = changed;
     question.briefTurn = humanId as TurnId;
@@ -418,7 +434,7 @@ function finishSend(
     if (gaps === 0 && unconfirmed.length === 0) {
       next.closed = { revision: next.revision, openPoints: 0 };
     } else {
-      if (gaps > 0) parts.push({ type: "data-check", data: { checkId } });
+      if (gaps > 0) parts.push(checkPart(next, checkId));
       parts.push(...textParts(lines.after), closeAskPart(next, checkId));
     }
   } else {
@@ -473,10 +489,9 @@ export function applyAction(
     }
     case "confirm-topic": {
       const topic = next.topics.find((item) => topicTarget(item.id) === target);
-      const state = topic ? topicState(topic) : null;
-      if (!topic || topic.gap !== null || (state !== "ready" && state !== "needs-review")) {
-        return refusal("invalid", "This section is not ready to confirm.");
-      }
+      if (!topic) return stale;
+      const block = confirmBlock(next, topic);
+      if (block) return refusal(block.kind, block.reason);
       next.topics = next.topics.map((item) =>
         item.id === topic.id ? { ...item, confirmed: true, review: false } : item,
       );
@@ -486,17 +501,14 @@ export function applyAction(
           eventMessage(id, at, `${dev} confirmed ${topic.title} · revision ${next.revision}`, null),
         ),
       );
-      if (
-        !allRequiredConfirmed(next) ||
-        checkPassedForRevision(next) ||
-        !canAffordReply(next.funds)
-      ) {
+      if (!allRequiredConfirmed(next) || checkPassedForRevision(next)) {
         return { ok: true, value: { record: next, later: null } };
       }
       const total = next.topics.filter((item) => item.required).length;
       chat(next, "main").push(
         shared(aiMessage(`${id}-check`, at, textParts([checkStartLine(total)]))),
       );
+      next.busy.main = id;
       next.funds = holdReply(next.funds);
       return {
         ok: true,
@@ -524,6 +536,8 @@ export function applyAction(
       return { ok: true, value: { record: next, later: null } };
     }
     case "close": {
+      const busy = closeBlock(next);
+      if (busy) return { ok: false, refusal: busy };
       if (!checkPassedForRevision(next)) {
         return refusal("invalid", "Close PRD runs the completion check first.");
       }
@@ -534,6 +548,8 @@ export function applyAction(
     case "close-anyway":
     case "keep-working": {
       if (!next.check || target !== askTarget(next.check.id)) return stale;
+      const busy = action.kind === "close-anyway" ? closeBlock(next) : null;
+      if (busy) return { ok: false, refusal: busy };
       next.versions = spend(next.versions, target);
       if (action.kind === "close-anyway") {
         next.closed = { revision: next.revision, openPoints: openPointCount(next) };
@@ -547,7 +563,7 @@ export function applyAction(
       if (question.followUp === "pending")
         return refusal("follow-up-open", "Answer the AI’s question first.");
       if (question.evidence.length === 0) return refusal("invalid", "Write your answer first.");
-      if (!canAffordReply(next.funds)) return refusal("funds", NO_FUNDS);
+      if (!canAffordReply(next.funds)) return refusal("funds", FUNDS_REASON);
       const key = `side:${question.id}`;
       next.versions = spend(next.versions, target);
       next.busy[key] = id;
@@ -561,6 +577,11 @@ export function applyAction(
             finish: (current) => {
               const done = structuredClone(current);
               const written = done.questions.find((item) => item.id === question.id);
+              if (done.closed !== null) {
+                delete done.busy[key];
+                done.funds = settleReply(done.funds, 0);
+                return done;
+              }
               if (written) {
                 written.answer = writeAnswer(written);
                 written.status = "complete";
@@ -659,15 +680,16 @@ function allReady(now: Date): Seed {
     .use(QUESTION.success, "Use the weekly count in the app.")
     .answer(QUESTION.logo, ["Yes, show the logo", "Yes"])
     .use(QUESTION.logo, "");
-  seed.record.topics = seed.record.topics.map((topic) =>
-    topic.id === TOPIC.notify ? { ...topic, review: false } : topic,
-  );
   seed.record = settled(seed.record, 11_200_000);
   return seed;
 }
 
 /** Builds a scenario's starting record. Later scenarios replay the scripted operations from the canvas board. */
 export function seedRecord(scenario: PrdScenario, now: Date): PrdRecord {
+  return refreshOpeners(scriptedRecord(scenario, now));
+}
+
+function scriptedRecord(scenario: PrdScenario, now: Date): PrdRecord {
   switch (scenario) {
     case "first-entry":
       return firstEntryRecord(now);
@@ -712,7 +734,19 @@ export function seedRecord(scenario: PrdScenario, now: Date): PrdRecord {
 }
 
 function storageKey(scenario: PrdScenario): string {
-  return `ai4good.prd.fixture.v1.${scenario}`;
+  return `ai4good.prd.fixture.v2.${scenario}`;
+}
+
+/** Forgets a scenario's saved record, so the next world opened for it starts from its seed. */
+export function forgetPrdWorld(
+  scenario: PrdScenario,
+  storage: KeyValueStore | null = browserStorage(),
+): void {
+  try {
+    storage?.removeItem(storageKey(scenario));
+  } catch {
+    return;
+  }
 }
 
 function isRecord(value: unknown): value is PrdRecord {
@@ -738,7 +772,8 @@ function loadStored(storage: KeyValueStore | null, scenario: PrdScenario): PrdRe
     const requests = Object.fromEntries(
       Object.entries(parsed.requests).filter(([, request]) => request.reply !== null),
     );
-    return { ...parsed, busy: {}, requests, funds: releaseHolds(parsed.funds) };
+    const questions = parsed.questions.map((question) => ({ ...question, using: false }));
+    return { ...parsed, busy: {}, requests, questions, funds: releaseHolds(parsed.funds) };
   } catch {
     return null;
   }
@@ -814,7 +849,7 @@ export function createPrdWorld(name: string, options: PrdWorldOptions = {}): Prd
   }
 
   function commit(next: PrdRecord): void {
-    state = { ...next, sequence: state.sequence + 1 };
+    state = refreshOpeners({ ...next, sequence: state.sequence + 1 });
     save();
     for (const entry of listeners) entry.listener(view(entry.viewer));
   }

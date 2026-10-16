@@ -90,7 +90,7 @@ function QuestionItem({
           </span>
         ) : null}
       </button>
-      {entry.canUse ? (
+      {entry.canView ? (
         <div className="flex border-t border-actor-dev-line">
           <button
             type="button"
@@ -103,14 +103,16 @@ function QuestionItem({
           >
             {COPY.viewAnswer}
           </button>
-          <button
-            type="button"
-            data-testid={testIds.prdNgoQuestionClaim}
-            onClick={() => controller.useAnswer(question.id)}
-            className={cn(DEV_BUTTON, "min-h-10 flex-1 rounded-none text-sm")}
-          >
-            {COPY.useAnswer}
-          </button>
+          {entry.canUse && !controller.answerQueued(question.id) ? (
+            <button
+              type="button"
+              data-testid={testIds.prdNgoQuestionClaim}
+              onClick={() => controller.useAnswer(question.id)}
+              className={cn(DEV_BUTTON, "min-h-10 flex-1 rounded-none text-sm")}
+            >
+              {COPY.useAnswer}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </li>

@@ -77,7 +77,10 @@ export const COPY = {
   edit: "Edit",
   remove: "Remove",
   answering: "Answering…",
-  updatedPrefix: "Updated in the PRD: ",
+  alreadyQueued: "This is already waiting in the queue.",
+  replyFailed: "The reply did not finish.",
+  updateUnreadable:
+    "The latest update could not be read. Reload the page to see the PRD as it is now.",
   openLink: "Open",
   openTopicChat: (title: string) => `Open the ${title} chat`,
   openGap: (title: string) => `Open ${title}`,

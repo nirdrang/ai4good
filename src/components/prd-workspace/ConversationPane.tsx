@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, type ReactNode } from "react";
 import {
   type ChatScope,
+  type CheckGap,
   type DevQuestion,
   type PrdUIMessage,
   type QuestionId,
@@ -146,18 +147,22 @@ function IntroCard({
 
 function CheckGaps({
   checkId,
+  gaps,
   view,
   controller,
 }: {
   checkId: string;
+  gaps: readonly CheckGap[];
   view: PrdView;
   controller: PrdController;
 }) {
   const check = view.snapshot.check;
-  if (!check || check.id !== checkId || check.gaps.length === 0) return null;
+  const current = check !== null && check.id === checkId;
+  const shown = current ? check.gaps : gaps;
+  if (shown.length === 0) return null;
   return (
     <ul data-testid={testIds.prdCheckGaps} className="my-1 flex flex-col gap-2">
-      {check.gaps.map((gap) => (
+      {shown.map((gap) => (
         <li
           key={gap.topicId}
           data-testid={testIds.prdCheckGap}
@@ -165,7 +170,7 @@ function CheckGaps({
         >
           <div className="text-xs font-bold text-destructive">{gap.title}</div>
           <div className="mt-0.5 text-sm text-foreground">{gap.text}</div>
-          {gap.fixed ? (
+          {!current ? null : gap.fixed ? (
             <div className="mt-1.5 text-xs font-semibold text-funds-ok">{COPY.gapClosed}</div>
           ) : (
             <button
@@ -219,7 +224,14 @@ function AiPart({
     case "data-ngo-question":
       return <IntroCard questionId={part.data.questionId} view={view} controller={controller} />;
     case "data-check":
-      return <CheckGaps checkId={part.data.checkId} view={view} controller={controller} />;
+      return (
+        <CheckGaps
+          checkId={part.data.checkId}
+          gaps={part.data.gaps}
+          view={view}
+          controller={controller}
+        />
+      );
     case "data-close-ask": {
       if (!view.isDev || view.closed !== null) return null;
       const { closeAnyway, keepWorking } = part.data;
@@ -422,8 +434,8 @@ export function MainConversation({
   controller: PrdController;
 }) {
   const chat = controller.chat({ kind: "main" });
-  const { messages, status } = useChat({ chat });
-  const answering = status === "submitted" || status === "streaming";
+  const { messages } = useChat({ chat });
+  const answering = controller.sendState({ kind: "main" }).busy;
   const ref = useStickToBottom(messages.length + (answering ? 1 : 0), true);
   const now = new Date();
   let lastDay = "";
@@ -534,8 +546,8 @@ export function TopicConversation({
 }) {
   const scope: ChatScope = { kind: "topic", topicId };
   const chat = controller.chat(scope);
-  const { messages, status } = useChat({ chat });
-  const answering = status === "submitted" || status === "streaming";
+  const { messages } = useChat({ chat });
+  const answering = controller.sendState(scope).busy;
   const ref = useStickToBottom(messages.length + (answering ? 1 : 0), !phone);
   const asked = new Set(
     messages.flatMap((message) =>
@@ -616,8 +628,8 @@ export function SideConversation({
 }) {
   const scope: ChatScope = { kind: "side", questionId };
   const chat = controller.chat(scope);
-  const { messages, status } = useChat({ chat });
-  const answering = status === "submitted" || status === "streaming";
+  const { messages } = useChat({ chat });
+  const answering = controller.sendState(scope).busy;
   const ref = useStickToBottom(messages.length + (answering ? 1 : 0), true);
   return (
     <div

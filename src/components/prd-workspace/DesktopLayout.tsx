@@ -1,3 +1,4 @@
+import { useChat } from "@ai-sdk/react";
 import { AnswerReview } from "./AnswerReview";
 import { ActNotice, ClosedBanner, ReadOnlyBanner } from "./Banners";
 import { Composer } from "./Composer";
@@ -8,38 +9,39 @@ import { ProcessBar } from "./ProcessBar";
 import { QuestionsPanel } from "./QuestionsPanel";
 import { SideChat } from "./SideChat";
 import { TopicPage } from "./TopicPage";
-import type { PrdController } from "./use-prd-workspace";
+import { MAIN, type PrdController } from "./use-prd-workspace";
 
 export function MainColumn({ controller, phone }: { controller: PrdController; phone: boolean }) {
   const view = controller.view;
+  useChat({ chat: controller.chat(MAIN) });
+  const state = controller.sendState(MAIN);
   const writable = view.snapshot.canWrite.main === true;
-  const funds = view.funds.low;
-  const hint = funds
-    ? COPY.composerHint.funds
-    : controller.mainBusy
-      ? COPY.composerHint.busy
-      : COPY.composerHint.idle;
+  const hint =
+    state.send.kind === "unavailable" && state.send.block === "funds"
+      ? COPY.composerHint.funds
+      : state.busy
+        ? COPY.composerHint.busy
+        : COPY.composerHint.idle;
   return (
     <>
       <MainConversation view={view} controller={controller} />
       {writable ? (
         <Composer
           text={controller.drafts.main ?? ""}
-          busy={controller.mainBusy}
-          canSend={!funds}
+          busy={state.busy}
+          canSend={state.enabled}
           hint={phone ? null : hint}
           queue={controller.queue}
+          canEdit={controller.canEditQueued}
           notice={
             controller.notice && controller.notice.key === "main" ? controller.notice.reason : null
           }
           onText={(text) => controller.setDraft("main", text)}
-          onSend={() => controller.send({ kind: "main" })}
+          onSend={() => controller.send(MAIN)}
           onEdit={(id) => controller.editQueued(id)}
           onRemove={(id) => controller.removeQueued(id)}
         />
-      ) : (
-        <ReadOnlyBanner view={view} phone={phone} />
-      )}
+      ) : null}
     </>
   );
 }
@@ -63,6 +65,7 @@ export function DesktopLayout({
         <ProcessBar />
       </div>
       <ClosedBanner view={view} onOpenUiDesign={onOpenUiDesign} />
+      <ReadOnlyBanner view={view} phone={false} />
       <ActNotice controller={controller} />
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,264px)_minmax(0,1fr)_minmax(250px,300px)] overflow-hidden rounded-xl border border-border">
         <aside

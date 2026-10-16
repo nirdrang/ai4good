@@ -47,7 +47,7 @@ export function ReadOnlyBanner({ view, phone }: { view: PrdView; phone: boolean 
   return (
     <div
       data-testid={testIds.prdReadonlyBanner}
-      className="shrink-0 rounded-xl border border-actor-ngo-line bg-actor-ngo-soft px-3.5 py-3 text-sm text-foreground/80 max-md:mx-2.5 max-md:mb-2.5 max-md:text-xs"
+      className="shrink-0 rounded-xl border border-actor-ngo-line bg-actor-ngo-soft px-3.5 py-3 text-sm text-foreground/80 max-md:mx-2.5 max-md:mt-2 max-md:py-2 max-md:text-xs"
     >
       {view.isDev ? (
         <strong className="text-foreground">{COPY.closedReadOnly}</strong>

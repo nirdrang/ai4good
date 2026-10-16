@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { eventually } from "../../harness/screen.ts";
+import { PRD_GIVEN } from "../../../../design/astra/src/prd-givens.ts";
 import { scopeKey } from "../../../../src/lib/prd-stream.ts";
 import { atTest } from "./_bind.ts";
 import {
@@ -149,7 +150,6 @@ atTest(
         await showChat(prd);
         await prd.composer.write("Priya main draft for later");
         await prd.composer.blur();
-        await prd.hold();
         await prd.reload();
         await showChat(prd);
         expect(await prd.composer.value(), "the main draft survives reload").toBe(
@@ -159,7 +159,6 @@ atTest(
         await prd.topics.open(TOPIC.shifts);
         await prd.topic.write("Priya topic draft for later");
         await prd.topic.blur();
-        await prd.hold();
         await prd.reload();
         await prd.topics.open(TOPIC.shifts);
         expect(await prd.topic.value(), "the topic draft survives reload").toBe(
@@ -174,7 +173,6 @@ atTest(
           await prd.questions.open(RETENTION_QUESTION);
           await prd.side.write("Maya side draft for later");
           await prd.side.blur();
-          await prd.hold();
           await prd.reload();
           await prd.phone.tab("questions");
           await prd.questions.open(RETENTION_QUESTION);
@@ -288,6 +286,7 @@ atTest(
           (count) => count > 0,
           15_000,
         );
+        expect(await prd.chat.gapCount(), "each check keeps its own gaps in the history").toBe(4);
         await prd.chat.keepWorking();
         expect(await prd.banner.count(), "Keep working leaves the PRD open").toBe(0);
         await prd.chat.openGap(TOPIC.shifts);
@@ -338,7 +337,7 @@ atTest(
         await prd.composer.send();
         await prd.chat.waitAnswering();
         expect(await prd.gauge.pendingText(), "a reply shows its pending hold").toMatch(/\$/);
-        await prd.chat.waitIdle(10_000);
+        await prd.chat.waitIdle(20_000);
         expect(
           await prd.gauge.pendingCount(),
           "the hold leaves the gauge when the reply finishes",
@@ -505,7 +504,7 @@ atTest(
         ).toBeGreaterThan(0);
         const pending = await prd.gauge.pendingText();
         expect(pending, "pending is text, not only a bar").toMatch(/\$/);
-        await prd.chat.waitIdle(10_000);
+        await prd.chat.waitIdle(20_000);
         expect(await prd.gauge.pendingCount(), "pending leaves when the reply finishes").toBe(0);
       });
     },
@@ -882,10 +881,10 @@ atTest(
 atTest(
   "AT-036.17",
   "Messages sent while the AI answers wait in a queue and stay editable",
-  { surface: "ui", timeoutMs: { loop: 60_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000 } },
   {
-    loop: (ctx) =>
-      withPrd(ctx, { scenario: "queue", viewer: "dev", viewport: "desktop" }, async (prd) => {
+    loop: async (ctx) => {
+      await withPrd(ctx, { scenario: "queue", viewer: "dev", viewport: "desktop" }, async (prd) => {
         const before = await prd.modelCalls();
         await prd.composer.write("What does each reply cost?");
         await prd.composer.send();
@@ -896,17 +895,42 @@ atTest(
           await prd.composer.send();
         }
         expect(await prd.queue.texts()).toEqual(["First queued", "Second queued", "Third queued"]);
+        expect(
+          (await prd.modelCalls()).length - before.length,
+          "the queue is read while the first reply still runs",
+        ).toBe(1);
+        await prd.composer.write("A draft in progress");
+        expect(await prd.queue.editCount("Second queued"), "Edit waits for an empty composer").toBe(
+          0,
+        );
+        await prd.composer.write("");
         await prd.queue.edit("Second queued");
         expect(await prd.composer.value()).toBe("Second queued");
         await prd.queue.remove("Third queued");
         expect(await prd.queue.texts()).toEqual(["First queued"]);
-        await prd.chat.waitIdle(10_000);
+        await prd.chat.waitIdle(20_000);
         expect((await prd.chat.devTexts()).slice(-2)).toEqual([
           "What does each reply cost?",
           "First queued",
         ]);
         expect((await prd.modelCalls()).length - before.length).toBe(2);
-      }),
+      });
+      await withPrd(ctx, { scenario: "queue", viewer: "dev", viewport: "desktop" }, async (prd) => {
+        const before = await prd.modelCalls();
+        await prd.composer.write("Answer this one.");
+        await prd.composer.send();
+        await prd.chat.waitAnswering();
+        await prd.composer.write("Queued, then left behind.");
+        await prd.composer.send();
+        expect(await prd.queue.texts()).toEqual(["Queued, then left behind."]);
+        await prd.viewAs("ngo");
+        await prd.hold(PRD_GIVEN.queue.replyMs.test + 2_000);
+        expect(
+          (await prd.modelCalls()).length - before.length,
+          "a queued message does not send after its screen is gone",
+        ).toBe(1);
+      });
+    },
     default: wiringPending("AT-036.17"),
   },
 );

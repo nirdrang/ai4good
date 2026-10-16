@@ -126,15 +126,14 @@ function TopicComposer({
 }) {
   const scope = { kind: "topic", topicId: topic.id } as const;
   const key = scopeKey(scope);
-  const { status } = useChat({ chat: controller.chat(scope) });
+  useChat({ chat: controller.chat(scope) });
   const text = controller.drafts[key] ?? "";
   const field = useGrowingField(text, 140);
   const asked = view.snapshot.devQuestions.filter(
     (question) => question.topicId === topic.id && question.answered === null,
   );
   const picked = asked.length > 0 && asked.every((question) => controller.picks[question.id]);
-  const idle = status !== "submitted" && status !== "streaming";
-  const enabled = idle && view.canAffordReply && (text.trim().length > 0 || picked);
+  const enabled = controller.sendState(scope).enabled && (text.trim().length > 0 || picked);
   const send = () => controller.send(scope);
   const notice = controller.notice?.key === key ? controller.notice.reason : null;
   return (

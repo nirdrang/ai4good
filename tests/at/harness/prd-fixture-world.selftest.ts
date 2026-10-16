@@ -1,24 +1,42 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MODEL_CALL_PROBE } from "../../../design/astra/src/givens.ts";
-import { createPrdWorld, prdPortFor } from "../../../design/astra/src/prd-fixture-port.ts";
-import type { PrdWorld } from "../../../design/astra/src/prd-fixture-world.ts";
+import {
+  createPrdWorld,
+  prdFixturePort,
+  prdFixtureSelection,
+  withoutFresh,
+} from "../../../design/astra/src/prd-fixture-port.ts";
+import {
+  applyAction,
+  forgetPrdWorld,
+  seedRecord,
+  startSend,
+  type PrdWorld,
+} from "../../../design/astra/src/prd-fixture-world.ts";
+import { present } from "../../../src/components/prd-workspace/model.ts";
 import type { PrdPort } from "../../../src/components/prd-workspace/port.ts";
+import {
+  CHECK_FUNDS_REASON,
+  closeRemaining,
+  issueToken,
+  topicTarget,
+  toSnapshot,
+  type PrdRecord,
+} from "../../../src/lib/prd-rules.ts";
 import {
   scopeKey,
   type Action,
   type ActionKind,
   type ChatScope,
   type PrdIntent,
+  type PrdSendBody,
   type PrdSnapshot,
   type PrdUIMessage,
   type QuestionId,
   type RequestId,
   type TopicId,
-  type Viewer,
 } from "../../../src/lib/prd-stream.ts";
 
-const DEV: Viewer = { role: "dev", name: "Priya Shah" };
-const NGO: Viewer = { role: "ngo", name: "Maya Levi" };
 const MAIN: ChatScope = { kind: "main" };
 const RETENTION = { kind: "side", questionId: "retention" as QuestionId } as const;
 const SHIFTS = { kind: "topic", topicId: "shifts" as TopicId } as const;
@@ -43,7 +61,41 @@ afterEach(() => {
 
 function open(scenario: string): { world: PrdWorld; dev: PrdPort; ngo: PrdPort } {
   const world = createPrdWorld(scenario, { storage: null, pace: "test" });
-  return { world, dev: prdPortFor(world, DEV), ngo: prdPortFor(world, NGO) };
+  return { world, dev: prdFixturePort(world, "dev"), ngo: prdFixturePort(world, "ngo") };
+}
+
+function memoryStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+  const items = new Map<string, string>();
+  return {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => {
+      items.set(key, value);
+    },
+    removeItem: (key) => {
+      items.delete(key);
+    },
+  };
+}
+
+const NOW = new Date("2026-10-16T12:00:00.000Z");
+
+function confirmInRecord(record: PrdRecord, id: string): PrdRecord {
+  const done = applyAction(
+    record,
+    "dev",
+    {
+      kind: "confirm-topic",
+      token: issueToken(record, "confirm-topic", topicTarget(id as TopicId)),
+    },
+    NOW.toISOString(),
+  );
+  if (!done.ok) throw new Error(`${id} was refused: ${done.refusal.reason}`);
+  return done.value.record;
+}
+
+function devView(record: PrdRecord): PrdSnapshot {
+  const person = record.people.find((item) => item.role === "dev");
+  return toSnapshot(record, { role: "dev", name: person?.name ?? "dev" });
 }
 
 async function snap(port: PrdPort): Promise<PrdSnapshot> {
@@ -334,7 +386,7 @@ describe("the PRD fixture world", () => {
     }
     const actions: Action<ActionKind>[] = [
       closeAction(before),
-      confirmAction(before, "scope"),
+      confirmAction(before, "notify"),
       suggested.post.action,
     ];
     for (const action of actions) {
@@ -359,7 +411,7 @@ describe("the PRD fixture world", () => {
   it("refuses a used or outdated token as stale with no second effect", async () => {
     const { dev } = open("prd-today");
     const before = await snap(dev);
-    const confirm = confirmAction(before, "scope");
+    const confirm = confirmAction(before, "notify");
     const close = closeAction(before);
     expect((await dev.act(confirm)).ok).toBe(true);
     const once = await snap(dev);
@@ -370,8 +422,7 @@ describe("the PRD fixture world", () => {
       (twice.chats.main ?? [])
         .flatMap((message) => message.parts)
         .filter(
-          (part) =>
-            part.type === "data-line" && part.data.text.includes("confirmed Technical scope"),
+          (part) => part.type === "data-line" && part.data.text.includes("confirmed Notifications"),
         ),
     ).toHaveLength(1);
     await deliver(dev, SHIFTS, { kind: "text", text: "The kitchen posts the week on Friday." });
@@ -396,5 +447,227 @@ describe("the PRD fixture world", () => {
     expect(out.funds.allocationMicros - out.funds.settledMicros).toBeLessThan(
       out.funds.replyHoldMicros,
     );
+  });
+
+  it("refuses to confirm a section while a section it depends on is neither ready nor confirmed", async () => {
+    const { dev } = open("prd-today");
+    const before = await snap(dev);
+    const scope = topic(before, "scope");
+    expect(scope.state).toBe("needs-review");
+    expect(scope.confirm).toEqual({
+      kind: "unavailable",
+      reason: "Shift scheduling rules must be ready before you can confirm this section.",
+    });
+    for (const item of before.topics.filter((entry) => entry.state === "ready")) {
+      expect(item.confirm.kind, item.id).toBe("available");
+    }
+    const answered = await deliver(dev, SHIFTS, {
+      kind: "answers",
+      picks: { swap: "The coordinator approves each swap", publish: "Two weeks ahead" },
+      text: "",
+    });
+    expect(answered.ok).toBe(true);
+    expect(topic(await snap(dev), "scope").confirm.kind).toBe("available");
+  });
+
+  it("keeps Close PRD unavailable while a reply runs, and a reply that finishes after close leaves the closed record alone", async () => {
+    const { dev } = open("check-passed");
+    const before = await snap(dev);
+    const close = closeAction(before);
+    const reply = deliver(dev, MAIN, { kind: "text", text: "One more note." }, before.revision);
+    const during = await snap(dev);
+    expect(during.close).toMatchObject({
+      kind: "open",
+      close: { kind: "unavailable", reason: "Wait for the AI to finish." },
+    });
+    expect(await dev.act(close)).toMatchObject({ ok: false, refusal: { kind: "busy" } });
+    expect((await reply).ok).toBe(true);
+    expect(closeAction(await snap(dev)).kind).toBe("close");
+    const record = seedRecord("check-passed", NOW);
+    const body: PrdSendBody = {
+      scope: MAIN,
+      requestId: "late" as RequestId,
+      baseRevision: record.revision,
+      intent: { kind: "text", text: "A late note." },
+    };
+    const begun = startSend(record, "dev", body, null, NOW.toISOString());
+    if (!begun.ok || begun.value.kind !== "started") throw new Error("the send did not start");
+    const closed: PrdRecord = {
+      ...begun.value.record,
+      closed: { revision: record.revision, openPoints: 0 },
+    };
+    const finished = begun.value.finish(closed, NOW.toISOString()).record;
+    expect(finished.chats).toEqual(closed.chats);
+    expect(finished.topics).toEqual(closed.topics);
+    expect(finished.revision).toBe(closed.revision);
+    expect(finished.busy).toEqual({});
+    expect(finished.funds.pendingMicros).toBe(0);
+  });
+
+  it("marks the main chat busy while the automatic completion check runs", async () => {
+    const { world, dev } = open("all-ready");
+    for (const id of ["shifts", "notify", "data", "scope", "success"]) {
+      expect((await dev.act(confirmAction(await snap(dev), id))).ok).toBe(true);
+    }
+    const during = await snap(dev);
+    expect(during.send.main).toEqual({
+      kind: "unavailable",
+      block: "busy",
+      reason: "The AI is still answering in this chat.",
+    });
+    expect(
+      await deliver(dev, MAIN, { kind: "text", text: "While the check runs." }, during.revision),
+    ).toMatchObject({ ok: false, kind: "busy" });
+    await world.idle();
+    expect((await snap(dev)).send.main).toEqual({ kind: "available" });
+  });
+
+  it("reserves an answer as soon as its use starts, so it cannot be used twice", async () => {
+    const { dev } = open("answer-complete");
+    const before = await snap(dev);
+    const intent: PrdIntent = {
+      kind: "use-answer",
+      questionId: "retention" as QuestionId,
+      answer: null,
+      note: "",
+    };
+    const first = deliver(dev, MAIN, intent, before.revision);
+    expect(question(await snap(dev), "retention")).toMatchObject({
+      kind: "complete",
+      canUse: false,
+    });
+    expect(await deliver(dev, MAIN, intent, before.revision)).toMatchObject({
+      ok: false,
+      kind: "busy",
+    });
+    expect((await first).ok).toBe(true);
+    expect(question(await snap(dev), "retention").kind).toBe("used");
+    expect(calls).toEqual(["prd-chat"]);
+  });
+
+  it("refuses the confirmation that would start the completion check when funds cannot pay for it", () => {
+    let record = seedRecord("all-ready", NOW);
+    for (const id of ["shifts", "notify", "data", "scope"]) record = confirmInRecord(record, id);
+    record = {
+      ...record,
+      funds: { ...record.funds, settledMicros: record.funds.allocationMicros - 100_000 },
+    };
+    expect(topic(devView(record), "success").confirm).toEqual({
+      kind: "unavailable",
+      reason: CHECK_FUNDS_REASON,
+    });
+    const done = applyAction(
+      record,
+      "dev",
+      {
+        kind: "confirm-topic",
+        token: issueToken(record, "confirm-topic", topicTarget("success" as TopicId)),
+      },
+      NOW.toISOString(),
+    );
+    expect(done).toMatchObject({ ok: false, refusal: { kind: "funds" } });
+  });
+
+  it("offers View answer when funds leave no room for Use answer", () => {
+    const record = seedRecord("answer-complete", NOW);
+    const out = { ...record, funds: { ...record.funds, settledMicros: 19_600_000 } };
+    const entry = present(devView(out)).open.find((item) => item.question.id === "retention");
+    expect(entry).toMatchObject({ canView: true, canUse: false });
+  });
+
+  it("keeps each completion check's gaps with its own message", async () => {
+    const { dev } = open("prd-today");
+    await deliver(dev, MAIN, { kind: "close-check" });
+    const ask = parts(await snap(dev), "data-close-ask")[0];
+    if (!ask) throw new Error("the first check did not ask to close");
+    expect((await dev.act(ask.data.keepWorking)).ok).toBe(true);
+    await deliver(dev, SHIFTS, {
+      kind: "text",
+      text: "Holidays: the coordinator sets the closed days once a year, and no shifts are published on them.",
+    });
+    await deliver(dev, MAIN, { kind: "close-check" });
+    const current = await snap(dev);
+    const checks = parts(current, "data-check");
+    expect(checks.map((part) => part.data.gaps.map((gap) => gap.topicId))).toEqual([
+      ["users", "shifts"],
+      ["users"],
+    ]);
+    expect(current.check?.id).toBe(checks[1]?.data.checkId);
+  });
+
+  it("tells an aside from an answer by the script, not by a question mark", async () => {
+    const { ngo } = open("prd-today");
+    const answer = await deliver(ngo, RETENTION, { kind: "text", text: "a year?" });
+    expect(answer.ok && answer.text).toContain("That works for most kitchens.");
+    const aside = await deliver(ngo, RETENTION, {
+      kind: "text",
+      text: "Can a volunteer ask to be removed earlier",
+    });
+    expect(aside.ok && aside.text).toContain("removed earlier");
+    const retention = question(await snap(ngo), "retention");
+    expect(retention.kind === "answering" && retention.complete.kind).toBe("available");
+  });
+
+  it("counts Still open within the required sections only", () => {
+    const record = seedRecord("prd-today", NOW);
+    const changed: PrdRecord = {
+      ...record,
+      topics: record.topics.map((item) =>
+        item.id === "users"
+          ? {
+              ...item,
+              required: false,
+              confirmed: false,
+              gap: "A gap outside the required sections.",
+            }
+          : item,
+      ),
+    };
+    expect(closeRemaining(changed)).toContain("3 sections still being written");
+  });
+
+  it("opens each topic chat with a line that matches the topic's state", async () => {
+    const { world, dev } = open("all-ready");
+    const start = await snap(dev);
+    for (const id of ["data", "success"]) {
+      const opener = chatText(start, { kind: "topic", topicId: id as TopicId });
+      expect(topic(start, id).state).toBe("ready");
+      expect(opener).toContain("Every decision is recorded.");
+      expect(opener).not.toContain("waits for Maya");
+    }
+    for (const id of ["shifts", "notify", "data", "scope", "success"]) {
+      await dev.act(confirmAction(await snap(dev), id));
+    }
+    await world.idle();
+    const checked = await snap(dev);
+    expect(topic(checked, "users").state).toBe("needs-review");
+    expect(chatText(checked, { kind: "topic", topicId: "users" as TopicId })).toContain(
+      "The completion check found a gap here",
+    );
+    const today = await snap(open("prd-today").dev);
+    expect(chatText(today, { kind: "topic", topicId: "scope" as TopicId })).toContain(
+      "waits on the shift rules",
+    );
+  });
+
+  it("starts a scenario from its seed again when the shell URL asks for fresh", async () => {
+    expect(prdFixtureSelection("?scenario=prd-today&viewer=dev&fresh=1")).toMatchObject({
+      scenario: "prd-today",
+      viewer: "dev",
+      fresh: true,
+    });
+    expect(prdFixtureSelection("?scenario=prd-today").fresh).toBe(false);
+    expect(
+      withoutFresh("http://localhost:5173/?scenario=prd-today&viewer=dev&fresh=1#prd-workspace"),
+    ).toBe("http://localhost:5173/?scenario=prd-today&viewer=dev#prd-workspace");
+    const storage = memoryStorage();
+    const first = createPrdWorld("prd-today", { storage, pace: "test" });
+    const viewer = first.viewer("dev");
+    await first.saveDraft(viewer, "main", "kept across reloads");
+    expect(createPrdWorld("prd-today", { storage }).snapshot(viewer).drafts.main).toBe(
+      "kept across reloads",
+    );
+    forgetPrdWorld("prd-today", storage);
+    expect(createPrdWorld("prd-today", { storage }).snapshot(viewer).drafts.main).toBeUndefined();
   });
 });

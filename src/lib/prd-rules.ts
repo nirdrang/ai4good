@@ -8,6 +8,8 @@ import type {
   CompletionCheck,
   DevQuestion,
   Funds,
+  FundsBand,
+  FundsState,
   NgoQuestion,
   Person,
   PrdRefusal,
@@ -16,6 +18,7 @@ import type {
   QuestionId,
   Result,
   Role,
+  SendAvailability,
   Topic,
   TopicId,
   TopicState,
@@ -62,6 +65,7 @@ export type QuestionRecord = {
   briefTurn: TurnId | null;
   changed: boolean;
   pointOpen: boolean;
+  using: boolean;
 };
 
 export type CheckRecord = Mutable<Omit<CompletionCheck, "gaps">> & { gaps: CheckGap[] };
@@ -100,6 +104,12 @@ export const ACTION_ROLE: Readonly<Record<ActionKind, Role>> = {
 export const STALE_REASON = "The PRD changed since this was offered. Use the current version.";
 export const CLOSED_REASON = "The PRD is closed.";
 export const FOLLOW_UP_REASON = "Answer the AI’s question first.";
+export const FUNDS_REASON =
+  "Not enough left for another AI reply. The kitchen adds funds to continue.";
+export const CHECK_FUNDS_REASON =
+  "Confirming this section runs the completion check, and there is not enough left for it. The kitchen adds funds to continue.";
+export const BUSY_REASON = "The AI is still answering in this chat.";
+export const WAIT_REASON = "Wait for the AI to finish.";
 
 export function refusal(
   kind: PrdRefusal["kind"],
@@ -232,11 +242,27 @@ export function canAffordReply(funds: Funds): boolean {
 }
 
 /** Green below 80% of the allocation settled, yellow from 80% through 95%, red above 95%. Unrounded. */
-export function fundsBand(funds: Funds): "green" | "yellow" | "red" {
+export function fundsBand(funds: Funds): FundsBand {
   const spent = funds.settledMicros * 100;
   if (spent < funds.allocationMicros * 80) return "green";
   if (spent <= funds.allocationMicros * 95) return "yellow";
   return "red";
+}
+
+export function fundsState(funds: Funds): FundsState {
+  return {
+    allocationMicros: funds.allocationMicros,
+    settledMicros: funds.settledMicros,
+    pendingMicros: funds.pendingMicros,
+    replyHoldMicros: funds.replyHoldMicros,
+    availableMicros: Math.max(0, availableMicros(funds)),
+    band: fundsBand(funds),
+    replyFunded: canAffordReply(funds),
+  };
+}
+
+export function anyBusy(record: PrdRecord): boolean {
+  return Object.keys(record.busy).length > 0;
 }
 
 export function holdReply(funds: Funds): Mutable<Funds> {
@@ -270,6 +296,85 @@ export function canWriteChat(record: PrdRecord, role: Role, key: string): boolea
     );
   }
   return false;
+}
+
+function writeRefusalReason(record: PrdRecord, role: Role, key: string): string {
+  const dev = firstName(record, "dev");
+  const ngo = firstName(record, "ngo");
+  if (!key.startsWith("side:")) return `Only ${dev} writes to the AI here.`;
+  if (role === "dev") return `Only ${ngo} answers in her side chat.`;
+  return "This question is not open for an answer.";
+}
+
+/** Whether this viewer can send in this chat now: role, then closed, then a running reply, then funds. */
+export function sendAvailability(record: PrdRecord, role: Role, key: string): SendAvailability {
+  if (record.closed !== null)
+    return { kind: "unavailable", block: "closed", reason: CLOSED_REASON };
+  if (!canWriteChat(record, role, key)) {
+    return { kind: "unavailable", block: "role", reason: writeRefusalReason(record, role, key) };
+  }
+  if (record.busy[key]) return { kind: "unavailable", block: "busy", reason: BUSY_REASON };
+  if (!canAffordReply(record.funds)) {
+    return { kind: "unavailable", block: "funds", reason: FUNDS_REASON };
+  }
+  return { kind: "available" };
+}
+
+/** A send that `sendAvailability` refuses, as the refusal the backend returns. */
+export function sendRefusal(record: PrdRecord, role: Role, key: string): PrdRefusal | null {
+  const send = sendAvailability(record, role, key);
+  if (send.kind === "available") return null;
+  const kind = send.block === "role" ? "forbidden" : send.block;
+  return { kind, reason: send.reason };
+}
+
+/** A dependency that is neither ready nor confirmed holds the topic back from confirmation. */
+export function waitingDependency(record: PrdRecord, topic: TopicRecord): TopicRecord | null {
+  return (
+    record.topics.find((other) => {
+      if (!topic.dependsOn.includes(other.id)) return false;
+      const state = topicState(other);
+      return state !== "confirmed" && state !== "ready";
+    }) ?? null
+  );
+}
+
+/** True when confirming this topic would confirm the last required one and so start the completion check. */
+export function confirmStartsCheck(record: PrdRecord, topic: TopicRecord): boolean {
+  if (!topic.required) return false;
+  const others = record.topics.filter((item) => item.required && item.id !== topic.id);
+  return (
+    others.every((item) => topicState(item) === "confirmed") &&
+    !(record.check !== null && record.check.passed && record.check.revision === record.revision)
+  );
+}
+
+/** Why this topic cannot be confirmed now, or null when the rules allow it. */
+export function confirmBlock(
+  record: PrdRecord,
+  topic: TopicRecord,
+): { kind: PrdRefusal["kind"]; reason: string } | null {
+  const state = topicState(topic);
+  if (topic.gap !== null) return { kind: "invalid", reason: "Fix the completion check gap first." };
+  if (state === "confirmed") return { kind: "invalid", reason: "This section is confirmed." };
+  if (state !== "ready" && state !== "needs-review") {
+    return {
+      kind: "invalid",
+      reason: "The AI marks this section ready when every decision is in. Then you can confirm it.",
+    };
+  }
+  const waits = waitingDependency(record, topic);
+  if (waits) {
+    return {
+      kind: "invalid",
+      reason: `${waits.title} must be ready before you can confirm this section.`,
+    };
+  }
+  if (confirmStartsCheck(record, topic)) {
+    if (record.busy.main) return { kind: "busy", reason: WAIT_REASON };
+    if (!canAffordReply(record.funds)) return { kind: "funds", reason: CHECK_FUNDS_REASON };
+  }
+  return null;
 }
 
 /** A changed decision sends the changed topic and every confirmed dependent back to Needs review. */
@@ -307,20 +412,23 @@ export function closeRemaining(record: PrdRecord): string[] {
   const ngo = firstName(record, "ngo");
   const required = record.topics.filter((topic) => topic.required);
   const gaps = record.topics.filter((topic) => topic.gap !== null).length;
-  const notConfirmed = required.filter((topic) => topicState(topic) !== "confirmed").length;
-  const ready = required.filter((topic) => {
+  const open = required.filter((topic) => topicState(topic) !== "confirmed" && topic.gap === null);
+  const reviewable = open.filter((topic) => {
     const state = topicState(topic);
-    return (state === "ready" || state === "needs-review") && topic.gap === null;
-  }).length;
+    return state === "ready" || state === "needs-review";
+  });
+  const held = reviewable.filter((topic) => waitingDependency(record, topic) !== null).length;
+  const ready = reviewable.length - held;
   const blocking = record.questions.filter((question) => question.blocking);
   const unposted = blocking.filter((question) => question.status === "suggested").length;
   const waiting = blocking.filter(
     (question) => question.status === "posted" || question.status === "answering",
   ).length;
   const toUse = blocking.filter((question) => question.status === "complete").length;
-  const writing = notConfirmed - ready - gaps;
+  const writing = open.length - reviewable.length;
   const items: string[] = [];
   if (ready > 0) items.push(`${plural(ready, "section", "sections")} ready for you to confirm`);
+  if (held > 0) items.push(`${plural(held, "section", "sections")} waiting on another section`);
   if (writing > 0) items.push(`${plural(writing, "section", "sections")} still being written`);
   if (unposted > 0) {
     items.push(
@@ -369,17 +477,18 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord): string | null
     (item) => item.topicId === topic.id && item.status === "used" && item.pointOpen,
   );
   if (pointOpen) return "One point to settle in the main chat";
-  const waitsOn = record.topics.find((other) => {
-    if (!topic.dependsOn.includes(other.id)) return false;
-    const otherState = topicState(other);
-    return otherState !== "confirmed" && otherState !== "ready";
-  });
+  const waitsOn = waitingDependency(record, topic);
   return waitsOn ? `Waits on ${waitsOn.title}` : null;
 }
 
 function statusText(record: PrdRecord, topic: TopicRecord): string {
   if (topic.gap !== null) return `Gap from the completion check: ${topic.gap}`;
-  switch (topicState(topic)) {
+  const waits = waitingDependency(record, topic);
+  const state = topicState(topic);
+  if (waits && (state === "ready" || state === "needs-review")) {
+    return `${state === "ready" ? "Every decision is recorded" : "Reopened"}. It waits on ${waits.title} before you can confirm it.`;
+  }
+  switch (state) {
     case "confirmed":
       return `Confirmed by ${firstName(record, "dev")}.`;
     case "ready":
@@ -430,17 +539,11 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
   const state = topicState(topic);
   const open = record.closed === null;
   let confirm: Topic["confirm"];
+  const block = confirmBlock(record, topic);
   if (role !== "dev") confirm = unavailable(`${dev} confirms sections.`);
   else if (!open) confirm = unavailable(CLOSED_REASON);
-  else if (topic.gap !== null) confirm = unavailable("Fix the completion check gap first.");
-  else if (state === "ready" || state === "needs-review") {
-    confirm = available(record, "confirm-topic", topicTarget(topic.id));
-  } else if (state === "confirmed") confirm = unavailable("This section is confirmed.");
-  else {
-    confirm = unavailable(
-      "The AI marks this section ready when every decision is in. Then you can confirm it.",
-    );
-  }
+  else if (block) confirm = unavailable(block.reason);
+  else confirm = available(record, "confirm-topic", topicTarget(topic.id));
   let reopen: Topic["reopen"];
   if (role !== "dev") reopen = unavailable(`${dev} reopens sections.`);
   else if (!open) reopen = unavailable(CLOSED_REASON);
@@ -498,6 +601,7 @@ function projectQuestion(record: PrdRecord, question: QuestionRecord, role: Role
         complete = unavailable("The AI is still answering.");
       else if (question.followUp === "pending") complete = unavailable(FOLLOW_UP_REASON);
       else if (question.evidence.length === 0) complete = unavailable("Write your answer first.");
+      else if (!canAffordReply(record.funds)) complete = unavailable(FUNDS_REASON);
       else complete = available(record, "complete-answer", questionTarget(question.id));
       return { ...common, kind: "answering", followUp: question.followUp, complete };
     }
@@ -506,7 +610,7 @@ function projectQuestion(record: PrdRecord, question: QuestionRecord, role: Role
         ...common,
         kind: "complete",
         answer: question.answer ?? "",
-        canUse: role === "dev" && open && canAffordReply(record.funds),
+        canUse: role === "dev" && open && !question.using && canAffordReply(record.funds),
       };
     case "used":
       return {
@@ -547,13 +651,14 @@ export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
   const keys = chatKeys(record);
   const chats: Record<string, PrdUIMessage[]> = {};
   const canWrite: Record<string, boolean> = {};
+  const send: Record<string, SendAvailability> = {};
   for (const key of keys) {
     chats[key] = (record.chats[key] ?? [])
       .filter((stored) => stored.forRole === null || stored.forRole === role)
       .map((stored) => ({ ...stored.message, parts: visibleParts(record, stored.message) }));
     canWrite[key] = canWriteChat(record, role, key);
+    send[key] = sendAvailability(record, role, key);
   }
-  const dev = firstName(record, "dev");
   return {
     sequence: record.sequence,
     revision: record.revision,
@@ -569,7 +674,8 @@ export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
     questions: record.questions.map((question) => projectQuestion(record, question, role)),
     chats,
     canWrite,
-    funds: { ...record.funds },
+    send,
+    funds: fundsState(record.funds),
     check:
       record.check === null
         ? null
@@ -580,11 +686,23 @@ export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
         : {
             kind: "open",
             remaining: closeRemaining(record),
-            close:
-              role === "dev"
-                ? available(record, "close", CLOSE_TARGET)
-                : unavailable(`Only ${dev} can close the PRD.`),
+            path: checkPassedForRevision(record) ? "close" : "check",
+            close: closeAvailability(record, role),
           },
     drafts: { ...record.drafts[role] },
   };
+}
+
+function closeAvailability(record: PrdRecord, role: Role): Availability<Action<"close">> {
+  if (role !== "dev") return unavailable(`Only ${firstName(record, "dev")} can close the PRD.`);
+  if (anyBusy(record)) return unavailable(WAIT_REASON);
+  if (!checkPassedForRevision(record) && !canAffordReply(record.funds)) {
+    return unavailable(FUNDS_REASON);
+  }
+  return available(record, "close", CLOSE_TARGET);
+}
+
+/** Refuses close, close anyway and keep working while a reply or a backend job runs. */
+export function closeBlock(record: PrdRecord): PrdRefusal | null {
+  return anyBusy(record) ? { kind: "busy", reason: WAIT_REASON } : null;
 }

@@ -37,7 +37,7 @@ export const PRD_GIVEN = {
   "all-ready": MAIN,
   "check-passed": MAIN,
   closed: MAIN,
-  queue: { viewer: "dev", start: "main", replyMs: { test: 3000, demo: 4000 } },
+  queue: { viewer: "dev", start: "main", replyMs: { test: 6000, demo: 4000 } },
   "funds-out": MAIN,
   "funds-79999": MAIN,
   "funds-80": MAIN,

@@ -400,6 +400,8 @@ export class PrdPage {
       }
       return texts;
     },
+    editCount: (text: string): Promise<number> =>
+      this.page.count([byId(testIds.prdQueueItem, text), byId(testIds.prdQueueEdit)]),
     edit: (text: string): Promise<void> =>
       this.page.click([byId(testIds.prdQueueItem, text), byId(testIds.prdQueueEdit)]),
     remove: (text: string): Promise<void> =>

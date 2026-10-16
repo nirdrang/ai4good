@@ -50,6 +50,7 @@ export function Composer({
   canSend,
   hint,
   queue,
+  canEdit,
   notice,
   onText,
   onSend,
@@ -61,6 +62,7 @@ export function Composer({
   canSend: boolean;
   hint: string | null;
   queue: readonly QueuedItem[];
+  canEdit: boolean;
   notice: string | null;
   onText(text: string): void;
   onSend(): void;
@@ -95,7 +97,7 @@ export function Composer({
               className="flex items-center gap-2 text-sm"
             >
               <span className="min-w-0 flex-1 truncate">{item.text}</span>
-              {item.intent.kind === "text" ? (
+              {canEdit && item.intent.kind === "text" ? (
                 <button
                   type="button"
                   data-testid={testIds.prdQueueEdit}

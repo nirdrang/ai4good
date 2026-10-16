@@ -1,5 +1,5 @@
 import { AnswerReview } from "./AnswerReview";
-import { ActNotice, ClosedBanner } from "./Banners";
+import { ActNotice, ClosedBanner, ReadOnlyBanner } from "./Banners";
 import { MainColumn } from "./DesktopLayout";
 import { PhoneTabs } from "./PhoneTabs";
 import { PrdPanel } from "./PrdPanel";
@@ -26,6 +26,7 @@ export function PhoneLayout({
         <StageChip />
       </div>
       <ClosedBanner view={view} onOpenUiDesign={onOpenUiDesign} />
+      <ReadOnlyBanner view={view} phone />
       <ActNotice controller={controller} />
       <div className="flex min-h-0 flex-1 flex-col">
         {tab === "chat" ? (

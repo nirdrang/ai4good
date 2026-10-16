@@ -102,10 +102,22 @@ export type Funds = Readonly<{
   replyHoldMicros: number;
 }>;
 
+export type FundsBand = "green" | "yellow" | "red";
+export type FundsState = Funds &
+  Readonly<{ availableMicros: number; band: FundsBand; replyFunded: boolean }>;
+
+export type SendBlock = "role" | "closed" | "busy" | "funds";
+export type SendAvailability =
+  | { readonly kind: "available" }
+  | { readonly kind: "unavailable"; readonly block: SendBlock; readonly reason: string };
+
+export type ClosePath = "close" | "check";
+
 export type CloseState =
   | {
       readonly kind: "open";
       readonly remaining: readonly string[];
+      readonly path: ClosePath;
       readonly close: Availability<Action<"close">>;
     }
   | { readonly kind: "closed"; readonly revision: number; readonly openPoints: number };
@@ -114,7 +126,7 @@ export type PrdDataTypes = {
   "ngo-question": { questionId: QuestionId };
   "dev-questions": { ids: readonly string[] };
   "section-link": { topicId: TopicId };
-  check: { checkId: string };
+  check: { checkId: string; gaps: readonly CheckGap[] };
   "close-ask": {
     checkId: string;
     revision: number;
@@ -141,7 +153,8 @@ export type PrdSnapshot = Readonly<{
   questions: readonly NgoQuestion[];
   chats: Readonly<Record<string, readonly PrdUIMessage[]>>;
   canWrite: Readonly<Record<string, boolean>>;
-  funds: Funds;
+  send: Readonly<Record<string, SendAvailability>>;
+  funds: FundsState;
   check: CompletionCheck | null;
   close: CloseState;
   drafts: Readonly<Record<string, string>>;
@@ -305,12 +318,25 @@ const fundsSchema = z.object({
   settledMicros: count,
   pendingMicros: count,
   replyHoldMicros: count,
+  availableMicros: count,
+  band: z.enum(["green", "yellow", "red"]),
+  replyFunded: z.boolean(),
 });
+
+const sendSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("available") }),
+  z.object({
+    kind: z.literal("unavailable"),
+    block: z.enum(["role", "closed", "busy", "funds"]),
+    reason: z.string(),
+  }),
+]);
 
 const closeStateSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("open"),
     remaining: z.array(z.string()),
+    path: z.enum(["close", "check"]),
     close: availabilitySchema(actionSchema("close")),
   }),
   z.object({ kind: z.literal("closed"), revision: count, openPoints: count }),
@@ -361,20 +387,12 @@ const textPart = z.object({
   state: z.enum(["streaming", "done"]).optional(),
 });
 
-const installed: { snapshot?: z.ZodType<PrdSnapshot, z.ZodTypeDef, unknown> } = {};
-
-function snapshotSchema(): z.ZodType<PrdSnapshot, z.ZodTypeDef, unknown> {
-  const schema = installed.snapshot;
-  if (!schema) throw new Error("The snapshot schema is not installed.");
-  return schema;
-}
-
 const messagePartSchema = z.discriminatedUnion("type", [
   textPart,
   dataPart("ngo-question", z.object({ questionId: questionIdSchema })),
   dataPart("dev-questions", z.object({ ids: z.array(identifier) })),
   dataPart("section-link", z.object({ topicId: topicIdSchema })),
-  dataPart("check", z.object({ checkId: identifier })),
+  dataPart("check", z.object({ checkId: identifier, gaps: z.array(checkGapSchema) })),
   dataPart(
     "close-ask",
     z.object({
@@ -393,7 +411,10 @@ const messagePartSchema = z.discriminatedUnion("type", [
     }),
   ),
   dataPart("line", z.object({ text: z.string(), topicId: topicIdSchema.nullable() })),
-  dataPart("snapshot", z.lazy(snapshotSchema)),
+  dataPart(
+    "snapshot",
+    z.lazy((): z.ZodType<PrdSnapshot, z.ZodTypeDef, unknown> => snapshotSchemaObject),
+  ),
 ]);
 
 const messageSchema = z.object({
@@ -403,7 +424,7 @@ const messageSchema = z.object({
   parts: z.array(messagePartSchema),
 });
 
-const snapshotSchemaObject = z.object({
+const snapshotSchemaObject: z.ZodType<PrdSnapshot, z.ZodTypeDef, unknown> = z.object({
   sequence: count,
   revision: count,
   viewer: viewerSchema,
@@ -415,13 +436,17 @@ const snapshotSchemaObject = z.object({
   questions: z.array(ngoQuestionSchema),
   chats: z.record(z.string(), z.array(messageSchema)),
   canWrite: z.record(z.string(), z.boolean()),
+  send: z.record(z.string(), sendSchema),
   funds: fundsSchema,
   check: completionCheckSchema.nullable(),
   close: closeStateSchema,
   drafts: z.record(z.string(), z.string()),
 });
 
-installed.snapshot = snapshotSchemaObject;
+const refusalSchema = z.object({
+  kind: z.enum(["forbidden", "stale", "funds", "closed", "busy", "follow-up-open", "invalid"]),
+  reason: z.string(),
+});
 
 const sendBodySchema = z.object({
   scope: chatScopeSchema,
@@ -438,4 +463,10 @@ export function parsePrdSnapshot(input: unknown): PrdSnapshot {
 /** Reads a chat send at the boundary. Rejects a wrong shape or an unknown kind. */
 export function parseSendBody(input: unknown): PrdSendBody {
   return sendBodySchema.parse(input);
+}
+
+/** Reads a refusal at the boundary, or null when the input is not one. */
+export function parseRefusal(input: unknown): PrdRefusal | null {
+  const parsed = refusalSchema.safeParse(input);
+  return parsed.success ? parsed.data : null;
 }

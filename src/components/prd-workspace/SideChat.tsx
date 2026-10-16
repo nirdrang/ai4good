@@ -21,16 +21,17 @@ export function SideChat({
 }) {
   const scope = { kind: "side", questionId } as const;
   const key = scopeKey(scope);
-  const { status } = useChat({ chat: controller.chat(scope) });
+  useChat({ chat: controller.chat(scope) });
   const text = controller.drafts[key] ?? "";
   const field = useGrowingField(text, 96);
   const question = view.snapshot.questions.find((entry) => entry.id === questionId);
   if (!question) return null;
   const names = view.names;
   const title = topicTitle(view.snapshot, question.topicId);
-  const idle = status !== "submitted" && status !== "streaming";
+  const state = controller.sendState(scope);
+  const idle = !state.busy;
   const writable = view.snapshot.canWrite[key] === true;
-  const canSend = idle && writable && view.canAffordReply && text.trim().length > 0;
+  const canSend = state.enabled && text.trim().length > 0;
   const complete = question.kind === "answering" ? question.complete : null;
   const completeAction = complete?.kind === "available" && idle ? complete.action : null;
   const hint =
@@ -53,7 +54,8 @@ export function SideChat({
       : question.kind === "used"
         ? COPY.sideNoteUsed(names.dev)
         : null;
-  const canUse = question.kind === "complete" && question.canUse;
+  const canUse =
+    question.kind === "complete" && question.canUse && !controller.answerQueued(question.id);
   const send = () => controller.send(scope);
   return (
     <div
