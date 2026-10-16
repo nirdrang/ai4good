@@ -1,0 +1,590 @@
+import { scopeKey } from "./prd-stream";
+import type {
+  Action,
+  ActionKind,
+  ActionToken,
+  Availability,
+  CheckGap,
+  CompletionCheck,
+  DevQuestion,
+  Funds,
+  NgoQuestion,
+  Person,
+  PrdRefusal,
+  PrdSnapshot,
+  PrdUIMessage,
+  QuestionId,
+  Result,
+  Role,
+  Topic,
+  TopicId,
+  TopicState,
+  TurnId,
+  Viewer,
+} from "./prd-stream";
+
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
+
+export type StoredMessage = { message: PrdUIMessage; forRole: Role | null };
+
+export type TopicRecord = {
+  id: TopicId;
+  title: string;
+  required: boolean;
+  dependsOn: TopicId[];
+  drafted: boolean;
+  aiReady: boolean;
+  confirmed: boolean;
+  review: boolean;
+  gap: string | null;
+  body: string[];
+  added: string[];
+  sources: string[];
+  stories: string[] | null;
+};
+
+export type QuestionStatus = "suggested" | "posted" | "answering" | "complete" | "used";
+
+export type QuestionRecord = {
+  id: QuestionId;
+  topicId: TopicId;
+  text: string;
+  why: string;
+  blocking: boolean;
+  introTurn: TurnId;
+  options: string[];
+  impact: string;
+  openPoint: string | null;
+  status: QuestionStatus;
+  followUp: "pending" | "none";
+  evidence: string[];
+  answer: string | null;
+  briefTurn: TurnId | null;
+  changed: boolean;
+  pointOpen: boolean;
+};
+
+export type CheckRecord = Mutable<Omit<CompletionCheck, "gaps">> & { gaps: CheckGap[] };
+
+/** The backend's whole record of one PRD workspace. Only `toSnapshot` turns it into what a viewer sees. */
+export type PrdRecord = {
+  sequence: number;
+  revision: number;
+  discoveryRevision: number;
+  project: { title: string; organizationName: string };
+  people: Person[];
+  topics: TopicRecord[];
+  devQuestions: Mutable<DevQuestion>[];
+  questions: QuestionRecord[];
+  chats: Record<string, StoredMessage[]>;
+  drafts: Record<Role, Record<string, string>>;
+  funds: Mutable<Funds>;
+  check: CheckRecord | null;
+  checkRuns: number;
+  closed: { revision: number; openPoints: number } | null;
+  versions: Record<string, number>;
+  requests: Record<string, { chat: string; reply: string | null }>;
+  busy: Record<string, string>;
+};
+
+export const ACTION_ROLE: Readonly<Record<ActionKind, Role>> = {
+  "post-question": "dev",
+  "complete-answer": "ngo",
+  "confirm-topic": "dev",
+  "reopen-topic": "dev",
+  close: "dev",
+  "close-anyway": "dev",
+  "keep-working": "dev",
+};
+
+export const STALE_REASON = "The PRD changed since this was offered. Use the current version.";
+export const CLOSED_REASON = "The PRD is closed.";
+export const FOLLOW_UP_REASON = "Answer the AI’s question first.";
+
+export function refusal(
+  kind: PrdRefusal["kind"],
+  reason: string,
+): { ok: false; refusal: PrdRefusal } {
+  return { ok: false, refusal: { kind, reason } };
+}
+
+export function firstName(record: PrdRecord, role: Role): string {
+  const person = record.people.find((item) => item.role === role);
+  return person ? (person.name.split(" ")[0] ?? person.name) : role;
+}
+
+export function topicTarget(id: TopicId): string {
+  return `topic:${id}`;
+}
+
+export function questionTarget(id: QuestionId): string {
+  return `question:${id}`;
+}
+
+export const CLOSE_TARGET = "close";
+
+export function askTarget(checkId: string): string {
+  return `ask:${checkId}`;
+}
+
+export function issueToken(record: PrdRecord, kind: ActionKind, target: string): ActionToken {
+  return `${kind}|${target}|${record.revision}|${record.versions[target] ?? 0}` as ActionToken;
+}
+
+function readToken(
+  token: string,
+): { kind: string; target: string; revision: number; version: number } | null {
+  const parts = token.split("|");
+  if (parts.length !== 4) return null;
+  const [kind, target, revision, version] = parts;
+  if (!kind || !target || !revision || !version) return null;
+  const numbers = [Number(revision), Number(version)];
+  if (!numbers.every(Number.isInteger)) return null;
+  return { kind, target, revision: numbers[0]!, version: numbers[1]! };
+}
+
+export function tokenLive(record: PrdRecord, action: Action<ActionKind>): boolean {
+  const token = readToken(action.token);
+  return (
+    token !== null &&
+    record.closed === null &&
+    token.kind === action.kind &&
+    token.revision === record.revision &&
+    token.version === (record.versions[token.target] ?? 0)
+  );
+}
+
+function forbiddenReason(record: PrdRecord, kind: ActionKind): string {
+  const dev = firstName(record, "dev");
+  const ngo = firstName(record, "ngo");
+  switch (kind) {
+    case "post-question":
+      return `Only ${dev} posts questions to ${ngo}.`;
+    case "complete-answer":
+      return `Only ${ngo} marks her answer complete.`;
+    case "confirm-topic":
+      return `Only ${dev} confirms sections.`;
+    case "reopen-topic":
+      return `Only ${dev} reopens sections.`;
+    case "close":
+    case "close-anyway":
+    case "keep-working":
+      return `Only ${dev} can close the PRD.`;
+  }
+}
+
+/** Checks who may act, whether the PRD is open, and whether the token is current. */
+export function verifyAction(
+  record: PrdRecord,
+  role: Role,
+  action: Action<ActionKind>,
+): Result<{ target: string }> {
+  const token = readToken(action.token);
+  if (token === null || token.kind !== action.kind) {
+    return refusal("invalid", "This action could not be read.");
+  }
+  if (ACTION_ROLE[action.kind] !== role)
+    return refusal("forbidden", forbiddenReason(record, action.kind));
+  if (record.closed !== null) return refusal("closed", CLOSED_REASON);
+  if (!tokenLive(record, action)) return refusal("stale", STALE_REASON);
+  return { ok: true, value: { target: token.target } };
+}
+
+export function spend(versions: Record<string, number>, target: string): Record<string, number> {
+  return { ...versions, [target]: (versions[target] ?? 0) + 1 };
+}
+
+export function topicState(topic: TopicRecord): TopicState {
+  if (topic.review) return "needs-review";
+  if (topic.confirmed) return "confirmed";
+  if (topic.aiReady) return "ready";
+  return topic.drafted ? "draft" : "open";
+}
+
+export function requiredProgress(record: PrdRecord): { confirmed: number; total: number } {
+  const required = record.topics.filter((topic) => topic.required);
+  return {
+    confirmed: required.filter((topic) => topicState(topic) === "confirmed").length,
+    total: required.length,
+  };
+}
+
+export function allRequiredConfirmed(record: PrdRecord): boolean {
+  const progress = requiredProgress(record);
+  return progress.total > 0 && progress.confirmed === progress.total;
+}
+
+export function checkPassedForRevision(record: PrdRecord): boolean {
+  return (
+    record.check !== null &&
+    record.check.passed &&
+    record.check.revision === record.revision &&
+    allRequiredConfirmed(record)
+  );
+}
+
+export function availableMicros(funds: Funds): number {
+  return funds.allocationMicros - funds.settledMicros - funds.pendingMicros;
+}
+
+export function canAffordReply(funds: Funds): boolean {
+  return availableMicros(funds) >= funds.replyHoldMicros;
+}
+
+/** Green below 80% of the allocation settled, yellow from 80% through 95%, red above 95%. Unrounded. */
+export function fundsBand(funds: Funds): "green" | "yellow" | "red" {
+  const spent = funds.settledMicros * 100;
+  if (spent < funds.allocationMicros * 80) return "green";
+  if (spent <= funds.allocationMicros * 95) return "yellow";
+  return "red";
+}
+
+export function holdReply(funds: Funds): Mutable<Funds> {
+  return { ...funds, pendingMicros: funds.pendingMicros + funds.replyHoldMicros };
+}
+
+export function settleReply(funds: Funds, costMicros: number): Mutable<Funds> {
+  return {
+    ...funds,
+    pendingMicros: Math.max(0, funds.pendingMicros - funds.replyHoldMicros),
+    settledMicros: funds.settledMicros + costMicros,
+  };
+}
+
+export function releaseHolds(funds: Funds): Mutable<Funds> {
+  return { ...funds, pendingMicros: 0 };
+}
+
+export function canWriteChat(record: PrdRecord, role: Role, key: string): boolean {
+  if (record.closed !== null) return false;
+  if (key === "main") return role === "dev";
+  if (key.startsWith("topic:")) {
+    return role === "dev" && record.topics.some((topic) => `topic:${topic.id}` === key);
+  }
+  if (key.startsWith("side:")) {
+    const question = record.questions.find((item) => `side:${item.id}` === key);
+    return (
+      role === "ngo" &&
+      question !== undefined &&
+      (question.status === "posted" || question.status === "answering")
+    );
+  }
+  return false;
+}
+
+/** A changed decision sends the changed topic and every confirmed dependent back to Needs review. */
+export function markDependents(topics: TopicRecord[], changed: readonly TopicId[]): TopicRecord[] {
+  const touched = new Set<TopicId>(changed);
+  let next = topics.map((topic) =>
+    touched.has(topic.id) && topic.confirmed ? { ...topic, confirmed: false, review: true } : topic,
+  );
+  for (;;) {
+    let moved = false;
+    next = next.map((topic) => {
+      if (!topic.confirmed || !topic.dependsOn.some((id) => touched.has(id))) return topic;
+      touched.add(topic.id);
+      moved = true;
+      return { ...topic, confirmed: false, review: true };
+    });
+    if (!moved) return next;
+  }
+}
+
+export function openPointCount(record: PrdRecord): number {
+  const gaps = record.topics.filter((topic) => topic.gap !== null).length;
+  const unconfirmed = record.topics.filter(
+    (topic) => topic.required && topic.gap === null && topicState(topic) !== "confirmed",
+  ).length;
+  return gaps + unconfirmed;
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+export function closeRemaining(record: PrdRecord): string[] {
+  if (record.closed !== null) return [];
+  const ngo = firstName(record, "ngo");
+  const required = record.topics.filter((topic) => topic.required);
+  const gaps = record.topics.filter((topic) => topic.gap !== null).length;
+  const notConfirmed = required.filter((topic) => topicState(topic) !== "confirmed").length;
+  const ready = required.filter((topic) => {
+    const state = topicState(topic);
+    return (state === "ready" || state === "needs-review") && topic.gap === null;
+  }).length;
+  const blocking = record.questions.filter((question) => question.blocking);
+  const unposted = blocking.filter((question) => question.status === "suggested").length;
+  const waiting = blocking.filter(
+    (question) => question.status === "posted" || question.status === "answering",
+  ).length;
+  const toUse = blocking.filter((question) => question.status === "complete").length;
+  const writing = notConfirmed - ready - gaps;
+  const items: string[] = [];
+  if (ready > 0) items.push(`${plural(ready, "section", "sections")} ready for you to confirm`);
+  if (writing > 0) items.push(`${plural(writing, "section", "sections")} still being written`);
+  if (unposted > 0) {
+    items.push(
+      `${plural(unposted, "blocking question", "blocking questions")} not posted to ${ngo}`,
+    );
+  }
+  if (waiting > 0) {
+    items.push(`${plural(waiting, "blocking question", "blocking questions")} waiting for ${ngo}`);
+  }
+  if (toUse > 0) items.push(`${plural(toUse, "answer", "answers")} from ${ngo} to use`);
+  if (gaps > 0) items.push(`${plural(gaps, "gap", "gaps")} from the completion check to fix`);
+  if (!checkPassedForRevision(record)) {
+    items.push("Completion check runs when you close, or when all sections are confirmed");
+  }
+  return items;
+}
+
+export function blockerFor(record: PrdRecord, topic: TopicRecord): string | null {
+  const dev = firstName(record, "dev");
+  const ngo = firstName(record, "ngo");
+  if (topic.gap !== null) return "Completion check gap · fix it in this section";
+  const state = topicState(topic);
+  if (state === "confirmed") return null;
+  if (state === "ready") return `AI: every decision is in · ${dev} can confirm`;
+  if (state === "needs-review") return `Reopened · ${dev} reviews and confirms again`;
+  const asked = record.devQuestions.filter(
+    (question) => question.topicId === topic.id && question.answered === null,
+  ).length;
+  if (asked > 0) return `${plural(asked, "question", "questions")} ready for ${dev}`;
+  const question = record.questions.find(
+    (item) => item.topicId === topic.id && item.blocking && item.status !== "used",
+  );
+  if (question) {
+    switch (question.status) {
+      case "suggested":
+        return `Question for ${ngo} not posted yet`;
+      case "posted":
+        return `Waiting for ${ngo}’s answer`;
+      case "answering":
+        return `${ngo} is answering`;
+      case "complete":
+        return `${ngo} answered · ${dev} can use it`;
+    }
+  }
+  const pointOpen = record.questions.some(
+    (item) => item.topicId === topic.id && item.status === "used" && item.pointOpen,
+  );
+  if (pointOpen) return "One point to settle in the main chat";
+  const waitsOn = record.topics.find((other) => {
+    if (!topic.dependsOn.includes(other.id)) return false;
+    const otherState = topicState(other);
+    return otherState !== "confirmed" && otherState !== "ready";
+  });
+  return waitsOn ? `Waits on ${waitsOn.title}` : null;
+}
+
+function statusText(record: PrdRecord, topic: TopicRecord): string {
+  if (topic.gap !== null) return `Gap from the completion check: ${topic.gap}`;
+  switch (topicState(topic)) {
+    case "confirmed":
+      return `Confirmed by ${firstName(record, "dev")}.`;
+    case "ready":
+      return "The AI checked this section: every decision is recorded. Read it and confirm.";
+    case "needs-review":
+      return "Reopened. Read it again and confirm.";
+    default:
+      return blockerFor(record, topic) ?? "The AI is still writing this section.";
+  }
+}
+
+export function briefRows(
+  record: PrdRecord,
+  question: QuestionRecord,
+  use: { answer: string; note: string; ngoMessages: number },
+): { label: string; text: string }[] {
+  const ngo = firstName(record, "ngo");
+  const original = question.answer ?? use.answer;
+  const rows = [
+    { label: "Question", text: question.text },
+    { label: `${ngo}’s answer`, text: original },
+  ];
+  if (use.answer !== original) rows.push({ label: "I changed it to", text: use.answer });
+  rows.push({
+    label: "How she got there",
+    text: `Settled with the AI in ${plural(use.ngoMessages, "message", "messages")}, then marked complete.`,
+  });
+  rows.push({ label: "What it changes", text: question.impact });
+  if (question.openPoint !== null) rows.push({ label: "To discuss", text: question.openPoint });
+  if (use.note.length > 0) rows.push({ label: "My note", text: use.note });
+  return rows;
+}
+
+function available<K extends ActionKind>(
+  record: PrdRecord,
+  kind: K,
+  target: string,
+): Availability<Action<K>> {
+  return { kind: "available", action: { kind, token: issueToken(record, kind, target) } };
+}
+
+function unavailable(reason: string): { kind: "unavailable"; reason: string } {
+  return { kind: "unavailable", reason };
+}
+
+function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic {
+  const dev = firstName(record, "dev");
+  const state = topicState(topic);
+  const open = record.closed === null;
+  let confirm: Topic["confirm"];
+  if (role !== "dev") confirm = unavailable(`${dev} confirms sections.`);
+  else if (!open) confirm = unavailable(CLOSED_REASON);
+  else if (topic.gap !== null) confirm = unavailable("Fix the completion check gap first.");
+  else if (state === "ready" || state === "needs-review") {
+    confirm = available(record, "confirm-topic", topicTarget(topic.id));
+  } else if (state === "confirmed") confirm = unavailable("This section is confirmed.");
+  else {
+    confirm = unavailable(
+      "The AI marks this section ready when every decision is in. Then you can confirm it.",
+    );
+  }
+  let reopen: Topic["reopen"];
+  if (role !== "dev") reopen = unavailable(`${dev} reopens sections.`);
+  else if (!open) reopen = unavailable(CLOSED_REASON);
+  else if (state === "confirmed") reopen = available(record, "reopen-topic", topicTarget(topic.id));
+  else reopen = unavailable("Only a confirmed section can be reopened.");
+  return {
+    id: topic.id,
+    title: topic.title,
+    required: topic.required,
+    state,
+    statusText: statusText(record, topic),
+    blocker: blockerFor(record, topic),
+    statements: [...topic.body, ...topic.added],
+    sources: [...topic.sources],
+    stories: topic.stories === null ? null : [...topic.stories],
+    confirm,
+    reopen,
+  };
+}
+
+function projectQuestion(record: PrdRecord, question: QuestionRecord, role: Role): NgoQuestion {
+  const dev = firstName(record, "dev");
+  const ngo = firstName(record, "ngo");
+  const open = record.closed === null;
+  const common = {
+    id: question.id,
+    topicId: question.topicId,
+    text: question.text,
+    why: question.why,
+    blocking: question.blocking,
+    introTurn: question.introTurn,
+    options: [...question.options],
+    impact: question.impact,
+    openPoint: question.openPoint,
+  };
+  switch (question.status) {
+    case "suggested":
+      return {
+        ...common,
+        kind: "suggested",
+        post:
+          role !== "dev"
+            ? unavailable(`Only ${dev} posts questions to ${ngo}.`)
+            : !open
+              ? unavailable(CLOSED_REASON)
+              : available(record, "post-question", questionTarget(question.id)),
+      };
+    case "posted":
+      return { ...common, kind: "posted" };
+    case "answering": {
+      let complete: Availability<Action<"complete-answer">>;
+      if (role !== "ngo") complete = unavailable(`Only ${ngo} marks her answer complete.`);
+      else if (!open) complete = unavailable(CLOSED_REASON);
+      else if (record.busy[`side:${question.id}`])
+        complete = unavailable("The AI is still answering.");
+      else if (question.followUp === "pending") complete = unavailable(FOLLOW_UP_REASON);
+      else if (question.evidence.length === 0) complete = unavailable("Write your answer first.");
+      else complete = available(record, "complete-answer", questionTarget(question.id));
+      return { ...common, kind: "answering", followUp: question.followUp, complete };
+    }
+    case "complete":
+      return {
+        ...common,
+        kind: "complete",
+        answer: question.answer ?? "",
+        canUse: role === "dev" && open && canAffordReply(record.funds),
+      };
+    case "used":
+      return {
+        ...common,
+        kind: "used",
+        answer: question.answer ?? "",
+        briefTurn: question.briefTurn ?? question.introTurn,
+        changed: question.changed,
+      };
+  }
+}
+
+function visibleParts(record: PrdRecord, message: PrdUIMessage): PrdUIMessage["parts"] {
+  return message.parts.filter((part) => {
+    if (part.type === "data-close-ask") {
+      return record.check?.id === part.data.checkId && tokenLive(record, part.data.closeAnyway);
+    }
+    if (part.type === "data-recommendation") {
+      return checkPassedForRevision(record) && tokenLive(record, part.data.close);
+    }
+    return true;
+  });
+}
+
+function chatKeys(record: PrdRecord): string[] {
+  return [
+    "main",
+    ...record.topics.map((topic) => scopeKey({ kind: "topic", topicId: topic.id })),
+    ...record.questions
+      .filter((question) => question.status !== "suggested")
+      .map((question) => scopeKey({ kind: "side", questionId: question.id })),
+  ];
+}
+
+/** Projects the record into what one viewer sees, deciding every action from the rules. */
+export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
+  const role = viewer.role;
+  const keys = chatKeys(record);
+  const chats: Record<string, PrdUIMessage[]> = {};
+  const canWrite: Record<string, boolean> = {};
+  for (const key of keys) {
+    chats[key] = (record.chats[key] ?? [])
+      .filter((stored) => stored.forRole === null || stored.forRole === role)
+      .map((stored) => ({ ...stored.message, parts: visibleParts(record, stored.message) }));
+    canWrite[key] = canWriteChat(record, role, key);
+  }
+  const dev = firstName(record, "dev");
+  return {
+    sequence: record.sequence,
+    revision: record.revision,
+    viewer,
+    people: record.people.map((person) => ({ ...person })),
+    project: { ...record.project },
+    discoveryRevision: record.discoveryRevision,
+    topics: record.topics.map((topic) => projectTopic(record, topic, role)),
+    devQuestions: record.devQuestions.map((question) => ({
+      ...question,
+      options: [...question.options],
+    })),
+    questions: record.questions.map((question) => projectQuestion(record, question, role)),
+    chats,
+    canWrite,
+    funds: { ...record.funds },
+    check:
+      record.check === null
+        ? null
+        : { ...record.check, gaps: record.check.gaps.map((gap) => ({ ...gap })) },
+    close:
+      record.closed !== null
+        ? { kind: "closed", revision: record.closed.revision, openPoints: record.closed.openPoints }
+        : {
+            kind: "open",
+            remaining: closeRemaining(record),
+            close:
+              role === "dev"
+                ? available(record, "close", CLOSE_TARGET)
+                : unavailable(`Only ${dev} can close the PRD.`),
+          },
+    drafts: { ...record.drafts[role] },
+  };
+}

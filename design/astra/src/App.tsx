@@ -24,6 +24,14 @@ import { confirmationCurrent } from "@/components/discovery/model";
 import type { DiscoveryState } from "@/lib/discovery-stream";
 import { fixturePort, fixtureSelection } from "./fixture-port";
 import { openFixtureWorld } from "./fixture-world";
+import { PrdWorkspaceScreen } from "@/components/prd-workspace";
+import {
+  openPrdWorld,
+  prdFixturePort,
+  prdFixtureSelection,
+  prdStartSelection,
+} from "./prd-fixture-port";
+import { PrdShell } from "./PrdShell";
 import { ProjectBuild } from "./ProjectBuild";
 import { Dashboard, Funding, Intake, Projects, Publish } from "./screens";
 
@@ -308,6 +316,17 @@ export default function App() {
   useEffect(() => {
     if (route === "discovery" || route === "discovery-review") cameFrom.current = route;
   }, [route]);
+  const [prdSelection] = useState(() => prdFixtureSelection());
+  const [prdViewer, setPrdViewer] = useState(prdSelection.viewer);
+  const prdWorld = useMemo(
+    () =>
+      route === "prd-workspace" ? openPrdWorld(prdSelection.scenario, prdSelection.pace) : null,
+    [route, prdSelection],
+  );
+  const prdPort = useMemo(
+    () => (prdWorld ? prdFixturePort(prdWorld, prdViewer) : null),
+    [prdWorld, prdViewer],
+  );
   const discoveryDone = confirmationCurrent(discoveryState.brief, discoveryState.confirmation);
   useEffect(() => {
     const restorePreview = () => setState(readState().state);
@@ -461,7 +480,7 @@ export default function App() {
         </aside>
         <main
           id="main-content"
-          className={`main-content ${route === "discovery" || route === "discovery-review" ? "discovery-content" : ""} ${route === "build" ? "build-content" : ""}`}
+          className={`main-content ${route === "discovery" || route === "discovery-review" || route === "prd-workspace" ? "discovery-content" : ""} ${route === "build" ? "build-content" : ""}`}
           tabIndex={-1}
         >
           {warning && (
@@ -480,6 +499,18 @@ export default function App() {
               navigate={navigate}
               onBuyFuel={() => navigate("funding")}
             />
+          )}
+          {route === "prd-workspace" && prdPort && (
+            <PrdShell viewer={prdViewer} onViewer={setPrdViewer}>
+              {(openUiDesign) => (
+                <PrdWorkspaceScreen
+                  key={prdViewer}
+                  port={prdPort}
+                  start={prdStartSelection(prdSelection.scenario, prdViewer)}
+                  onOpenUiDesign={openUiDesign}
+                />
+              )}
+            </PrdShell>
           )}
           {route === "publish" && <Publish {...props} port={discoveryPort} />}
           {route === "funding" && (

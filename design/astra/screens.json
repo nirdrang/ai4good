@@ -63,7 +63,8 @@
       "status": "design-complete",
       "reviewRevision": 65,
       "reviewDocument": "design/canvas/prd-workspace/review.md",
-      "contract": "design/prd-ui-contract.md"
+      "contract": "design/prd-ui-contract.md",
+      "implementation": "src/components/prd-workspace/"
     },
     {
       "id": "design",
