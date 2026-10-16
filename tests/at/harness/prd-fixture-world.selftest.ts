@@ -667,9 +667,9 @@ describe("the PRD fixture world", () => {
     expect((await ngo.act(retention.complete.action)).ok).toBe(true);
     const answered = await snap(ngo);
     expect(topic(answered, "data").statements).toEqual([
-      "Sent to Priya · waiting for her to use it. The AI writes this section from your answer on how long the kitchen keeps volunteer data once she does.",
+      "Sent to Priya · waiting for Priya to use it. The AI writes this section from your answer on how long the kitchen keeps volunteer data once Priya uses it.",
     ]);
-    expect(topic(answered, "data").statusText).toBe("Sent to Priya · waiting for her to use it");
+    expect(topic(answered, "data").statusText).toBe("Sent to Priya · waiting for Priya to use it");
     const devAnswered = await snap(dev);
     expect(topic(devAnswered, "data").statements).toEqual([
       "No text yet. Maya answered on how long the kitchen keeps volunteer data. It waits for Priya to use the answer.",
@@ -692,9 +692,9 @@ describe("the PRD fixture world", () => {
     ]);
   });
 
-  it("tells Maya her finished answer is sent and waits for Priya, apart from the questions still waiting for her", async () => {
+  it("tells Maya her finished answer is sent and waits for Priya, apart from the questions still waiting for Maya", async () => {
     const { dev, ngo } = open("answer-complete");
-    const sent = "Sent to Priya · waiting for her to use it";
+    const sent = "Sent to Priya · waiting for Priya to use it";
     const maya = present(await snap(ngo));
     const finished = maya.open.find((entry) => entry.question.id === "retention");
     expect(finished?.statusText).toBe(sent);

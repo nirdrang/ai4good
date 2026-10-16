@@ -327,7 +327,7 @@ function waitingBody(
           `No text yet. ${ngo} answered on ${subject}. It waits for ${dev} to use the answer.`,
         ],
         ngoBody: [
-          `Sent to ${dev} · waiting for her to use it. The AI writes this section from your answer on ${subject} once she does.`,
+          `Sent to ${dev} · waiting for ${dev} to use it. The AI writes this section from your answer on ${subject} once ${dev} uses it.`,
         ],
       }
     : { body: [`No text yet. It waits for ${ngo}’s answer on ${subject}.`], ngoBody: null };

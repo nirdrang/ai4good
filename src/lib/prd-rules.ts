@@ -478,7 +478,7 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): s
       case "complete":
         return isDev
           ? `${ngo} answered · ${dev} can use it`
-          : `Sent to ${dev} · waiting for her to use it`;
+          : `Sent to ${dev} · waiting for ${dev} to use it`;
     }
   }
   const pointOpen = record.questions.some(
