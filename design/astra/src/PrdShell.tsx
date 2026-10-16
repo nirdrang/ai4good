@@ -41,8 +41,8 @@ export function PrdShell({
             className={`min-h-[30px] rounded-md border px-2.5 text-xs font-semibold ${
               item.role === viewer
                 ? item.role === "dev"
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-amber-700 bg-amber-700 text-white"
+                  ? "border-actor-dev bg-actor-dev text-actor-on"
+                  : "border-actor-ngo bg-actor-ngo text-actor-on"
                 : "border-border bg-background text-foreground"
             }`}
           >

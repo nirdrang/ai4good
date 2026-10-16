@@ -680,6 +680,9 @@ function allReady(now: Date): Seed {
     .use(QUESTION.success, "Use the weekly count in the app.")
     .answer(QUESTION.logo, ["Yes, show the logo", "Yes"])
     .use(QUESTION.logo, "");
+  seed.record.topics = seed.record.topics.map((topic) =>
+    topic.id === TOPIC.scope ? { ...topic, review: false } : topic,
+  );
   seed.record = settled(seed.record, 11_200_000);
   return seed;
 }

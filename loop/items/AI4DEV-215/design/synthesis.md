@@ -93,17 +93,25 @@ export type CompletionCheck = Readonly<{ id: string; revision: number; passed: b
 
 export type Funds = Readonly<{ allocationMicros: number; settledMicros: number;
   pendingMicros: number; replyHoldMicros: number }>;
+export type FundsBand = "green" | "yellow" | "red";
+export type FundsState = Funds & Readonly<{ availableMicros: number; band: FundsBand; replyFunded: boolean }>;
 
+export type SendBlock = "role" | "closed" | "busy" | "funds";   // checked in the order closed, role, busy, funds
+export type SendAvailability =
+  | { readonly kind: "available" }
+  | { readonly kind: "unavailable"; readonly block: SendBlock; readonly reason: string };
+
+export type ClosePath = "close" | "check";                // check: Close PRD enqueues close-check on main
 export type CloseState =
-  | { readonly kind: "open"; readonly remaining: readonly string[];
-      readonly close: Availability<Action<"close">> }
+  | { readonly kind: "open"; readonly remaining: readonly string[]; readonly path: ClosePath;
+      readonly close: Availability<Action<"close">> }   // unavailable while any reply or backend job runs
   | { readonly kind: "closed"; readonly revision: number; readonly openPoints: number };
 
 export type PrdDataTypes = {
   "ngo-question": { questionId: QuestionId };
   "dev-questions": { ids: readonly string[] };
   "section-link": { topicId: TopicId };
-  check: { checkId: string };
+  check: { checkId: string; gaps: readonly CheckGap[] };   // each check keeps its own gaps
   "close-ask": { checkId: string; revision: number;
     closeAnyway: Action<"close-anyway">; keepWorking: Action<"keep-working"> };
   recommendation: { revision: number; close: Action<"close"> };
@@ -125,8 +133,9 @@ export type PrdSnapshot = Readonly<{
   devQuestions: readonly DevQuestion[];
   questions: readonly NgoQuestion[];
   chats: Readonly<Record<string, readonly PrdUIMessage[]>>; // keyed by scopeKey; only chats the viewer may read
-  canWrite: Readonly<Record<string, boolean>>;              // keyed by scopeKey
-  funds: Funds;
+  canWrite: Readonly<Record<string, boolean>>;              // keyed by scopeKey: may write here at all
+  send: Readonly<Record<string, SendAvailability>>;         // keyed by scopeKey: may send now, including a backend-started turn as busy
+  funds: FundsState;
   check: CompletionCheck | null;
   close: CloseState;
   drafts: Readonly<Record<string, string>>;                 // this viewer's, keyed by scopeKey or "review:<questionId>"
@@ -144,7 +153,10 @@ export type Result<T> = { ok: true; value: T } | { ok: false; refusal: PrdRefusa
 
 export function parsePrdSnapshot(input: unknown): PrdSnapshot;   // boundary
 export function parseSendBody(input: unknown): PrdSendBody;      // boundary
+export function parseRefusal(input: unknown): PrdRefusal | null; // boundary
 ```
+
+Review round 1 moved every remaining rule into the snapshot: the funds band and whether a reply is funded, the per-chat send availability, and the Close PRD path. `toSnapshot` in `prd-rules.ts` computes them; the screen derives only presentation from them. `NgoQuestion.complete.canUse` is false from the moment a use starts. A topic's `confirm` is unavailable while a section it depends on is neither ready nor confirmed, and the confirm that would start the completion check is unavailable when funds cannot pay for it.
 
 ### `src/components/prd-workspace/port.ts`
 
@@ -181,7 +193,7 @@ export interface PrdController {
   editQueued(id: string): void; removeQueued(id: string): void;
   act(action: Action<ActionKind>): Promise<void>;
   useAnswer(questionId: QuestionId): void;               // reads the review drafts; enqueues on main
-  closePrd(): void;                                      // passed for this revision ? act(close) : enqueue close-check on main
+  closePrd(): void;                                      // close.path "close" ? act(close) : enqueue close-check on main
   openAnswered(questionId: QuestionId): void;            // main chat, focus the brief turn
 }
 export function usePrdWorkspace(port: PrdPort, initial: PrdSnapshot, start: Selection): PrdController;
@@ -191,7 +203,7 @@ Inside: one snapshot cell, newer `sequence` wins; a registry of `Chat` objects k
 
 ### `src/components/prd-workspace/outbox.ts` (pure)
 
-`offer`, `take`, `start`, `finish`, `fail` over `{ busy: RequestId | null; queue: { id; intent; text }[]; halted: PrdRefusal | null }`. Taking an item that already started does nothing. After every change one `settle` step starts the head when the chat is idle, the PRD is open and funds allow. Each queued item is its own request with the revision read at start.
+`offer`, `take`, `start`, `finish`, `refuse`, `holds` over `{ running: QueuedItem | null; queue: QueuedItem[]; halted: { refusal; sequence } | null }`. Taking an item that already started does nothing. One Close PRD check and one use of an answer are held at a time. A refused message goes back to an empty composer or to the head of the queue; a refused use reopens its review, whose drafts are cleared only when a use is accepted. One `settle` step, run after every change and on every installed snapshot, starts the head when the snapshot's main send is available and the chat is idle; a halt lifts on a newer snapshot or the next offer. Each queued item is its own request with the revision read at start. The controller stops every chat and drops the queue on unmount.
 
 ### `src/components/prd-workspace/testids.ts`
 
@@ -202,7 +214,7 @@ Every `data-testid` from `design/canvas/prd-workspace/project/Main.dc.html` and 
 - `src/lib/prd-stream.ts`, `src/lib/prd-rules.ts` (new).
 - `src/components/prd-workspace/` (new): `index.ts` (screen, `PrdPort`, types), `port.ts`, `testids.ts`, `copy.ts` (visible text and accessible names), `model.ts` (pure `present` to `PrdView`), `outbox.ts`, `use-prd-workspace.ts`, `PrdWorkspaceScreen.tsx` (load, alert, layout), `DesktopLayout.tsx`, `PhoneLayout.tsx`, `ProcessBar.tsx`, `PrdPanel.tsx` (progress, close panel, topic list, gauge), `ConversationPane.tsx` (the `useChat` call, turns, cards), `Composer.tsx` (with the queue strip), `TopicPage.tsx`, `QuestionsPanel.tsx`, `SideChat.tsx`, `AnswerReview.tsx`, `Banners.tsx`, `PhoneTabs.tsx`. `useIsPhone` is imported from the Discovery folder.
 - `src/styles.css`: actor tokens for AI purple, Dev blue, NGO amber, defined like the existing usage tokens, light and dark.
-- `design/astra/src/` (sample data only): `prd-givens.ts` (import-free scenario table: viewer, start selection, reply delay), `prd-fixture-data.ts` (Harbor Community Kitchen seed and scripted replies from the canvas), `prd-fixture-world.ts` (one record per scenario shared by both viewers; calls `prd-rules.ts`; localStorage key `ai4good.prd.fixture.v1.<scenario>`; model-call probe once per paid generation), `prd-fixture-transport.ts`, `prd-fixture-port.ts` (`prdFixtureSelection`, `prdFixturePort`), `PrdShell.tsx` (chrome only: the viewer switch `prototype-viewer-switch` and the UI Design note). Changed: `App.tsx`, `components.tsx` (`routeSchema`), `screens.json`.
+- `design/astra/src/` (sample data only): `prd-givens.ts` (import-free scenario table: viewer, start selection, reply delay), `prd-fixture-data.ts` (Harbor Community Kitchen seed and scripted replies from the canvas), `prd-fixture-world.ts` (one record per scenario shared by both viewers; calls `prd-rules.ts`; localStorage key `ai4good.prd.fixture.v2.<scenario>`, forgotten when the shell URL carries `fresh=1`; model-call probe once per paid generation), `prd-fixture-transport.ts`, `prd-fixture-port.ts` (`prdFixtureSelection`, `prdFixturePort`), `PrdShell.tsx` (chrome only: the viewer switch `prototype-viewer-switch` and the UI Design note). Changed: `App.tsx`, `components.tsx` (`routeSchema`), `screens.json`.
 - `tests/at/harness/screen.ts`: `LocatorStep.testId?: string`, and `text` applies as a filter on a testId step; `shellUrl(base, scenario, route, pace, params?)`. `screen-host.mjs`: `getByTestId(id)` then `.filter({ hasText: text })` when text is set. `screen.selftest.ts` and `tests/at/suites/req-004/_screen.ts` move to the new `shellUrl`.
 - `tests/at/suites/req-036/`: `_screen.ts` (`PrdPage`, `prdScreens`, `wiringPending`), `workspace.test.ts` (the sixteen ids, one `atTest` each, `loop` plus `default`), `_world.ts` (opens the fixture world in the test process for the "call the backend directly" clauses of 05 and 09). `pending.test.ts` is deleted. `tests/at/expected/req-036.json`: loop block moves the sixteen ids to green; integration and drill unchanged.
 
