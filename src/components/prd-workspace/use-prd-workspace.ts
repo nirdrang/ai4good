@@ -115,6 +115,11 @@ function streaming(chat: Chat<PrdUIMessage>): boolean {
   return chat.status === "submitted" || chat.status === "streaming";
 }
 
+function mainBusy(snapshot: PrdSnapshot): boolean {
+  const send = sendOf(snapshot, "main");
+  return send.kind === "unavailable" && send.block === "busy";
+}
+
 function newRequestId(): RequestId {
   return crypto.randomUUID() as RequestId;
 }
@@ -444,6 +449,7 @@ export function usePrdWorkspace(
   async function act(action: Action<ActionKind>): Promise<boolean> {
     setActing(true);
     try {
+      const mainWasBusy = mainBusy(snapRef.current);
       const result = await port.act(action);
       if (!result.ok) {
         setNotice({ key: "act", reason: result.refusal.reason });
@@ -451,6 +457,9 @@ export function usePrdWorkspace(
       }
       setNotice(null);
       install(result.value);
+      if (action.kind === "confirm-topic" && !mainWasBusy && mainBusy(result.value)) {
+        select({ kind: "main" });
+      }
       return true;
     } finally {
       setActing(false);

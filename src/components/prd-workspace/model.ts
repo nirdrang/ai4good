@@ -45,6 +45,7 @@ export type QuestionView = Readonly<{
   statusTone: Tone;
   sent: string | null;
   sentLabel: string;
+  wordingChanged: string | null;
   canView: boolean;
   canUse: boolean;
 }>;
@@ -188,6 +189,10 @@ function questionView(snapshot: PrdSnapshot, question: NgoQuestion, names: Names
     statusTone: status.tone,
     sent: !isDev && question.kind === "complete" ? question.answer : null,
     sentLabel: closed ? COPY.sentClosed(names.dev) : COPY.sentTo(names.dev),
+    wordingChanged:
+      !isDev && question.kind === "used" && question.changed
+        ? COPY.wordingChanged(names.dev)
+        : null,
     canView: isDev && question.kind === "complete" && snapshot.close.kind === "open",
     canUse: question.kind === "complete" && question.canUse,
   };

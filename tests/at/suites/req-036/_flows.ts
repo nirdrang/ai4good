@@ -33,6 +33,7 @@ import {
   TOPIC_NOTE,
   USE_ANSWER,
   VIEW_ANSWER,
+  WORDING_CHANGED,
 } from "./_phrases.ts";
 
 const TOPICS = [
@@ -73,6 +74,10 @@ export async function sideChatFlow(prd: PrdPage): Promise<void> {
     false,
   );
   expect(await prd.side.hint(), "the hint names the open follow-up").toBe(FOLLOW_HINT);
+  expect(
+    await prd.side.optionCount(),
+    "the follow-up hides the first question's suggested answers",
+  ).toBe(0);
   await prd.side.expectCompleteTarget();
   await prd.side.write(AI_ASIDE);
   await prd.side.send();
@@ -176,6 +181,12 @@ export async function useAnswerFlow(prd: PrdPage): Promise<void> {
   const maya = await prd.chat.text();
   expect(maya, "Maya sees the final wording").toContain(EDITED_ANSWER);
   expect(maya, "Maya is told the wording changed").toContain(FINAL_WORDING);
+  await prd.phone.tab("questions");
+  await prd.questions.expandAnswered();
+  const list = await prd.questions.text();
+  expect(list, "Maya's question names who changed the wording").toContain(
+    `${WORDING_CHANGED} ${EDITED_ANSWER}`,
+  );
 }
 
 export async function useAnswerPlain(prd: PrdPage): Promise<void> {
@@ -335,12 +346,21 @@ export async function ngoCannotClose(prd: PrdPage): Promise<void> {
   expect(await prd.composer.count(), "Maya has no main composer").toBe(0);
 }
 
-export async function confirmReadyTopics(prd: PrdPage): Promise<void> {
+export async function confirmReadyTopics(prd: PrdPage): Promise<boolean[]> {
+  const chatShown: boolean[] = [];
   for (const title of TOPICS) {
     await prd.phone.tab("prd");
     await prd.topics.open(title);
     if ((await prd.topic.confirmCount()) === 0) continue;
     await prd.topic.confirm();
+    const landed = await eventually(
+      `the confirmation of ${title} lands`,
+      async () => ({ chat: await prd.chat.shown(), reopen: await prd.topic.reopenCount() }),
+      (state) => state.chat || state.reopen > 0,
+      15_000,
+    );
+    chatShown.push(landed.chat);
   }
   await showChat(prd);
+  return chatShown;
 }

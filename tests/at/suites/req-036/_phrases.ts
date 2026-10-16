@@ -73,6 +73,7 @@ export const PRIYA_ASKS = "Priya asks:";
 export const CHANGED_ROW = "I changed it to";
 export const FINAL_WORDING =
   "I will tell Maya you adjusted her answer, so she sees the final wording.";
+export const WORDING_CHANGED = "Priya changed the wording:";
 export const STILL_OPEN = "Still open";
 export const POST_TO_MAYA = "Post to Maya";
 export const CONFIRM_SECTION = "Confirm section";

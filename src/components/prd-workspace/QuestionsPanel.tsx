@@ -172,6 +172,9 @@ export function QuestionsPanel({
                         {COPY.answeredMeta(entry.topicTitle)}
                       </span>
                       <span className="block text-xs font-semibold text-foreground max-md:text-sm">
+                        {entry.wordingChanged ? (
+                          <strong className="text-actor-dev">{entry.wordingChanged} </strong>
+                        ) : null}
                         {entry.question.kind === "used" ? entry.question.answer : ""}
                       </span>
                     </button>

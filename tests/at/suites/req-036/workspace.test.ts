@@ -244,7 +244,16 @@ atTest(
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "all-ready", viewport: "desktop" }, async (prd) => {
-        await confirmReadyTopics(prd);
+        const chatShown = await confirmReadyTopics(prd);
+        expect(chatShown.length, "more than one section was confirmed").toBeGreaterThan(1);
+        expect(
+          chatShown.at(-1),
+          "the confirmation that starts the completion check shows the main chat",
+        ).toBe(true);
+        expect(
+          chatShown.slice(0, -1),
+          "the other confirmations leave Priya in her section",
+        ).not.toContain(true);
         await eventually(
           "the last confirmation runs the check",
           () => prd.chat.gapCount(),

@@ -343,6 +343,7 @@ function finishSend(
     const text = intent.kind === "text" ? intent.text : "";
     if (question) {
       const reply = sideReply(next, question, text);
+      if (reply.followUp === "pending" && reply.evidence.length > 0) question.options = [];
       question.evidence = reply.evidence;
       question.followUp = reply.followUp;
       parts = textParts([reply.text]);

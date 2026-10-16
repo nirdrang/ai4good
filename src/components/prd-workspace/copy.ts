@@ -130,6 +130,7 @@ export const COPY = {
   useAnswer: "Use answer",
   answered: (open: boolean, count: number) => `${open ? "▾" : "▸"} Answered (${count})`,
   answeredMeta: (topic: string) => `${topic} · used`,
+  wordingChanged: (dev: string) => `${dev} changed the wording:`,
   allQuestions: "← All questions",
   allQuestionsName: "All questions",
   status: {

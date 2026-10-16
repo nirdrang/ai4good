@@ -341,6 +341,7 @@ export class PrdPage {
 
   readonly chat = {
     text: (): Promise<string> => this.page.text([byId(testIds.prdChat)]),
+    shown: async (): Promise<boolean> => (await this.page.count([byId(testIds.prdChat)])) > 0,
     background: async (): Promise<string> =>
       rgb(await this.page.style([byId(testIds.prdChat)], "background-color")),
     color: async (): Promise<string> =>
@@ -489,6 +490,13 @@ export class PrdPage {
       this.page.text([byId(testIds.prdNgoQuestion, question), byId(testIds.prdNgoQuestionSent)]),
     toggleCount: (): Promise<number> => this.page.count([byId(testIds.prdAnsweredToggle)]),
     toggleAnswered: (): Promise<void> => this.press([byId(testIds.prdAnsweredToggle)], "Answered"),
+    expandAnswered: async (): Promise<void> => {
+      const expanded = await this.page.attribute(
+        [byId(testIds.prdAnsweredToggle)],
+        "aria-expanded",
+      );
+      if (expanded !== "true") await this.press([byId(testIds.prdAnsweredToggle)], "Answered");
+    },
     openAnswered: (answer: string): Promise<void> =>
       this.press([byId(testIds.prdAnsweredQuestion, answer)], "the answered question"),
     actionCount: async (): Promise<number> => {

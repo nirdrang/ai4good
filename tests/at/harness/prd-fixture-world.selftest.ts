@@ -941,6 +941,93 @@ describe("the PRD fixture world", () => {
     }
   });
 
+  it("hides the first question's suggested answers once the AI follows up on an answer, and does not bring them back", async () => {
+    const { ngo } = open("prd-today");
+    const offered = question(await snap(ngo), "retention").options;
+    expect(offered.length).toBeGreaterThan(0);
+    await deliver(ngo, RETENTION, {
+      kind: "text",
+      text: "Can a volunteer ask to be removed earlier?",
+    });
+    const asked = question(await snap(ngo), "retention");
+    expect(asked.kind === "answering" && asked.followUp).toBe("pending");
+    expect(asked.options).toEqual(offered);
+    await deliver(ngo, RETENTION, { kind: "text", text: "a year" });
+    const following = question(await snap(ngo), "retention");
+    expect(following.kind === "answering" && following.followUp).toBe("pending");
+    expect(following.options).toEqual([]);
+    await deliver(ngo, RETENTION, { kind: "text", text: "Yes" });
+    const settled = question(await snap(ngo), "retention");
+    expect(settled.kind === "answering" && settled.followUp).toBe("none");
+    expect(settled.options).toEqual([]);
+  });
+
+  it("tells Maya in her list that Priya changed the wording, with the final wording, and only then", async () => {
+    const edited = "Keep contact details for one year, then delete them.";
+    const changed = open("answer-complete");
+    await deliver(changed.dev, MAIN, {
+      kind: "use-answer",
+      questionId: "retention" as QuestionId,
+      answer: edited,
+      note: "Apply the same rule to coordinator exports.",
+    });
+    const maya = present(await snap(changed.ngo));
+    const used = maya.answered.find((entry) => entry.question.id === "retention");
+    expect(used?.wordingChanged).toBe("Priya changed the wording:");
+    expect(used?.question.kind === "used" && used.question.answer).toBe(edited);
+    const priya = present(await snap(changed.dev));
+    expect(priya.answered.find((entry) => entry.question.id === "retention")?.wordingChanged).toBe(
+      null,
+    );
+    const plain = open("answer-complete");
+    await deliver(plain.dev, MAIN, {
+      kind: "use-answer",
+      questionId: "retention" as QuestionId,
+      answer: null,
+      note: "Apply the same rule to coordinator exports.",
+    });
+    const unchanged = present(await snap(plain.ngo));
+    expect(
+      unchanged.answered.find((entry) => entry.question.id === "retention")?.wordingChanged,
+    ).toBe(null);
+  });
+
+  it("writes every section status and blocker after close as closed, for both viewers", async () => {
+    const openWork =
+      /confirm\.|can confirm|Ready for|Read it|Waiting for|is answering|not posted|fix it|fixes it|settle|can use|to use it|reviews and confirms|Waits on|ready for/i;
+    const today = open("prd-today");
+    await deliver(today.dev, MAIN, { kind: "close-check" });
+    const ask = parts(await snap(today.dev), "data-close-ask")[0];
+    if (!ask) throw new Error("the check did not ask to close");
+    expect((await today.dev.act(ask.data.closeAnyway)).ok).toBe(true);
+    const seeded = open("closed");
+    const views = [
+      await snap(today.dev),
+      await snap(today.ngo),
+      await snap(seeded.dev),
+      await snap(seeded.ngo),
+    ];
+    const states = new Set<string>();
+    for (const view of views) {
+      expect(view.close.kind).toBe("closed");
+      for (const item of view.topics) {
+        states.add(item.state);
+        const where = `${view.viewer.role} ${item.id}`;
+        expect(item.statusText, where).not.toMatch(openWork);
+        expect(item.blocker ?? "", where).not.toMatch(openWork);
+        if (item.state === "confirmed") {
+          expect(item.statusText, where).toBe("Confirmed by Priya.");
+          expect(item.blocker, where).toBeNull();
+        } else {
+          expect(item.statusText, where).toContain("recorded as an open point");
+          expect(item.blocker, where).toBe("Recorded as an open point when the PRD closed");
+        }
+      }
+    }
+    expect(states).toContain("confirmed");
+    expect(states.size).toBeGreaterThan(2);
+  });
+
   it("starts a scenario from its seed again when the shell URL asks for fresh", async () => {
     expect(prdFixtureSelection("?scenario=prd-today&viewer=dev&fresh=1")).toMatchObject({
       scenario: "prd-today",

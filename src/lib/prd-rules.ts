@@ -471,7 +471,24 @@ export function closeRemaining(record: PrdRecord, role: Role): string[] {
   return items;
 }
 
+function closedOpenPoint(topic: TopicRecord): boolean {
+  return topicState(topic) !== "confirmed" && (topic.gap !== null || topic.required);
+}
+
+function closedStatusText(record: PrdRecord, topic: TopicRecord): string {
+  if (topicState(topic) === "confirmed") return `Confirmed by ${firstName(record, "dev")}.`;
+  if (topic.gap !== null) {
+    return `The PRD closed with this completion check gap, recorded as an open point: ${topic.gap}`;
+  }
+  return topic.required
+    ? "Not confirmed when the PRD closed. It is recorded as an open point."
+    : "Not confirmed when the PRD closed.";
+}
+
 export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): string | null {
+  if (record.closed !== null) {
+    return closedOpenPoint(topic) ? "Recorded as an open point when the PRD closed" : null;
+  }
   const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
   const isDev = role === "dev";
@@ -518,6 +535,7 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): s
 }
 
 function statusText(record: PrdRecord, topic: TopicRecord, role: Role): string {
+  if (record.closed !== null) return closedStatusText(record, topic);
   if (topic.gap !== null) return `Gap from the completion check: ${topic.gap}`;
   const dev = firstName(record, "dev");
   const isDev = role === "dev";
