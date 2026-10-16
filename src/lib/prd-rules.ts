@@ -41,6 +41,7 @@ export type TopicRecord = {
   review: boolean;
   gap: string | null;
   body: string[];
+  ngoBody: string[] | null;
   added: string[];
   sources: string[];
   stories: string[] | null;
@@ -475,7 +476,9 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): s
       case "answering":
         return `${ngo} is answering`;
       case "complete":
-        return `${ngo} answered · ${dev} can use it`;
+        return isDev
+          ? `${ngo} answered · ${dev} can use it`
+          : `Sent to ${dev} · waiting for her to use it`;
     }
   }
   const pointOpen = record.questions.some(
@@ -569,7 +572,7 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
     state,
     statusText: statusText(record, topic, role),
     blocker: blockerFor(record, topic, role),
-    statements: [...topic.body, ...topic.added],
+    statements: [...((role === "ngo" && topic.ngoBody) || topic.body), ...topic.added],
     sources: [...topic.sources],
     stories: topic.stories === null ? null : [...topic.stories],
     confirm,

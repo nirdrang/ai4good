@@ -220,6 +220,7 @@ function topicRecord(
     confirmed: false,
     review: false,
     gap: null,
+    ngoBody: null,
     added: [],
     stories: null,
     ...fields,
@@ -311,16 +312,25 @@ const WAITS_ON: Record<string, string> = {
   [QUESTION.success]: "what success means for the kitchen",
 };
 
-function waitingBody(record: PrdRecord, id: QuestionId): string[] | null {
+function waitingBody(
+  record: PrdRecord,
+  id: QuestionId,
+): Pick<TopicRecord, "body" | "ngoBody"> | null {
   const question = record.questions.find((item) => item.id === id);
   if (!question || question.status === "used") return null;
+  const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
   const subject = WAITS_ON[id] ?? question.text;
   return question.status === "complete"
-    ? [
-        `No text yet. ${ngo} answered on ${subject}. It waits for ${firstName(record, "dev")} to use the answer.`,
-      ]
-    : [`No text yet. It waits for ${ngo}’s answer on ${subject}.`];
+    ? {
+        body: [
+          `No text yet. ${ngo} answered on ${subject}. It waits for ${dev} to use the answer.`,
+        ],
+        ngoBody: [
+          `Sent to ${dev} · waiting for her to use it. The AI writes this section from your answer on ${subject} once she does.`,
+        ],
+      }
+    : { body: [`No text yet. It waits for ${ngo}’s answer on ${subject}.`], ngoBody: null };
 }
 
 /** Rewrites the sections whose text follows recorded decisions: the shift rules, the scope, and each question's state. */
@@ -339,15 +349,22 @@ export function rewriteSections(record: PrdRecord): TopicRecord[] {
         return { ...topic, body: [...NOTIFY_LINES, ...(logo ? [clean(logo.answer ?? "")] : [])] };
       case TOPIC.data: {
         if (retention) {
-          return { ...topic, drafted: true, body: [clean(retention.answer ?? ""), EXPORT_LINE] };
+          return {
+            ...topic,
+            drafted: true,
+            body: [clean(retention.answer ?? ""), EXPORT_LINE],
+            ngoBody: null,
+          };
         }
         const waiting = waitingBody(record, QUESTION.retention);
-        return waiting ? { ...topic, body: waiting } : topic;
+        return waiting ? { ...topic, ...waiting } : topic;
       }
       case TOPIC.success: {
-        if (success) return { ...topic, drafted: true, body: [clean(success.answer ?? "")] };
+        if (success) {
+          return { ...topic, drafted: true, body: [clean(success.answer ?? "")], ngoBody: null };
+        }
         const waiting = waitingBody(record, QUESTION.success);
-        return waiting ? { ...topic, body: waiting } : topic;
+        return waiting ? { ...topic, ...waiting } : topic;
       }
       default:
         return topic;
@@ -486,12 +503,18 @@ export function sideReply(
       followUp: "none",
     };
   }
+  if (question.id === QUESTION.logo && /plain/i.test(text)) {
+    return {
+      text: `Noted: plain text emails, with no logo. That settles it. Mark the answer complete and I will write it up for ${firstName(record, "dev")}.`,
+      evidence,
+      followUp: "none",
+    };
+  }
   const follow: Record<string, string> = {
     [QUESTION.retention]:
       "That works for most kitchens. One check: does “contact details” mean email and phone only? I suggest keeping shift history without names after that, so your yearly numbers still add up. Is that all right?",
-    [QUESTION.logo]: /plain/i.test(evidence.join("; "))
-      ? "Noted: plain text emails, with no logo. Anything else to add?"
-      : "Noted. If the logo file is not ready yet, the emails start in plain text and the logo comes later. Is that fine?",
+    [QUESTION.logo]:
+      "Noted. If the logo file is not ready yet, the emails start in plain text and the logo comes later. Is that fine?",
     [QUESTION.success]:
       "Good. Someone has to count this. Should you see the number in the app each week, or is a monthly email to you enough?",
   };

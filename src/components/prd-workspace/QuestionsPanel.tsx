@@ -78,17 +78,21 @@ function QuestionItem({
         <span className="mt-0.5 block text-sm font-semibold leading-snug text-foreground">
           {question.text}
         </span>
-        <span className={cn("mt-1 block text-xs font-semibold", TONE_TEXT[entry.statusTone])}>
-          {entry.statusText}
-        </span>
-        {entry.sent !== null ? (
+        {entry.sent === null ? (
+          <span className={cn("mt-1 block text-xs font-semibold", TONE_TEXT[entry.statusTone])}>
+            {entry.statusText}
+          </span>
+        ) : (
           <span
             data-testid={testIds.prdNgoQuestionSent}
             className="mt-1 block text-xs leading-normal text-foreground/80 max-md:text-sm"
           >
-            <strong>{COPY.sentTo(controller.view.names.dev)}</strong> {entry.sent}
+            <strong className={TONE_TEXT[entry.statusTone]}>
+              {COPY.sentTo(controller.view.names.dev)}
+            </strong>{" "}
+            {entry.sent}
           </span>
-        ) : null}
+        )}
       </button>
       {entry.canView ? (
         <div className="flex border-t border-actor-dev-line">

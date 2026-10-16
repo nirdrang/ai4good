@@ -13,6 +13,7 @@ import {
   startSend,
   type PrdWorld,
 } from "../../../design/astra/src/prd-fixture-world.ts";
+import { COPY } from "../../../src/components/prd-workspace/copy.ts";
 import { present } from "../../../src/components/prd-workspace/model.ts";
 import type { PrdPort } from "../../../src/components/prd-workspace/port.ts";
 import {
@@ -39,6 +40,7 @@ import {
 
 const MAIN: ChatScope = { kind: "main" };
 const RETENTION = { kind: "side", questionId: "retention" as QuestionId } as const;
+const LOGO = { kind: "side", questionId: "logo" as QuestionId } as const;
 const SHIFTS = { kind: "topic", topicId: "shifts" as TopicId } as const;
 const RETENTION_ANSWER =
   "Keep a volunteer’s email and phone for a year, then delete them. Shift history stays, without names.";
@@ -665,9 +667,14 @@ describe("the PRD fixture world", () => {
     expect((await ngo.act(retention.complete.action)).ok).toBe(true);
     const answered = await snap(ngo);
     expect(topic(answered, "data").statements).toEqual([
+      "Sent to Priya · waiting for her to use it. The AI writes this section from your answer on how long the kitchen keeps volunteer data once she does.",
+    ]);
+    expect(topic(answered, "data").statusText).toBe("Sent to Priya · waiting for her to use it");
+    const devAnswered = await snap(dev);
+    expect(topic(devAnswered, "data").statements).toEqual([
       "No text yet. Maya answered on how long the kitchen keeps volunteer data. It waits for Priya to use the answer.",
     ]);
-    expect(topic(answered, "data").statusText).toBe("Maya answered · Priya can use it");
+    expect(topic(devAnswered, "data").statusText).toBe("Maya answered · Priya can use it");
     await deliver(dev, MAIN, {
       kind: "use-answer",
       questionId: "retention" as QuestionId,
@@ -683,6 +690,40 @@ describe("the PRD fixture world", () => {
     expect(topic(await snap(ngo), "success").statements).toEqual([
       "No text yet. It waits for Maya’s answer on what success means for the kitchen.",
     ]);
+  });
+
+  it("tells Maya her finished answer is sent and waits for Priya, apart from the questions still waiting for her", async () => {
+    const { dev, ngo } = open("answer-complete");
+    const sent = "Sent to Priya · waiting for her to use it";
+    const maya = present(await snap(ngo));
+    const finished = maya.open.find((entry) => entry.question.id === "retention");
+    expect(finished?.statusText).toBe(sent);
+    expect(finished?.sent).toBe(RETENTION_ANSWER);
+    expect(COPY.sentTo(maya.names.dev)).toBe(`${sent}:`);
+    const waiting = maya.open.filter((entry) => entry.question.kind === "posted");
+    expect(waiting.length).toBeGreaterThan(0);
+    for (const entry of waiting) {
+      expect(entry.statusText).not.toContain("Sent to");
+      expect(entry.sent).toBeNull();
+    }
+    const priya = present(await snap(dev));
+    expect(priya.open.find((entry) => entry.question.id === "retention")?.statusText).toBe(
+      "Maya marked it complete · use it",
+    );
+  });
+
+  it("confirms a reply that settles the question and lets Maya complete at once, but still asks after an unclear one", async () => {
+    const { ngo } = open("prd-today");
+    const reply = await deliver(ngo, LOGO, { kind: "text", text: "No, plain text emails" });
+    expect(reply.ok && reply.text).toContain("Mark the answer complete");
+    expect(reply.ok && reply.text.trim()).not.toMatch(/\?$/);
+    const logo = question(await snap(ngo), "logo");
+    expect(logo.kind === "answering" && logo.followUp).toBe("none");
+    expect(logo.kind === "answering" && logo.complete.kind).toBe("available");
+    const unclear = await deliver(ngo, RETENTION, { kind: "text", text: "a year" });
+    expect(unclear.ok && unclear.text.trim()).toMatch(/\?$/);
+    const retention = question(await snap(ngo), "retention");
+    expect(retention.kind === "answering" && retention.followUp).toBe("pending");
   });
 
   it("writes each section's status for the viewer: the developer's action, or what the developer will do", async () => {
