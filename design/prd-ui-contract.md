@@ -140,7 +140,8 @@ The PRD panel lists what is still open (topics not confirmed, blocking questions
 The AI's completion message also offers Close PRD.
 
 The completion check (the scorer) checks stories, acceptance criteria, data handling, and constraints against approved Discovery, and names gaps.
-It runs when all required topics are confirmed, and when Dev presses Close PRD unless it already passed for the current revision.
+It runs when all required topics are confirmed, and when Dev presses Close PRD unless a check already ran for the current revision.
+If that check passed, Close PRD closes at once. If it found gaps, the AI shows its result again with Close anyway and Keep working, and makes no model call. A new check runs once the revision changes.
 Keep the configured threshold open until its existing configuration decision is resolved.
 Gaps, unconfirmed required topics, and open blocking questions are a warning, not a block: the AI lists them with Close anyway and Keep working.
 Each gap links to its topic, and the topic goes to Needs review until Dev fixes it in the topic chat and confirms it again.
