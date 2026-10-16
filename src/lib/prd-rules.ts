@@ -225,6 +225,11 @@ export function allRequiredConfirmed(record: PrdRecord): boolean {
   return progress.total > 0 && progress.confirmed === progress.total;
 }
 
+/** True when the latest completion check ran on the current revision, so running it again gives the same result. */
+export function checkCurrent(record: PrdRecord): boolean {
+  return record.check !== null && record.check.revision === record.revision;
+}
+
 export function checkPassedForRevision(record: PrdRecord): boolean {
   return (
     record.check !== null &&
@@ -408,9 +413,11 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-export function closeRemaining(record: PrdRecord): string[] {
+export function closeRemaining(record: PrdRecord, role: Role): string[] {
   if (record.closed !== null) return [];
+  const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
+  const isDev = role === "dev";
   const required = record.topics.filter((topic) => topic.required);
   const gaps = record.topics.filter((topic) => topic.gap !== null).length;
   const open = required.filter((topic) => topicState(topic) !== "confirmed" && topic.gap === null);
@@ -428,21 +435,38 @@ export function closeRemaining(record: PrdRecord): string[] {
   const toUse = blocking.filter((question) => question.status === "complete").length;
   const writing = open.length - reviewable.length;
   const items: string[] = [];
-  if (ready > 0) items.push(`${plural(ready, "section", "sections")} ready for you to confirm`);
-  if (held > 0) items.push(`${plural(held, "section", "sections")} waiting on another section`);
-  if (writing > 0) items.push(`${plural(writing, "section", "sections")} still being written`);
+  const sections = (count: number) => plural(count, "section", "sections");
+  const questions = (count: number) => plural(count, "blocking question", "blocking questions");
+  if (ready > 0) {
+    items.push(`${sections(ready)} ready for ${isDev ? "you" : dev} to confirm`);
+  }
+  if (held > 0) items.push(`${sections(held)} waiting on another section`);
+  if (writing > 0) items.push(`${sections(writing)} still being written`);
   if (unposted > 0) {
     items.push(
-      `${plural(unposted, "blocking question", "blocking questions")} not posted to ${ngo}`,
+      isDev
+        ? `${questions(unposted)} not posted to ${ngo}`
+        : `${questions(unposted)} ${dev} has not sent you yet`,
     );
   }
   if (waiting > 0) {
-    items.push(`${plural(waiting, "blocking question", "blocking questions")} waiting for ${ngo}`);
+    items.push(`${questions(waiting)} waiting for ${isDev ? ngo : "your answer"}`);
   }
-  if (toUse > 0) items.push(`${plural(toUse, "answer", "answers")} from ${ngo} to use`);
-  if (gaps > 0) items.push(`${plural(gaps, "gap", "gaps")} from the completion check to fix`);
-  if (!checkPassedForRevision(record)) {
-    items.push("Completion check runs when you close, or when all sections are confirmed");
+  if (toUse > 0) {
+    const answers = plural(toUse, "answer", "answers");
+    items.push(
+      isDev ? `${answers} from ${ngo} to use` : `${answers} you sent, waiting for ${dev} to use`,
+    );
+  }
+  if (gaps > 0) {
+    items.push(
+      `${plural(gaps, "gap", "gaps")} from the completion check ${isDev ? "to fix" : `for ${dev} to fix`}`,
+    );
+  }
+  if (!checkCurrent(record)) {
+    items.push(
+      `Completion check runs when ${isDev ? "you close" : `${dev} closes`}, or when all sections are confirmed`,
+    );
   }
   return items;
 }
@@ -701,7 +725,7 @@ export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
         ? { kind: "closed", revision: record.closed.revision, openPoints: record.closed.openPoints }
         : {
             kind: "open",
-            remaining: closeRemaining(record),
+            remaining: closeRemaining(record, role),
             path: checkPassedForRevision(record) ? "close" : "check",
             close: closeAvailability(record, role),
           },
@@ -712,7 +736,7 @@ export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
 function closeAvailability(record: PrdRecord, role: Role): Availability<Action<"close">> {
   if (role !== "dev") return unavailable(`Only ${firstName(record, "dev")} can close the PRD.`);
   if (anyBusy(record)) return unavailable(WAIT_REASON);
-  if (!checkPassedForRevision(record) && !canAffordReply(record.funds)) {
+  if (!checkCurrent(record) && !canAffordReply(record.funds)) {
     return unavailable(FUNDS_REASON);
   }
   return available(record, "close", CLOSE_TARGET);

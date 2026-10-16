@@ -275,17 +275,15 @@ atTest(
         await prd.panel.close();
         await showChat(prd);
         await eventually(
-          "Close PRD asks for the check again",
-          async () => (await prd.modelCalls()).filter((kind) => kind === "prd-check").length,
-          (checks) => checks > beforeClose.filter((kind) => kind === "prd-check").length,
-          15_000,
-        );
-        await eventually(
           "the warning offers a choice",
           () => prd.chat.warningCount(),
           (count) => count > 0,
           15_000,
         );
+        expect(
+          await prd.modelCalls(),
+          "Close PRD on the revision whose check failed shows that check again with no model call",
+        ).toEqual(beforeClose);
         expect(await prd.chat.gapCount(), "each check keeps its own gaps in the history").toBe(4);
         await prd.chat.keepWorking();
         expect(await prd.banner.count(), "Keep working leaves the PRD open").toBe(0);
@@ -866,7 +864,16 @@ atTest(
   { surface: "ui", timeoutMs: { loop: 180_000 } },
   {
     loop: async (ctx) => {
-      await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, closeFlow);
+      await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
+        const before = await prd.modelCalls();
+        await closeFlow(prd);
+        const after = await prd.modelCalls();
+        expect(
+          after.slice(before.length).filter((kind) => kind === "prd-check"),
+          "a second Close PRD on the same failed revision adds no model call",
+        ).toEqual(["prd-check"]);
+        expect(after.length - before.length, "only the first Close PRD calls a model").toBe(1);
+      });
       await withPrd(ctx, { scenario: "check-passed", viewport: "desktop" }, closePassedFlow);
       await withPrd(
         ctx,

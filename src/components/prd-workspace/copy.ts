@@ -114,14 +114,18 @@ export const COPY = {
   peopleLabel: "People in this PRD",
   devListTitle: (ngoLabel: string, open: number) => `Questions for ${ngoLabel} · ${open} open`,
   ngoListTitle: (toAnswer: number) => `Questions for you · ${toAnswer} to answer`,
+  devListTitleClosed: (ngoLabel: string) => `Questions for ${ngoLabel} · PRD closed`,
+  ngoListTitleClosed: "Questions for you · PRD closed",
   devListNote: (blocking: number, ngo: string) =>
     blocking > 0
       ? `${blocking} blocking. Keep working; use each answer when ${ngo} marks it complete.`
       : "No blocking question is open.",
   ngoListNote: "Open a question to answer it with the AI. Mark it complete when you are done.",
+  closedListNote: "The PRD is closed. No question here can be answered or used any more.",
   blocks: (topic: string) => `Blocks ${topic}`,
   notBlocking: "Not blocking",
   sentTo: (dev: string) => `Sent to ${dev} · waiting for ${dev} to use it:`,
+  sentClosed: (dev: string) => `Sent to ${dev} · the PRD closed before ${dev} used it:`,
   viewAnswer: "View answer",
   useAnswer: "Use answer",
   answered: (open: boolean, count: number) => `${open ? "▾" : "▸"} Answered (${count})`,
@@ -136,6 +140,12 @@ export const COPY = {
     completeNgo: (dev: string) => `Sent to ${dev} · waiting for ${dev} to use it`,
     used: (dev: string) => `Used by ${dev}`,
     suggested: "Not posted yet",
+    closedUnanswered: (blocking: boolean) =>
+      blocking
+        ? "Not answered · the PRD closed with it as an open point"
+        : "Not answered · the PRD closed without it",
+    closedUnusedDev: (ngo: string) => `${ngo} answered · the PRD closed before you used it`,
+    closedUnusedNgo: (dev: string) => `Sent to ${dev} · the PRD closed before ${dev} used it`,
   },
   sideInput: "Your answer for the AI",
   sidePlaceholder: "Answer in your own words",

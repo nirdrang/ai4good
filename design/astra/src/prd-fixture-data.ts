@@ -698,6 +698,10 @@ export function closeCheckStart(revision: number): string {
   return `I am running the completion check on revision ${revision} before closing.`;
 }
 
+export function closeCheckRepeat(revision: number): string {
+  return `The completion check already ran on revision ${revision}, and the PRD has not changed since, so its result stands.`;
+}
+
 function stamp(day: string, minute: number): string {
   return `${day}T12:${String(minute).padStart(2, "0")}:00.000Z`;
 }

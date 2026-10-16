@@ -43,17 +43,20 @@ export function SideChat({
       : null;
   const notice =
     controller.notice && controller.notice.key === key ? controller.notice.reason : null;
-  const note = view.isDev
-    ? question.kind === "posted" || question.kind === "answering"
-      ? COPY.sideNoteDev(names.ngo)
-      : question.kind === "used"
-        ? COPY.sideNoteUsed(names.dev)
-        : null
-    : question.kind === "complete"
-      ? COPY.sideNoteComplete(names.dev)
-      : question.kind === "used"
-        ? COPY.sideNoteUsed(names.dev)
-        : null;
+  const note =
+    view.closed !== null && question.kind !== "used"
+      ? COPY.closedReadOnly
+      : view.isDev
+        ? question.kind === "posted" || question.kind === "answering"
+          ? COPY.sideNoteDev(names.ngo)
+          : question.kind === "used"
+            ? COPY.sideNoteUsed(names.dev)
+            : null
+        : question.kind === "complete"
+          ? COPY.sideNoteComplete(names.dev)
+          : question.kind === "used"
+            ? COPY.sideNoteUsed(names.dev)
+            : null;
   const canUse =
     question.kind === "complete" && question.canUse && !controller.answerQueued(question.id);
   const send = () => controller.send(scope);
@@ -84,7 +87,7 @@ export function SideChat({
             {question.blocking ? COPY.blocks(title) : COPY.notBlocking}
           </span>
           <span className="font-semibold text-actor-ngo">
-            · {questionStatusText(question, view.isDev, names)}
+            · {questionStatusText(question, view.isDev, names, view.closed !== null)}
           </span>
         </div>
         <div className="mt-0.5 text-sm font-bold leading-snug text-foreground max-md:text-[15px]">

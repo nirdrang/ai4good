@@ -21,6 +21,7 @@ import {
   askTarget,
   briefRows,
   canAffordReply,
+  checkCurrent,
   checkPassedForRevision,
   closeBlock,
   closeRemaining,
@@ -55,6 +56,7 @@ import {
   checkStartLine,
   clean,
   closeCheckLines,
+  closeCheckRepeat,
   closeCheckStart,
   confirmCheckLines,
   devMessage,
@@ -98,7 +100,7 @@ type Begun =
   | {
       kind: "started";
       record: PrdRecord;
-      call: PrdModelCall;
+      call: PrdModelCall | null;
       aiId: string;
       finish: (record: PrdRecord, at: string) => { record: PrdRecord; message: PrdUIMessage };
     };
@@ -209,7 +211,9 @@ export function startSend(
     if (!reply) return refusal("busy", "This message is still being answered.");
     return { ok: true, value: { kind: "replay", message: structuredClone(reply.message) } };
   }
-  const blocked = sendRefusal(record, role, key);
+  const repeat = body.intent.kind === "close-check" && checkCurrent(record);
+  const sent = sendRefusal(record, role, key);
+  const blocked = repeat && sent?.kind === "funds" ? null : sent;
   if (blocked && (blocked.kind === "closed" || blocked.kind === "forbidden")) {
     return { ok: false, refusal: blocked };
   }
@@ -283,7 +287,7 @@ export function startSend(
   chat(next, key).push(shared(human));
   next.requests[body.requestId] = { chat: key, reply: null };
   next.busy[key] = body.requestId;
-  next.funds = holdReply(next.funds);
+  if (!repeat) next.funds = holdReply(next.funds);
   if (body.scope.kind === "side") {
     const question = questionOf(next, body.scope.questionId);
     if (question && question.status === "posted") question.status = "answering";
@@ -293,8 +297,9 @@ export function startSend(
     if (question) question.using = true;
   }
   const aiId = `${body.requestId}-ai`;
-  const call: PrdModelCall =
-    body.scope.kind === "side"
+  const call: PrdModelCall | null = repeat
+    ? null
+    : body.scope.kind === "side"
       ? "prd-side-chat"
       : intent.kind === "close-check"
         ? "prd-check"
@@ -306,7 +311,8 @@ export function startSend(
       record: next,
       call,
       aiId,
-      finish: (current, finishedAt) => finishSend(current, body, human.id, aiId, finishedAt),
+      finish: (current, finishedAt) =>
+        finishSend(current, body, human.id, aiId, finishedAt, !repeat),
     },
   };
 }
@@ -317,14 +323,16 @@ function finishSend(
   humanId: string,
   aiId: string,
   at: string,
+  paid: boolean,
 ): { record: PrdRecord; message: PrdUIMessage } {
   const next = structuredClone(record);
   const key = scopeKey(body.scope);
   const intent = body.intent;
+  const settle = (cost: number) => (paid ? settleReply(next.funds, cost) : next.funds);
   if (next.closed !== null) {
     next.requests[body.requestId] = { chat: key, reply: aiId };
     delete next.busy[key];
-    next.funds = settleReply(next.funds, 0);
+    next.funds = settle(0);
     return { record: next, message: aiMessage(aiId, at, []) };
   }
   const event = (text: string, topicId: TopicId) =>
@@ -425,12 +433,24 @@ function finishSend(
     }
     revise(next, [question.topicId]);
   } else if (intent.kind === "close-check") {
-    const { gaps, checkId } = runCheck(next);
+    const latest = next.check;
+    let gaps: number;
+    let checkId: string;
+    if (!paid && latest !== null) {
+      gaps = latest.gaps.length;
+      checkId = latest.id;
+      next.versions = spend(next.versions, askTarget(checkId));
+    } else {
+      ({ gaps, checkId } = runCheck(next));
+    }
     const unconfirmed = next.topics
       .filter((topic) => topic.required && topic.gap === null && topicState(topic) !== "confirmed")
       .map((topic) => topic.title);
     const lines = closeCheckLines(next.revision, gaps, unconfirmed);
-    parts = textParts([closeCheckStart(next.revision), ...lines.before]);
+    parts = textParts([
+      paid ? closeCheckStart(next.revision) : closeCheckRepeat(next.revision),
+      ...lines.before,
+    ]);
     if (gaps === 0 && unconfirmed.length === 0) {
       next.closed = { revision: next.revision, openPoints: 0 };
     } else {
@@ -453,14 +473,14 @@ function finishSend(
       );
       revise(next, [point.topicId]);
     } else {
-      parts = textParts(mainReplyLines(next, text, closeRemaining(next)));
+      parts = textParts(mainReplyLines(next, text, closeRemaining(next, "dev")));
     }
   }
   const message = aiMessage(aiId, at, parts);
   chat(next, key).push(shared(message));
   next.requests[body.requestId] = { chat: key, reply: aiId };
   delete next.busy[key];
-  next.funds = settleReply(next.funds, REPLY_COST_MICROS);
+  next.funds = settle(REPLY_COST_MICROS);
   return { record: next, message };
 }
 
@@ -918,10 +938,10 @@ export function createPrdWorld(name: string, options: PrdWorldOptions = {}): Prd
       }
       const started = begun.value;
       commit(started.record);
-      await reportModelCall(started.call);
+      if (started.call !== null) await reportModelCall(started.call);
       const done = track(
         (async () => {
-          await pause(replyMs);
+          if (started.call !== null) await pause(replyMs);
           const finished = started.finish(state, now().toISOString());
           commit(finished.record);
           return finished.message;

@@ -332,7 +332,7 @@ describe("the PRD fixture world", () => {
     current = await snap(dev);
     expect(current.close).toEqual({ kind: "closed", revision: current.revision, openPoints: 6 });
     expect(current.canWrite.main).toBe(false);
-    expect(calls).toEqual(["prd-check", "prd-check"]);
+    expect(calls).toEqual(["prd-check"]);
   });
 
   it("closes at once after a passing check for the current revision, with no model call", async () => {
@@ -625,7 +625,7 @@ describe("the PRD fixture world", () => {
           : item,
       ),
     };
-    expect(closeRemaining(changed)).toContain("3 sections still being written");
+    expect(closeRemaining(changed, "dev")).toContain("3 sections still being written");
   });
 
   it("opens each topic chat with a line that matches the topic's state", async () => {
@@ -759,6 +759,186 @@ describe("the PRD fixture world", () => {
     expect(topic(devToday, "notify").statusText).toBe(
       "The AI checked this section: every decision is recorded. Read it and confirm.",
     );
+  });
+
+  it("tells both viewers after close that no question can be answered or used any more", async () => {
+    const invites = /to answer|answer it|is answering|waiting for|use it|mark it complete/i;
+    const closeAnyway = async (dev: PrdPort) => {
+      await deliver(dev, MAIN, { kind: "close-check" });
+      const ask = parts(await snap(dev), "data-close-ask")[0];
+      if (!ask) throw new Error("the check did not ask to close");
+      expect((await dev.act(ask.data.closeAnyway)).ok).toBe(true);
+    };
+    const today = open("prd-today");
+    await closeAnyway(today.dev);
+    const unanswered = {
+      retention: "Not answered · the PRD closed with it as an open point",
+      logo: "Not answered · the PRD closed without it",
+    };
+    const maya = present(await snap(today.ngo));
+    expect(maya.listTitle).toBe("Questions for you · PRD closed");
+    expect(maya.badge).toBe(0);
+    expect(maya.listNote).not.toMatch(invites);
+    expect(
+      Object.fromEntries(maya.open.map((entry) => [entry.question.id, entry.statusText])),
+    ).toEqual(unanswered);
+    const priya = present(await snap(today.dev));
+    expect(priya.listTitle).toBe("Questions for Maya (NGO) · PRD closed");
+    expect(priya.badge).toBe(0);
+    expect(priya.listNote).not.toMatch(invites);
+    expect(
+      Object.fromEntries(priya.open.map((entry) => [entry.question.id, entry.statusText])),
+    ).toEqual(unanswered);
+    const answered = open("answer-complete");
+    await closeAnyway(answered.dev);
+    const mayaSent = present(await snap(answered.ngo));
+    const sent = mayaSent.open.find((entry) => entry.question.id === "retention");
+    expect(sent?.statusText).toBe("Sent to Priya · the PRD closed before Priya used it");
+    expect(sent?.sentLabel).toBe("Sent to Priya · the PRD closed before Priya used it:");
+    expect(sent?.sent).toBe(RETENTION_ANSWER);
+    const priyaSent = present(await snap(answered.dev));
+    expect(priyaSent.open.find((entry) => entry.question.id === "retention")?.statusText).toBe(
+      "Maya answered · the PRD closed before you used it",
+    );
+    for (const view of [maya, priya, mayaSent, priyaSent]) {
+      expect(view.badge).toBe(0);
+      for (const entry of view.open) {
+        expect(entry.statusText, entry.question.id).not.toMatch(invites);
+        expect(entry.sentLabel, entry.question.id).not.toMatch(invites);
+        expect(entry.canView || entry.canUse, entry.question.id).toBe(false);
+      }
+    }
+  });
+
+  it("shows the failed check again on Close PRD for the same revision, with no second model call", async () => {
+    const { dev } = open("prd-today");
+    await deliver(dev, MAIN, { kind: "close-check" });
+    const first = await snap(dev);
+    const ask = parts(first, "data-close-ask")[0];
+    if (!ask) throw new Error("the first check did not ask to close");
+    expect((await dev.act(ask.data.keepWorking)).ok).toBe(true);
+    const kept = await snap(dev);
+    const again = await deliver(dev, MAIN, { kind: "close-check" });
+    expect(again.ok && again.text).toContain("does not pass.");
+    let current = await snap(dev);
+    expect(calls).toEqual(["prd-check"]);
+    expect(current.funds.settledMicros).toBe(kept.funds.settledMicros);
+    expect(current.funds.pendingMicros).toBe(0);
+    expect(current.check?.id).toBe(first.check?.id);
+    expect(parts(current, "data-close-ask")).toHaveLength(1);
+    const listed = (current.chats.main ?? []).filter((message) =>
+      message.parts.some((part) => part.type === "data-check"),
+    );
+    expect(listed).toHaveLength(2);
+    expect(present(current).liveCheckMessage).toBe(listed[1]?.id);
+    await deliver(dev, MAIN, { kind: "close-check" });
+    current = await snap(dev);
+    expect(parts(current, "data-close-ask")).toHaveLength(1);
+    expect(calls).toEqual(["prd-check"]);
+    await deliver(dev, SHIFTS, {
+      kind: "text",
+      text: "Holidays: the coordinator sets the closed days once a year, and no shifts are published on them.",
+    });
+    await deliver(dev, MAIN, { kind: "close-check" });
+    expect(calls).toEqual(["prd-check", "prd-chat", "prd-check"]);
+  });
+
+  it("after the automatic check fails, Close PRD warns from that check with no new model call", async () => {
+    const { world, dev } = open("all-ready");
+    for (const id of ["shifts", "notify", "data", "scope", "success"]) {
+      expect((await dev.act(confirmAction(await snap(dev), id))).ok).toBe(true);
+    }
+    await world.idle();
+    expect(calls).toEqual(["prd-check"]);
+    expect((await deliver(dev, MAIN, { kind: "close-check" })).ok).toBe(true);
+    const after = await snap(dev);
+    expect(calls).toEqual(["prd-check"]);
+    const asks = parts(after, "data-close-ask");
+    expect(asks).toHaveLength(1);
+    expect((await dev.act(asks[0]!.data.closeAnyway)).ok).toBe(true);
+    expect((await snap(dev)).close.kind).toBe("closed");
+  });
+
+  it("offers Close PRD after a failed check even with no funds left, and repeating that check calls no model", () => {
+    const at = NOW.toISOString();
+    const press = (record: PrdRecord, id: string) =>
+      startSend(
+        record,
+        "dev",
+        {
+          scope: MAIN,
+          requestId: id as RequestId,
+          baseRevision: record.revision,
+          intent: { kind: "close-check" },
+        },
+        null,
+        at,
+      );
+    let record = seedRecord("prd-today", NOW);
+    const first = press(record, "first");
+    if (!first.ok || first.value.kind !== "started") throw new Error("the check did not start");
+    expect(first.value.call).toBe("prd-check");
+    record = first.value.finish(first.value.record, at).record;
+    record = {
+      ...record,
+      funds: { ...record.funds, settledMicros: record.funds.allocationMicros - 100_000 },
+    };
+    expect(devView(record).close).toMatchObject({ kind: "open", close: { kind: "available" } });
+    const again = press(record, "again");
+    if (!again.ok || again.value.kind !== "started") throw new Error("the repeat did not start");
+    expect(again.value.call).toBeNull();
+    expect(again.value.record.funds).toEqual(record.funds);
+  });
+
+  it("writes every Still open line for the viewer: the developer's own work, or what Priya will do", async () => {
+    const remaining = (snapshot: PrdSnapshot) =>
+      snapshot.close.kind === "open" ? [...snapshot.close.remaining] : [];
+    const today = open("prd-today");
+    const answered = open("answer-complete");
+    const gaps = open("prd-today");
+    await deliver(gaps.dev, MAIN, { kind: "close-check" });
+    const ask = parts(await snap(gaps.dev), "data-close-ask")[0];
+    if (!ask) throw new Error("the check did not ask to close");
+    expect((await gaps.dev.act(ask.data.keepWorking)).ok).toBe(true);
+    const dev = [
+      ...remaining(await snap(today.dev)),
+      ...remaining(await snap(answered.dev)),
+      ...remaining(await snap(gaps.dev)),
+    ];
+    const ngo = [
+      ...remaining(await snap(today.ngo)),
+      ...remaining(await snap(answered.ngo)),
+      ...remaining(await snap(gaps.ngo)),
+    ];
+    expect(new Set(dev)).toEqual(
+      new Set([
+        "1 section ready for you to confirm",
+        "1 section waiting on another section",
+        "2 sections still being written",
+        "3 sections still being written",
+        "1 blocking question not posted to Maya",
+        "1 blocking question waiting for Maya",
+        "1 answer from Maya to use",
+        "2 gaps from the completion check to fix",
+        "Completion check runs when you close, or when all sections are confirmed",
+      ]),
+    );
+    expect(new Set(ngo)).toEqual(
+      new Set([
+        "1 section ready for Priya to confirm",
+        "1 section waiting on another section",
+        "2 sections still being written",
+        "3 sections still being written",
+        "1 blocking question Priya has not sent you yet",
+        "1 blocking question waiting for your answer",
+        "1 answer you sent, waiting for Priya to use",
+        "2 gaps from the completion check for Priya to fix",
+        "Completion check runs when Priya closes, or when all sections are confirmed",
+      ]),
+    );
+    for (const line of ngo) {
+      expect(line).not.toMatch(/for you to|when you close|check to fix|Maya/);
+    }
   });
 
   it("starts a scenario from its seed again when the shell URL asks for fresh", async () => {

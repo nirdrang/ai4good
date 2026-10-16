@@ -103,7 +103,7 @@ function IntroCard({
       : COPY.postedHeading(
           names.ngoLabel,
           question.blocking,
-          questionStatusText(question, view.isDev, names),
+          questionStatusText(question, view.isDev, names, view.closed !== null),
         );
   const post =
     question.kind === "suggested" && question.post.kind === "available"
@@ -149,17 +149,19 @@ function IntroCard({
 
 function CheckGaps({
   checkId,
+  messageId,
   gaps,
   view,
   controller,
 }: {
   checkId: string;
+  messageId: string;
   gaps: readonly CheckGap[];
   view: PrdView;
   controller: PrdController;
 }) {
   const check = view.snapshot.check;
-  const current = check !== null && check.id === checkId;
+  const current = check !== null && check.id === checkId && view.liveCheckMessage === messageId;
   const shown = current ? check.gaps : gaps;
   if (shown.length === 0) return null;
   return (
@@ -193,11 +195,13 @@ function CheckGaps({
 function AiPart({
   part,
   first,
+  messageId,
   view,
   controller,
 }: {
   part: Part;
   first: boolean;
+  messageId: string;
   view: PrdView;
   controller: PrdController;
 }): ReactNode {
@@ -229,6 +233,7 @@ function AiPart({
       return (
         <CheckGaps
           checkId={part.data.checkId}
+          messageId={messageId}
           gaps={part.data.gaps}
           view={view}
           controller={controller}
@@ -399,7 +404,13 @@ function MainTurn({
         <ActorName name={message.metadata?.name ?? view.names.ai} tone="ai" />
         {message.parts.map((part, index) => (
           <Fragment key={index}>
-            <AiPart part={part} first={index === 0} view={view} controller={controller} />
+            <AiPart
+              part={part}
+              first={index === 0}
+              messageId={message.id}
+              view={view}
+              controller={controller}
+            />
           </Fragment>
         ))}
       </div>

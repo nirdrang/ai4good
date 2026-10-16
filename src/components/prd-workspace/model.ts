@@ -44,6 +44,7 @@ export type QuestionView = Readonly<{
   statusText: string;
   statusTone: Tone;
   sent: string | null;
+  sentLabel: string;
   canView: boolean;
   canUse: boolean;
 }>;
@@ -70,6 +71,7 @@ export type PrdView = Readonly<{
   listTitle: string;
   listNote: string;
   badge: number;
+  liveCheckMessage: string | null;
 }>;
 
 function firstName(name: string): string {
@@ -128,7 +130,22 @@ function questionStatus(
   question: NgoQuestion,
   isDev: boolean,
   names: Names,
+  closed: boolean,
 ): { text: string; tone: Tone } {
+  if (closed) {
+    switch (question.kind) {
+      case "posted":
+      case "answering":
+        return { text: COPY.status.closedUnanswered(question.blocking), tone: "muted" };
+      case "complete":
+        return {
+          text: isDev
+            ? COPY.status.closedUnusedDev(names.ngo)
+            : COPY.status.closedUnusedNgo(names.dev),
+          tone: "muted",
+        };
+    }
+  }
   switch (question.kind) {
     case "suggested":
       return { text: COPY.status.suggested, tone: "muted" };
@@ -149,14 +166,20 @@ function questionStatus(
   }
 }
 
-export function questionStatusText(question: NgoQuestion, isDev: boolean, names: Names): string {
-  return questionStatus(question, isDev, names).text;
+export function questionStatusText(
+  question: NgoQuestion,
+  isDev: boolean,
+  names: Names,
+  closed: boolean,
+): string {
+  return questionStatus(question, isDev, names, closed).text;
 }
 
 function questionView(snapshot: PrdSnapshot, question: NgoQuestion, names: Names): QuestionView {
   const isDev = snapshot.viewer.role === "dev";
+  const closed = snapshot.close.kind === "closed";
   const title = topicTitle(snapshot, question.topicId);
-  const status = questionStatus(question, isDev, names);
+  const status = questionStatus(question, isDev, names, closed);
   return {
     question,
     topicTitle: title,
@@ -164,6 +187,7 @@ function questionView(snapshot: PrdSnapshot, question: NgoQuestion, names: Names
     statusText: status.text,
     statusTone: status.tone,
     sent: !isDev && question.kind === "complete" ? question.answer : null,
+    sentLabel: closed ? COPY.sentClosed(names.dev) : COPY.sentTo(names.dev),
     canView: isDev && question.kind === "complete" && snapshot.close.kind === "open",
     canUse: question.kind === "complete" && question.canUse,
   };
@@ -204,8 +228,21 @@ export function present(snapshot: PrdSnapshot): PrdView {
     .map((question) => questionView(snapshot, question, names));
   const open = views.filter((view) => view.question.kind !== "used");
   const answered = views.filter((view) => view.question.kind === "used");
-  const toAnswer = open.filter((view) => waiting(view.question)).length;
+  const closed = closeState.kind === "closed";
+  const toAnswer = closed ? 0 : open.filter((view) => waiting(view.question)).length;
   const blockingOpen = open.filter((view) => view.question.blocking).length;
+  const listTitle = isDev
+    ? closed
+      ? COPY.devListTitleClosed(names.ngoLabel)
+      : COPY.devListTitle(names.ngoLabel, open.length)
+    : closed
+      ? COPY.ngoListTitleClosed
+      : COPY.ngoListTitle(toAnswer);
+  const listNote = closed
+    ? COPY.closedListNote
+    : isDev
+      ? COPY.devListNote(blockingOpen, names.ngo)
+      : COPY.ngoListNote;
   return {
     snapshot,
     names,
@@ -224,10 +261,20 @@ export function present(snapshot: PrdSnapshot): PrdView {
     })),
     open,
     answered,
-    listTitle: isDev ? COPY.devListTitle(names.ngoLabel, open.length) : COPY.ngoListTitle(toAnswer),
-    listNote: isDev ? COPY.devListNote(blockingOpen, names.ngo) : COPY.ngoListNote,
+    listTitle,
+    listNote,
     badge: isDev ? open.filter((view) => view.canView).length : toAnswer,
+    liveCheckMessage: liveCheckMessage(snapshot),
   };
+}
+
+function liveCheckMessage(snapshot: PrdSnapshot): string | null {
+  const checkId = snapshot.check?.id;
+  if (checkId === undefined) return null;
+  const holding = (snapshot.chats.main ?? []).filter((message) =>
+    message.parts.some((part) => part.type === "data-check" && part.data.checkId === checkId),
+  );
+  return holding.at(-1)?.id ?? null;
 }
 
 export function sameMessages(

@@ -87,10 +87,7 @@ function QuestionItem({
             data-testid={testIds.prdNgoQuestionSent}
             className="mt-1 block text-xs leading-normal text-foreground/80 max-md:text-sm"
           >
-            <strong className={TONE_TEXT[entry.statusTone]}>
-              {COPY.sentTo(controller.view.names.dev)}
-            </strong>{" "}
-            {entry.sent}
+            <strong className={TONE_TEXT[entry.statusTone]}>{entry.sentLabel}</strong> {entry.sent}
           </span>
         )}
       </button>
