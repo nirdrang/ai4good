@@ -951,6 +951,7 @@ atTest(
           await prd.phone.tab("prd");
           await prd.topics.open(TOPIC.shifts);
           await prd.phone.sectionGeometry();
+          await prd.phone.topicOptionsFit();
           await prd.topic.expectBackTarget();
           await prd.topic.expectSendTarget();
           await prd.topic.back();
@@ -967,6 +968,8 @@ atTest(
           expect(badge, "the questions tab shows how many are waiting").toMatch(/^\d+$/);
           expect(Number(badge), "Maya has questions waiting").toBeGreaterThan(0);
           await prd.phone.labelsOneLine();
+          await prd.questions.open(RETENTION_QUESTION);
+          await prd.phone.sideOptionsFit();
         },
       );
       await withPrd(ctx, { scenario: "prd-today", viewer: "ngo", viewport: "phone" }, sideChatFlow);

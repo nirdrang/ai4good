@@ -94,7 +94,7 @@ export function SideChat({
       <SideConversation questionId={questionId} view={view} controller={controller} />
       {writable ? (
         <>
-          <div className="flex shrink-0 gap-1.5 max-md:overflow-x-auto md:flex-wrap">
+          <div className="flex shrink-0 flex-wrap gap-1.5">
             {question.options.map((option) => (
               <button
                 key={option}
@@ -102,7 +102,7 @@ export function SideChat({
                 data-testid={testIds.prdSideChatOption}
                 onClick={() => controller.setDraft(key, option)}
                 className={cn(
-                  "min-h-8 shrink-0 rounded-full border border-actor-ngo-line bg-background px-2.5 text-xs text-foreground hover:border-muted-foreground max-md:min-h-10 max-md:whitespace-nowrap",
+                  "min-h-8 shrink-0 rounded-full border border-actor-ngo-line bg-background px-2.5 text-xs text-foreground hover:border-muted-foreground max-md:min-h-11 max-md:max-w-fullmax-md:rounded-2xl max-md:py-1.5 max-md:text-left",
                   FOCUS,
                 )}
               >

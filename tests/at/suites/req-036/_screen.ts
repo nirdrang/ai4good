@@ -229,6 +229,22 @@ export class PrdPage {
     return box;
   }
 
+  private async optionsFit(option: string, row: string, what: string): Promise<void> {
+    const bound = await this.boxOf([byId(row)], what);
+    const left = Math.max(0, bound.x);
+    const right = Math.min(this.width, bound.x + bound.width);
+    const count = await this.page.count([byId(option)]);
+    expect(count, `${what} offer suggested options`).toBeGreaterThan(0);
+    for (let index = 0; index < count; index += 1) {
+      const label = `${what}, option ${index + 1}`;
+      const box = await this.boxOf([byId(option, undefined, index)], label);
+      expect(box.x, `${label} starts inside its row`).toBeGreaterThanOrEqual(left - 1);
+      expect(box.x + box.width, `${label} ends inside its row`).toBeLessThanOrEqual(right + 1);
+      expect(box.height, `${label} is at least 44 pixels tall`).toBeGreaterThanOrEqual(TOUCH);
+      expect(box.width, `${label} is at least 44 pixels wide`).toBeGreaterThanOrEqual(TOUCH);
+    }
+  }
+
   private async oneLine(testId: string, label: string): Promise<void> {
     const chain = [byId(testId), { text: label, exact: true, position: "last" as const }];
     const box = await this.boxOf(chain, label);
@@ -568,6 +584,10 @@ export class PrdPage {
       expect(label, "the PRD tab names confirmed and total").toMatch(/^PRD \d+\/\d+$/);
       await this.oneLine(testIds.phoneTabPrd, label);
     },
+    topicOptionsFit: (): Promise<void> =>
+      this.optionsFit(testIds.prdQuestionOption, testIds.prdSectionPage, "the topic questions"),
+    sideOptionsFit: (): Promise<void> =>
+      this.optionsFit(testIds.prdSideChatOption, testIds.prdSideChat, "the side chat answers"),
     sectionGeometry: async (): Promise<void> => {
       const pageBox = await this.boxOf([byId(testIds.prdSectionPage)], "the topic page");
       const textBox = await this.boxOf([byId(testIds.prdSectionText)], "the topic document");
