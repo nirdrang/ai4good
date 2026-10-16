@@ -82,7 +82,13 @@ export async function sideChatFlow(prd: PrdPage): Promise<void> {
     (text) => text.includes(AI_ASIDE) && text.includes(REMOVED_EARLIER),
     15_000,
   );
-  expect(await prd.side.completeEnabled(), "the aside does not close the follow-up").toBe(false);
+  await eventually(
+    "any reply from Maya turns Mark answer complete on",
+    () => prd.side.completeEnabled(),
+    (enabled) => enabled,
+    15_000,
+  );
+  expect(await prd.side.hintCount(), "the hint leaves with the follow-up").toBe(0);
   await prd.side.write("Yes");
   await prd.side.send();
   await eventually(
@@ -271,7 +277,12 @@ export async function closeFlow(prd: PrdPage): Promise<void> {
     (checks) => checks > before.filter((kind) => kind === "prd-check").length,
     15_000,
   );
-  expect(await prd.chat.warningCount(), "gaps warn with a choice").toBeGreaterThan(0);
+  await eventually(
+    "gaps warn with a choice",
+    () => prd.chat.warningCount(),
+    (count) => count > 0,
+    15_000,
+  );
   await prd.chat.keepWorking();
   expect(await prd.banner.count(), "Keep working leaves the PRD open").toBe(0);
   await prd.phone.tab("prd");

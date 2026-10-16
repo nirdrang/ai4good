@@ -519,7 +519,7 @@ export function applyAction(
       next.versions = spend(next.versions, target);
       next.revision += 1;
       chat(next, "main").push(
-        shared(eventMessage(id, at, `${dev} reopened ${topic.title} for review`, topic.id)),
+        shared(eventMessage(id, at, `${dev} reopened ${topic.title} for review`, null)),
       );
       return { ok: true, value: { record: next, later: null } };
     }

@@ -1,5 +1,6 @@
 import type { PrdPort } from "../../../../src/components/prd-workspace/port.ts";
 import { MODEL_CALL_PROBE } from "../../../../design/astra/src/givens.ts";
+import { createPrdWorld, prdPortFor } from "../../../../design/astra/src/prd-fixture-port.ts";
 import {
   scopeKey,
   type Action,
@@ -35,14 +36,6 @@ export const QUESTION_ID = {
 
 export type Delivery = { ok: true; text: string } | { ok: false; kind: string; reason: string };
 
-type PrdFixtureEntry = {
-  createPrdWorld: (
-    scenario: string,
-    options: { storage: null; pace: "test" | "demo" },
-  ) => Promise<unknown> | unknown;
-  prdPortFor: (world: unknown, viewer: Viewer) => PrdPort;
-};
-
 export type PrdWorld = {
   port(viewer: Viewer): PrdPort;
   calls(): readonly string[];
@@ -56,24 +49,6 @@ export function requestId(prefix: string): RequestId {
   return `${prefix}-${requestCounter}` as RequestId;
 }
 
-function entrySpecifier(): string {
-  return ["..", "..", "..", "..", "design", "astra", "src", "prd-fixture-port.ts"].join("/");
-}
-
-async function loadFixtureEntry(): Promise<PrdFixtureEntry> {
-  const loaded: unknown = await import(entrySpecifier());
-  if (typeof loaded !== "object" || loaded === null) {
-    throw new Error("design/astra/src/prd-fixture-port.ts did not export a module");
-  }
-  const record = loaded as Record<string, unknown>;
-  if (typeof record.createPrdWorld !== "function" || typeof record.prdPortFor !== "function") {
-    throw new Error(
-      `design/astra/src/prd-fixture-port.ts must export createPrdWorld and prdPortFor; it exported ${Object.keys(record).join(", ")}`,
-    );
-  }
-  return loaded as PrdFixtureEntry;
-}
-
 export async function loadPrdWorld(scenario: string): Promise<PrdWorld> {
   const calls: string[] = [];
   const host = globalThis as Record<string, unknown>;
@@ -82,13 +57,10 @@ export async function loadPrdWorld(scenario: string): Promise<PrdWorld> {
     calls.push(String(kind));
   };
   try {
-    const entry = await loadFixtureEntry();
-    const world = await Promise.resolve(
-      entry.createPrdWorld(scenario, { storage: null, pace: "test" }),
-    );
+    const world = createPrdWorld(scenario, { storage: null, pace: "test" });
     return {
       port(viewer) {
-        return entry.prdPortFor(world, viewer);
+        return prdPortFor(world, viewer);
       },
       calls: () => calls.slice(),
       release() {

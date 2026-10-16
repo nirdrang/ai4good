@@ -428,7 +428,7 @@ export function sideReply(
     return {
       text: `${script.aside}${question.evidence.length > 0 ? "" : " What is your answer?"}`,
       evidence: question.evidence,
-      followUp: question.followUp,
+      followUp: question.evidence.length > 0 ? "none" : "pending",
     };
   }
   const evidence = [...question.evidence, script.expand[text] ?? text];
@@ -775,7 +775,7 @@ export function prdTodayRecord(now: Date): PrdRecord {
         "Yes. I noted text messages as a later option, not part of the first version. It adds a paid provider, so the kitchen would need to approve the cost first.",
       ]),
     ),
-    eventMessage("e3", tue(12), "Priya reopened Notifications for review", TOPIC.notify),
+    eventMessage("e3", tue(12), "Priya reopened Notifications for review", null),
     devMessage(
       "h4",
       tue(20),

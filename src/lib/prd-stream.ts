@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { z } from "zod";
+import * as z from "zod";
 
 type Id<K extends string> = string & { readonly __id: K };
 

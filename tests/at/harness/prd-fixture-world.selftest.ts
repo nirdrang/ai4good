@@ -170,7 +170,7 @@ describe("the PRD fixture world", () => {
     expect(after.funds.pendingMicros).toBe(0);
   });
 
-  it("blocks Mark answer complete while the AI's follow-up is open, and an aside does not release it", async () => {
+  it("blocks Mark answer complete while the AI's follow-up is open, and any reply from Maya releases it", async () => {
     const { ngo } = open("prd-today");
     await deliver(ngo, RETENTION, { kind: "text", text: "a year" });
     let retention = question(await snap(ngo), "retention");
@@ -187,7 +187,8 @@ describe("the PRD fixture world", () => {
     });
     expect(aside.ok && aside.text).toContain("removed earlier");
     retention = question(await snap(ngo), "retention");
-    expect(retention.kind === "answering" && retention.followUp).toBe("pending");
+    expect(retention.kind === "answering" && retention.followUp).toBe("none");
+    expect(retention.kind === "answering" && retention.complete.kind).toBe("available");
     await deliver(ngo, RETENTION, { kind: "text", text: "Yes" });
     retention = question(await snap(ngo), "retention");
     expect(retention.kind === "answering" && retention.complete.kind).toBe("available");

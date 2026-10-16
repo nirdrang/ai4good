@@ -204,6 +204,16 @@ export class PrdPage {
     expect(box.width, `${what} is at least 44 pixels wide`).toBeGreaterThanOrEqual(TOUCH);
   }
 
+  private async topicItem(title: string): Promise<LocatorStep | null> {
+    const count = await this.page.count([byId(testIds.prdTopicItem)]);
+    for (let index = 0; index < count; index += 1) {
+      const step = byId(testIds.prdTopicItem, undefined, index);
+      const first = (await this.page.text([step])).split(/\n/)[0]?.trim();
+      if (first === title) return step;
+    }
+    return null;
+  }
+
   private async press(chain: LocatorStep[], what: string): Promise<void> {
     await this.expectTarget(chain, what);
     await this.page.click(chain);
@@ -258,12 +268,14 @@ export class PrdPage {
       (await this.page.count([byId(testIds.prdTopicList)])) > 0 &&
       (await this.page.visible([byId(testIds.prdTopicList)])),
     state: async (title: string): Promise<string> => {
-      const item = [byId(testIds.prdTopicItem, title), byId(testIds.prdTopicState)];
-      if ((await this.page.count(item)) > 0) return (await this.page.text(item)).trim();
+      const item = await this.topicItem(title);
+      if (item) return (await this.page.text([item, byId(testIds.prdTopicState)])).trim();
       return (await this.page.text([byId(testIds.prdSectionState)])).trim();
     },
     blocker: async (title: string): Promise<string> => {
-      const chain = [byId(testIds.prdTopicItem, title), byId(testIds.prdTopicBlocker)];
+      const item = await this.topicItem(title);
+      if (!item) return "";
+      const chain = [item, byId(testIds.prdTopicBlocker)];
       if ((await this.page.count(chain)) === 0) return "";
       return (await this.page.text(chain)).trim();
     },
@@ -283,7 +295,21 @@ export class PrdPage {
       }
       throw new Error(`no topic is ${state}`);
     },
-    open: (title: string): Promise<void> => this.press([byId(testIds.prdTopicItem, title)], title),
+    open: async (title: string): Promise<void> => {
+      if (
+        (await this.page.count([byId(testIds.prdTopicItem)])) === 0 &&
+        (await this.page.count([byId(testIds.prdSectionBack)])) > 0
+      ) {
+        await this.press([byId(testIds.prdSectionBack)], "Back to PRD sections");
+      }
+      const item = await eventually(
+        `${title} is in the topic list`,
+        () => this.topicItem(title),
+        (found) => found !== null,
+      );
+      if (!item) throw new Error(`no topic item titled ${title}`);
+      await this.press([item], title);
+    },
     openMain: (): Promise<void> => this.press([byId(testIds.prdMainChatItem)], "Main chat"),
   };
 
@@ -343,7 +369,7 @@ export class PrdPage {
     briefCount: (): Promise<number> => this.page.count([byId(testIds.prdClaimBrief)]),
     briefText: (): Promise<string> => this.page.text([byId(testIds.prdClaimBrief)]),
     briefFocused: (text: string): Promise<boolean> =>
-      this.page.focused([byId(testIds.prdTurn, text)]),
+      this.page.focused([byId(testIds.prdTurn, text, 0)]),
     sourceLinkCount: (): Promise<number> => this.page.count([byId(testIds.prdOpenSectionChat)]),
     openSource: (): Promise<void> =>
       this.press([byId(testIds.prdOpenSectionChat)], "the section link"),

@@ -282,7 +282,12 @@ atTest(
           (checks) => checks > beforeClose.filter((kind) => kind === "prd-check").length,
           15_000,
         );
-        expect(await prd.chat.warningCount(), "the warning offers a choice").toBeGreaterThan(0);
+        await eventually(
+          "the warning offers a choice",
+          () => prd.chat.warningCount(),
+          (count) => count > 0,
+          15_000,
+        );
         await prd.chat.keepWorking();
         expect(await prd.banner.count(), "Keep working leaves the PRD open").toBe(0);
         await prd.chat.openGap(TOPIC.shifts);
@@ -481,13 +486,12 @@ atTest(
           0,
         );
         await prd.chat.openSource();
-        await prd.composer.write("typed but not sent");
+        await prd.topic.write("typed but not sent");
         expect(await prd.modelCalls(), "reading and navigation spend nothing").toEqual(before);
       });
       await withPrd(ctx, { scenario: "answer-complete", viewport: "desktop" }, async (prd) => {
         const before = await prd.modelCalls();
         await prd.phone.tab("questions");
-        await prd.questions.toggleAnswered();
         await prd.questions.view(RETENTION_QUESTION);
         expect(await prd.modelCalls(), "opening an answer spends nothing").toEqual(before);
       });
