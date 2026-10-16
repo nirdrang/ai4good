@@ -2,6 +2,7 @@ import { useChat } from "@ai-sdk/react";
 import { Sparkles } from "lucide-react";
 import { Fragment, useLayoutEffect, useRef, type ReactNode } from "react";
 import {
+  scopeKey,
   type ChatScope,
   type CheckGap,
   type DevQuestion,
@@ -12,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { COPY, dayLabel } from "./copy";
 import { testIds } from "./testids";
-import { topicTitle, questionStatusText, waiting, type PrdView } from "./model";
+import { topicTitle, questionStatusText, type PrdView } from "./model";
 import { introElementId, turnElementId, type PrdController } from "./use-prd-workspace";
 import { DEV_BUTTON, FOCUS, LINK_BUTTON, NGO_BUTTON, PLAIN_BUTTON } from "./ui";
 
@@ -108,7 +109,8 @@ function IntroCard({
     question.kind === "suggested" && question.post.kind === "available"
       ? question.post.action
       : null;
-  const canAnswer = !view.isDev && waiting(question) && view.closed === null;
+  const canAnswer =
+    view.snapshot.canWrite[scopeKey({ kind: "side", questionId: question.id })] === true;
   return (
     <div
       id={introElementId(question.id)}
@@ -478,14 +480,13 @@ export function MainConversation({
 
 function DevQuestions({
   questions,
-  view,
+  writable,
   controller,
 }: {
   questions: readonly DevQuestion[];
-  view: PrdView;
+  writable: boolean;
   controller: PrdController;
 }) {
-  const writable = view.isDev && view.closed === null;
   return (
     <div className="flex flex-col gap-2.5 md:ml-9">
       {questions.map((question) => (
@@ -610,7 +611,11 @@ export function TopicConversation({
         );
       })}
       {questions.length > 0 ? (
-        <DevQuestions questions={questions} view={view} controller={controller} />
+        <DevQuestions
+          questions={questions}
+          writable={view.snapshot.canWrite[scopeKey(scope)] === true}
+          controller={controller}
+        />
       ) : null}
       {answering ? <Answering testId={testIds.prdAiAnswering} /> : null}
     </div>

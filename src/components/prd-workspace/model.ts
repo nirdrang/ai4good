@@ -169,7 +169,7 @@ function questionView(snapshot: PrdSnapshot, question: NgoQuestion, names: Names
   };
 }
 
-export function waiting(question: NgoQuestion): boolean {
+function waiting(question: NgoQuestion): boolean {
   return question.kind === "posted" || question.kind === "answering";
 }
 
