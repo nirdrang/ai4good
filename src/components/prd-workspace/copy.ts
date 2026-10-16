@@ -102,7 +102,7 @@ export const COPY = {
   sectionChat: "Section chat",
   topicInput: (title: string) => `Message to the AI about ${title}`,
   topicPlaceholder: "Write to the AI about this section",
-  topicPickPlaceholder: "Pick an answer for each question above, add a note if you like, then send",
+  topicPickPlaceholder: "Pick an answer above for each question, then send",
   topicSend: "Send to the section",
   ngoTopicNote: (dev: string) => `${dev} works on this section with the AI. You can read along.`,
   whyNow: (why: string) => `Why now: ${why}`,
@@ -161,6 +161,7 @@ export const COPY = {
   loading: "Loading the PRD workspace",
   loadFailed: "The PRD workspace did not load.",
   today: "Today",
+  dismiss: "Dismiss",
 } as const;
 
 export function dayLabel(at: Date, now: Date): string {

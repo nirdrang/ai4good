@@ -1,5 +1,5 @@
 import { AnswerReview } from "./AnswerReview";
-import { ClosedBanner, ReadOnlyBanner } from "./Banners";
+import { ActNotice, ClosedBanner, ReadOnlyBanner } from "./Banners";
 import { Composer } from "./Composer";
 import { MainConversation } from "./ConversationPane";
 import { COPY } from "./copy";
@@ -30,10 +30,7 @@ export function MainColumn({ controller, phone }: { controller: PrdController; p
           hint={phone ? null : hint}
           queue={controller.queue}
           notice={
-            controller.notice &&
-            (controller.notice.key === "main" || controller.notice.key === "act")
-              ? controller.notice.reason
-              : null
+            controller.notice && controller.notice.key === "main" ? controller.notice.reason : null
           }
           onText={(text) => controller.setDraft("main", text)}
           onSend={() => controller.send({ kind: "main" })}
@@ -66,6 +63,7 @@ export function DesktopLayout({
         <ProcessBar />
       </div>
       <ClosedBanner view={view} onOpenUiDesign={onOpenUiDesign} />
+      <ActNotice controller={controller} />
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,264px)_minmax(0,1fr)_minmax(250px,300px)] overflow-hidden rounded-xl border border-border">
         <aside
           aria-label={COPY.projectPrd}

@@ -67,8 +67,8 @@ export function AnswerReview({
           {question.text}
         </div>
       </div>
-      <label className="flex flex-col gap-1 text-xs font-bold text-foreground/80">
-        {COPY.reviewAnswer(names.ngo)}
+      <label className="flex flex-col gap-1 text-sm text-foreground/80">
+        <span className="text-xs font-bold">{COPY.reviewAnswer(names.ngo)}</span>
         <textarea
           ref={answerField}
           rows={2}
@@ -86,8 +86,8 @@ export function AnswerReview({
           </div>
         ))}
       </dl>
-      <label className="flex flex-col gap-1 text-xs font-bold text-foreground/80">
-        {COPY.reviewNote}
+      <label className="flex flex-col gap-1 text-sm text-foreground/80">
+        <span className="text-xs font-bold">{COPY.reviewNote}</span>
         <textarea
           ref={noteField}
           rows={1}

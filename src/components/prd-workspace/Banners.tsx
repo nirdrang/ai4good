@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
 import { COPY } from "./copy";
 import type { PrdView } from "./model";
+import type { PrdController } from "./use-prd-workspace";
 import { testIds } from "./testids";
-import { FOCUS } from "./ui";
+import { FOCUS, LINK_BUTTON } from "./ui";
 
 export function ClosedBanner({
   view,
@@ -56,6 +57,22 @@ export function ReadOnlyBanner({ view, phone }: { view: PrdView; phone: boolean 
           {phone ? COPY.readOnlyTailPhone : COPY.readOnlyTail}
         </>
       )}
+    </div>
+  );
+}
+
+export function ActNotice({ controller }: { controller: PrdController }) {
+  const notice = controller.notice;
+  if (!notice || notice.key !== "act") return null;
+  return (
+    <div
+      role="alert"
+      className="flex shrink-0 items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm text-destructive max-md:mx-2.5 max-md:mt-2"
+    >
+      <span className="min-w-0 flex-1">{notice.reason}</span>
+      <button type="button" onClick={() => controller.dismissNotice()} className={LINK_BUTTON}>
+        {COPY.dismiss}
+      </button>
     </div>
   );
 }

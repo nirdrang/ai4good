@@ -41,9 +41,7 @@ export function SideChat({
       ? complete.reason
       : null;
   const notice =
-    controller.notice && (controller.notice.key === key || controller.notice.key === "act")
-      ? controller.notice.reason
-      : null;
+    controller.notice && controller.notice.key === key ? controller.notice.reason : null;
   const note = view.isDev
     ? question.kind === "posted" || question.kind === "answering"
       ? COPY.sideNoteDev(names.ngo)

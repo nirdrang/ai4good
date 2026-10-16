@@ -70,6 +70,7 @@ export interface PrdController {
   closePrd(): Promise<void>;
   openAnswered(questionId: QuestionId): void;
   openQuestion(questionId: QuestionId, fromList: boolean): void;
+  dismissNotice(): void;
 }
 
 export const MAIN: ChatScope = { kind: "main" };
@@ -506,6 +507,9 @@ export function usePrdWorkspace(
       if (!question || question.kind !== "used") return;
       select(MAIN);
       focusOn(turnElementId(question.briefTurn), true);
+    },
+    dismissNotice() {
+      setNotice(null);
     },
     openQuestion(questionId, fromList) {
       select({ kind: "side", questionId });

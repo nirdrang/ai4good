@@ -124,7 +124,7 @@ function TopicList({
     <ul
       data-testid={testIds.prdTopicList}
       aria-label={COPY.topicsLabel}
-      className={cn("flex flex-col gap-1.5", phone ? "gap-2" : "min-h-0 overflow-y-auto")}
+      className={cn("flex shrink-0 flex-col", phone ? "gap-2" : "gap-1.5")}
     >
       {phone ? null : (
         <li>

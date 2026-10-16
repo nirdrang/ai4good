@@ -39,7 +39,7 @@ function AiAvatar({ small }: { small?: boolean }) {
     <span
       aria-hidden="true"
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-actor-ai text-actor-on",
+        "flex shrink-0 items-center justify-center rounded-full bg-actor-ai text-actor-on max-md:hidden",
         small ? "size-6" : "size-7",
       )}
     >
@@ -400,12 +400,17 @@ function stampOf(message: PrdUIMessage): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function useStickToBottom(count: number, enabled: boolean) {
+function useStickToBottom(count: number, scrolls: boolean) {
   const ref = useRef<HTMLDivElement>(null);
+  const seen = useRef<number | null>(null);
   useLayoutEffect(() => {
     const element = ref.current;
-    if (element && enabled) element.scrollTop = element.scrollHeight;
-  }, [count, enabled]);
+    const first = seen.current === null;
+    seen.current = count;
+    if (!element) return;
+    if (scrolls) element.scrollTop = element.scrollHeight;
+    else if (!first) element.lastElementChild?.scrollIntoView({ block: "nearest" });
+  }, [count, scrolls]);
   return ref;
 }
 
