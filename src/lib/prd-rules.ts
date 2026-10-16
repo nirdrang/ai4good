@@ -446,10 +446,15 @@ export function closeRemaining(record: PrdRecord): string[] {
   return items;
 }
 
-export function blockerFor(record: PrdRecord, topic: TopicRecord): string | null {
+export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): string | null {
   const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
-  if (topic.gap !== null) return "Completion check gap · fix it in this section";
+  const isDev = role === "dev";
+  if (topic.gap !== null) {
+    return isDev
+      ? "Completion check gap · fix it in this section"
+      : `Completion check gap · ${dev} fixes it in this section`;
+  }
   const state = topicState(topic);
   if (state === "confirmed") return null;
   if (state === "ready") return `AI: every decision is in · ${dev} can confirm`;
@@ -476,27 +481,35 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord): string | null
   const pointOpen = record.questions.some(
     (item) => item.topicId === topic.id && item.status === "used" && item.pointOpen,
   );
-  if (pointOpen) return "One point to settle in the main chat";
+  if (pointOpen) {
+    return isDev
+      ? "One point to settle in the main chat"
+      : `One point for ${dev} to settle in the main chat`;
+  }
   const waitsOn = waitingDependency(record, topic);
   return waitsOn ? `Waits on ${waitsOn.title}` : null;
 }
 
-function statusText(record: PrdRecord, topic: TopicRecord): string {
+function statusText(record: PrdRecord, topic: TopicRecord, role: Role): string {
   if (topic.gap !== null) return `Gap from the completion check: ${topic.gap}`;
+  const dev = firstName(record, "dev");
+  const isDev = role === "dev";
   const waits = waitingDependency(record, topic);
   const state = topicState(topic);
   if (waits && (state === "ready" || state === "needs-review")) {
-    return `${state === "ready" ? "Every decision is recorded" : "Reopened"}. It waits on ${waits.title} before you can confirm it.`;
+    return `${state === "ready" ? "Every decision is recorded" : "Reopened"}. It waits on ${waits.title} before ${isDev ? "you" : dev} can confirm it.`;
   }
   switch (state) {
     case "confirmed":
-      return `Confirmed by ${firstName(record, "dev")}.`;
+      return `Confirmed by ${dev}.`;
     case "ready":
-      return "The AI checked this section: every decision is recorded. Read it and confirm.";
+      return `The AI checked this section: every decision is recorded. ${isDev ? "Read it and confirm." : `Ready for ${dev} to confirm.`}`;
     case "needs-review":
-      return "Reopened. Read it again and confirm.";
+      return isDev
+        ? "Reopened. Read it again and confirm."
+        : `Reopened. Ready for ${dev} to confirm again.`;
     default:
-      return blockerFor(record, topic) ?? "The AI is still writing this section.";
+      return blockerFor(record, topic, role) ?? "The AI is still writing this section.";
   }
 }
 
@@ -554,8 +567,8 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
     title: topic.title,
     required: topic.required,
     state,
-    statusText: statusText(record, topic),
-    blocker: blockerFor(record, topic),
+    statusText: statusText(record, topic, role),
+    blocker: blockerFor(record, topic, role),
     statements: [...topic.body, ...topic.added],
     sources: [...topic.sources],
     stories: topic.stories === null ? null : [...topic.stories],

@@ -585,6 +585,7 @@ export function applyAction(
               if (written) {
                 written.answer = writeAnswer(written);
                 written.status = "complete";
+                done.topics = rewriteSections(done);
               }
               delete done.busy[key];
               done.funds = settleReply(done.funds, REPLY_COST_MICROS);

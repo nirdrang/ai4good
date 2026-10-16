@@ -650,6 +650,76 @@ describe("the PRD fixture world", () => {
     );
   });
 
+  it("writes a waiting section's text from the state of the question it waits on", async () => {
+    const { dev, ngo } = open("prd-today");
+    const waiting =
+      "No text yet. It waits for Maya’s answer on how long the kitchen keeps volunteer data.";
+    expect(topic(await snap(ngo), "data").statements).toEqual([waiting]);
+    await deliver(ngo, RETENTION, { kind: "text", text: "a year" });
+    expect(topic(await snap(ngo), "data").statements).toEqual([waiting]);
+    await deliver(ngo, RETENTION, { kind: "text", text: "Yes" });
+    const retention = question(await snap(ngo), "retention");
+    if (retention.kind !== "answering" || retention.complete.kind !== "available") {
+      throw new Error("Mark answer complete is not available");
+    }
+    expect((await ngo.act(retention.complete.action)).ok).toBe(true);
+    const answered = await snap(ngo);
+    expect(topic(answered, "data").statements).toEqual([
+      "No text yet. Maya answered on how long the kitchen keeps volunteer data. It waits for Priya to use the answer.",
+    ]);
+    expect(topic(answered, "data").statusText).toBe("Maya answered · Priya can use it");
+    await deliver(dev, MAIN, {
+      kind: "use-answer",
+      questionId: "retention" as QuestionId,
+      answer: null,
+      note: "",
+    });
+    expect(topic(await snap(ngo), "data").statements).toContain(RETENTION_ANSWER);
+    const success = question(await snap(dev), "success");
+    if (success.kind !== "suggested" || success.post.kind !== "available") {
+      throw new Error("the success question is not offered to post");
+    }
+    expect((await dev.act(success.post.action)).ok).toBe(true);
+    expect(topic(await snap(ngo), "success").statements).toEqual([
+      "No text yet. It waits for Maya’s answer on what success means for the kitchen.",
+    ]);
+  });
+
+  it("writes each section's status for the viewer: the developer's action, or what the developer will do", async () => {
+    const devOnly = /Read it|you can confirm|fix it in this section|settle in the main chat/;
+    const seen = new Set<string>();
+    for (const scenario of ["prd-today", "answer-complete", "all-ready", "check-passed"]) {
+      const { world, dev, ngo } = open(scenario);
+      const views = [await snap(ngo)];
+      if (scenario === "all-ready") {
+        for (const id of ["shifts", "notify", "data", "scope", "success"]) {
+          await dev.act(confirmAction(await snap(dev), id));
+        }
+        await world.idle();
+        views.push(await snap(ngo));
+      }
+      for (const view of views) {
+        for (const item of view.topics) {
+          seen.add(item.state);
+          expect(item.statusText, `${scenario} ${item.id}`).not.toMatch(devOnly);
+          expect(item.blocker ?? "", `${scenario} ${item.id}`).not.toMatch(devOnly);
+        }
+      }
+    }
+    expect(seen).toEqual(new Set(["open", "draft", "ready", "confirmed", "needs-review"]));
+    const today = await snap(open("prd-today").ngo);
+    expect(topic(today, "notify").statusText).toBe(
+      "The AI checked this section: every decision is recorded. Ready for Priya to confirm.",
+    );
+    expect(topic(today, "scope").statusText).toBe(
+      "Reopened. It waits on Shift scheduling rules before Priya can confirm it.",
+    );
+    const devToday = await snap(open("prd-today").dev);
+    expect(topic(devToday, "notify").statusText).toBe(
+      "The AI checked this section: every decision is recorded. Read it and confirm.",
+    );
+  });
+
   it("starts a scenario from its seed again when the shell URL asks for fresh", async () => {
     expect(prdFixtureSelection("?scenario=prd-today&viewer=dev&fresh=1")).toMatchObject({
       scenario: "prd-today",

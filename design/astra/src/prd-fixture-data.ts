@@ -306,7 +306,24 @@ function scopeBody(record: PrdRecord, list: readonly string[]): string[] {
       ];
 }
 
-/** Rewrites the sections whose text follows recorded decisions: the shift rules, the scope, and each used answer. */
+const WAITS_ON: Record<string, string> = {
+  [QUESTION.retention]: "how long the kitchen keeps volunteer data",
+  [QUESTION.success]: "what success means for the kitchen",
+};
+
+function waitingBody(record: PrdRecord, id: QuestionId): string[] | null {
+  const question = record.questions.find((item) => item.id === id);
+  if (!question || question.status === "used") return null;
+  const ngo = firstName(record, "ngo");
+  const subject = WAITS_ON[id] ?? question.text;
+  return question.status === "complete"
+    ? [
+        `No text yet. ${ngo} answered on ${subject}. It waits for ${firstName(record, "dev")} to use the answer.`,
+      ]
+    : [`No text yet. It waits for ${ngo}’s answer on ${subject}.`];
+}
+
+/** Rewrites the sections whose text follows recorded decisions: the shift rules, the scope, and each question's state. */
 export function rewriteSections(record: PrdRecord): TopicRecord[] {
   const list = stories(record);
   const retention = used(record, QUESTION.retention);
@@ -320,12 +337,18 @@ export function rewriteSections(record: PrdRecord): TopicRecord[] {
         return { ...topic, body: scopeBody(record, list), stories: list };
       case TOPIC.notify:
         return { ...topic, body: [...NOTIFY_LINES, ...(logo ? [clean(logo.answer ?? "")] : [])] };
-      case TOPIC.data:
-        return retention
-          ? { ...topic, drafted: true, body: [clean(retention.answer ?? ""), EXPORT_LINE] }
-          : topic;
-      case TOPIC.success:
-        return success ? { ...topic, drafted: true, body: [clean(success.answer ?? "")] } : topic;
+      case TOPIC.data: {
+        if (retention) {
+          return { ...topic, drafted: true, body: [clean(retention.answer ?? ""), EXPORT_LINE] };
+        }
+        const waiting = waitingBody(record, QUESTION.retention);
+        return waiting ? { ...topic, body: waiting } : topic;
+      }
+      case TOPIC.success: {
+        if (success) return { ...topic, drafted: true, body: [clean(success.answer ?? "")] };
+        const waiting = waitingBody(record, QUESTION.success);
+        return waiting ? { ...topic, body: waiting } : topic;
+      }
       default:
         return topic;
     }
@@ -887,9 +910,7 @@ export function prdTodayRecord(now: Date): PrdRecord {
       }),
       topicRecord(TOPIC.data, {
         drafted: false,
-        body: [
-          "No text yet. It waits for Maya’s answer on how long the kitchen keeps volunteer data.",
-        ],
+        body: [],
         sources: ["Maya’s side chat"],
       }),
       topicRecord(TOPIC.scope, {
@@ -900,7 +921,7 @@ export function prdTodayRecord(now: Date): PrdRecord {
       }),
       topicRecord(TOPIC.success, {
         drafted: false,
-        body: ["No text yet. It waits for Maya’s answer on what success means for the kitchen."],
+        body: [],
         sources: ["Maya’s side chat"],
       }),
     ],
