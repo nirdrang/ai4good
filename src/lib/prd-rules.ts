@@ -42,6 +42,7 @@ export type TopicRecord = {
   gap: string | null;
   gapClosed: boolean;
   changedDependency: TopicId | null;
+  updatedInChat: boolean;
   body: string[];
   ngoBody: string[] | null;
   added: string[];
@@ -386,11 +387,21 @@ export function confirmBlock(
 }
 
 /** A changed decision sends the changed topic and every confirmed dependent back to Needs review. */
-export function markDependents(topics: TopicRecord[], changed: readonly TopicId[]): TopicRecord[] {
+export function markDependents(
+  topics: TopicRecord[],
+  changed: readonly TopicId[],
+  inChat: TopicId | null = null,
+): TopicRecord[] {
   const touched = new Set<TopicId>(changed);
   let next = topics.map((topic) =>
     touched.has(topic.id) && topic.confirmed
-      ? { ...topic, confirmed: false, review: true, changedDependency: null }
+      ? {
+          ...topic,
+          confirmed: false,
+          review: true,
+          changedDependency: null,
+          updatedInChat: topic.id === inChat,
+        }
       : topic,
   );
   for (;;) {
@@ -400,7 +411,13 @@ export function markDependents(topics: TopicRecord[], changed: readonly TopicId[
       if (cause === undefined) return topic;
       touched.add(topic.id);
       moved = true;
-      return { ...topic, confirmed: false, review: true, changedDependency: cause };
+      return {
+        ...topic,
+        confirmed: false,
+        review: true,
+        changedDependency: cause,
+        updatedInChat: false,
+      };
     });
     if (!moved) return next;
   }
@@ -503,7 +520,8 @@ function closedStatusText(record: PrdRecord, topic: TopicRecord): string {
 function reviewLead(record: PrdRecord, topic: TopicRecord): string {
   if (topic.gapClosed) return "Gap closed";
   const changed = record.topics.find((other) => other.id === topic.changedDependency);
-  return changed ? `Updated because ${changed.title} changed` : "Reopened";
+  if (changed) return `Updated because ${changed.title} changed`;
+  return topic.updatedInChat ? "Updated in its chat" : "Reopened";
 }
 
 export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): string | null {

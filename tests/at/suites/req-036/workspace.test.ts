@@ -529,7 +529,10 @@ atTest(
         const list = await prd.topics.listText();
         for (const state of STATES) expect(list, `the board shows ${state}`).toContain(state);
         expect(list, "a ready topic says Priya can confirm").toContain(READY_BLOCKER);
-        expect(list, "a reopened topic says Priya reviews again").toContain(REVIEW_BLOCKER);
+        expect(
+          list,
+          "a topic sent back by a changed dependency says Priya reviews again",
+        ).toContain(REVIEW_BLOCKER);
         expect(list, "the shift questions are the blocker").toContain(SHIFT_BLOCKER);
         expect(list, "Maya's open answer is the blocker").toContain(MAYA_BLOCKER);
         expect(list, "an unposted question is the blocker").toContain(UNPOSTED_BLOCKER);

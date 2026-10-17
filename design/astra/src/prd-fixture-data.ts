@@ -222,6 +222,7 @@ function topicRecord(
     gap: null,
     gapClosed: false,
     changedDependency: null,
+    updatedInChat: false,
     ngoBody: null,
     added: [],
     stories: null,
@@ -985,6 +986,7 @@ export function prdTodayRecord(now: Date): PrdRecord {
       topicRecord(TOPIC.scope, {
         aiReady: true,
         review: true,
+        changedDependency: TOPIC.shifts,
         body: [],
         sources: ["Tuesday’s chat", "today’s answers"],
       }),

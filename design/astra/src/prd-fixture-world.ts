@@ -145,6 +145,7 @@ function runCheck(record: PrdRecord): { gaps: number; checkId: string } {
           gap: gap.text,
           gapClosed: false,
           changedDependency: null,
+          updatedInChat: false,
           confirmed: false,
           review: true,
         }
@@ -207,9 +208,13 @@ function confirmCheckFinish(record: PrdRecord, at: string, id: string): PrdRecor
   return next;
 }
 
-function revise(record: PrdRecord, changed: readonly TopicId[]): void {
+function revise(
+  record: PrdRecord,
+  changed: readonly TopicId[],
+  inChat: TopicId | null = null,
+): void {
   record.revision += 1;
-  record.topics = markDependents(record.topics, changed);
+  record.topics = markDependents(record.topics, changed, inChat);
 }
 
 /** Validates a chat send and records its start: the person's message, the held funds, and the busy chat. */
@@ -387,7 +392,7 @@ function finishSend(
       }
       next.topics = rewriteSections(next);
       parts = textParts(answersReply(next));
-      revise(next, [TOPIC.shifts, TOPIC.scope]);
+      revise(next, [TOPIC.shifts, TOPIC.scope], TOPIC.shifts);
       event("Shift scheduling rules and Technical scope updated in its section chat", TOPIC.shifts);
     } else {
       const text = intent.kind === "text" ? intent.text : "";
@@ -412,7 +417,7 @@ function finishSend(
             ? { ...item, drafted: true, added: [...item.added, clean(text)] }
             : item,
         );
-        revise(next, [topic.id]);
+        revise(next, [topic.id], topic.id);
         event(`${topic.title} updated in its section chat`, topic.id);
       }
     }
@@ -534,7 +539,14 @@ export function applyAction(
       if (block) return refusal(block.kind, block.reason);
       next.topics = next.topics.map((item) =>
         item.id === topic.id
-          ? { ...item, confirmed: true, review: false, gapClosed: false, changedDependency: null }
+          ? {
+              ...item,
+              confirmed: true,
+              review: false,
+              gapClosed: false,
+              changedDependency: null,
+              updatedInChat: false,
+            }
           : item,
       );
       next.versions = spend(next.versions, target);
@@ -569,7 +581,14 @@ export function applyAction(
       if (!topic || !topic.confirmed) return stale;
       next.topics = next.topics.map((item) =>
         item.id === topic.id
-          ? { ...item, confirmed: false, review: true, gapClosed: false, changedDependency: null }
+          ? {
+              ...item,
+              confirmed: false,
+              review: true,
+              gapClosed: false,
+              changedDependency: null,
+              updatedInChat: false,
+            }
           : item,
       );
       next.versions = spend(next.versions, target);

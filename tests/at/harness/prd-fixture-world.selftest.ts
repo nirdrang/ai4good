@@ -753,7 +753,7 @@ describe("the PRD fixture world", () => {
       "The AI checked this section: every decision is recorded. Ready for Priya to confirm.",
     );
     expect(topic(today, "scope").statusText).toBe(
-      "Reopened. It waits on Shift scheduling rules before Priya can confirm it.",
+      "Updated because Shift scheduling rules changed. It waits on Shift scheduling rules before Priya can confirm it.",
     );
     const devToday = await snap(open("prd-today").dev);
     expect(topic(devToday, "notify").statusText).toBe(
@@ -1127,6 +1127,29 @@ describe("the PRD fixture world", () => {
     expect(scopeNgo.statusText).toBe(`${lead}. Ready for Priya to confirm again.`);
     expect(scopeNgo.blocker).toBe(line);
     expect(topic(await snap(dev), "shifts").statusText).not.toContain("Updated because");
+  });
+
+  it("says a confirmed section Priya changed in its own chat was updated in its chat, not reopened", async () => {
+    const { dev, ngo } = open("check-passed");
+    await deliver(dev, SHIFTS, { kind: "text", text: "Swaps: volunteers cancel instead" });
+    const line = "Updated in its chat · Priya reviews and confirms again";
+    const shiftsDev = topic(await snap(dev), "shifts");
+    expect(shiftsDev.state).toBe("needs-review");
+    expect(shiftsDev.statusText).toBe("Updated in its chat. Read it again and confirm.");
+    expect(shiftsDev.blocker).toBe(line);
+    const shiftsNgo = topic(await snap(ngo), "shifts");
+    expect(shiftsNgo.statusText).toBe("Updated in its chat. Ready for Priya to confirm again.");
+    expect(shiftsNgo.blocker).toBe(line);
+    expect((await dev.act(confirmAction(await snap(dev), "shifts"))).ok).toBe(true);
+    const reopen = topic(await snap(dev), "shifts").reopen;
+    if (reopen.kind !== "available") throw new Error("shifts cannot be reopened");
+    expect((await dev.act(reopen.action)).ok).toBe(true);
+    expect(topic(await snap(dev), "shifts").statusText).toBe(
+      "Reopened. Read it again and confirm.",
+    );
+    expect(topic(await snap(ngo), "shifts").blocker).toBe(
+      "Reopened · Priya reviews and confirms again",
+    );
   });
 
   it("opens a section chat with the state of the blocking question the section waits on", async () => {
