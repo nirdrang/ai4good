@@ -149,6 +149,8 @@ export function usePrdWorkspace(
   const [place, setPlace] = useState<Place>(() =>
     placeOf(startAt, { center: MAIN_CENTER, aside: LIST, tab: "chat" }),
   );
+  const placeRef = useRef(place);
+  placeRef.current = place;
   const [answeredOpen, setAnsweredOpen] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => ({ ...initial.drafts }));
   const draftsRef = useRef(drafts);
@@ -524,7 +526,11 @@ export function usePrdWorkspace(
     },
     act,
     async completeAnswer(action) {
-      if (await act(action)) select({ kind: "questions" });
+      const pressedAt = placeRef.current;
+      if (!(await act(action))) return;
+      setPlace((current) =>
+        current === pressedAt ? placeOf({ kind: "questions" }, current) : current,
+      );
     },
     useAnswer(questionId) {
       const question = snapRef.current.questions.find((entry) => entry.id === questionId);

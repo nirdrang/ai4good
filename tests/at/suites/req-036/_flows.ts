@@ -102,7 +102,22 @@ export async function sideChatFlow(prd: PrdPage): Promise<void> {
     (enabled) => enabled,
     15_000,
   );
+  const waiting = await prd.phone.badge();
   await prd.side.complete();
+  if ((await prd.phone.barCount()) > 0) {
+    await prd.phone.tab("prd");
+    await eventually(
+      "the answer is written while Maya reads the PRD",
+      () => prd.phone.badge(),
+      (badge) => badge !== waiting,
+      15_000,
+    );
+    expect(await prd.phone.current(), "a tab chosen while the answer is written stays chosen").toBe(
+      "prd",
+    );
+    await prd.phone.tab("questions");
+    await prd.side.back();
+  }
   await prd.phone.tab("questions");
   await eventually(
     "the sent answer is the clean retention rule",
