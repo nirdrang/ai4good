@@ -1,12 +1,16 @@
 import { Check, ChevronRight, MessageSquare } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { COPY } from "./copy";
 import type { FundsView, PrdView } from "./model";
 import { testIds } from "./testids";
 import type { PrdController } from "./use-prd-workspace";
-import { BAND_BAR, BAND_TEXT, DEV_BUTTON, FOCUS, STATE_BADGE, TONE_TEXT } from "./ui";
+import { ACTION, BAND_BAR, BAND_TEXT, STATE_BADGE, TONE_TEXT } from "./ui";
 
-function Progress({ view }: { view: PrdView }) {
+function TopicProgress({ view }: { view: PrdView }) {
   const { confirmed, total } = view.progress;
   return (
     <div data-testid={testIds.prdTopicProgress} className="mt-2.5">
@@ -16,12 +20,12 @@ function Progress({ view }: { view: PrdView }) {
         </strong>{" "}
         {COPY.progressTail}
       </div>
-      <div aria-hidden="true" className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-2 bg-funds-ok"
-          style={{ width: `${total > 0 ? Math.round((confirmed / total) * 100) : 0}%` }}
-        />
-      </div>
+      <Progress
+        aria-hidden="true"
+        value={total > 0 ? Math.round((confirmed / total) * 100) : 0}
+        className="mt-2 bg-muted"
+        indicatorClassName="bg-funds-ok"
+      />
     </div>
   );
 }
@@ -29,11 +33,11 @@ function Progress({ view }: { view: PrdView }) {
 function ClosePanel({ view, controller }: { view: PrdView; controller: PrdController }) {
   const close = view.close;
   return (
-    <div
+    <Card
       data-testid={testIds.prdClosePanel}
       className={cn(
-        "flex flex-col gap-2 rounded-xl border px-3 py-2.5",
-        close.ready ? "border-funds-ok/40 bg-funds-ok/10" : "border-border bg-background",
+        "flex flex-col gap-2 px-3 py-2.5",
+        close.ready ? "border-funds-ok/40 bg-funds-ok/10" : "",
       )}
     >
       <div className="text-xs font-bold text-foreground">{close.title}</div>
@@ -50,27 +54,28 @@ function ClosePanel({ view, controller }: { view: PrdView; controller: PrdContro
         </ul>
       ) : null}
       {close.action ? (
-        <button
+        <Button
           type="button"
+          variant="dev"
           data-testid={testIds.prdCloseButton}
           aria-disabled={controller.acting}
           onClick={() => {
             if (!controller.acting) void controller.closePrd();
           }}
-          className={cn(DEV_BUTTON, "min-h-10 text-sm")}
+          className={cn(ACTION, "min-h-10 text-sm")}
         >
           {COPY.closePrd}
-        </button>
+        </Button>
       ) : close.reason ? (
         <div className="text-xs text-muted-foreground">{close.reason}</div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 function Gauge({ funds }: { funds: FundsView }) {
   return (
-    <div data-testid={testIds.prdUsdGauge} className="rounded-xl border border-border p-3">
+    <Card data-testid={testIds.prdUsdGauge} className="p-3">
       <div className="text-xs font-semibold text-foreground">{COPY.funds}</div>
       <div aria-hidden="true" className="my-2 flex h-2 overflow-hidden rounded-full bg-muted">
         <div
@@ -98,7 +103,7 @@ function Gauge({ funds }: { funds: FundsView }) {
           {COPY.fundsOut}
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
@@ -115,8 +120,7 @@ function TopicList({
   const onMain = center.kind === "main";
   const itemClass = (selected: boolean) =>
     cn(
-      "flex w-full flex-col gap-1 rounded-xl border px-3 py-2.5 text-left hover:bg-muted/60",
-      FOCUS,
+      "h-auto w-full flex-col items-stretch justify-start gap-1 whitespace-normal rounded-xl px-3 py-2.5 text-left font-normal shadow-none hover:bg-muted/60 hover:text-foreground",
       phone ? "min-h-[52px]" : "",
       selected ? "border-foreground bg-muted/60" : "border-border bg-background",
     );
@@ -128,45 +132,48 @@ function TopicList({
     >
       {phone ? null : (
         <li>
-          <button
+          <Button
             type="button"
+            variant="outline"
             data-testid={testIds.prdMainChatItem}
             aria-pressed={onMain}
             onClick={() => controller.select({ kind: "main" })}
-            className={cn(itemClass(onMain), "flex-row items-center gap-2")}
+            className={cn(itemClass(onMain), "flex-row items-center gap-2 [&_svg]:size-3.5")}
           >
-            <MessageSquare aria-hidden="true" className="size-3.5" />
+            <MessageSquare aria-hidden="true" />
             <span className="flex-1 text-sm font-semibold">{COPY.mainChat}</span>
-          </button>
+          </Button>
         </li>
       )}
       {view.topics.map(({ topic, label, blockerTone }) => {
         const selected = center.kind === "topic" && center.topicId === topic.id;
         return (
           <li key={topic.id}>
-            <button
+            <Button
               type="button"
+              variant="outline"
               data-testid={testIds.prdTopicItem}
               aria-pressed={phone ? undefined : selected}
               onClick={() => controller.select({ kind: "topic", topicId: topic.id })}
-              className={itemClass(!phone && selected)}
+              className={cn(itemClass(!phone && selected), "[&_svg]:size-3.5")}
             >
               <span className="flex w-full items-center gap-2">
                 <span className="flex-1 text-sm font-semibold text-foreground">{topic.title}</span>
-                <span
+                <Badge
                   data-testid={testIds.prdTopicState}
+                  variant="outline"
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                    "gap-1 rounded-full px-2 text-[11px] [&_svg]:size-3!",
                     STATE_BADGE[topic.state],
                   )}
                 >
                   {topic.state === "confirmed" ? (
-                    <Check aria-hidden="true" className="size-3" strokeWidth={3} />
+                    <Check aria-hidden="true" strokeWidth={3} />
                   ) : null}
                   {label}
-                </span>
+                </Badge>
                 {phone ? (
-                  <ChevronRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                  <ChevronRight aria-hidden="true" className="text-muted-foreground" />
                 ) : null}
               </span>
               {topic.blocker ? (
@@ -177,7 +184,7 @@ function TopicList({
                   {topic.blocker}
                 </span>
               ) : null}
-            </button>
+            </Button>
           </li>
         );
       })}
@@ -203,7 +210,7 @@ export function PrdPanel({
             {COPY.revision(view.snapshot.revision)}
           </span>
         </div>
-        <Progress view={view} />
+        <TopicProgress view={view} />
       </div>
       <ClosePanel view={view} controller={controller} />
       <TopicList view={view} controller={controller} phone={phone} />

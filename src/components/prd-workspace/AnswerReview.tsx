@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { scopeKey, type QuestionId } from "@/lib/prd-stream";
 import { cn } from "@/lib/utils";
 import { useGrowingField } from "./fields";
@@ -5,12 +7,10 @@ import { COPY } from "./copy";
 import { topicTitle, type PrdView } from "./model";
 import { testIds } from "./testids";
 import { reviewKeys, type PrdController } from "./use-prd-workspace";
-import { DEV_BUTTON, FOCUS, LINK_BUTTON } from "./ui";
+import { ACTION, LINK } from "./ui";
 
-const FIELD = cn(
-  "resize-none rounded-lg border border-input bg-background px-2.5 py-2 text-sm font-normal leading-snug text-foreground placeholder:text-muted-foreground max-md:text-base",
-  FOCUS,
-);
+const FIELD =
+  "min-h-0 resize-none rounded-lg bg-background px-2.5 py-2 font-normal leading-snug text-foreground";
 
 export function AnswerReview({
   questionId,
@@ -42,14 +42,15 @@ export function AnswerReview({
   const usable = question.canUse && !controller.answerQueued(question.id);
   return (
     <div data-testid={testIds.prdAnswerReview} className="flex flex-col gap-2.5">
-      <button
+      <Button
         type="button"
+        variant="link"
         aria-label={COPY.allQuestionsName}
         onClick={() => controller.select({ kind: "questions" })}
-        className={cn(LINK_BUTTON, "self-start px-1 max-md:text-sm")}
+        className={cn(LINK, "self-start px-1 max-md:text-sm")}
       >
         {COPY.allQuestions}
-      </button>
+      </Button>
       <div>
         <div className="flex flex-wrap gap-1.5 text-[11px]">
           <span className="text-muted-foreground">{title}</span>
@@ -69,7 +70,7 @@ export function AnswerReview({
       </div>
       <label className="flex flex-col gap-1 text-sm text-foreground/80">
         <span className="text-xs font-bold">{COPY.reviewAnswer(names.ngo)}</span>
-        <textarea
+        <Textarea
           ref={answerField}
           rows={2}
           data-testid={testIds.prdAnswerReviewAnswer}
@@ -88,7 +89,7 @@ export function AnswerReview({
       </dl>
       <label className="flex flex-col gap-1 text-sm text-foreground/80">
         <span className="text-xs font-bold">{COPY.reviewNote}</span>
-        <textarea
+        <Textarea
           ref={noteField}
           rows={1}
           data-testid={testIds.prdAnswerReviewNote}
@@ -98,17 +99,18 @@ export function AnswerReview({
           className={FIELD}
         />
       </label>
-      <button
+      <Button
         type="button"
+        variant="dev"
         data-testid={testIds.prdAnswerReviewClaim}
         aria-disabled={!usable}
         onClick={() => {
           if (usable) controller.useAnswer(question.id);
         }}
-        className={cn(DEV_BUTTON, "min-h-10 text-sm")}
+        className={cn(ACTION, "min-h-10 text-sm")}
       >
         {COPY.useAnswer}
-      </button>
+      </Button>
       <div className="text-xs text-muted-foreground">{COPY.reviewHint}</div>
     </div>
   );

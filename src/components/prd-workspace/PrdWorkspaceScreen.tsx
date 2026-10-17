@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Alert } from "@/components/ui/alert";
 import type { PrdSnapshot } from "@/lib/prd-stream";
 import { useIsPhone } from "../discovery/use-is-phone";
 import { COPY } from "./copy";
@@ -83,12 +84,12 @@ export function PrdWorkspaceScreen({ port, start, onOpenUiDesign }: PrdWorkspace
   }
   if (loaded.kind === "failed") {
     return (
-      <div
-        role="alert"
-        className="rounded-xl border border-destructive/40 p-4 text-sm text-destructive"
+      <Alert
+        variant="destructive"
+        className="rounded-xl border-destructive/40 p-4 dark:border-destructive/40"
       >
         {COPY.loadFailed} {loaded.reason}
-      </div>
+      </Alert>
     );
   }
   return (

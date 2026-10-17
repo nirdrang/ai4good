@@ -1,9 +1,11 @@
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { COPY } from "./copy";
 import type { PrdView, QuestionView } from "./model";
 import { testIds } from "./testids";
 import type { PrdController } from "./use-prd-workspace";
-import { DEV_BUTTON, FOCUS, LINK_BUTTON, PLAIN_BUTTON, TONE_TEXT } from "./ui";
+import { ACTION, LINK, TONE_TEXT } from "./ui";
 
 function Participants({ view }: { view: PrdView }) {
   const color = { ai: "bg-actor-ai", dev: "bg-actor-dev", ngo: "bg-actor-ngo" } as const;
@@ -54,14 +56,14 @@ function QuestionItem({
       data-status={question.kind}
       className={cn("overflow-hidden rounded-xl border bg-background", frame)}
     >
-      <button
+      <Button
         type="button"
+        variant="ghost"
         data-testid={testIds.prdNgoQuestionOpen}
         onClick={() => controller.openQuestion(question.id, !phone)}
         className={cn(
-          "block w-full px-3 py-2.5 text-left hover:bg-muted/60",
+          "block h-auto w-full whitespace-normal rounded-none px-3 py-2.5 text-left font-normal hover:bg-muted/60 hover:text-foreground",
           phone ? "min-h-[52px]" : "",
-          FOCUS,
         )}
       >
         <span className="flex flex-wrap gap-1.5 text-[11px]">
@@ -90,41 +92,44 @@ function QuestionItem({
             <strong className={TONE_TEXT[entry.statusTone]}>{entry.sentLabel}</strong> {entry.sent}
           </span>
         )}
-      </button>
+      </Button>
       {entry.sent !== null ? (
         <div className="border-t border-border px-3 py-1">
-          <button
+          <Button
             type="button"
+            variant="link"
             data-testid={testIds.prdNgoQuestionSection}
             onClick={() => controller.select({ kind: "topic", topicId: question.topicId })}
-            className={cn(LINK_BUTTON, "font-semibold max-md:text-sm")}
+            className={cn(LINK, "font-semibold max-md:text-sm")}
           >
             {COPY.openSection(entry.topicTitle)}
-          </button>
+          </Button>
         </div>
       ) : null}
       {entry.canView ? (
         <div className="flex border-t border-actor-dev-line">
-          <button
+          <Button
             type="button"
+            variant="outline"
             data-testid={testIds.prdNgoQuestionView}
             onClick={() => controller.select({ kind: "review", questionId: question.id })}
             className={cn(
-              PLAIN_BUTTON,
-              "min-h-10 flex-1 rounded-none border-0 border-r border-actor-dev-line text-sm text-actor-dev",
+              ACTION,
+              "min-h-10 flex-1 rounded-none border-0 border-r border-actor-dev-line text-sm text-actor-dev shadow-none hover:text-actor-dev",
             )}
           >
             {COPY.viewAnswer}
-          </button>
+          </Button>
           {entry.canUse && !controller.answerQueued(question.id) ? (
-            <button
+            <Button
               type="button"
+              variant="dev"
               data-testid={testIds.prdNgoQuestionClaim}
               onClick={() => controller.useAnswer(question.id)}
-              className={cn(DEV_BUTTON, "min-h-10 flex-1 rounded-none text-sm")}
+              className={cn(ACTION, "min-h-10 flex-1 rounded-none text-sm shadow-none")}
             >
               {COPY.useAnswer}
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -158,27 +163,29 @@ export function QuestionsPanel({
           ))}
         </ul>
         {view.answered.length > 0 ? (
-          <>
-            <button
-              type="button"
-              data-testid={testIds.prdAnsweredToggle}
-              aria-expanded={controller.answeredOpen}
-              onClick={() => controller.toggleAnswered()}
-              className={cn(LINK_BUTTON, "mt-3 font-semibold max-md:text-sm")}
-            >
-              {COPY.answered(controller.answeredOpen, view.answered.length)}
-            </button>
-            {controller.answeredOpen ? (
+          <Collapsible
+            open={controller.answeredOpen}
+            onOpenChange={() => controller.toggleAnswered()}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="link"
+                data-testid={testIds.prdAnsweredToggle}
+                className={cn(LINK, "mt-3 font-semibold max-md:text-sm")}
+              >
+                {COPY.answered(controller.answeredOpen, view.answered.length)}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent asChild>
               <ul data-testid={testIds.prdAnsweredList} className="mt-1 flex flex-col gap-1.5">
                 {view.answered.map((entry) => (
                   <li key={entry.question.id} data-testid={testIds.prdAnsweredQuestion}>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => controller.openAnswered(entry.question.id)}
-                      className={cn(
-                        "block w-full rounded-xl border border-border bg-muted/40 px-2.5 py-2 text-left hover:bg-muted max-md:min-h-11",
-                        FOCUS,
-                      )}
+                      className="block h-auto w-full whitespace-normal rounded-xl border-border bg-muted/40 px-2.5 py-2 text-left font-normal shadow-none hover:bg-muted hover:text-foreground max-md:min-h-11"
                     >
                       <span className="block text-[11px] text-muted-foreground">
                         {COPY.answeredMeta(entry.topicTitle)}
@@ -189,12 +196,12 @@ export function QuestionsPanel({
                         ) : null}
                         {entry.question.kind === "used" ? entry.question.answer : ""}
                       </span>
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
-            ) : null}
-          </>
+            </CollapsibleContent>
+          </Collapsible>
         ) : null}
       </div>
     </>

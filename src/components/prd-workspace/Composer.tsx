@@ -1,10 +1,12 @@
 import { ArrowUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { submitOnEnter, useGrowingField } from "./fields";
 import { COPY } from "./copy";
 import type { QueuedItem } from "./outbox";
 import { testIds } from "./testids";
-import { FOCUS, LINK_BUTTON } from "./ui";
+import { LINK } from "./ui";
 
 export function SendButton({
   testId,
@@ -20,8 +22,10 @@ export function SendButton({
   onSend(): void;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant={tone}
+      size="icon"
       data-testid={testId}
       aria-label={label}
       title={label}
@@ -30,17 +34,14 @@ export function SendButton({
         if (enabled) onSend();
       }}
       className={cn(
-        "flex size-11 shrink-0 items-center justify-center rounded-full text-actor-on",
-        FOCUS,
+        "size-11 shrink-0 rounded-full [&_svg]:size-[18px]",
         enabled
-          ? tone === "dev"
-            ? "bg-actor-dev"
-            : "bg-actor-ngo"
-          : "cursor-not-allowed bg-muted-foreground/40",
+          ? ""
+          : "cursor-not-allowed bg-muted-foreground/40 shadow-none hover:bg-muted-foreground/40",
       )}
     >
-      <ArrowUp aria-hidden="true" className="size-[18px]" strokeWidth={2.5} />
-    </button>
+      <ArrowUp aria-hidden="true" strokeWidth={2.5} />
+    </Button>
   );
 }
 
@@ -98,29 +99,31 @@ export function Composer({
             >
               <span className="min-w-0 flex-1 truncate">{item.text}</span>
               {canEdit && item.intent.kind === "text" ? (
-                <button
+                <Button
                   type="button"
+                  variant="link"
                   data-testid={testIds.prdQueueEdit}
                   onClick={() => onEdit(item.id)}
-                  className={cn(LINK_BUTTON, "px-1.5")}
+                  className={cn(LINK, "px-1.5")}
                 >
                   {COPY.edit}
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button
                 type="button"
+                variant="link"
                 data-testid={testIds.prdQueueRemove}
                 onClick={() => onRemove(item.id)}
-                className={cn(LINK_BUTTON, "px-1.5 text-destructive")}
+                className={cn(LINK, "px-1.5 text-destructive hover:text-destructive")}
               >
                 {COPY.remove}
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       ) : null}
       <div className="flex items-end gap-2.5">
-        <textarea
+        <Textarea
           ref={field}
           rows={1}
           data-testid={testIds.prdComposerInput}
@@ -129,10 +132,7 @@ export function Composer({
           value={text}
           onChange={(event) => onText(event.target.value)}
           onKeyDown={(event) => submitOnEnter(event, () => enabled && onSend())}
-          className={cn(
-            "min-w-0 flex-1 resize-none rounded-lg border border-input bg-background px-2.5 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground max-md:text-base",
-            FOCUS,
-          )}
+          className="min-h-0 min-w-0 flex-1 resize-none rounded-lg bg-background px-2.5 py-2 leading-5 text-foreground"
         />
         <SendButton
           testId={testIds.prdSendButton}

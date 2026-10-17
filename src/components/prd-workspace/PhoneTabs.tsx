@@ -1,10 +1,10 @@
 import { CircleHelp, FileText, MessageSquare, type LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { COPY } from "./copy";
 import type { PrdView } from "./model";
 import { testIds } from "./testids";
 import type { PhoneTab } from "./use-prd-workspace";
-import { FOCUS } from "./ui";
 
 export function PhoneTabs({
   view,
@@ -39,21 +39,21 @@ export function PhoneTabs({
       {tabs.map(({ tab, testId, label, Icon }) => {
         const active = tab === current;
         return (
-          <button
+          <Button
             key={tab}
             type="button"
+            variant="ghost"
             data-testid={testId}
             aria-current={active ? "page" : undefined}
             onClick={() => onTab(tab)}
             className={cn(
-              "relative flex min-h-11 flex-col items-center justify-center gap-1 border-t-2 text-[11px] font-semibold",
-              FOCUS,
+              "relative h-auto min-h-11 flex-col gap-1 rounded-none border-t-2 px-0 py-0 text-[11px] font-semibold hover:bg-transparent [&_svg]:size-5",
               active
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground",
+                ? "border-foreground text-foreground hover:text-foreground"
+                : "border-transparent text-muted-foreground hover:text-muted-foreground",
             )}
           >
-            <Icon aria-hidden="true" className="size-5" />
+            <Icon aria-hidden="true" />
             <span className="block whitespace-nowrap leading-[14px]">{label}</span>
             {tab === "questions" && view.badge > 0 ? (
               <span
@@ -66,7 +66,7 @@ export function PhoneTabs({
                 {view.badge}
               </span>
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </nav>

@@ -10,12 +10,14 @@ import {
   type QuestionId,
   type TopicId,
 } from "@/lib/prd-stream";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { COPY, dayLabel } from "./copy";
 import { testIds } from "./testids";
 import { topicTitle, questionStatusText, type PrdView } from "./model";
 import { introElementId, turnElementId, type PrdController } from "./use-prd-workspace";
-import { DEV_BUTTON, FOCUS, LINK_BUTTON, NGO_BUTTON, PLAIN_BUTTON } from "./ui";
+import { ACTION, LINK } from "./ui";
 
 type Part = PrdUIMessage["parts"][number];
 
@@ -72,14 +74,15 @@ function EventChip({
     >
       {text}
       {topicId !== null ? (
-        <button
+        <Button
           type="button"
+          variant="link"
           data-testid={testIds.prdOpenSectionChat}
           onClick={() => onOpen(topicId)}
-          className={cn(LINK_BUTTON, "font-bold text-actor-dev")}
+          className={cn(LINK, "font-bold text-actor-dev hover:text-actor-dev")}
         >
           {COPY.openLink}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -121,27 +124,29 @@ function IntroCard({
       <div className="text-[11px] font-bold text-actor-ngo">{heading}</div>
       <div className="text-sm font-semibold text-foreground">{question.text}</div>
       {canAnswer ? (
-        <button
+        <Button
           type="button"
+          variant="ngo"
           data-testid={testIds.prdNgoQuestionAnswer}
           onClick={() => controller.openQuestion(question.id, false)}
-          className={cn(NGO_BUTTON, "mt-2")}
+          className={cn(ACTION, "mt-2")}
         >
           {COPY.answerIt}
-        </button>
+        </Button>
       ) : null}
       {post ? (
-        <button
+        <Button
           type="button"
+          variant="dev"
           data-testid={testIds.prdPostQuestion}
           aria-disabled={controller.acting}
           onClick={() => {
             if (!controller.acting) void controller.act(post);
           }}
-          className={cn(DEV_BUTTON, "mt-2")}
+          className={cn(ACTION, "mt-2")}
         >
           {COPY.postTo(names.ngo)}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -177,14 +182,18 @@ function CheckGaps({
           {!current ? null : gap.fixed ? (
             <div className="mt-1.5 text-xs font-semibold text-funds-ok">{COPY.gapClosed}</div>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
               data-testid={testIds.prdCheckGapOpen}
               onClick={() => controller.select({ kind: "topic", topicId: gap.topicId })}
-              className={cn(PLAIN_BUTTON, "mt-2 border-destructive text-destructive")}
+              className={cn(
+                ACTION,
+                "mt-2 border-destructive text-destructive hover:text-destructive",
+              )}
             >
               {COPY.openGap(gap.title)}
-            </button>
+            </Button>
           )}
         </li>
       ))}
@@ -217,14 +226,15 @@ function AiPart({
     case "data-section-link": {
       const topicId = part.data.topicId;
       return (
-        <button
+        <Button
           type="button"
+          variant="outline"
           data-testid={testIds.prdOpenSectionChat}
           onClick={() => controller.select({ kind: "topic", topicId })}
-          className={cn(PLAIN_BUTTON, "mb-2 mt-0.5 border-actor-dev text-actor-dev")}
+          className={cn(ACTION, "mb-2 mt-0.5 border-actor-dev text-actor-dev hover:text-actor-dev")}
         >
           {COPY.openTopicChat(topicTitle(view.snapshot, topicId))}
-        </button>
+        </Button>
       );
     }
     case "data-ngo-question":
@@ -244,58 +254,61 @@ function AiPart({
       const { closeAnyway, keepWorking } = part.data;
       return (
         <div data-testid={testIds.prdCloseWarning} className="mb-2 mt-1 flex flex-wrap gap-2">
-          <button
+          <Button
             type="button"
+            variant="dev"
             data-testid={testIds.prdCloseAnyway}
             aria-disabled={controller.acting}
             onClick={() => {
               if (!controller.acting) void controller.act(closeAnyway);
             }}
-            className={DEV_BUTTON}
+            className={ACTION}
           >
             {COPY.closeAnyway}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             data-testid={testIds.prdCloseKeep}
             aria-disabled={controller.acting}
             onClick={() => {
               if (!controller.acting) void controller.act(keepWorking);
             }}
-            className={PLAIN_BUTTON}
+            className={ACTION}
           >
             {COPY.keepWorking}
-          </button>
+          </Button>
         </div>
       );
     }
     case "data-recommendation": {
       const close = part.data.close;
       return (
-        <div
+        <Card
           data-testid={testIds.prdRecommendation}
-          className="my-2 rounded-xl border border-actor-ai/30 bg-actor-ai-soft px-3.5 py-3"
+          className="my-2 border-actor-ai/30 bg-actor-ai-soft px-3.5 py-3"
         >
           <div className="text-sm font-bold text-foreground">{COPY.closeThePrd}</div>
           <div className="mb-2.5 mt-1 text-xs text-muted-foreground">
             {COPY.closeReason(part.data.revision)}
           </div>
           {view.isDev ? (
-            <button
+            <Button
               type="button"
+              variant="dev"
               data-testid={testIds.prdCloseButton}
               aria-disabled={controller.acting}
               onClick={() => {
                 if (!controller.acting) void controller.act(close);
               }}
-              className={cn(DEV_BUTTON, "min-h-10 text-sm")}
+              className={cn(ACTION, "min-h-10 text-sm")}
             >
               {COPY.closePrd}
-            </button>
+            </Button>
           ) : (
             <div className="text-xs text-muted-foreground">{view.close.reason}</div>
           )}
-        </div>
+        </Card>
       );
     }
     default:
@@ -501,11 +514,7 @@ function DevQuestions({
   return (
     <div className="flex flex-col gap-2.5 md:ml-9">
       {questions.map((question) => (
-        <div
-          key={question.id}
-          data-testid={testIds.prdQuestion}
-          className="rounded-xl border border-border bg-background px-3.5 py-3"
-        >
+        <Card key={question.id} data-testid={testIds.prdQuestion} className="px-3.5 py-3">
           <strong className="block text-sm">{question.text}</strong>
           <div className="mb-2.5 mt-1 text-xs text-muted-foreground">
             {COPY.whyNow(question.why)}
@@ -514,19 +523,19 @@ function DevQuestions({
             {question.options.map((option) => {
               const pressed = controller.picks[question.id] === option;
               return (
-                <button
+                <Button
                   key={option}
                   type="button"
+                  variant={pressed ? "dev" : "outline"}
                   data-testid={testIds.prdQuestionOption}
                   aria-pressed={pressed}
                   disabled={!writable}
                   onClick={() => controller.pick(question.id, option)}
                   className={cn(
-                    "inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-left text-xs disabled:cursor-default max-md:min-h-11 max-md:text-sm md:rounded-full",
-                    FOCUS,
+                    "h-auto min-h-9 justify-start gap-1.5 whitespace-normal rounded-lg border px-3 py-0 text-left text-xs font-normal disabled:cursor-default disabled:opacity-100 max-md:min-h-11 max-md:text-sm md:rounded-full",
                     pressed
-                      ? "border-actor-dev bg-actor-dev text-actor-on"
-                      : "border-input bg-background text-foreground hover:border-muted-foreground",
+                      ? "border-actor-dev"
+                      : "hover:border-muted-foreground hover:bg-background hover:text-foreground",
                   )}
                 >
                   <span className="flex-1">{option}</span>
@@ -535,11 +544,11 @@ function DevQuestions({
                       {COPY.suggested}
                     </span>
                   ) : null}
-                </button>
+                </Button>
               );
             })}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );

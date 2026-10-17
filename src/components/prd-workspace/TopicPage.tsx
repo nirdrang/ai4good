@@ -1,5 +1,10 @@
 import { useChat } from "@ai-sdk/react";
 import { useLayoutEffect, useRef } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { scopeKey, type Topic, type TopicId } from "@/lib/prd-stream";
 import { cn } from "@/lib/utils";
 import { SendButton } from "./Composer";
@@ -9,7 +14,7 @@ import { COPY } from "./copy";
 import { actionOf, reasonOf, type PrdView } from "./model";
 import { testIds } from "./testids";
 import type { PrdController } from "./use-prd-workspace";
-import { DEV_BUTTON, FOCUS, LINK_BUTTON, PLAIN_BUTTON, STATE_BADGE } from "./ui";
+import { ACTION, LINK, STATE_BADGE } from "./ui";
 
 function TopicDocument({
   topic,
@@ -38,23 +43,24 @@ function TopicDocument({
     testId: string,
     primary: boolean,
   ) => (
-    <button
+    <Button
       type="button"
+      variant={primary ? "dev" : "outline"}
       data-testid={testId}
       aria-disabled={controller.acting}
       onClick={() => {
         if (!controller.acting) void controller.act(action);
       }}
-      className={cn(primary ? DEV_BUTTON : PLAIN_BUTTON, "min-h-10 text-sm", phone ? "w-full" : "")}
+      className={cn(ACTION, "min-h-10 text-sm", phone ? "w-full" : "")}
     >
       {text}
-    </button>
+    </Button>
   );
   return (
-    <div
+    <Card
       data-testid={testIds.prdSection}
       className={cn(
-        "flex shrink-0 flex-col gap-1.5 rounded-xl border border-input bg-muted/40 px-3.5 py-3",
+        "flex shrink-0 flex-col gap-1.5 border-input bg-muted/40 px-3.5 py-3",
         phone ? "mx-3 overflow-visible" : "max-h-[380px] overflow-y-auto",
       )}
     >
@@ -65,15 +71,13 @@ function TopicDocument({
         <strong className={cn("text-foreground", phone ? "flex-1 text-[15px]" : "text-base")}>
           {topic.title}
         </strong>
-        <span
+        <Badge
           data-testid={testIds.prdSectionState}
-          className={cn(
-            "rounded-full border px-2 py-0.5 text-[11px] font-semibold",
-            STATE_BADGE[topic.state],
-          )}
+          variant="outline"
+          className={cn("rounded-full px-2 text-[11px]", STATE_BADGE[topic.state])}
         >
           {label}
-        </span>
+        </Badge>
       </div>
       <ul
         data-testid={testIds.prdSectionText}
@@ -111,7 +115,7 @@ function TopicDocument({
         {reopen ? button(reopen, COPY.reopenSection, testIds.prdSectionReopen, false) : null}
         {reason ? <span className="text-xs text-muted-foreground">{reason}</span> : null}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -147,7 +151,7 @@ function TopicComposer({
         data-testid={testIds.prdSectionComposer}
         className="flex items-end gap-2.5 rounded-2xl border-2 border-actor-dev bg-background px-3 py-2 max-md:px-2.5 max-md:py-1.5"
       >
-        <textarea
+        <Textarea
           ref={field}
           rows={1}
           data-testid={testIds.prdSectionInput}
@@ -156,10 +160,7 @@ function TopicComposer({
           value={text}
           onChange={(event) => controller.setDraft(key, event.target.value)}
           onKeyDown={(event) => submitOnEnter(event, () => enabled && send())}
-          className={cn(
-            "min-w-0 flex-1 resize-none rounded-md bg-transparent px-1.5 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground max-md:text-base",
-            FOCUS,
-          )}
+          className="min-h-0 min-w-0 flex-1 resize-none border-0 px-1.5 py-2 leading-5 text-foreground shadow-none"
         />
         <SendButton
           testId={testIds.prdSectionSend}
@@ -192,9 +193,12 @@ export function TopicPage({
   if (!topic) return null;
   const writable = view.snapshot.canWrite[scopeKey({ kind: "topic", topicId })] === true;
   const readOnlyNote = !view.isDev ? (
-    <div className="shrink-0 rounded-xl border border-actor-ngo-line bg-actor-ngo-soft px-3 py-2.5 text-xs text-foreground/80 max-md:mx-2.5 max-md:mb-2.5">
+    <Alert
+      role={undefined}
+      className="w-auto shrink-0 rounded-xl border-actor-ngo-line bg-actor-ngo-soft px-3 py-2.5 text-xs text-foreground/80 max-md:mx-2.5 max-md:mb-2.5"
+    >
       {COPY.ngoTopicNote(view.names.dev)}
-    </div>
+    </Alert>
   ) : null;
   const footer = writable ? (
     <TopicComposer topic={topic} view={view} controller={controller} />
@@ -205,15 +209,16 @@ export function TopicPage({
     return (
       <>
         <div className="shrink-0 px-3 pt-1">
-          <button
+          <Button
             type="button"
+            variant="link"
             data-testid={testIds.prdSectionBack}
             aria-label={COPY.backToSectionsName}
             onClick={() => controller.closeTopic()}
-            className={cn(LINK_BUTTON, "px-1 text-sm")}
+            className={cn(LINK, "px-1 text-sm")}
           >
             {COPY.backToSections}
-          </button>
+          </Button>
         </div>
         <div
           ref={page}
