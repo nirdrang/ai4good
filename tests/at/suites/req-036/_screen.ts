@@ -271,6 +271,10 @@ export class PrdPage {
       return { confirmed: Number(match[1]), total: Number(match[2]) };
     },
     remainingCount: (): Promise<number> => this.page.count([byId(testIds.prdCloseRemainingItem)]),
+    remainingLinkCount: (text: string): Promise<number> =>
+      this.page.count([byId(testIds.prdCloseRemainingItem, text), { role: "button" }]),
+    openRemaining: (text: string): Promise<void> =>
+      this.press([byId(testIds.prdCloseRemainingItem, text), { role: "button" }], text),
     closeCount: (): Promise<number> =>
       this.page.count([byId(testIds.prdClosePanel), byId(testIds.prdCloseButton)]),
     close: (): Promise<void> =>
@@ -433,6 +437,9 @@ export class PrdPage {
     state: async (): Promise<string> =>
       (await this.page.text([byId(testIds.prdSectionState)])).trim(),
     storyCount: (): Promise<number> => this.page.count([byId(testIds.prdSectionStory)]),
+    changeCount: (): Promise<number> => this.page.count([byId(testIds.prdSectionChange)]),
+    changeText: async (): Promise<string> =>
+      (await this.page.text([byId(testIds.prdSectionChange)])).trim(),
     confirmCount: (): Promise<number> => this.page.count([byId(testIds.prdSectionConfirm)]),
     reopenCount: (): Promise<number> => this.page.count([byId(testIds.prdSectionReopen)]),
     composerCount: (): Promise<number> => this.page.count([byId(testIds.prdSectionInput)]),

@@ -51,6 +51,7 @@ export const testIds = {
   prdSectionStories: "prd-section-stories",
   prdSectionStory: "prd-section-story",
   prdSectionStatus: "prd-section-status",
+  prdSectionChange: "prd-section-change",
   prdSectionConfirm: "prd-section-confirm",
   prdSectionReopen: "prd-section-reopen",
   prdSectionChat: "prd-section-chat",

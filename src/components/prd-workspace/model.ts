@@ -5,6 +5,7 @@ import type {
   NgoQuestion,
   PrdSnapshot,
   PrdUIMessage,
+  RemainingItem,
   SendAvailability,
   Topic,
   TopicId,
@@ -53,7 +54,7 @@ export type QuestionView = Readonly<{
 export type CloseView = Readonly<{
   title: string;
   ready: boolean;
-  remaining: readonly string[];
+  remaining: readonly RemainingItem[];
   action: Action<"close"> | null;
   reason: string | null;
 }>;

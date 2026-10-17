@@ -65,6 +65,7 @@ export type Topic = Readonly<{
   statements: readonly string[];            // the document at its current revision, never history
   sources: readonly string[];
   stories: readonly string[] | null;        // technical scope only, numbered on screen
+  changeSummary: string | null;             // Needs review after a text change: what changed since the last confirmation
   confirm: Availability<Action<"confirm-topic">>;
   reopen: Availability<Action<"reopen-topic">>;
 }>;
@@ -102,8 +103,11 @@ export type SendAvailability =
   | { readonly kind: "unavailable"; readonly block: SendBlock; readonly reason: string };
 
 export type ClosePath = "close" | "check";                // check: Close PRD enqueues close-check on main
+export type RemainingTarget =                              // a subset of the controller's Selection
+  | { readonly kind: "topic"; readonly topicId: TopicId } | { readonly kind: "questions" };
+export type RemainingItem = Readonly<{ text: string; target: RemainingTarget | null }>; // null: not a task
 export type CloseState =
-  | { readonly kind: "open"; readonly remaining: readonly string[]; readonly path: ClosePath;
+  | { readonly kind: "open"; readonly remaining: readonly RemainingItem[]; readonly path: ClosePath;
       readonly close: Availability<Action<"close">> }   // unavailable while any reply or backend job runs
   | { readonly kind: "closed"; readonly revision: number; readonly openPoints: number };
 
@@ -157,6 +161,8 @@ export function parseRefusal(input: unknown): PrdRefusal | null; // boundary
 ```
 
 Review round 1 moved every remaining rule into the snapshot: the funds band and whether a reply is funded, the per-chat send availability, and the Close PRD path. `toSnapshot` in `prd-rules.ts` computes them; the screen derives only presentation from them. `NgoQuestion.complete.canUse` is false from the moment a use starts. A topic's `confirm` is unavailable while a section it depends on is neither ready nor confirmed, and the confirm that would start the completion check is unavailable when funds cannot pay for it.
+
+After Codex round 5, each "Still open" line carries the place it opens, and the screen only navigates there: a section line opens the first section it counts, a question or answer line opens the questions panel, a gap line opens the first section with an open gap, and the completion check line has none. A confirm keeps a copy of the section's statements, and of the sections it depends on, on the record; `changeSummary` compares the current statements with that copy and names the first added, removed or replaced statement for the viewer. A copy follows changes that leave the section confirmed. A reopen by hand and a completion check gap, fixed or not, give no summary.
 
 ### `src/components/prd-workspace/port.ts`
 

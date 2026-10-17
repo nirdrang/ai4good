@@ -8,7 +8,7 @@ import { COPY } from "./copy";
 import type { FundsView, PrdView } from "./model";
 import { testIds } from "./testids";
 import type { PrdController } from "./use-prd-workspace";
-import { ACTION, BAND_BAR, BAND_TEXT, STATE_BADGE, TONE_TEXT } from "./ui";
+import { ACTION, BAND_BAR, BAND_TEXT, LINK, STATE_BADGE, TONE_TEXT } from "./ui";
 
 function TopicProgress({ view }: { view: PrdView }) {
   const { confirmed, total } = view.progress;
@@ -46,9 +46,23 @@ function ClosePanel({ view, controller }: { view: PrdView; controller: PrdContro
           data-testid={testIds.prdCloseRemaining}
           className="list-disc pl-4 text-xs leading-normal text-muted-foreground"
         >
-          {close.remaining.map((item) => (
-            <li key={item} data-testid={testIds.prdCloseRemainingItem}>
-              {item}
+          {close.remaining.map(({ text, target }) => (
+            <li key={text} data-testid={testIds.prdCloseRemainingItem}>
+              {target ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => controller.select(target)}
+                  className={cn(
+                    LINK,
+                    "whitespace-normal text-left text-muted-foreground underline underline-offset-2 hover:text-foreground",
+                  )}
+                >
+                  {text}
+                </Button>
+              ) : (
+                text
+              )}
             </li>
           ))}
         </ul>

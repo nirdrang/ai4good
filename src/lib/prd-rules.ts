@@ -16,6 +16,8 @@ import type {
   PrdSnapshot,
   PrdUIMessage,
   QuestionId,
+  RemainingItem,
+  RemainingTarget,
   Result,
   Role,
   SendAvailability,
@@ -48,6 +50,7 @@ export type TopicRecord = {
   added: string[];
   sources: string[];
   stories: string[] | null;
+  confirmedText: Record<string, Record<Role, string[]>> | null;
 };
 
 export type QuestionStatus = "suggested" | "posted" | "answering" | "complete" | "used";
@@ -412,7 +415,12 @@ export function markDependents(
         updatedInChat: false,
       };
     });
-    if (!moved) return next;
+    if (!moved) {
+      const settled = next;
+      return settled.map((topic) =>
+        topic.confirmed ? { ...topic, confirmedText: confirmationText(settled, topic) } : topic,
+      );
+    }
   }
 }
 
@@ -443,58 +451,175 @@ export function blockingCounts(record: PrdRecord): {
   };
 }
 
-export function closeRemaining(record: PrdRecord, role: Role): string[] {
+export function closeRemaining(record: PrdRecord, role: Role): RemainingItem[] {
   if (record.closed !== null) return [];
   const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
   const isDev = role === "dev";
   const required = record.topics.filter((topic) => topic.required);
-  const gaps = record.topics.filter((topic) => topic.gap !== null).length;
+  const gaps = record.topics.filter((topic) => topic.gap !== null);
   const open = required.filter((topic) => topicState(topic) !== "confirmed" && topic.gap === null);
   const reviewable = open.filter((topic) => {
     const state = topicState(topic);
     return state === "ready" || state === "needs-review";
   });
-  const held = reviewable.filter((topic) => waitingDependency(record, topic) !== null).length;
-  const ready = reviewable.length - held;
+  const held = reviewable.filter((topic) => waitingDependency(record, topic) !== null);
+  const ready = reviewable.filter((topic) => !held.includes(topic));
+  const writing = open.filter((topic) => !reviewable.includes(topic));
   const { unposted, waiting } = blockingCounts(record);
   const toUse = record.questions.filter((question) => question.status === "complete").length;
-  const writing = open.length - reviewable.length;
-  const items: string[] = [];
+  const items: RemainingItem[] = [];
+  const questionsPanel: RemainingTarget = { kind: "questions" };
+  const first = (topics: readonly TopicRecord[]): RemainingTarget | null =>
+    topics[0] ? { kind: "topic", topicId: topics[0].id } : null;
   const sections = (count: number) => plural(count, "section", "sections");
   const questions = (count: number) => plural(count, "blocking question", "blocking questions");
-  if (ready > 0) {
-    items.push(`${sections(ready)} ready for ${isDev ? "you" : dev} to confirm`);
+  if (ready.length > 0) {
+    items.push({
+      text: `${sections(ready.length)} ready for ${isDev ? "you" : dev} to confirm`,
+      target: first(ready),
+    });
   }
-  if (held > 0) items.push(`${sections(held)} waiting on another section`);
-  if (writing > 0) items.push(`${sections(writing)} still being written`);
+  if (held.length > 0) {
+    items.push({
+      text: `${sections(held.length)} waiting on another section`,
+      target: first(held),
+    });
+  }
+  if (writing.length > 0) {
+    items.push({ text: `${sections(writing.length)} still being written`, target: first(writing) });
+  }
   if (unposted > 0) {
-    items.push(
-      isDev
+    items.push({
+      text: isDev
         ? `${questions(unposted)} not posted to ${ngo}`
         : `${questions(unposted)} ${dev} has not sent you yet`,
-    );
+      target: questionsPanel,
+    });
   }
   if (waiting > 0) {
-    items.push(`${questions(waiting)} waiting for ${isDev ? ngo : "your answer"}`);
+    items.push({
+      text: `${questions(waiting)} waiting for ${isDev ? ngo : "your answer"}`,
+      target: questionsPanel,
+    });
   }
   if (toUse > 0) {
     const answers = plural(toUse, "answer", "answers");
-    items.push(
-      isDev ? `${answers} from ${ngo} to use` : `${answers} you sent, waiting for ${dev} to use`,
-    );
+    items.push({
+      text: isDev
+        ? `${answers} from ${ngo} to use`
+        : `${answers} you sent, waiting for ${dev} to use`,
+      target: questionsPanel,
+    });
   }
-  if (gaps > 0) {
-    items.push(
-      `${plural(gaps, "gap", "gaps")} from the completion check ${isDev ? "to fix" : `for ${dev} to fix`}`,
-    );
+  if (gaps.length > 0) {
+    items.push({
+      text: `${plural(gaps.length, "gap", "gaps")} from the completion check ${isDev ? "to fix" : `for ${dev} to fix`}`,
+      target: first(gaps),
+    });
   }
   if (!checkCurrent(record)) {
-    items.push(
-      `Completion check runs when ${isDev ? "you close" : `${dev} closes`}, or when all sections are confirmed`,
-    );
+    items.push({
+      text: `Completion check runs when ${isDev ? "you close" : `${dev} closes`}, or when all sections are confirmed`,
+      target: null,
+    });
   }
   return items;
+}
+
+function statementsFor(topic: TopicRecord, role: Role): string[] {
+  return [...((role === "ngo" && topic.ngoBody) || topic.body), ...topic.added];
+}
+
+/** The statements of a topic and of the topics it depends on, kept when the topic is confirmed. */
+export function confirmationText(
+  topics: readonly TopicRecord[],
+  topic: TopicRecord,
+): Record<string, Record<Role, string[]>> {
+  const ids = [topic.id, ...topic.dependsOn];
+  return Object.fromEntries(
+    topics
+      .filter((item) => ids.includes(item.id))
+      .map((item) => [
+        item.id,
+        { dev: statementsFor(item, "dev"), ngo: statementsFor(item, "ngo") },
+      ]),
+  );
+}
+
+const SUMMARY_LIMIT = 90;
+
+function bare(text: string): string {
+  return text.trim().replace(/\.$/, "");
+}
+
+function shorten(text: string): string {
+  const plain = bare(text);
+  if (plain.length <= SUMMARY_LIMIT) return plain;
+  const cut = plain.slice(0, SUMMARY_LIMIT);
+  const space = cut.lastIndexOf(" ");
+  return `${space > 0 ? cut.slice(0, space) : cut}…`;
+}
+
+function lowerFirst(text: string): string {
+  return `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+}
+
+function replacement(before: string, after: string): string {
+  const old = bare(before).split(" ");
+  const next = bare(after).split(" ");
+  let head = 0;
+  while (head < old.length && head < next.length && old[head] === next[head]) head += 1;
+  let tail = 0;
+  while (
+    tail < old.length - head &&
+    tail < next.length - head &&
+    old[old.length - 1 - tail] === next[next.length - 1 - tail]
+  ) {
+    tail += 1;
+  }
+  const subject = old.slice(0, head).join(" ");
+  const was = old.slice(head, old.length - tail).join(" ");
+  const now = next.slice(head, next.length - tail).join(" ");
+  if (!subject.endsWith(":") || !was || !now || was.length + now.length > SUMMARY_LIMIT) {
+    return `“${shorten(before)}” became “${shorten(after)}”`;
+  }
+  const rest = tail > 0 ? ` ${old.slice(old.length - tail).join(" ")}` : "";
+  return `${lowerFirst(subject.slice(0, -1))} moved from ${lowerFirst(was)} to ${lowerFirst(now)}${rest}`;
+}
+
+function describeChange(before: readonly string[], after: readonly string[]): string | null {
+  const added = after.filter((statement) => !before.includes(statement));
+  const removed = before.filter((statement) => !after.includes(statement));
+  const [put] = added;
+  const [took] = removed;
+  let change: string;
+  if (put !== undefined && took !== undefined) change = replacement(took, put);
+  else if (put !== undefined) change = `added “${shorten(put)}”`;
+  else if (took !== undefined) change = `removed “${shorten(took)}”`;
+  else return null;
+  const more = Math.max(added.length, removed.length) - 1;
+  return more > 0 ? `${change}, and ${plural(more, "more change", "more changes")}` : change;
+}
+
+/** What changed in a section, or in the section it depends on, since the developer last confirmed it. */
+export function changeSummary(record: PrdRecord, topic: TopicRecord, role: Role): string | null {
+  const copy = topic.confirmedText;
+  if (!copy || record.closed !== null || topic.gap !== null || topic.gapClosed) return null;
+  if (topicState(topic) !== "needs-review") return null;
+  const since = (item: TopicRecord) => {
+    const kept = copy[item.id]?.[role];
+    return kept ? describeChange(kept, statementsFor(item, role)) : null;
+  };
+  let change = since(topic);
+  if (change === null && topic.changedDependency !== null) {
+    const cause = record.topics.find((item) => item.id === topic.changedDependency);
+    const theirs = cause ? since(cause) : null;
+    change = cause && theirs ? `in ${cause.title}, ${theirs}` : null;
+  }
+  if (change === null) return null;
+  const who = role === "dev" ? "you" : firstName(record, "dev");
+  return `Changed since ${who} confirmed: ${change}.`;
 }
 
 function closedOpenPoint(topic: TopicRecord): boolean {
@@ -648,9 +773,10 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
     state,
     statusText: statusText(record, topic, role),
     blocker: blockerFor(record, topic, role),
-    statements: [...((role === "ngo" && topic.ngoBody) || topic.body), ...topic.added],
+    statements: statementsFor(topic, role),
     sources: [...topic.sources],
     stories: topic.stories === null ? null : [...topic.stories],
+    changeSummary: changeSummary(record, topic, role),
     confirm,
     reopen,
   };

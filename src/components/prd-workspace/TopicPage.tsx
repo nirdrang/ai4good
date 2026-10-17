@@ -110,6 +110,11 @@ function TopicDocument({
       <div data-testid={testIds.prdSectionStatus} className={cn("text-xs font-semibold", status)}>
         {topic.statusText}
       </div>
+      {topic.changeSummary ? (
+        <div data-testid={testIds.prdSectionChange} className="text-xs text-foreground/80">
+          {topic.changeSummary}
+        </div>
+      ) : null}
       <div className={cn("flex items-center gap-2.5", phone ? "flex-col items-stretch" : "")}>
         {confirm ? button(confirm, COPY.confirmSection, testIds.prdSectionConfirm, true) : null}
         {reopen ? button(reopen, COPY.reopenSection, testIds.prdSectionReopen, false) : null}

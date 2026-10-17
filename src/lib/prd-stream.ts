@@ -42,6 +42,7 @@ export type Topic = Readonly<{
   statements: readonly string[];
   sources: readonly string[];
   stories: readonly string[] | null;
+  changeSummary: string | null;
   confirm: Availability<Action<"confirm-topic">>;
   reopen: Availability<Action<"reopen-topic">>;
 }>;
@@ -113,10 +114,15 @@ export type SendAvailability =
 
 export type ClosePath = "close" | "check";
 
+export type RemainingTarget =
+  | { readonly kind: "topic"; readonly topicId: TopicId }
+  | { readonly kind: "questions" };
+export type RemainingItem = Readonly<{ text: string; target: RemainingTarget | null }>;
+
 export type CloseState =
   | {
       readonly kind: "open";
-      readonly remaining: readonly string[];
+      readonly remaining: readonly RemainingItem[];
       readonly path: ClosePath;
       readonly close: Availability<Action<"close">>;
     }
@@ -283,6 +289,7 @@ const topicSchema = z.object({
   statements: z.array(z.string()),
   sources: z.array(z.string()),
   stories: z.array(z.string()).nullable(),
+  changeSummary: z.string().nullable(),
   confirm: availabilitySchema(actionSchema("confirm-topic")),
   reopen: availabilitySchema(actionSchema("reopen-topic")),
 });
@@ -335,7 +342,17 @@ const sendSchema = z.discriminatedUnion("kind", [
 const closeStateSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("open"),
-    remaining: z.array(z.string()),
+    remaining: z.array(
+      z.object({
+        text: z.string(),
+        target: z
+          .discriminatedUnion("kind", [
+            z.object({ kind: z.literal("topic"), topicId: topicIdSchema }),
+            z.object({ kind: z.literal("questions") }),
+          ])
+          .nullable(),
+      }),
+    ),
     path: z.enum(["close", "check"]),
     close: availabilitySchema(actionSchema("close")),
   }),

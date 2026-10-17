@@ -20,11 +20,13 @@ import {
   CHECK_FUNDS_REASON,
   closeRemaining,
   issueToken,
+  markDependents,
   topicTarget,
   toSnapshot,
   type PrdRecord,
 } from "../../../src/lib/prd-rules.ts";
 import {
+  parsePrdSnapshot,
   scopeKey,
   type Action,
   type ActionKind,
@@ -34,6 +36,7 @@ import {
   type PrdSnapshot,
   type PrdUIMessage,
   type QuestionId,
+  type RemainingItem,
   type RequestId,
   type TopicId,
 } from "../../../src/lib/prd-stream.ts";
@@ -175,6 +178,14 @@ function confirmAction(snapshot: PrdSnapshot, id: string): Action<"confirm-topic
   const confirm = topic(snapshot, id).confirm;
   if (confirm.kind !== "available") throw new Error(`${id} cannot be confirmed: ${confirm.reason}`);
   return confirm.action;
+}
+
+function lines(items: readonly RemainingItem[]): string[] {
+  return items.map((item) => item.text);
+}
+
+function remainingOf(snapshot: PrdSnapshot): readonly RemainingItem[] {
+  return snapshot.close.kind === "open" ? snapshot.close.remaining : [];
 }
 
 function closeAction(snapshot: PrdSnapshot): Action<"close"> {
@@ -625,7 +636,7 @@ describe("the PRD fixture world", () => {
           : item,
       ),
     };
-    expect(closeRemaining(changed, "dev")).toContain("3 sections still being written");
+    expect(lines(closeRemaining(changed, "dev"))).toContain("3 sections still being written");
   });
 
   it("counts every sent answer not yet used in Still open, blocking or not", () => {
@@ -638,7 +649,7 @@ describe("the PRD fixture world", () => {
           : item,
       ),
     };
-    expect(closeRemaining(sent, "ngo")).toEqual([
+    expect(lines(closeRemaining(sent, "ngo"))).toEqual([
       "1 section ready for Priya to confirm",
       "1 section waiting on another section",
       "3 sections still being written",
@@ -646,7 +657,7 @@ describe("the PRD fixture world", () => {
       "2 answers you sent, waiting for Priya to use",
       "Completion check runs when Priya closes, or when all sections are confirmed",
     ]);
-    expect(closeRemaining(sent, "dev")).toEqual([
+    expect(lines(closeRemaining(sent, "dev"))).toEqual([
       "1 section ready for you to confirm",
       "1 section waiting on another section",
       "3 sections still being written",
@@ -920,7 +931,7 @@ describe("the PRD fixture world", () => {
 
   it("writes every Still open line for the viewer: the developer's own work, or what Priya will do", async () => {
     const remaining = (snapshot: PrdSnapshot) =>
-      snapshot.close.kind === "open" ? [...snapshot.close.remaining] : [];
+      snapshot.close.kind === "open" ? lines(snapshot.close.remaining) : [];
     const today = open("prd-today");
     const answered = open("answer-complete");
     const gaps = open("prd-today");
@@ -1233,5 +1244,150 @@ describe("the PRD fixture world", () => {
     );
     forgetPrdWorld("prd-today", storage);
     expect(createPrdWorld("prd-today", { storage }).snapshot(viewer).drafts.main).toBeUndefined();
+  });
+
+  it("gives each Still open line the place it names, the same for both viewers, and none to the completion check line", async () => {
+    const sectionTarget = (id: string) => ({ kind: "topic", topicId: id });
+    const questions = { kind: "questions" };
+    const today = open("prd-today");
+    const targets = (items: readonly RemainingItem[]) => items.map((item) => item.target);
+    const expected = [
+      sectionTarget("notify"),
+      sectionTarget("scope"),
+      sectionTarget("shifts"),
+      questions,
+      questions,
+      null,
+    ];
+    const devToday = await snap(today.dev);
+    expect(lines(remainingOf(devToday))).toEqual([
+      "1 section ready for you to confirm",
+      "1 section waiting on another section",
+      "3 sections still being written",
+      "1 blocking question not posted to Maya",
+      "1 blocking question waiting for Maya",
+      "Completion check runs when you close, or when all sections are confirmed",
+    ]);
+    expect(targets(remainingOf(devToday))).toEqual(expected);
+    expect(targets(remainingOf(await snap(today.ngo)))).toEqual(expected);
+    expect(parsePrdSnapshot(JSON.parse(JSON.stringify(devToday))).close).toEqual(devToday.close);
+
+    const answered = open("answer-complete");
+    for (const port of [answered.dev, answered.ngo]) {
+      const toUse = remainingOf(await snap(port)).find((item) => /to use$/.test(item.text));
+      expect(toUse?.target).toEqual(questions);
+    }
+
+    const gaps = open("prd-today");
+    await deliver(gaps.dev, MAIN, { kind: "close-check" });
+    const ask = parts(await snap(gaps.dev), "data-close-ask")[0];
+    if (!ask) throw new Error("the check did not ask to close");
+    expect((await gaps.dev.act(ask.data.keepWorking)).ok).toBe(true);
+    for (const port of [gaps.dev, gaps.ngo]) {
+      const snapshot = await snap(port);
+      const gapLine = remainingOf(snapshot).find((item) => /completion check/.test(item.text));
+      const firstGap = snapshot.topics.find((item) => item.statusText.startsWith("Gap from"));
+      expect(firstGap?.id).toBe("users");
+      expect(gapLine?.target).toEqual(sectionTarget("users"));
+      expect(remainingOf(snapshot).some((item) => item.target === null)).toBe(false);
+    }
+  });
+
+  it("names what changed since Priya confirmed a section that went back to Needs review, for both viewers", async () => {
+    const { dev, ngo } = open("check-passed");
+    for (const item of (await snap(dev)).topics) expect(item.changeSummary, item.id).toBeNull();
+    await deliver(dev, SHIFTS, { kind: "text", text: "Swaps: volunteers cancel instead" });
+    expect(topic(await snap(dev), "shifts").changeSummary).toBe(
+      "Changed since you confirmed: added “Swaps: volunteers cancel instead”.",
+    );
+    expect(topic(await snap(ngo), "shifts").changeSummary).toBe(
+      "Changed since Priya confirmed: added “Swaps: volunteers cancel instead”.",
+    );
+    const dependent =
+      "confirmed: in Shift scheduling rules, added “Swaps: volunteers cancel instead”.";
+    expect(topic(await snap(dev), "scope").changeSummary).toBe(`Changed since you ${dependent}`);
+    expect(topic(await snap(ngo), "scope").changeSummary).toBe(`Changed since Priya ${dependent}`);
+    for (const id of ["users", "notify", "data", "success"]) {
+      expect(topic(await snap(dev), id).changeSummary, id).toBeNull();
+    }
+    expect((await dev.act(confirmAction(await snap(dev), "shifts"))).ok).toBe(true);
+    expect(topic(await snap(dev), "shifts").changeSummary).toBeNull();
+    expect(topic(await snap(dev), "scope").changeSummary).toBe(`Changed since you ${dependent}`);
+    expect(parsePrdSnapshot(JSON.parse(JSON.stringify(await snap(ngo)))).topics).toEqual(
+      (await snap(ngo)).topics,
+    );
+  });
+
+  it("says a replaced statement moved from the old wording to the new, and shortens a long one", () => {
+    const record = seedRecord("check-passed", NOW);
+    const replaced: PrdRecord = {
+      ...record,
+      topics: markDependents(
+        record.topics.map((item) =>
+          item.id === "shifts"
+            ? {
+                ...item,
+                body: item.body.map((line) =>
+                  line === "Publishing: Two weeks ahead." ? "Publishing: One week ahead." : line,
+                ),
+              }
+            : item,
+        ),
+        ["shifts" as TopicId],
+        "shifts" as TopicId,
+      ),
+    };
+    const shifts = (snapshot: PrdSnapshot) => topic(snapshot, "shifts").changeSummary;
+    expect(shifts(devView(replaced))).toBe(
+      "Changed since you confirmed: publishing moved from two weeks to one week ahead.",
+    );
+    expect(shifts(toSnapshot(replaced, { role: "ngo", name: "Maya Haddad" }))).toBe(
+      "Changed since Priya confirmed: publishing moved from two weeks to one week ahead.",
+    );
+    const long = `Volunteers ${"who sign up for a Saturday shift ".repeat(6)}get a reminder.`;
+    const added: PrdRecord = {
+      ...record,
+      topics: markDependents(
+        record.topics.map((item) =>
+          item.id === "notify" ? { ...item, added: [...item.added, long] } : item,
+        ),
+        ["notify" as TopicId],
+        "notify" as TopicId,
+      ),
+    };
+    const summary = topic(devView(added), "notify").changeSummary ?? "";
+    expect(summary).toMatch(/^Changed since you confirmed: added “Volunteers who sign up .*…”\.$/);
+    expect(summary.length).toBeLessThan(long.length);
+  });
+
+  it("shows no change summary on a section reopened by hand or sent back by a completion check gap, fixed or not", async () => {
+    const passed = open("check-passed");
+    const reopen = topic(await snap(passed.dev), "users").reopen;
+    if (reopen.kind !== "available") throw new Error("users cannot be reopened");
+    expect((await passed.dev.act(reopen.action)).ok).toBe(true);
+    expect(topic(await snap(passed.dev), "users").state).toBe("needs-review");
+    expect(topic(await snap(passed.dev), "users").changeSummary).toBeNull();
+    expect(topic(await snap(passed.ngo), "users").changeSummary).toBeNull();
+
+    const { dev, ngo } = open("prd-today");
+    await deliver(dev, MAIN, { kind: "close-check" });
+    const ask = parts(await snap(dev), "data-close-ask")[0];
+    if (!ask) throw new Error("the check did not ask to close");
+    expect((await dev.act(ask.data.keepWorking)).ok).toBe(true);
+    expect(topic(await snap(dev), "users").state).toBe("needs-review");
+    expect(topic(await snap(dev), "users").changeSummary).toBeNull();
+    await deliver(
+      dev,
+      { kind: "topic", topicId: "users" as TopicId },
+      {
+        kind: "text",
+        text: "Volunteers under 16 need a guardian's consent before their first shift.",
+      },
+    );
+    expect(topic(await snap(dev), "users").statusText).toBe(
+      "Gap closed. Read it again and confirm.",
+    );
+    expect(topic(await snap(dev), "users").changeSummary).toBeNull();
+    expect(topic(await snap(ngo), "users").changeSummary).toBeNull();
   });
 });

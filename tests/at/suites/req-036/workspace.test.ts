@@ -553,6 +553,10 @@ atTest(
         await prd.topics.open(confirmed);
         await prd.topic.reopen();
         expect(await prd.topic.state(), "reopen sets Needs review").toBe("Needs review");
+        expect(
+          await prd.topic.changeCount(),
+          "a section reopened with no text change shows no change summary",
+        ).toBe(0);
         const after = await prd.panel.progress();
         expect(after.confirmed, "reopen lowers the confirmed count").toBe(before.confirmed - 1);
         expect(after.total, "reopen does not change the denominator").toBe(6);
@@ -589,6 +593,17 @@ atTest(
         await showChat(prd);
         expect(await prd.chat.recommendationCloseCount(), "the old inline close is gone").toBe(0);
         expect(await prd.panel.closeCount(), "Close PRD in the panel remains").toBe(1);
+        const change = `confirmed: added “${DECISION_CHANGE}”.`;
+        await prd.topics.open(TOPIC.shifts);
+        expect(
+          await prd.topic.changeText(),
+          "the changed section says what changed since Priya confirmed it",
+        ).toBe(`Changed since you ${change}`);
+        await prd.viewAs("ngo");
+        await prd.topics.open(TOPIC.shifts);
+        expect(await prd.topic.changeText(), "Maya reads the same change, naming Priya").toBe(
+          `Changed since Priya ${change}`,
+        );
       });
     },
     default: wiringPending("AT-036.08"),
@@ -891,6 +906,40 @@ atTest(
         ctx,
         { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
         ngoCannotClose,
+      );
+      await withPrd(ctx, { scenario: "prd-today", viewport: "phone" }, async (prd) => {
+        const before = await prd.modelCalls();
+        await prd.phone.tab("prd");
+        expect(
+          await prd.panel.remainingLinkCount("Completion check runs"),
+          "the completion check line is not a task to open",
+        ).toBe(0);
+        await prd.panel.openRemaining("ready for you to confirm");
+        expect(await prd.topic.pageCount(), "a Still open line opens the section it names").toBe(1);
+        expect(await prd.topic.sectionText(), "it opens the ready section").toContain(TOPIC.notify);
+        expect(await prd.topic.state(), "the opened section is the one ready to confirm").toBe(
+          "Ready to confirm",
+        );
+        await prd.topic.back();
+        await prd.panel.openRemaining("waiting for Maya");
+        expect(await prd.phone.current(), "a question line opens the Questions tab").toBe(
+          "questions",
+        );
+        expect(await prd.questions.count(), "the questions panel is on screen").toBe(1);
+        expect(await prd.modelCalls(), "opening Still open lines calls no model").toEqual(before);
+      });
+      await withPrd(
+        ctx,
+        { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
+        async (prd) => {
+          const before = await prd.modelCalls();
+          await prd.panel.openRemaining("ready for Priya to confirm");
+          expect(await prd.topic.sectionText(), "Maya's line opens the same section").toContain(
+            TOPIC.notify,
+          );
+          expect(await prd.topic.confirmCount(), "Maya reads it without Confirm").toBe(0);
+          expect(await prd.modelCalls(), "Maya's Still open lines call no model").toEqual(before);
+        },
       );
     },
     default: wiringPending("AT-036.16"),

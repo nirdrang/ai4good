@@ -27,6 +27,7 @@ import {
   closeBlock,
   closeRemaining,
   confirmBlock,
+  confirmationText,
   firstName,
   holdReply,
   issueToken,
@@ -497,7 +498,13 @@ function finishSend(
       );
       revise(next, [point.topicId]);
     } else {
-      parts = textParts(mainReplyLines(next, text, closeRemaining(next, "dev")));
+      parts = textParts(
+        mainReplyLines(
+          next,
+          text,
+          closeRemaining(next, "dev").map((item) => item.text),
+        ),
+      );
     }
   }
   const message = aiMessage(aiId, at, parts);
@@ -545,6 +552,7 @@ export function applyAction(
               gapClosed: false,
               changedDependency: null,
               updatedInChat: false,
+              confirmedText: confirmationText(next.topics, item),
             }
           : item,
       );

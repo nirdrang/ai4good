@@ -1,6 +1,7 @@
 import type { PrdUIMessage, QuestionId, Role, TopicId, TurnId } from "../../../src/lib/prd-stream";
 import {
   availableMicros,
+  confirmationText,
   firstName,
   topicState,
   waitingDependency,
@@ -226,6 +227,7 @@ function topicRecord(
     ngoBody: null,
     added: [],
     stories: null,
+    confirmedText: null,
     ...fields,
   };
 }
@@ -1028,6 +1030,14 @@ export function prdTodayRecord(now: Date): PrdRecord {
     },
     chats: { main: main.map(shared) },
   };
-  const record = { ...base, topics: rewriteSections(base) };
+  const written = { ...base, topics: rewriteSections(base) };
+  const record = {
+    ...written,
+    topics: written.topics.map((topic) =>
+      topic.confirmed
+        ? { ...topic, confirmedText: confirmationText(written.topics, topic) }
+        : topic,
+    ),
+  };
   return withOpeners(record, today(2));
 }
