@@ -91,6 +91,18 @@ function QuestionItem({
           </span>
         )}
       </button>
+      {entry.sent !== null ? (
+        <div className="border-t border-border px-3 py-1">
+          <button
+            type="button"
+            data-testid={testIds.prdNgoQuestionSection}
+            onClick={() => controller.select({ kind: "topic", topicId: question.topicId })}
+            className={cn(LINK_BUTTON, "font-semibold max-md:text-sm")}
+          >
+            {COPY.openSection(entry.topicTitle)}
+          </button>
+        </div>
+      ) : null}
       {entry.canView ? (
         <div className="flex border-t border-actor-dev-line">
           <button

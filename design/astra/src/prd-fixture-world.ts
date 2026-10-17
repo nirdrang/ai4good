@@ -19,6 +19,7 @@ import {
   FUNDS_REASON,
   allRequiredConfirmed,
   askTarget,
+  blockingCounts,
   briefRows,
   canAffordReply,
   checkCurrent,
@@ -138,7 +139,9 @@ function runCheck(record: PrdRecord): { gaps: number; checkId: string } {
   const ids = new Set(gaps.map((gap) => gap.topicId));
   record.topics = record.topics.map((topic) => {
     const gap = gaps.find((item) => item.topicId === topic.id);
-    return gap ? { ...topic, gap: gap.text, confirmed: false, review: true } : topic;
+    return gap
+      ? { ...topic, gap: gap.text, gapClosed: false, confirmed: false, review: true }
+      : topic;
   });
   record.checkRuns += 1;
   const checkId = `check-${record.checkRuns}`;
@@ -173,8 +176,15 @@ function confirmCheckFinish(record: PrdRecord, at: string, id: string): PrdRecor
   if (next.closed !== null) return { ...next, funds: settleReply(next.funds, 0) };
   const total = next.topics.filter((topic) => topic.required).length;
   const { gaps, checkId } = runCheck(next);
+  const blocking = blockingCounts(next);
   const parts: Part[] = [
-    ...textParts([checkHead(next.revision, gaps, false), ...confirmCheckLines(total, gaps)]),
+    ...textParts([
+      checkHead(next.revision, gaps, false),
+      ...confirmCheckLines(total, gaps, {
+        open: blocking.waiting + blocking.toUse,
+        unposted: blocking.unposted,
+      }),
+    ]),
     gaps > 0
       ? checkPart(next, checkId)
       : {
@@ -377,7 +387,9 @@ function finishSend(
       if (topic.gap !== null) {
         parts = textParts(gapFixReply(topic, text));
         next.topics = next.topics.map((item) =>
-          item.id === topic.id ? { ...item, gap: null, added: [...item.added, clean(text)] } : item,
+          item.id === topic.id
+            ? { ...item, gap: null, gapClosed: true, added: [...item.added, clean(text)] }
+            : item,
         );
         if (next.check) {
           next.check.gaps = next.check.gaps.map((gap) =>
@@ -514,7 +526,7 @@ export function applyAction(
       const block = confirmBlock(next, topic);
       if (block) return refusal(block.kind, block.reason);
       next.topics = next.topics.map((item) =>
-        item.id === topic.id ? { ...item, confirmed: true, review: false } : item,
+        item.id === topic.id ? { ...item, confirmed: true, review: false, gapClosed: false } : item,
       );
       next.versions = spend(next.versions, target);
       chat(next, "main").push(
@@ -547,7 +559,7 @@ export function applyAction(
       const topic = next.topics.find((item) => topicTarget(item.id) === target);
       if (!topic || !topic.confirmed) return stale;
       next.topics = next.topics.map((item) =>
-        item.id === topic.id ? { ...item, confirmed: false, review: true } : item,
+        item.id === topic.id ? { ...item, confirmed: false, review: true, gapClosed: false } : item,
       );
       next.versions = spend(next.versions, target);
       next.revision += 1;

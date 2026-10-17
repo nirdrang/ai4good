@@ -126,6 +126,20 @@ export async function sideChatFlow(prd: PrdPage): Promise<void> {
     added.every((kind) => kind === "prd-side-chat" || kind === "prd-answer-write"),
     "the side chat does not call the main chat or the check",
   ).toBe(true);
+  const beforeLink = await prd.modelCalls();
+  expect(await prd.topic.sectionCount(), "no section is open before the link").toBe(0);
+  await prd.questions.openSection(RETENTION_QUESTION, TOPIC.data);
+  await eventually(
+    "the sent question opens its section's document",
+    async () => ((await prd.topic.sectionCount()) > 0 ? prd.topic.sectionText() : ""),
+    (text) => text.includes(TOPIC.data),
+    15_000,
+  );
+  if ((await prd.phone.barCount()) > 0) {
+    expect(await prd.phone.current(), "the phone shows the PRD tab").toBe("prd");
+  }
+  expect(await prd.topic.composerCount(), "Maya reads the section without writing").toBe(0);
+  expect(await prd.modelCalls(), "opening the section adds no model call").toEqual(beforeLink);
   await prd.viewAs("dev");
   await prd.phone.tab("questions");
   expect(

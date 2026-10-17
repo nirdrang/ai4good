@@ -40,6 +40,7 @@ export type TopicRecord = {
   confirmed: boolean;
   review: boolean;
   gap: string | null;
+  gapClosed: boolean;
   body: string[];
   ngoBody: string[] | null;
   added: string[];
@@ -413,6 +414,21 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
+export function blockingCounts(record: PrdRecord): {
+  unposted: number;
+  waiting: number;
+  toUse: number;
+} {
+  const blocking = record.questions.filter((question) => question.blocking);
+  const count = (...statuses: QuestionStatus[]) =>
+    blocking.filter((question) => statuses.includes(question.status)).length;
+  return {
+    unposted: count("suggested"),
+    waiting: count("posted", "answering"),
+    toUse: count("complete"),
+  };
+}
+
 export function closeRemaining(record: PrdRecord, role: Role): string[] {
   if (record.closed !== null) return [];
   const dev = firstName(record, "dev");
@@ -427,12 +443,7 @@ export function closeRemaining(record: PrdRecord, role: Role): string[] {
   });
   const held = reviewable.filter((topic) => waitingDependency(record, topic) !== null).length;
   const ready = reviewable.length - held;
-  const blocking = record.questions.filter((question) => question.blocking);
-  const unposted = blocking.filter((question) => question.status === "suggested").length;
-  const waiting = blocking.filter(
-    (question) => question.status === "posted" || question.status === "answering",
-  ).length;
-  const toUse = blocking.filter((question) => question.status === "complete").length;
+  const { unposted, waiting, toUse } = blockingCounts(record);
   const writing = open.length - reviewable.length;
   const items: string[] = [];
   const sections = (count: number) => plural(count, "section", "sections");
@@ -485,6 +496,10 @@ function closedStatusText(record: PrdRecord, topic: TopicRecord): string {
     : "Not confirmed when the PRD closed.";
 }
 
+function reviewLead(topic: TopicRecord): string {
+  return topic.gapClosed ? "Gap closed" : "Reopened";
+}
+
 export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): string | null {
   if (record.closed !== null) {
     return closedOpenPoint(topic) ? "Recorded as an open point when the PRD closed" : null;
@@ -500,7 +515,7 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): s
   const state = topicState(topic);
   if (state === "confirmed") return null;
   if (state === "ready") return `AI: every decision is in · ${dev} can confirm`;
-  if (state === "needs-review") return `Reopened · ${dev} reviews and confirms again`;
+  if (state === "needs-review") return `${reviewLead(topic)} · ${dev} reviews and confirms again`;
   const asked = record.devQuestions.filter(
     (question) => question.topicId === topic.id && question.answered === null,
   ).length;
@@ -542,7 +557,7 @@ function statusText(record: PrdRecord, topic: TopicRecord, role: Role): string {
   const waits = waitingDependency(record, topic);
   const state = topicState(topic);
   if (waits && (state === "ready" || state === "needs-review")) {
-    return `${state === "ready" ? "Every decision is recorded" : "Reopened"}. It waits on ${waits.title} before ${isDev ? "you" : dev} can confirm it.`;
+    return `${state === "ready" ? "Every decision is recorded" : reviewLead(topic)}. It waits on ${waits.title} before ${isDev ? "you" : dev} can confirm it.`;
   }
   switch (state) {
     case "confirmed":
@@ -551,8 +566,8 @@ function statusText(record: PrdRecord, topic: TopicRecord, role: Role): string {
       return `The AI checked this section: every decision is recorded. ${isDev ? "Read it and confirm." : `Ready for ${dev} to confirm.`}`;
     case "needs-review":
       return isDev
-        ? "Reopened. Read it again and confirm."
-        : `Reopened. Ready for ${dev} to confirm again.`;
+        ? `${reviewLead(topic)}. Read it again and confirm.`
+        : `${reviewLead(topic)}. Ready for ${dev} to confirm again.`;
     default:
       return blockerFor(record, topic, role) ?? "The AI is still writing this section.";
   }

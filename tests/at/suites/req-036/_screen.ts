@@ -428,6 +428,7 @@ export class PrdPage {
   readonly topic = {
     text: (): Promise<string> => this.page.text([byId(testIds.prdSectionText)]),
     sectionText: (): Promise<string> => this.page.text([byId(testIds.prdSection)]),
+    sectionCount: (): Promise<number> => this.page.count([byId(testIds.prdSection)]),
     chatText: (): Promise<string> => this.page.text([byId(testIds.prdSectionChat)]),
     state: async (): Promise<string> =>
       (await this.page.text([byId(testIds.prdSectionState)])).trim(),
@@ -488,6 +489,14 @@ export class PrdPage {
       ),
     sent: (question: string): Promise<string> =>
       this.page.text([byId(testIds.prdNgoQuestion, question), byId(testIds.prdNgoQuestionSent)]),
+    openSection: (question: string, title: string): Promise<void> =>
+      this.press(
+        [
+          byId(testIds.prdNgoQuestion, question),
+          byId(testIds.prdNgoQuestionSection, `Open ${title}`),
+        ],
+        `Open ${title}`,
+      ),
     toggleCount: (): Promise<number> => this.page.count([byId(testIds.prdAnsweredToggle)]),
     toggleAnswered: (): Promise<void> => this.press([byId(testIds.prdAnsweredToggle)], "Answered"),
     expandAnswered: async (): Promise<void> => {

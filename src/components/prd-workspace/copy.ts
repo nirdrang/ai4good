@@ -116,16 +116,23 @@ export const COPY = {
   ngoListTitle: (toAnswer: number) => `Questions for you · ${toAnswer} to answer`,
   devListTitleClosed: (ngoLabel: string) => `Questions for ${ngoLabel} · PRD closed`,
   ngoListTitleClosed: "Questions for you · PRD closed",
-  devListNote: (blocking: number, ngo: string) =>
-    blocking > 0
-      ? `${blocking} blocking. Keep working; use each answer when ${ngo} marks it complete.`
-      : "No blocking question is open.",
+  devListNote: (blocking: number, unposted: number, ngo: string) => {
+    const open =
+      blocking > 0
+        ? `${blocking} blocking. Keep working; use each answer when ${ngo} marks it complete.`
+        : unposted > 0
+          ? `No blocking question is waiting for ${ngo}.`
+          : "No blocking question is open.";
+    if (unposted === 0) return open;
+    return `${open} ${unposted === 1 ? "One blocking question is" : `${unposted} blocking questions are`} not posted yet.`;
+  },
   ngoListNote: "Open a question to answer it with the AI. Mark it complete when you are done.",
   closedListNote: "The PRD is closed. No question here can be answered or used any more.",
   blocks: (topic: string) => `Blocks ${topic}`,
   notBlocking: "Not blocking",
   sentTo: (dev: string) => `Sent to ${dev} · waiting for ${dev} to use it:`,
   sentClosed: (dev: string) => `Sent to ${dev} · the PRD closed before ${dev} used it:`,
+  openSection: (title: string) => `Open ${title}`,
   viewAnswer: "View answer",
   useAnswer: "Use answer",
   answered: (open: boolean, count: number) => `${open ? "▾" : "▸"} Answered (${count})`,

@@ -67,6 +67,7 @@ export const testIds = {
   prdNgoQuestion: "prd-ngo-question",
   prdNgoQuestionOpen: "prd-ngo-question-open",
   prdNgoQuestionSent: "prd-ngo-question-sent",
+  prdNgoQuestionSection: "prd-ngo-question-section",
   prdNgoQuestionView: "prd-ngo-question-view",
   prdNgoQuestionClaim: "prd-ngo-question-claim",
   prdAnsweredToggle: "prd-answered-toggle",

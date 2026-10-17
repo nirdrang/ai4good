@@ -220,6 +220,7 @@ function topicRecord(
     confirmed: false,
     review: false,
     gap: null,
+    gapClosed: false,
     ngoBody: null,
     added: [],
     stories: null,
@@ -660,12 +661,34 @@ export function checkHead(revision: number, gaps: number, final: boolean): strin
   return `Completion check on revision ${revision}: the PRD covers ${gaps > 0 ? 84 : 91}% of the confirmed Discovery document. The configured threshold is ${THRESHOLD}, so it ${gaps > 0 ? (final ? "does not pass." : "does not pass yet.") : "passes."}`;
 }
 
-export function confirmCheckLines(total: number, gaps: number): string[] {
-  return gaps > 0
-    ? [
-        `I found ${countWord(gaps)} gaps, each in a section. Open each one, tell me how to cover it, then confirm the section again. The check runs again when all ${countWord(total)} are confirmed.`,
-      ]
-    : [`All ${countWord(total)} required topics are confirmed and no blocking question is open.`];
+function blockingQuestions(count: number): string {
+  const word = countWord(count);
+  return count === 1
+    ? "One blocking question is"
+    : `${word.charAt(0).toUpperCase()}${word.slice(1)} blocking questions are`;
+}
+
+export function confirmCheckLines(
+  total: number,
+  gaps: number,
+  blocking: { open: number; unposted: number },
+): string[] {
+  if (gaps > 0) {
+    return [
+      `I found ${countWord(gaps)} gaps, each in a section. Open each one, tell me how to cover it, then confirm the section again. The check runs again when all ${countWord(total)} are confirmed.`,
+    ];
+  }
+  const confirmed = `All ${countWord(total)} required topics are confirmed`;
+  if (blocking.open === 0 && blocking.unposted === 0) {
+    return [`${confirmed} and no blocking question is open.`];
+  }
+  const open =
+    blocking.open === 0
+      ? "No blocking question is waiting for an answer."
+      : `${blockingQuestions(blocking.open)} still open.`;
+  const unposted =
+    blocking.unposted === 0 ? "" : ` ${blockingQuestions(blocking.unposted)} not posted yet.`;
+  return [`${confirmed}. ${open}${unposted}`];
 }
 
 export function closeCheckLines(

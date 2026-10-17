@@ -236,6 +236,9 @@ export function present(snapshot: PrdSnapshot): PrdView {
   const closed = closeState.kind === "closed";
   const toAnswer = closed ? 0 : open.filter((view) => waiting(view.question)).length;
   const blockingOpen = open.filter((view) => view.question.blocking).length;
+  const blockingUnposted = snapshot.questions.filter(
+    (question) => question.kind === "suggested" && question.blocking,
+  ).length;
   const listTitle = isDev
     ? closed
       ? COPY.devListTitleClosed(names.ngoLabel)
@@ -246,7 +249,7 @@ export function present(snapshot: PrdSnapshot): PrdView {
   const listNote = closed
     ? COPY.closedListNote
     : isDev
-      ? COPY.devListNote(blockingOpen, names.ngo)
+      ? COPY.devListNote(blockingOpen, blockingUnposted, names.ngo)
       : COPY.ngoListNote;
   return {
     snapshot,

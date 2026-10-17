@@ -1028,6 +1028,86 @@ describe("the PRD fixture world", () => {
     expect(states.size).toBeGreaterThan(2);
   });
 
+  it("counts blocking questions not posted yet wherever it says no blocking question is open", async () => {
+    const today = open("prd-today");
+    expect(present(await snap(today.dev)).listNote).toBe(
+      "1 blocking. Keep working; use each answer when Maya marks it complete. One blocking question is not posted yet.",
+    );
+    const used = open("answer-complete");
+    await deliver(used.dev, MAIN, {
+      kind: "use-answer",
+      questionId: "retention" as QuestionId,
+      answer: null,
+      note: "",
+    });
+    expect(present(await snap(used.dev)).listNote).toBe(
+      "No blocking question is waiting for Maya. One blocking question is not posted yet.",
+    );
+    expect(present(await snap(used.ngo)).listNote).not.toMatch(/no blocking question/i);
+    let record = seedRecord("all-ready", NOW);
+    record = {
+      ...record,
+      checkRuns: 1,
+      questions: record.questions.map((item) =>
+        item.id === "logo" ? { ...item, blocking: true, status: "suggested" } : item,
+      ),
+    };
+    for (const id of ["shifts", "notify", "data", "scope"]) record = confirmInRecord(record, id);
+    const last = applyAction(
+      record,
+      "dev",
+      {
+        kind: "confirm-topic",
+        token: issueToken(record, "confirm-topic", topicTarget("success" as TopicId)),
+      },
+      NOW.toISOString(),
+    );
+    if (!last.ok || !last.value.later)
+      throw new Error("the last confirmation did not run the check");
+    const checked = last.value.later.finish(last.value.record, NOW.toISOString());
+    for (const role of ["dev", "ngo"] as const) {
+      const main = chatText(toSnapshot(checked, { role, name: role }), MAIN);
+      expect(main, role).toContain(
+        "All six required topics are confirmed. No blocking question is waiting for an answer. One blocking question is not posted yet.",
+      );
+      expect(main, role).not.toContain("no blocking question is open");
+    }
+  });
+
+  it("says a section whose completion check gap was fixed has its gap closed, and keeps Reopened for a section Priya reopened", async () => {
+    const { dev, ngo } = open("prd-today");
+    await deliver(dev, MAIN, { kind: "close-check" });
+    const ask = parts(await snap(dev), "data-close-ask")[0];
+    if (!ask) throw new Error("the check did not ask to close");
+    expect((await dev.act(ask.data.keepWorking)).ok).toBe(true);
+    await deliver(
+      dev,
+      { kind: "topic", topicId: "users" as TopicId },
+      {
+        kind: "text",
+        text: "Volunteers under 16 need a guardian's consent before their first shift.",
+      },
+    );
+    const fixedDev = topic(await snap(dev), "users");
+    expect(fixedDev.state).toBe("needs-review");
+    expect(fixedDev.statusText).toBe("Gap closed. Read it again and confirm.");
+    expect(fixedDev.blocker).toBe("Gap closed · Priya reviews and confirms again");
+    const fixedNgo = topic(await snap(ngo), "users");
+    expect(fixedNgo.statusText).toBe("Gap closed. Ready for Priya to confirm again.");
+    expect(fixedNgo.blocker).toBe("Gap closed · Priya reviews and confirms again");
+    expect((await dev.act(confirmAction(await snap(dev), "users"))).ok).toBe(true);
+    const reopen = topic(await snap(dev), "users").reopen;
+    if (reopen.kind !== "available") throw new Error("users cannot be reopened");
+    expect((await dev.act(reopen.action)).ok).toBe(true);
+    expect(topic(await snap(dev), "users").statusText).toBe("Reopened. Read it again and confirm.");
+    expect(topic(await snap(ngo), "users").statusText).toBe(
+      "Reopened. Ready for Priya to confirm again.",
+    );
+    expect(topic(await snap(ngo), "users").blocker).toBe(
+      "Reopened · Priya reviews and confirms again",
+    );
+  });
+
   it("starts a scenario from its seed again when the shell URL asks for fresh", async () => {
     expect(prdFixtureSelection("?scenario=prd-today&viewer=dev&fresh=1")).toMatchObject({
       scenario: "prd-today",
