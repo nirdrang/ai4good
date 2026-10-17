@@ -38,3 +38,6 @@ Not asked again: the desktop scroll areas and a queue countdown (declined after 
 - A short summary of what changed when a section goes back to Needs review: the founder asked "What is a need review". After the explanation, the founder chose "Add a summary".
 
 Not asked again: reviewing the final answer before it is sent (ruled 2026-10-13, "Sent at once, she can read it"); widening the section, a queue pause, the cost beside Send (declined earlier); Lovable and Supabase explanations and the fixture badge (out of scope).
+## Stop rule for the Codex rounds (2026-10-17)
+
+Asked whether to set a stop rule, the founder chose "Freeze hints, cap at 7 (Recommended)": from round 6 on, new usability hints are recorded for a later item and not built in this pull request. Round 6 with no failures ends the review; otherwise only its defects are fixed and one confirming round 7 ends it either way.
