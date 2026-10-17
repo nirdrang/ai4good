@@ -32,3 +32,9 @@ Round 4 found no failing interaction ("0 interactions confirmed not working").
 - Revising the canvas for d98: the founder asked "Show this in visual snippets". Shown the coded screen's second Close PRD on unchanged revision 13, the founder chose "No canvas revision (Recommended)".
 
 Not asked again: the desktop scroll areas and a queue countdown (declined after round 2 and 3), renaming Use answer (ruled 2026-10-11), the cost beside Send (declined 2026-10-11), data export and account ownership (sample PRD content, out of scope).
+## After Codex round 5 (asked 2026-10-17 with the AskUserQuestion tool)
+
+- Make the "Still open" items clickable: the founder answered "If that is a better ui experience we are not locked in to canvas". The lead judged it better (each line leads to the work it names) and builds it.
+- A short summary of what changed when a section goes back to Needs review: the founder asked "What is a need review". After the explanation, the founder chose "Add a summary".
+
+Not asked again: reviewing the final answer before it is sent (ruled 2026-10-13, "Sent at once, she can read it"); widening the section, a queue pause, the cost beside Send (declined earlier); Lovable and Supabase explanations and the fixture badge (out of scope).
