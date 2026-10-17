@@ -52,7 +52,7 @@ function ClosePanel({ view, controller }: { view: PrdView; controller: PrdContro
                 <Button
                   type="button"
                   variant="link"
-                  onClick={() => controller.select(target)}
+                  onClick={() => controller.openRemaining(target)}
                   className={cn(
                     LINK,
                     "whitespace-normal text-left text-muted-foreground underline underline-offset-2 hover:text-foreground",

@@ -12,6 +12,7 @@ import {
   type PrdSnapshot,
   type PrdUIMessage,
   type QuestionId,
+  type RemainingTarget,
   type RequestId,
   type SendAvailability,
   type TopicId,
@@ -62,6 +63,7 @@ export interface PrdController {
   sendState(scope: ChatScope): SendState;
   answerQueued(questionId: QuestionId): boolean;
   select(selection: Selection): void;
+  openRemaining(target: RemainingTarget): void;
   closeTopic(): void;
   setPhoneTab(tab: PhoneTab): void;
   toggleAnswered(): void;
@@ -489,6 +491,14 @@ export function usePrdWorkspace(
       return holds(outbox, answerIntent(questionId));
     },
     select,
+    openRemaining(target) {
+      if (target.kind !== "turn") {
+        select(target);
+        return;
+      }
+      select({ kind: "main" });
+      focusOn(turnElementId(target.turnId), true);
+    },
     closeTopic() {
       setPlace((current) => ({ ...current, center: MAIN_CENTER }));
     },

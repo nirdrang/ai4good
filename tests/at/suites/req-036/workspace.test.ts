@@ -926,7 +926,32 @@ atTest(
           "questions",
         );
         expect(await prd.questions.count(), "the questions panel is on screen").toBe(1);
+        await prd.phone.tab("prd");
+        await prd.panel.openRemaining("not posted to Maya");
+        expect(await prd.phone.current(), "the unposted question line opens the Chat tab").toBe(
+          "chat",
+        );
+        expect(
+          await prd.chat.introInView(SUCCESS_QUESTION),
+          "the suggested question card is in view",
+        ).toBe(true);
         expect(await prd.modelCalls(), "opening Still open lines calls no model").toEqual(before);
+      });
+      await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
+        const before = await prd.modelCalls();
+        await prd.topics.open(TOPIC.data);
+        expect(await prd.chat.shown(), "a section is open instead of the main chat").toBe(false);
+        await prd.panel.openRemaining("not posted to Maya");
+        expect(await prd.chat.shown(), "the unposted question line opens the main chat").toBe(true);
+        expect(
+          await prd.chat.introInView(SUCCESS_QUESTION),
+          "the turn that suggests the question is in view, with Post to Maya",
+        ).toBe(true);
+        expect(
+          await prd.questions.introPostCount(SUCCESS_QUESTION),
+          "Post to Maya is on the card in view",
+        ).toBe(1);
+        expect(await prd.modelCalls(), "opening the line calls no model").toEqual(before);
       });
       await withPrd(
         ctx,

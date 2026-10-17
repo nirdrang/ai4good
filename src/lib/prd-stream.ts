@@ -116,7 +116,8 @@ export type ClosePath = "close" | "check";
 
 export type RemainingTarget =
   | { readonly kind: "topic"; readonly topicId: TopicId }
-  | { readonly kind: "questions" };
+  | { readonly kind: "questions" }
+  | { readonly kind: "turn"; readonly turnId: TurnId };
 export type RemainingItem = Readonly<{ text: string; target: RemainingTarget | null }>;
 
 export type CloseState =
@@ -349,6 +350,7 @@ const closeStateSchema = z.discriminatedUnion("kind", [
           .discriminatedUnion("kind", [
             z.object({ kind: z.literal("topic"), topicId: topicIdSchema }),
             z.object({ kind: z.literal("questions") }),
+            z.object({ kind: z.literal("turn"), turnId: turnIdSchema }),
           ])
           .nullable(),
       }),

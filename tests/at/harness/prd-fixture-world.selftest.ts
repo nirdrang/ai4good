@@ -1246,19 +1246,12 @@ describe("the PRD fixture world", () => {
     expect(createPrdWorld("prd-today", { storage }).snapshot(viewer).drafts.main).toBeUndefined();
   });
 
-  it("gives each Still open line the place it names, the same for both viewers, and none to the completion check line", async () => {
+  it("gives each Still open line the place it names for each viewer, and none to the completion check line", async () => {
     const sectionTarget = (id: string) => ({ kind: "topic", topicId: id });
     const questions = { kind: "questions" };
     const today = open("prd-today");
     const targets = (items: readonly RemainingItem[]) => items.map((item) => item.target);
-    const expected = [
-      sectionTarget("notify"),
-      sectionTarget("scope"),
-      sectionTarget("shifts"),
-      questions,
-      questions,
-      null,
-    ];
+    const shared = [sectionTarget("notify"), sectionTarget("scope"), sectionTarget("shifts")];
     const devToday = await snap(today.dev);
     expect(lines(remainingOf(devToday))).toEqual([
       "1 section ready for you to confirm",
@@ -1268,8 +1261,13 @@ describe("the PRD fixture world", () => {
       "1 blocking question waiting for Maya",
       "Completion check runs when you close, or when all sections are confirmed",
     ]);
-    expect(targets(remainingOf(devToday))).toEqual(expected);
-    expect(targets(remainingOf(await snap(today.ngo)))).toEqual(expected);
+    expect(targets(remainingOf(devToday))).toEqual([
+      ...shared,
+      { kind: "turn", turnId: "t5" },
+      questions,
+      null,
+    ]);
+    expect(targets(remainingOf(await snap(today.ngo)))).toEqual([...shared, null, questions, null]);
     expect(parsePrdSnapshot(JSON.parse(JSON.stringify(devToday))).close).toEqual(devToday.close);
 
     const answered = open("answer-complete");
@@ -1283,14 +1281,40 @@ describe("the PRD fixture world", () => {
     const ask = parts(await snap(gaps.dev), "data-close-ask")[0];
     if (!ask) throw new Error("the check did not ask to close");
     expect((await gaps.dev.act(ask.data.keepWorking)).ok).toBe(true);
-    for (const port of [gaps.dev, gaps.ngo]) {
+    const untargeted = { dev: [], ngo: ["1 blocking question Priya has not sent you yet"] };
+    for (const [role, port] of [
+      ["dev", gaps.dev],
+      ["ngo", gaps.ngo],
+    ] as const) {
       const snapshot = await snap(port);
       const gapLine = remainingOf(snapshot).find((item) => /completion check/.test(item.text));
       const firstGap = snapshot.topics.find((item) => item.statusText.startsWith("Gap from"));
       expect(firstGap?.id).toBe("users");
       expect(gapLine?.target).toEqual(sectionTarget("users"));
-      expect(remainingOf(snapshot).some((item) => item.target === null)).toBe(false);
+      expect(lines(remainingOf(snapshot).filter((item) => item.target === null))).toEqual(
+        untargeted[role],
+      );
     }
+  });
+
+  it("points Priya's unposted question line at the main chat turn that suggests it, and gives Maya's no target", async () => {
+    const { dev, ngo } = open("prd-today");
+    const devSnapshot = await snap(dev);
+    const suggested = devSnapshot.questions.filter(
+      (question) => question.kind === "suggested" && question.blocking,
+    );
+    expect(suggested.map((question) => question.introTurn)).toEqual(["t5"]);
+    const devLine = remainingOf(devSnapshot).find((item) => /not posted to Maya$/.test(item.text));
+    expect(devLine?.target).toEqual({ kind: "turn", turnId: "t5" });
+    expect(devSnapshot.chats.main?.some((message) => message.id === "t5")).toBe(true);
+    const ngoLine = remainingOf(await snap(ngo)).find((item) =>
+      /Priya has not sent you yet$/.test(item.text),
+    );
+    expect(ngoLine?.text).toBe("1 blocking question Priya has not sent you yet");
+    expect(ngoLine?.target).toBeNull();
+    expect(parsePrdSnapshot(JSON.parse(JSON.stringify(devSnapshot))).close).toEqual(
+      devSnapshot.close,
+    );
   });
 
   it("names what changed since Priya confirmed a section that went back to Needs review, for both viewers", async () => {

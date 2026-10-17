@@ -490,11 +490,14 @@ export function closeRemaining(record: PrdRecord, role: Role): RemainingItem[] {
     items.push({ text: `${sections(writing.length)} still being written`, target: first(writing) });
   }
   if (unposted > 0) {
+    const suggested = record.questions.find(
+      (question) => question.blocking && question.status === "suggested",
+    );
     items.push({
       text: isDev
         ? `${questions(unposted)} not posted to ${ngo}`
         : `${questions(unposted)} ${dev} has not sent you yet`,
-      target: questionsPanel,
+      target: isDev && suggested ? { kind: "turn", turnId: suggested.introTurn } : null,
     });
   }
   if (waiting > 0) {
@@ -602,7 +605,6 @@ function describeChange(before: readonly string[], after: readonly string[]): st
   return more > 0 ? `${change}, and ${plural(more, "more change", "more changes")}` : change;
 }
 
-/** What changed in a section, or in the section it depends on, since the developer last confirmed it. */
 export function changeSummary(record: PrdRecord, topic: TopicRecord, role: Role): string | null {
   const copy = topic.confirmedText;
   if (!copy || record.closed !== null || topic.gap !== null || topic.gapClosed) return null;

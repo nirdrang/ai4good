@@ -389,6 +389,24 @@ export class PrdPage {
       this.page.count([byId(testIds.prdRecommendation), byId(testIds.prdCloseButton)]),
     briefCount: (): Promise<number> => this.page.count([byId(testIds.prdClaimBrief)]),
     briefText: (): Promise<string> => this.page.text([byId(testIds.prdClaimBrief)]),
+    introInView: async (question: string): Promise<boolean> => {
+      const chat = [byId(testIds.prdChat)];
+      const card = [...chat, byId(testIds.prdNgoQuestionIntro, question)];
+      const inside = async (): Promise<boolean> => {
+        if ((await this.page.count(card)) !== 1) return false;
+        const outer = await this.page.box(chat);
+        const inner = await this.page.box(card);
+        if (!outer || !inner) return false;
+        const top = Math.max(0, outer.y);
+        const bottom = Math.min(this.height, outer.y + outer.height);
+        return inner.y >= top - 1 && inner.y + inner.height <= bottom + 1;
+      };
+      try {
+        return await eventually(`the card for ${question} is in view`, inside, (yes) => yes, 2_000);
+      } catch {
+        return false;
+      }
+    },
     briefFocused: (text: string): Promise<boolean> =>
       this.page.focused([byId(testIds.prdTurn, text, 0)]),
     sourceLinkCount: (): Promise<number> => this.page.count([byId(testIds.prdOpenSectionChat)]),
@@ -489,6 +507,8 @@ export class PrdPage {
     viewCount: (question: string): Promise<number> =>
       this.page.count([byId(testIds.prdNgoQuestion, question), byId(testIds.prdNgoQuestionView)]),
     postCount: (): Promise<number> => this.page.count([byId(testIds.prdPostQuestion)]),
+    introPostCount: (question: string): Promise<number> =>
+      this.page.count([byId(testIds.prdNgoQuestionIntro, question), byId(testIds.prdPostQuestion)]),
     post: (question: string): Promise<void> =>
       this.press(
         [byId(testIds.prdNgoQuestionIntro, question), byId(testIds.prdPostQuestion)],
