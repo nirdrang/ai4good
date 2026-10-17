@@ -15,7 +15,6 @@ export type PrdFixtureSelection = {
   fresh: boolean;
 };
 
-/** Reads `scenario`, `pace`, `viewer` and `fresh` from the shell URL; each falls back to the scenario table. */
 export function prdFixtureSelection(search = location.search): PrdFixtureSelection {
   const params = new URLSearchParams(search);
   const requested = params.get("scenario");
@@ -42,7 +41,6 @@ export function prdShellSelection(): PrdFixtureSelection {
   return selection;
 }
 
-/** The view the screen opens first: the scenario's start for the developer, the questions for the NGO. */
 export function prdStartSelection(scenario: PrdScenario, viewer: Role): Selection {
   if (viewer === "ngo" || PRD_GIVEN[scenario].start === "questions") return { kind: "questions" };
   return { kind: "main" };

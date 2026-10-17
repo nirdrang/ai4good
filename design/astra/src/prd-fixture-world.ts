@@ -217,7 +217,6 @@ function revise(
   record.topics = markDependents(record.topics, changed, inChat);
 }
 
-/** Validates a chat send and records its start: the person's message, the held funds, and the busy chat. */
 export function startSend(
   record: PrdRecord,
   role: Role,
@@ -751,7 +750,6 @@ function allReady(now: Date): Seed {
   return seed;
 }
 
-/** Builds a scenario's starting record. Later scenarios replay the scripted operations from the canvas board. */
 export function seedRecord(scenario: PrdScenario, now: Date): PrdRecord {
   return refreshOpeners(scriptedRecord(scenario, now));
 }
@@ -804,7 +802,6 @@ function storageKey(scenario: PrdScenario): string {
   return `ai4good.prd.fixture.v2.${scenario}`;
 }
 
-/** Forgets a scenario's saved record, so the next world opened for it starts from its seed. */
 export function forgetPrdWorld(
   scenario: PrdScenario,
   storage: KeyValueStore | null = browserStorage(),
@@ -862,7 +859,6 @@ export type SendReceipt = {
   done: Promise<PrdUIMessage>;
 };
 
-/** The backend stand-in for one scenario, shared by both viewers. */
 export type PrdWorld = {
   readonly scenario: PrdScenario;
   readonly pace: PrdPace;
@@ -1008,7 +1004,6 @@ function browserStorage(): KeyValueStore | null {
   }
 }
 
-/** The shell's world for a scenario: one per page, saved in this browser. */
 export function openPrdWorld(scenario: PrdScenario, pace: PrdPace): PrdWorld {
   const key = `${scenario}:${pace}`;
   const cached = opened.get(key);

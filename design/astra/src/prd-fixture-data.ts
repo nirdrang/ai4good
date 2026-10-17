@@ -336,7 +336,6 @@ function waitingBody(
     : { body: [`No text yet. It waits for ${ngo}’s answer on ${subject}.`], ngoBody: null };
 }
 
-/** Rewrites the sections whose text follows recorded decisions: the shift rules, the scope, and each question's state. */
 export function rewriteSections(record: PrdRecord): TopicRecord[] {
   const list = stories(record);
   const retention = used(record, QUESTION.retention);
@@ -444,7 +443,6 @@ export function topicOpeners(record: PrdRecord, topic: TopicRecord, at: string):
   }));
 }
 
-/** Rewrites each topic chat's opener from the topic's current state, while that chat holds nothing but its openers. */
 export function refreshOpeners(record: PrdRecord): PrdRecord {
   const chats = { ...record.chats };
   for (const topic of record.topics) {
@@ -542,7 +540,6 @@ export function sideReply(
   return { text: follow[question.id] ?? "Is that all?", evidence, followUp: "pending" };
 }
 
-/** The one clean answer the AI writes from the whole side chat. */
 export function writeAnswer(question: QuestionRecord): string {
   const parts = question.evidence.map((item) => item.trim()).filter(Boolean);
   const first = (parts[0] ?? "").replace(/[.\s]+$/, "");
@@ -801,7 +798,6 @@ function withOpeners(record: PrdRecord, at: string): PrdRecord {
   return { ...record, chats };
 }
 
-/** The developer's first entry: six topics from Discovery revision 12 and the AI's opening message. */
 export function firstEntryRecord(now: Date): PrdRecord {
   const at = now.toISOString();
   const source = ["Discovery revision 12"];
@@ -825,7 +821,6 @@ export function firstEntryRecord(now: Date): PrdRecord {
   return withOpeners(record, at);
 }
 
-/** The canvas board's starting state, several days into the PRD. */
 export function prdTodayRecord(now: Date): PrdRecord {
   const mon = (minute: number) => stamp("2026-10-05", minute);
   const tue = (minute: number) => stamp("2026-10-06", minute);

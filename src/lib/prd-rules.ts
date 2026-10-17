@@ -74,7 +74,6 @@ export type QuestionRecord = {
 
 export type CheckRecord = Mutable<Omit<CompletionCheck, "gaps">> & { gaps: CheckGap[] };
 
-/** The backend's whole record of one PRD workspace. Only `toSnapshot` turns it into what a viewer sees. */
 export type PrdRecord = {
   sequence: number;
   revision: number;
@@ -187,7 +186,6 @@ function forbiddenReason(record: PrdRecord, kind: ActionKind): string {
   }
 }
 
-/** Checks who may act, whether the PRD is open, and whether the token is current. */
 export function verifyAction(
   record: PrdRecord,
   role: Role,
@@ -228,7 +226,6 @@ export function allRequiredConfirmed(record: PrdRecord): boolean {
   return progress.total > 0 && progress.confirmed === progress.total;
 }
 
-/** True when the latest completion check ran on the current revision, so running it again gives the same result. */
 export function checkCurrent(record: PrdRecord): boolean {
   return record.check !== null && record.check.revision === record.revision;
 }
@@ -329,7 +326,6 @@ export function sendAvailability(record: PrdRecord, role: Role, key: string): Se
   return { kind: "available" };
 }
 
-/** A send that `sendAvailability` refuses, as the refusal the backend returns. */
 export function sendRefusal(record: PrdRecord, role: Role, key: string): PrdRefusal | null {
   const send = sendAvailability(record, role, key);
   if (send.kind === "available") return null;
@@ -337,7 +333,6 @@ export function sendRefusal(record: PrdRecord, role: Role, key: string): PrdRefu
   return { kind, reason: send.reason };
 }
 
-/** A dependency that is neither ready nor confirmed holds the topic back from confirmation. */
 export function waitingDependency(record: PrdRecord, topic: TopicRecord): TopicRecord | null {
   return (
     record.topics.find((other) => {
@@ -348,7 +343,6 @@ export function waitingDependency(record: PrdRecord, topic: TopicRecord): TopicR
   );
 }
 
-/** True when confirming this topic would confirm the last required one and so start the completion check. */
 export function confirmStartsCheck(record: PrdRecord, topic: TopicRecord): boolean {
   if (!topic.required) return false;
   const others = record.topics.filter((item) => item.required && item.id !== topic.id);
@@ -358,7 +352,6 @@ export function confirmStartsCheck(record: PrdRecord, topic: TopicRecord): boole
   );
 }
 
-/** Why this topic cannot be confirmed now, or null when the rules allow it. */
 export function confirmBlock(
   record: PrdRecord,
   topic: TopicRecord,
@@ -743,7 +736,6 @@ function chatKeys(record: PrdRecord): string[] {
   ];
 }
 
-/** Projects the record into what one viewer sees, deciding every action from the rules. */
 export function toSnapshot(record: PrdRecord, viewer: Viewer): PrdSnapshot {
   const role = viewer.role;
   const keys = chatKeys(record);
@@ -800,7 +792,6 @@ function closeAvailability(record: PrdRecord, role: Role): Availability<Action<"
   return available(record, "close", CLOSE_TARGET);
 }
 
-/** Refuses close, close anyway and keep working while a reply or a backend job runs. */
 export function closeBlock(record: PrdRecord): PrdRefusal | null {
   return anyBusy(record) ? { kind: "busy", reason: WAIT_REASON } : null;
 }

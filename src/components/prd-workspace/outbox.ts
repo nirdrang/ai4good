@@ -18,7 +18,6 @@ function sameWork(left: PrdIntent, right: PrdIntent): boolean {
   return false;
 }
 
-/** True when a Close PRD check, or a use of the same answer, is already queued or running. */
 export function holds(box: Outbox, intent: PrdIntent): boolean {
   const items = box.running ? [box.running, ...box.queue] : box.queue;
   return items.some((item) => sameWork(item.intent, intent));
@@ -37,7 +36,6 @@ export function take(box: Outbox, id: string): { box: Outbox; item: QueuedItem |
   return { box: { ...box, queue: box.queue.filter((queued) => queued.id !== id) }, item };
 }
 
-/** Marks the head of the queue as the running request. */
 export function start(box: Outbox, id: RequestId): Outbox {
   const head = box.queue[0];
   if (box.running !== null || !head || head.id !== id) return box;

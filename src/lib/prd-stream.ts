@@ -455,12 +455,10 @@ const sendBodySchema = z.object({
   intent: intentSchema,
 });
 
-/** Reads a snapshot at the boundary. Rejects a wrong shape or an unknown kind. */
 export function parsePrdSnapshot(input: unknown): PrdSnapshot {
   return snapshotSchemaObject.parse(input);
 }
 
-/** Reads a chat send at the boundary. Rejects a wrong shape or an unknown kind. */
 export function parseSendBody(input: unknown): PrdSendBody {
   return sendBodySchema.parse(input);
 }

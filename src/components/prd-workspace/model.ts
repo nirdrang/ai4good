@@ -202,7 +202,6 @@ function waiting(question: NgoQuestion): boolean {
   return question.kind === "posted" || question.kind === "answering";
 }
 
-/** Everything the screen shows, derived from one snapshot. It decides no rule of its own. */
 export function present(snapshot: PrdSnapshot): PrdView {
   const names = namesOf(snapshot);
   const isDev = snapshot.viewer.role === "dev";

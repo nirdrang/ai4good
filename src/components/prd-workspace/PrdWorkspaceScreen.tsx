@@ -45,7 +45,6 @@ function Workspace({
   );
 }
 
-/** The PRD workspace: loads the snapshot from the port, then shows the desktop or the phone layout. */
 export function PrdWorkspaceScreen({ port, start, onOpenUiDesign }: PrdWorkspaceScreenProps) {
   const [loaded, setLoaded] = useState<
     | { kind: "loading" }

@@ -1,6 +1,3 @@
-/** The PRD workspace scenarios a screen test may open, with their default viewer, start view and reply hold.
- * No imports: the acceptance tests compile this file. */
-
 export const PRD_SCENARIOS = [
   "first-entry",
   "prd-today",
@@ -45,5 +42,4 @@ export const PRD_GIVEN = {
   "funds-95001": MAIN,
 } as const satisfies Record<PrdScenario, PrdGiven>;
 
-/** The names the fixture reports to the model-call probe, once per paid generation. */
 export type PrdModelCall = "prd-chat" | "prd-side-chat" | "prd-answer-write" | "prd-check";
