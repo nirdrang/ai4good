@@ -140,7 +140,14 @@ function runCheck(record: PrdRecord): { gaps: number; checkId: string } {
   record.topics = record.topics.map((topic) => {
     const gap = gaps.find((item) => item.topicId === topic.id);
     return gap
-      ? { ...topic, gap: gap.text, gapClosed: false, confirmed: false, review: true }
+      ? {
+          ...topic,
+          gap: gap.text,
+          gapClosed: false,
+          changedDependency: null,
+          confirmed: false,
+          review: true,
+        }
       : topic;
   });
   record.checkRuns += 1;
@@ -526,7 +533,9 @@ export function applyAction(
       const block = confirmBlock(next, topic);
       if (block) return refusal(block.kind, block.reason);
       next.topics = next.topics.map((item) =>
-        item.id === topic.id ? { ...item, confirmed: true, review: false, gapClosed: false } : item,
+        item.id === topic.id
+          ? { ...item, confirmed: true, review: false, gapClosed: false, changedDependency: null }
+          : item,
       );
       next.versions = spend(next.versions, target);
       chat(next, "main").push(
@@ -559,7 +568,9 @@ export function applyAction(
       const topic = next.topics.find((item) => topicTarget(item.id) === target);
       if (!topic || !topic.confirmed) return stale;
       next.topics = next.topics.map((item) =>
-        item.id === topic.id ? { ...item, confirmed: false, review: true, gapClosed: false } : item,
+        item.id === topic.id
+          ? { ...item, confirmed: false, review: true, gapClosed: false, changedDependency: null }
+          : item,
       );
       next.versions = spend(next.versions, target);
       next.revision += 1;

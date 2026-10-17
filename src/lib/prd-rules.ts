@@ -41,6 +41,7 @@ export type TopicRecord = {
   review: boolean;
   gap: string | null;
   gapClosed: boolean;
+  changedDependency: TopicId | null;
   body: string[];
   ngoBody: string[] | null;
   added: string[];
@@ -388,15 +389,18 @@ export function confirmBlock(
 export function markDependents(topics: TopicRecord[], changed: readonly TopicId[]): TopicRecord[] {
   const touched = new Set<TopicId>(changed);
   let next = topics.map((topic) =>
-    touched.has(topic.id) && topic.confirmed ? { ...topic, confirmed: false, review: true } : topic,
+    touched.has(topic.id) && topic.confirmed
+      ? { ...topic, confirmed: false, review: true, changedDependency: null }
+      : topic,
   );
   for (;;) {
     let moved = false;
     next = next.map((topic) => {
-      if (!topic.confirmed || !topic.dependsOn.some((id) => touched.has(id))) return topic;
+      const cause = topic.confirmed ? topic.dependsOn.find((id) => touched.has(id)) : undefined;
+      if (cause === undefined) return topic;
       touched.add(topic.id);
       moved = true;
-      return { ...topic, confirmed: false, review: true };
+      return { ...topic, confirmed: false, review: true, changedDependency: cause };
     });
     if (!moved) return next;
   }
@@ -496,8 +500,10 @@ function closedStatusText(record: PrdRecord, topic: TopicRecord): string {
     : "Not confirmed when the PRD closed.";
 }
 
-function reviewLead(topic: TopicRecord): string {
-  return topic.gapClosed ? "Gap closed" : "Reopened";
+function reviewLead(record: PrdRecord, topic: TopicRecord): string {
+  if (topic.gapClosed) return "Gap closed";
+  const changed = record.topics.find((other) => other.id === topic.changedDependency);
+  return changed ? `Updated because ${changed.title} changed` : "Reopened";
 }
 
 export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): string | null {
@@ -515,7 +521,8 @@ export function blockerFor(record: PrdRecord, topic: TopicRecord, role: Role): s
   const state = topicState(topic);
   if (state === "confirmed") return null;
   if (state === "ready") return `AI: every decision is in · ${dev} can confirm`;
-  if (state === "needs-review") return `${reviewLead(topic)} · ${dev} reviews and confirms again`;
+  if (state === "needs-review")
+    return `${reviewLead(record, topic)} · ${dev} reviews and confirms again`;
   const asked = record.devQuestions.filter(
     (question) => question.topicId === topic.id && question.answered === null,
   ).length;
@@ -557,7 +564,7 @@ function statusText(record: PrdRecord, topic: TopicRecord, role: Role): string {
   const waits = waitingDependency(record, topic);
   const state = topicState(topic);
   if (waits && (state === "ready" || state === "needs-review")) {
-    return `${state === "ready" ? "Every decision is recorded" : reviewLead(topic)}. It waits on ${waits.title} before ${isDev ? "you" : dev} can confirm it.`;
+    return `${state === "ready" ? "Every decision is recorded" : reviewLead(record, topic)}. It waits on ${waits.title} before ${isDev ? "you" : dev} can confirm it.`;
   }
   switch (state) {
     case "confirmed":
@@ -566,8 +573,8 @@ function statusText(record: PrdRecord, topic: TopicRecord, role: Role): string {
       return `The AI checked this section: every decision is recorded. ${isDev ? "Read it and confirm." : `Ready for ${dev} to confirm.`}`;
     case "needs-review":
       return isDev
-        ? `${reviewLead(topic)}. Read it again and confirm.`
-        : `${reviewLead(topic)}. Ready for ${dev} to confirm again.`;
+        ? `${reviewLead(record, topic)}. Read it again and confirm.`
+        : `${reviewLead(record, topic)}. Ready for ${dev} to confirm again.`;
     default:
       return blockerFor(record, topic, role) ?? "The AI is still writing this section.";
   }

@@ -1108,6 +1108,61 @@ describe("the PRD fixture world", () => {
     );
   });
 
+  it("says a section sent back because a section it depends on changed was updated, not reopened", async () => {
+    const { dev, ngo } = open("check-passed");
+    await deliver(dev, SHIFTS, { kind: "text", text: "Swaps: volunteers cancel instead" });
+    const lead = "Updated because Shift scheduling rules changed";
+    const line = `${lead} · Priya reviews and confirms again`;
+    const held = topic(await snap(dev), "scope");
+    expect(held.state).toBe("needs-review");
+    expect(held.statusText).toBe(
+      `${lead}. It waits on Shift scheduling rules before you can confirm it.`,
+    );
+    expect(held.blocker).toBe(line);
+    expect((await dev.act(confirmAction(await snap(dev), "shifts"))).ok).toBe(true);
+    const scopeDev = topic(await snap(dev), "scope");
+    expect(scopeDev.statusText).toBe(`${lead}. Read it again and confirm.`);
+    expect(scopeDev.blocker).toBe(line);
+    const scopeNgo = topic(await snap(ngo), "scope");
+    expect(scopeNgo.statusText).toBe(`${lead}. Ready for Priya to confirm again.`);
+    expect(scopeNgo.blocker).toBe(line);
+    expect(topic(await snap(dev), "shifts").statusText).not.toContain("Updated because");
+  });
+
+  it("opens a section chat with the state of the blocking question the section waits on", async () => {
+    const opener = (snapshot: PrdSnapshot, id: string) =>
+      chatText(snapshot, { kind: "topic", topicId: id as TopicId });
+    const { dev, ngo } = open("prd-today");
+    expect(opener(await snap(dev), "success")).toContain(
+      "This section waits on a blocking question you have not posted to Maya yet.",
+    );
+    expect(opener(await snap(ngo), "success")).toContain(
+      "This section waits on a blocking question Priya has not sent you yet.",
+    );
+    expect(opener(await snap(dev), "success")).not.toContain("waits for Maya’s answer");
+    expect(opener(await snap(dev), "data")).toContain(
+      "This section waits for Maya’s answer to a blocking question.",
+    );
+    expect(opener(await snap(ngo), "data")).toContain(
+      "This section waits for your answer to a blocking question.",
+    );
+    const success = question(await snap(dev), "success");
+    if (success.kind !== "suggested" || success.post.kind !== "available") {
+      throw new Error("the success question is not offered to post");
+    }
+    expect((await dev.act(success.post.action)).ok).toBe(true);
+    expect(opener(await snap(dev), "success")).toContain(
+      "This section waits for Maya’s answer to a blocking question.",
+    );
+    const answered = open("answer-complete");
+    expect(opener(await snap(answered.dev), "data")).toContain(
+      "Maya answered its blocking question. It waits for you to use the answer.",
+    );
+    expect(opener(await snap(answered.ngo), "data")).toContain(
+      "You answered its blocking question. It waits for Priya to use your answer.",
+    );
+  });
+
   it("starts a scenario from its seed again when the shell URL asks for fresh", async () => {
     expect(prdFixtureSelection("?scenario=prd-today&viewer=dev&fresh=1")).toMatchObject({
       scenario: "prd-today",

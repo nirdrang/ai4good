@@ -221,6 +221,7 @@ function topicRecord(
     review: false,
     gap: null,
     gapClosed: false,
+    changedDependency: null,
     ngoBody: null,
     added: [],
     stories: null,
@@ -376,10 +377,24 @@ export function rewriteSections(record: PrdRecord): TopicRecord[] {
 function openerLine(record: PrdRecord, topic: TopicRecord, role: Role): string {
   const dev = firstName(record, "dev");
   const ngo = firstName(record, "ngo");
+  const blocking = record.questions.find(
+    (question) => question.topicId === topic.id && question.blocking && question.status !== "used",
+  );
   if (role === "ngo") {
-    return topic.gap !== null
-      ? `The completion check found a gap here: ${topic.gap} ${dev} covers it.`
-      : `${dev} works on this section with the AI. Questions for you are under Questions.`;
+    if (topic.gap !== null) {
+      return `The completion check found a gap here: ${topic.gap} ${dev} covers it.`;
+    }
+    switch (blocking?.status) {
+      case "suggested":
+        return `This section waits on a blocking question ${dev} has not sent you yet.`;
+      case "posted":
+      case "answering":
+        return "This section waits for your answer to a blocking question. It is under Questions.";
+      case "complete":
+        return `You answered its blocking question. It waits for ${dev} to use your answer.`;
+      default:
+        return `${dev} works on this section with the AI. Questions for you are under Questions.`;
+    }
   }
   if (topic.gap !== null) {
     return `The completion check found a gap here: ${topic.gap} Tell me how to cover it.`;
@@ -398,13 +413,17 @@ function openerLine(record: PrdRecord, topic: TopicRecord, role: Role): string {
   if (state === "confirmed") {
     return "This section is confirmed. If you change something here, it goes back to you for review.";
   }
-  const waiting = record.questions.some(
-    (question) => question.topicId === topic.id && question.blocking && question.status !== "used",
-  );
-  if (waiting) {
-    return `This section waits for ${ngo}’s answer to a blocking question. You can still discuss it here.`;
+  switch (blocking?.status) {
+    case "suggested":
+      return `This section waits on a blocking question you have not posted to ${ngo} yet. You can still discuss it here.`;
+    case "posted":
+    case "answering":
+      return `This section waits for ${ngo}’s answer to a blocking question. You can still discuss it here.`;
+    case "complete":
+      return `${ngo} answered its blocking question. It waits for you to use the answer. You can still discuss it here.`;
+    default:
+      return "Tell me what to change, or ask me anything about this section.";
   }
-  return "Tell me what to change, or ask me anything about this section.";
 }
 
 export function topicOpeners(record: PrdRecord, topic: TopicRecord, at: string): StoredMessage[] {
