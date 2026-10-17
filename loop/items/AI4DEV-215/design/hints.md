@@ -22,3 +22,13 @@ The approved wording was written as 'waiting for her to use it'. The lead change
 ## A ruling that changes the contract
 
 Codex round 3 found that Close PRD ran a second paid completion check on a revision where a check had already failed. Asked whether to run the paid check again or reuse the existing result, the founder chose "Reuse the result (Recommended)". The contract, the PRD and acceptance case 04 gain: the check runs when Dev presses Close PRD unless it already passed, or already ran, on the current revision; a new check runs once the revision changes.
+## After Codex round 4 (asked 2026-10-17 with the AskUserQuestion tool)
+
+Round 4 found no failing interaction ("0 interactions confirmed not working").
+
+- A direct link from Maya's sent answer to its section: "Add the link (Recommended)".
+- "No blocking question is open" while a blocking question is not posted yet: "Name the pending one (Recommended)".
+- "Ready" in the AI reply beside "Needs review": the founder asked "Explain the scenario more provide visual snippets". Shown screenshots of the two paths (a change to a confirmed section, a gap fix), which already match, the founder chose "No change (Recommended)". The lead fixes "Reopened" after a gap fix as a wording defect.
+- Revising the canvas for d98: the founder asked "Show this in visual snippets". Shown the coded screen's second Close PRD on unchanged revision 13, the founder chose "No canvas revision (Recommended)".
+
+Not asked again: the desktop scroll areas and a queue countdown (declined after round 2 and 3), renaming Use answer (ruled 2026-10-11), the cost beside Send (declined 2026-10-11), data export and account ownership (sample PRD content, out of scope).
