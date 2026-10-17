@@ -3,75 +3,26 @@
   "tiers": {
     "loop": {
       "green": [
+        "AT-036.01",
+        "AT-036.02",
+        "AT-036.03",
+        "AT-036.04",
+        "AT-036.05",
+        "AT-036.06",
+        "AT-036.07",
+        "AT-036.08",
+        "AT-036.09",
+        "AT-036.10",
         "AT-036.11",
-        "AT-036.12"
+        "AT-036.12",
+        "AT-036.13",
+        "AT-036.14",
+        "AT-036.15",
+        "AT-036.16",
+        "AT-036.17",
+        "AT-036.18"
       ],
-      "red": {
-        "AT-036.01": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.02": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.03": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.04": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.05": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.06": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.07": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.08": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.09": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.10": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.13": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.14": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.15": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.16": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.17": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.18": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        }
-      }
+      "red": {}
     },
     "integration": {
       "green": [

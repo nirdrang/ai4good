@@ -24,6 +24,7 @@ export type LocatorStep = {
   role?: string;
   name?: string;
   text?: string;
+  testId?: string;
   exact?: boolean;
   position?: number | 'last';
 };
@@ -53,11 +54,18 @@ export type ScreenPage = {
 export function shellUrl(
   baseUrl: string,
   scenario: string,
-  start: 'chat' | 'review',
+  route: string,
   pace: 'test' | 'demo' = 'test',
+  params: Record<string, string> = {},
 ): string {
-  const route = start === 'review' ? 'discovery-review' : 'discovery';
-  return `${baseUrl}/?scenario=${encodeURIComponent(scenario)}&pace=${pace}#${route}`;
+  const query = [
+    ['scenario', scenario],
+    ['pace', pace],
+    ...Object.entries(params),
+  ]
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
+  return `${baseUrl}/?${query}#${route}`;
 }
 
 export function mimeType(fileName: string): string {
