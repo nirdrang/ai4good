@@ -457,7 +457,8 @@ export function closeRemaining(record: PrdRecord, role: Role): string[] {
   });
   const held = reviewable.filter((topic) => waitingDependency(record, topic) !== null).length;
   const ready = reviewable.length - held;
-  const { unposted, waiting, toUse } = blockingCounts(record);
+  const { unposted, waiting } = blockingCounts(record);
+  const toUse = record.questions.filter((question) => question.status === "complete").length;
   const writing = open.length - reviewable.length;
   const items: string[] = [];
   const sections = (count: number) => plural(count, "section", "sections");

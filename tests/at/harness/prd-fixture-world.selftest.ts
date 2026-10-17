@@ -628,6 +628,34 @@ describe("the PRD fixture world", () => {
     expect(closeRemaining(changed, "dev")).toContain("3 sections still being written");
   });
 
+  it("counts every sent answer not yet used in Still open, blocking or not", () => {
+    const record = seedRecord("prd-today", NOW);
+    const sent: PrdRecord = {
+      ...record,
+      questions: record.questions.map((item) =>
+        item.id === "retention" || item.id === "logo"
+          ? { ...item, status: "complete", answer: "An answer." }
+          : item,
+      ),
+    };
+    expect(closeRemaining(sent, "ngo")).toEqual([
+      "1 section ready for Priya to confirm",
+      "1 section waiting on another section",
+      "3 sections still being written",
+      "1 blocking question Priya has not sent you yet",
+      "2 answers you sent, waiting for Priya to use",
+      "Completion check runs when Priya closes, or when all sections are confirmed",
+    ]);
+    expect(closeRemaining(sent, "dev")).toEqual([
+      "1 section ready for you to confirm",
+      "1 section waiting on another section",
+      "3 sections still being written",
+      "1 blocking question not posted to Maya",
+      "2 answers from Maya to use",
+      "Completion check runs when you close, or when all sections are confirmed",
+    ]);
+  });
+
   it("opens each topic chat with a line that matches the topic's state", async () => {
     const { world, dev } = open("all-ready");
     const start = await snap(dev);
