@@ -324,7 +324,7 @@ export function usePrdWorkspace(
     }
   }
 
-  async function deliver(
+  async function sendTurn(
     scope: ChatScope,
     requestId: RequestId,
     intent: PrdIntent,
@@ -361,7 +361,7 @@ export function usePrdWorkspace(
   }
 
   async function runMain(item: QueuedItem) {
-    const refusal = await deliver(MAIN, item.id, item.intent, optimistic(item));
+    const refusal = await sendTurn(MAIN, item.id, item.intent, optimistic(item));
     if (disposed.current) return;
     if (!refusal) {
       const done = finish(outboxRef.current, item.id);
@@ -432,7 +432,7 @@ export function usePrdWorkspace(
     setNotice(null);
     writeDraft(key, "");
     const actor = snap.viewer.role;
-    const refusal = await deliver(scope, newRequestId(), intent, {
+    const refusal = await sendTurn(scope, newRequestId(), intent, {
       role: "user",
       metadata: humanMeta(actor),
       parts: lines.map((line) => ({ type: "text" as const, text: line })),
