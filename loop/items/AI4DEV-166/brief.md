@@ -96,6 +96,7 @@ Run facts (founder rulings, 2026-10-22):
 - The first commit on this branch, 2087287, is the doc change set for decision d99 (change order 016). It is done; build to it.
 - AI4DEV-250 (UI Design screen design) is also open on this machine. The founder allowed both to stay open ("Both stay open"); it does not use the local database.
 - Lovable is removed only from REQ-036 here. Removing it from the other requirements is a separate item the founder files; do not touch Lovable outside REQ-036 and the PRD screen.
+- The AI path is open. The founder leans towards hosted agents instead of OpenRouter (2026-10-22: "I mean something like Claude managed agents"). Build units 1 to 5 behind one provider-neutral boundary for AI calls. Before unit 6 (OpenRouter costs) and before the model part of unit 9, stop at the gate and ask the founder for the AI path decision. REQ-036 and unit 6 still say OpenRouter until that decision is recorded.
 - The code still produces the build split (`scope.ts`, its Discovery skill and `scope.test.ts`) and still lists the `prd_gate.passed` notification (`notification-taxonomy.ts` and the req-016 test copy). Units 2 and 9 change them.
 
 ## Units
