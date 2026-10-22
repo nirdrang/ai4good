@@ -2,7 +2,7 @@
 
 > **PRD workspace update, 2026-09-21, revised 2026-10-14 from the approved screen design:** Follow [the PRD contract](prd-ui-contract.md) for the developer-driven main chat, topic chats, NGO questions answered in AI side chats, topic progress, USD usage, and Close PRD. There are no turns or handovers. Close PRD freezes the PRD and opens UI Design; the planning package is written once after UI Design. The approved canvas is in `design/canvas/prd-workspace/project/`. These private authoring phases preserve the public PM projection and project lifecycle states.
 
-> **Design workspace update, 2026-09-21:** The founder accepted the Astra Design screen after PRD materialization.
+> **Design workspace update, 2026-09-21:** The founder accepted the Astra Design screen after PRD close.
 > Follow [the Design contract](design-ui-contract.md) for screen badges, actor turns, NGO handoff, and sign-off into Build.
 > This private participant workspace supplements the public project page. The NGO never receives development board access.
 
@@ -195,6 +195,7 @@ Volunteer consent and funding kickoff precede PRD work. The NGO can keep editing
    Free turns have no dollar conversion. The enrolled project has 10 daily turns, or 30 when vetted.
    Use green below 80% consumed, yellow from 80% through 95%, and red above 95%.
    Follow [the Discovery contract](discovery-ui-contract.md) for question flow, counters, states, carryover, and shared app styling.
+   **PRD funds gauge (d99):** the PRD workspace has its own gauge for this phase's USD. It writes available and pending funds as text. The bar shows settled spend, with pending spend as a hatched part. The color band uses settled spend only, with the same 80% and 95% boundaries. There are no free turns in the PRD. See [the PRD contract](prd-ui-contract.md), section "Effort and USD usage".
 5. **PM requirement tree panel** — the plain-language requirement view renders the **PM tree only**
    (d82, REQ-026): requirement-level items deduced from the scope doc, seeded at kickoff
    (including the "Author the project PRD" bootstrap item, REQ-036), with status per item,
@@ -359,6 +360,7 @@ lifecycle badges.
 |---|--------|------------------------|--------|-----|
 | 16 | **Public listings** | Newest-first, read-only (no filters/sort in v1). Intake cards from submission, vetted or not (title, need, urgency, NGO, state "Intake", posted date; no files, no edit signal) (d96) + open-project cards (static) + in-progress showcase cards (live, code-host style). One action: **"mark interest"** (candidate for this project) — feeds the admin match log only | empty; logged-out (no action button) | REQ-011 |
 | 17 | Match consent | Invitation (from concierge match) → one-action consent. First consent fires the combined account-held disclaimer (coordination layer, open-source MIT, per-project key, Tier-2 fixtures-only + confidentiality, deactivation risk) **before any project introduction**. Consent ≠ kickoff — "waiting for NGO funding" | disclaimer unsigned / already-signed / consented-awaiting-funding / declined / expired | REQ-007 |
+| 28 | **PRD workspace** (private: the assigned developer and the NGO; d97, d99) | The developer drives the PRD with the AI after kickoff; there are no turns. Main chat, a chat per PRD section, and the PRD panel with section states, progress, the "Still open" list, the completion-check score line, Close PRD, and the PRD funds gauge. Only the developer posts questions to the NGO; the NGO answers each in a side chat with the AI. Every chat queues messages sent while the AI answers. Close PRD freezes the revision and opens UI Design. Approved canvas: `design/canvas/prd-workspace/`. Contract: `design/prd-ui-contract.md` | Dev and NGO views; AI answering (queue); funds short; check gaps (Close anyway / Keep working); closed (read-only banner for both); phone with three tabs | REQ-036 |
 | 18 | **Volunteer dashboard** | Current projects (status, fuel, Lovable status, in-progress tasks, unresolved blockers/clarifications), open candidacies, GitHub handle, **virtual-key reveal card** (show-once at kickoff; replacement flow), completion-credit events + "Shipped first tool" badge (private — no public profile in v1) | empty / first-project / key-revealed vs stored | REQ-014/009 |
 | 19 | Volunteer actions on the project page | Same public page (no separate dev view) + role-gated actions: raise blocker (type, severity, title, body + **never-paste-real-data warning**), raise a requirement-anchored or project-level clarifying question, reply to thread, view reference files | — | REQ-010/024 |
 | 20 | Mark done / completion readiness | Readiness check (all top-priority PM requirements Done through verified completion — dev work merged + acceptance evidenced, repo URL recorded, README/runbook, work pushed) → mark done → private "credit earned" confirmation. Disabled with named gaps while incomplete | blocked-incomplete / done | REQ-012/028 |
