@@ -23,6 +23,7 @@ arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus
 swarm workers: claude:sonnet@high
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
 interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@high
+codex writer sandbox: full-access
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -33,6 +34,24 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Codex writers get full access, and the Astra lane stays, 2026-10-22
+
+By founder ruling and not by measurement. Written by hand on pstack 1.16.0. The setup skill
+stopped at its matrix check on the Astra lane in `architect runners`: no upstream pstack catalog
+has listed `gpt-6-astra` (1.8.0, 1.15.0 and 1.16.0 list only Sol and Luna for Codex). The block
+is in the setup skill's text only. The runner accepts an unregistered Codex model at any effort,
+and a read-only runner probe of `codex:gpt-6-astra@medium` completed on 2026-10-22 with the
+expected marker. Every later setup run stops on this lane again until upstream registers Astra.
+
+The new setting line `codex writer sandbox: full-access` makes the runner launch every Codex
+`isolated-write` lane with Codex's full-access sandbox. Today that is `bug-fix` and
+`perf-issue`. Full access removes every Codex sandbox limit, including confinement to the
+writer's worktree.
+
+To undo the setting:
+
+    codex writer sandbox: bounded
 
 ### Swarm workers move from grok to Sonnet, 2026-10-14
 
