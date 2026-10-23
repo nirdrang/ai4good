@@ -1,0 +1,13 @@
+hold before call: available=750000
+first settle: t
+replayed settle: f
+after settle: 1234.567 settled, 0 held
+missing cost settle: t
+pending hold still counted: pending / held=250000
+reconcile: t
+reconcile replay: f
+after reconcile: 10235.067 settled, 0 held
+short funds: insufficient funds: 989764.933 available, 995000 needed
+parallel holds on 300000:       1 ok
+parallel holds on 300000:       1 refused
+p2 held after race: 200000

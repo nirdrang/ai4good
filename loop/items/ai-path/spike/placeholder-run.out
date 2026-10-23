@@ -1,0 +1,22 @@
+# Each path called once through the edge runtime with placeholder keys (sk-ant-PLACEHOLDER..., sk-or-PLACEHOLDER..., ghp_PLACEHOLDER...).
+== anthropic
+data: {"type":"start","messageId":"6f98f8e3-428a-4877-a114-c88b6e629c91"}
+data: {"type":"text-start","id":"bcb8c4ef-fcec-42c4-91e5-f997b80955be"}
+data: {"type":"error","errorText":"401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"},\"request_id\":\"req_011CgJegW7WXjgYMV7iKxbWw\"}"}
+data: [DONE]
+[http 200 total 0.268736s]
+placeholder occurrences in browser bytes: 0
+== openrouter
+data: {"type":"start","messageId":"207d40db-5951-48cc-a930-19cbe23b7b1c"}
+data: {"type":"text-start","id":"40498010-bb7d-4306-855b-307f139ee2de"}
+data: {"type":"error","errorText":"OpenRouter 401: {\"error\":{\"message\":\"Missing Authentication header\",\"code\":401}}"}
+data: [DONE]
+[http 200 total 0.154727s]
+placeholder occurrences in browser bytes: 0
+== managed
+data: {"type":"start","messageId":"97c18380-7c4b-4cb8-8e4a-2686cef2011b"}
+data: {"type":"text-start","id":"1772cc9d-3d93-4ae3-aa8f-ef984171777e"}
+data: {"type":"error","errorText":"401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"},\"request_id\":\"req_011CgJegXHTQLGTMuv4zyG7T\"}"}
+data: [DONE]
+[http 200 total 0.081484s]
+placeholder occurrences in browser bytes: 0
