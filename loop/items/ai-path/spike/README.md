@@ -7,9 +7,9 @@ This spike is throwaway. It exists to make the decision in `../memo.md`. No prod
 - `spike-ai/index.ts` is one Supabase edge function. The request body picks the path: `anthropic` (Claude API with our tool loop), `openrouter` (OpenRouter with our tool loop), or `managed` (Claude Managed Agents). Every path holds money before the call, streams in the same UI message stream format as Discovery, and settles each receipt once.
 - `ledger.sql` is a throwaway `spike` schema. It has a hold before the call, a settle that is unique per path and receipt, pending for a missing cost, and a one-time reconcile.
 - `ledger-check.sh` exercises the ledger on the local database. Its output is `ledger-check.out`.
-- `placeholder-run.out` is each path called once in the real edge runtime with placeholder keys.
+- `placeholder-run.sh` calls each path once in the real edge runtime with placeholder keys. Its output is `placeholder-run.out`.
 - `setup-managed.ts` creates the Managed Agents environment and agent once.
-- `run.ts` is the live driver. It sends three chat replies and one act request per path. It records the time to the first text and the total time, checks the receipts, replays every receipt to prove no second charge, and searches the browser bytes for every key.
+- `run.ts` is the live driver. It sends three chat replies and one act request per path. It records the time to the first text and the total time. It reads back the GitHub commit and the Linear issue, compares each settled OpenRouter amount with the generation lookup, reports Managed Agents' own `list_cost` beside the settled sum, and searches the browser bytes for every key. It refuses to start without every key.
 
 ## Run the ledger check (no keys needed)
 
