@@ -1,0 +1,28 @@
+# Each path called once in the edge runtime with placeholder keys.
+== anthropic
+data: {"type":"start","messageId":"fe855b27-dfd3-428d-9bb4-51796135b22a"}
+data: {"type":"text-start","id":"582b32ed-a182-4054-b38d-46cad775a2a3"}
+data: {"type":"error","errorText":"The AI request failed."}
+data: [DONE]
+placeholder occurrences in browser bytes: 0
+hold after the request: closed
+== openrouter
+data: {"type":"start","messageId":"3547be64-7591-4c26-91cf-e53e14762aab"}
+data: {"type":"text-start","id":"6bc730c6-4621-411c-a993-735d12a68b63"}
+data: {"type":"error","errorText":"The AI request failed."}
+data: [DONE]
+placeholder occurrences in browser bytes: 0
+hold after the request: closed
+== managed
+data: {"type":"start","messageId":"f4f26540-7eb0-424f-8868-ce1ed798e3e8"}
+data: {"type":"text-start","id":"be7e2cf8-f33f-4d6c-8e4b-fba85b880d57"}
+data: {"type":"error","errorText":"The AI request failed."}
+data: [DONE]
+placeholder occurrences in browser bytes: 0
+hold after the request: closed
+== provider errors in the server log, not sent to the browser
+invalid x-api-key
+invalid x-api-key
+User not found
+invalid x-api-key
+invalid x-api-key

@@ -23,6 +23,7 @@ Recorded 2026-10-14 for the screen wiring brief. The founder asked whether the b
 - Production does not run through Codex on a subscription: one account would serve every kitchen, it has no per-reply cost to charge to a project's funds, and a personal subscription is likely not meant to serve other people's requests (not checked against OpenAI's terms).
 - Discovery's backend calls the Anthropic SDK directly (`supabase/functions/_shared/anthropic-messages.ts`), so the AI SDK is a new pattern here.
 - Order, founder answer "Build first, then wire (Recommended)": screen build on sample data first, then screen wiring.
+- Replaced on 2026-10-23 by decision d100: the PRD chats run on Claude Managed Agents, with the PRD tools as a platform MCP server. The OpenRouter route and the Codex development provider above no longer apply. The record above stays as the founder answered it. The design and its evidence are in `loop/items/ai-path/memo.md`.
 
 ## Rulings
 
