@@ -117,10 +117,11 @@ const ALLOWANCE_FUNCTION_HEAD = /create\s+(?:or\s+replace\s+)?function\s+public\
 const RAISE_EXCEPTION = /raise\s+exception\s+'((?:[^']|'')*)'([^;]*);/gi;
 const ERRCODE_P0001 = /errcode\s*=\s*'P0001'/i;
 const RAISE_DETAIL = /detail\s*=\s*'([^']+)'/i;
-const GRANT_FROM_FUNCTION = /^public\.discovery_daily_grant\(\s*true\s*\)$/i;
 const REMAINING_ARG = /^(?:v_remaining|v_granted\s*-\s*v_spent)$/i;
-const VETTED_GRANT_READ = /dailyGrantFor\(\s*['"]vetted['"]\s*\)/;
+const RESERVE_FUNCTION_HEAD = /create\s+(?:or\s+replace\s+)?function\s+public\.discovery_turn_reserve\s*\(/i;
 const EXHAUSTED_DETAIL = 'daily-allowance-exhausted';
+const RESERVE_EXHAUSTED_DETAIL = 'daily-limit';
+const GET_VETTED = /get vetted/i;
 const EXCEEDS_DETAIL = 'debit-exceeds-remaining';
 
 export type DebitRefusalRaise = {
@@ -131,12 +132,11 @@ export type DebitRefusalRaise = {
 
 export type ExhaustedSentenceInput = {
   organizationId: string;
-  vettedGrant: number;
   remaining: number;
-  exhaustedUnverified: string;
-  exhaustedVetted: string;
+  exhausted: string;
   exceedsRemaining: string;
   allowanceFunctionSql: string;
+  reserveFunctionSql: string;
   typescriptExhaustedRendererSource: string;
   typescriptExceedsRemainingRendererSource: string;
 };
@@ -174,10 +174,17 @@ function parseRaiseArgs(tail: string): { args: string[]; using: string } | null 
 }
 
 export function parseDebitRefusalRaises(sql: string): DebitRefusalRaise[] {
-  if (!ALLOWANCE_FUNCTION_HEAD.test(sql)) {
+  return parseRefusalRaises(sql, ALLOWANCE_FUNCTION_HEAD, 'parseDebitRefusalRaises', 'discovery_allowance');
+}
+
+export function parseReserveRefusalRaises(sql: string): DebitRefusalRaise[] {
+  return parseRefusalRaises(sql, RESERVE_FUNCTION_HEAD, 'parseReserveRefusalRaises', 'discovery_turn_reserve');
+}
+
+function parseRefusalRaises(sql: string, head: RegExp, oracle: string, name: string): DebitRefusalRaise[] {
+  if (!head.test(sql)) {
     throw new Error(
-      'parseDebitRefusalRaises found no public.discovery_allowance definition in the SQL it was given. ' +
-        'Refusing to report agreement.',
+      `${oracle} found no public.${name} definition in the SQL it was given. Refusing to report agreement.`,
     );
   }
   RAISE_EXCEPTION.lastIndex = 0;
@@ -189,7 +196,7 @@ export function parseDebitRefusalRaises(sql: string): DebitRefusalRaise[] {
     const detailMatch = RAISE_DETAIL.exec(tail);
     if (parsed === null || detailMatch === null || detailMatch[1] === undefined) {
       throw new Error(
-        'parseDebitRefusalRaises could not read a P0001 raise as a format string, arguments, and a detail. ' +
+        `${oracle} could not read a P0001 raise as a format string, arguments, and a detail. ` +
           'Refusing to report agreement.',
       );
     }
@@ -283,13 +290,8 @@ function slotCount(format: string): number {
   return (format.match(/%/g) ?? []).length;
 }
 
-function findRaise(
-  raises: readonly DebitRefusalRaise[],
-  detail: string,
-  label: string,
-  match: (raise: DebitRefusalRaise) => boolean,
-): DebitRefusalRaise {
-  const hits = raises.filter((raise) => raise.detail === detail && match(raise));
+function findRaise(raises: readonly DebitRefusalRaise[], detail: string, label: string): DebitRefusalRaise {
+  const hits = raises.filter((raise) => raise.detail === detail);
   if (hits.length !== 1 || hits[0] === undefined) {
     throw new Error(
       `scanExhaustedSentence could not read exactly one ${label} raise. Refusing to report agreement.`,
@@ -309,32 +311,23 @@ function checkNoNumeral(format: string, label: string, problems: string[]): void
 }
 
 export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
-  const raises = parseDebitRefusalRaises(input.allowanceFunctionSql);
-  const unverified = findRaise(
-    raises,
-    EXHAUSTED_DETAIL,
-    'unverified exhausted',
-    (raise) => raise.args.length === 2,
-  );
-  const vetted = findRaise(
-    raises,
-    EXHAUSTED_DETAIL,
-    'vetted exhausted',
-    (raise) => raise.args.length === 1,
-  );
-  const exceeds = findRaise(raises, EXCEEDS_DETAIL, 'exceeds-remaining', () => true);
+  const allowanceRaises = parseDebitRefusalRaises(input.allowanceFunctionSql);
+  const exhausted = [
+    { label: 'discovery_allowance exhausted', raise: findRaise(allowanceRaises, EXHAUSTED_DETAIL, 'discovery_allowance exhausted') },
+    {
+      label: 'discovery_turn_reserve exhausted',
+      raise: findRaise(parseReserveRefusalRaises(input.reserveFunctionSql), RESERVE_EXHAUSTED_DETAIL, 'discovery_turn_reserve exhausted'),
+    },
+  ];
+  const exceeds = findRaise(allowanceRaises, EXCEEDS_DETAIL, 'exceeds-remaining');
 
-  if (slotCount(unverified.format) !== 2 || unverified.args.length !== 2) {
-    throw new Error(
-      'scanExhaustedSentence could not read the unverified exhausted raise as a format string, ' +
-        'p_organization_id, and a grant argument. Refusing to report agreement.',
-    );
-  }
-  if (slotCount(vetted.format) !== 1 || vetted.args.length !== 1) {
-    throw new Error(
-      'scanExhaustedSentence could not read the vetted exhausted raise as a format string and p_organization_id. ' +
-        'Refusing to report agreement.',
-    );
+  for (const { label, raise } of exhausted) {
+    if (slotCount(raise.format) !== 1 || raise.args.length !== 1) {
+      throw new Error(
+        `scanExhaustedSentence could not read the ${label} raise as one format string and p_organization_id. ` +
+          'Refusing to report agreement.',
+      );
+    }
   }
   if (slotCount(exceeds.format) !== 2 || exceeds.args.length !== 2) {
     throw new Error(
@@ -344,26 +337,26 @@ export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
   }
 
   const problems: string[] = [];
-  checkOrganizationArg(unverified, 'unverified exhausted raise', problems);
-  checkOrganizationArg(vetted, 'vetted exhausted raise', problems);
-  checkOrganizationArg(exceeds, 'exceeds-remaining raise', problems);
-
-  const grantArg = unverified.args[1] ?? '';
-  if (!GRANT_FROM_FUNCTION.test(grantArg)) {
-    problems.push(`exhausted raise grant argument is ${grantArg}, expected public.discovery_daily_grant(true)`);
+  for (const { label, raise } of exhausted) {
+    checkOrganizationArg(raise, `${label} raise`, problems);
+    checkNoNumeral(raise.format, label, problems);
+    if (GET_VETTED.test(raise.format)) problems.push(`the SQL ${label} sentence names get vetted`);
+    const fromSql = applyRaiseFormat(raise.format, [input.organizationId]);
+    if (fromSql !== input.exhausted) {
+      problems.push(
+        `TypeScript exhausted sentence is ${JSON.stringify(input.exhausted)}, ` +
+          `SQL ${label} raise filled is ${JSON.stringify(fromSql)}`,
+      );
+    }
   }
+  checkOrganizationArg(exceeds, 'exceeds-remaining raise', problems);
   const remainingArg = exceeds.args[1] ?? '';
   if (!REMAINING_ARG.test(remainingArg)) {
     problems.push(`exceeds-remaining remaining argument is ${remainingArg}, expected v_remaining or v_granted - v_spent`);
   }
-
-  checkNoNumeral(unverified.format, 'unverified exhausted', problems);
-  checkNoNumeral(vetted.format, 'vetted exhausted', problems);
   checkNoNumeral(exceeds.format, 'exceeds-remaining', problems);
 
-  if (!VETTED_GRANT_READ.test(input.typescriptExhaustedRendererSource)) {
-    problems.push("dailyAllowanceExhaustedReason does not read the vetted grant from dailyGrantFor('vetted')");
-  }
+  if (GET_VETTED.test(input.exhausted)) problems.push('dailyAllowanceExhaustedReason names get vetted');
   if (/\b\d+\b/.test(input.typescriptExhaustedRendererSource)) {
     problems.push('dailyAllowanceExhaustedReason contains a numeric literal');
   }
@@ -371,20 +364,6 @@ export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
     problems.push('debitExceedsRemainingReason contains a numeric literal');
   }
 
-  const unverifiedFromSql = applyRaiseFormat(unverified.format, [input.organizationId, String(input.vettedGrant)]);
-  if (unverifiedFromSql !== input.exhaustedUnverified) {
-    problems.push(
-      `TypeScript unverified exhausted sentence is ${JSON.stringify(input.exhaustedUnverified)}, ` +
-        `SQL raise filled with the vetted grant is ${JSON.stringify(unverifiedFromSql)}`,
-    );
-  }
-  const vettedFromSql = applyRaiseFormat(vetted.format, [input.organizationId]);
-  if (vettedFromSql !== input.exhaustedVetted) {
-    problems.push(
-      `TypeScript vetted exhausted sentence is ${JSON.stringify(input.exhaustedVetted)}, ` +
-        `SQL raise filled is ${JSON.stringify(vettedFromSql)}`,
-    );
-  }
   const exceedsFromSql = applyRaiseFormat(exceeds.format, [input.organizationId, String(input.remaining)]);
   if (exceedsFromSql !== input.exceedsRemaining) {
     problems.push(
@@ -395,21 +374,21 @@ export function scanExhaustedSentence(input: ExhaustedSentenceInput): string[] {
   return problems.sort();
 }
 
-function lastAllowanceFunctionSql(oracle: string): string {
-  const files = migrationFiles(oracle);
-  let last: { path: string; text: string } | null = null;
+function lastFunctionSql(oracle: string, head: RegExp, name: string): string {
+  const files = [...migrationFiles(oracle)].sort((a, b) => a.path.localeCompare(b.path));
+  let last: string | null = null;
   for (const file of files) {
     for (const statement of splitSqlStatements(file.text)) {
-      if (ALLOWANCE_FUNCTION_HEAD.test(statement)) last = { path: file.path, text: statement };
+      if (head.test(statement)) last = statement;
     }
   }
   if (last === null) {
     throw new Error(
-      `${oracle} found no migration defining public.discovery_allowance, so there is no SQL raise to compare. ` +
+      `${oracle} found no migration defining public.${name}, so there is no SQL raise to compare. ` +
         'Refusing to report agreement.',
     );
   }
-  return last.text;
+  return last;
 }
 
 function typescriptRendererFile(oracle: string): string {
@@ -429,12 +408,11 @@ export function exhaustedSentenceProblems(): string[] {
   const rendererFile = typescriptRendererFile('exhaustedSentenceProblems');
   return scanExhaustedSentence({
     organizationId,
-    vettedGrant: dailyGrantFor('vetted'),
     remaining,
-    exhaustedUnverified: dailyAllowanceExhaustedReason(organizationId, 'unverified'),
-    exhaustedVetted: dailyAllowanceExhaustedReason(organizationId, 'vetted'),
+    exhausted: dailyAllowanceExhaustedReason(organizationId),
     exceedsRemaining: debitExceedsRemainingReason(organizationId, remaining),
-    allowanceFunctionSql: lastAllowanceFunctionSql('exhaustedSentenceProblems'),
+    allowanceFunctionSql: lastFunctionSql('exhaustedSentenceProblems', ALLOWANCE_FUNCTION_HEAD, 'discovery_allowance'),
+    reserveFunctionSql: lastFunctionSql('exhaustedSentenceProblems', RESERVE_FUNCTION_HEAD, 'discovery_turn_reserve'),
     typescriptExhaustedRendererSource: parseTypescriptExhaustedRenderer(rendererFile),
     typescriptExceedsRemainingRendererSource: parseTypescriptExceedsRemainingRenderer(rendererFile),
   });
@@ -526,7 +504,7 @@ export function emailUnverifiedSentenceProblems(): string[] {
   return scanEmailUnverifiedSentence({
     accountId,
     typescriptReason: emailUnverifiedReason(accountId),
-    allowanceFunctionSql: lastAllowanceFunctionSql('emailUnverifiedSentenceProblems'),
+    allowanceFunctionSql: lastFunctionSql('emailUnverifiedSentenceProblems', ALLOWANCE_FUNCTION_HEAD, 'discovery_allowance'),
     typescriptRendererSource: parseTypescriptEmailUnverifiedRenderer(rendererFile),
   });
 }

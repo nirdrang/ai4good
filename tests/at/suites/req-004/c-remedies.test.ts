@@ -1,14 +1,18 @@
 import { expect } from 'vitest';
-import { atTest, CapabilityPending } from './_bind.ts';
-import { AWAITED } from './_pending.ts';
+import { atTest } from './_bind.ts';
+import { discoveryScreens } from './_screen.ts';
+import { expectExhaustedScreen } from './_flows.ts';
 import type { AnthropicMessagesSim } from '../../harness/contracts.ts';
 import type { DiscoverySut, DiscoveryMessageOutcome } from './_contract.ts';
 import type { NgoActor } from '../req-003/_contract.ts';
 
+const withDiscovery = discoveryScreens();
 const INTAKE = { title: 'Grant deadline tracker', description: 'Two staff need reminders before funder reporting deadlines.' };
 const USAGE = { inputTokens: 900, outputTokens: 400 };
 const MESSAGE = 'Help us scope the deadline tracker.';
-type Open = () => Promise<{ w: { email(name: string): string }; sut: DiscoverySut }>;
+const UNVERIFIED_PIN = 'req-002.discovery.daily_credits.unverified';
+const VETTED_PIN = 'req-002.discovery.daily_credits.vetted';
+type World = { w: { email(name: string): string }; sut: DiscoverySut };
 type Drive = (sut: DiscoverySut, ngo: NgoActor, projectId: string) => Promise<DiscoveryMessageOutcome>;
 const loopDrive = (sim: AnthropicMessagesSim): Drive => async (sut, ngo, projectId) => {
   sim.script([{ kind: 'text', text: 'Which reporting deadlines matter most?', usage: USAGE }]);
@@ -22,64 +26,74 @@ const operatorDrive: Drive = async (sut, ngo, projectId) => {
     outcome: 'completed', reply: 'Which reporting deadlines matter most?', usage: USAGE });
 };
 function remediesOf(reason: string): string[] {
-  return (reason.split(` \u2014 `)[1] ?? '').split(', ').map((part) => part.replace(/^or /, ''));
+  return (reason.split(` — `)[1] ?? '').split(', ').map((part) => part.replace(/^or /, ''));
 }
-async function proveUnverified(open: Open, drive: Drive, vettedGrant: number) {
-  const { w, sut } = await open();
-  const ngo = await sut.provisionNgo(w.email('ngo-03a'), { emailVerified: true });
-  const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, INTAKE);
-  await sut.drainAllowance(ngo.session, ngo.organizationId);
+async function proveBlocked(sut: DiscoverySut, ngo: NgoActor, projectId: string, drive: Drive) {
   const before = await sut.readAllowance(ngo.session, ngo.organizationId);
   const blocked = await drive(sut, ngo, projectId);
   expect(blocked).toMatchObject({ ok: false, kind: 'daily-limit', status: 409 });
-  if (blocked.ok) return;
-  const remedies = remediesOf(blocked.reason);
-  expect(remedies).toHaveLength(3);
-  expect(remedies[0]).toMatch(new RegExp(`get vetted \\(daily grant becomes ${vettedGrant}\\)`));
-  expect(remedies[1]).toMatch(/fund project fuel/i);
-  expect(remedies[2]).toMatch(/wait for the next UTC day/i);
+  if (blocked.ok) return before;
+  expect(remediesOf(blocked.reason)).toEqual(['fund project fuel to continue now', 'wait for the next UTC day']);
+  expect(blocked.reason).not.toMatch(/get vetted/i);
   expect(await sut.turnRows(projectId)).toEqual([]);
   expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+  return before;
 }
-async function proveVetted(open: Open, drive: Drive) {
-  const { w, sut } = await open();
+async function proveUnverified({ w, sut }: World, drive: Drive, grants: { unverified: number; vetted: number }) {
+  const ngo = await sut.provisionNgo(w.email('ngo-03a'), { emailVerified: true });
+  const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, INTAKE);
+  await sut.drainAllowance(ngo.session, ngo.organizationId);
+  const before = await proveBlocked(sut, ngo, projectId, drive);
+  expect(before).toMatchObject({ ok: true, allowance: { vetted: false, dailyGrant: grants.unverified, remaining: 0 } });
+  if (!before.ok) return;
+  const admin = await sut.provisionPlatformAdmin(w.email('admin-03a'));
+  await sut.vetOrganizationAsAdmin(admin, ngo.organizationId);
+  expect(await sut.readAllowance(ngo.session, ngo.organizationId), 'vetting raises the grant and keeps the consumed turns').toMatchObject({
+    ok: true,
+    allowance: {
+      vetted: true,
+      dailyGrant: grants.vetted,
+      spentToday: before.allowance.spentToday,
+      remaining: grants.vetted - before.allowance.spentToday,
+    },
+  });
+}
+async function proveVetted({ w, sut }: World, drive: Drive, vettedGrant: number) {
   const ngo = await sut.provisionNgo(w.email('ngo-03b'), { emailVerified: true });
   const admin = await sut.provisionPlatformAdmin(w.email('admin-03b'));
   await sut.vetOrganizationAsAdmin(admin, ngo.organizationId);
   const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, INTAKE);
   await sut.drainAllowance(ngo.session, ngo.organizationId);
-  const before = await sut.readAllowance(ngo.session, ngo.organizationId);
-  const blocked = await drive(sut, ngo, projectId);
-  expect(blocked).toMatchObject({ ok: false, kind: 'daily-limit', status: 409 });
-  if (blocked.ok) return;
-  const remedies = remediesOf(blocked.reason);
-  expect(remedies).toHaveLength(2);
-  expect(blocked.reason).not.toMatch(/get vetted/i);
-  expect(await sut.turnRows(projectId)).toEqual([]);
-  expect(await sut.readAllowance(ngo.session, ngo.organizationId)).toEqual(before);
+  const before = await proveBlocked(sut, ngo, projectId, drive);
+  expect(before).toMatchObject({ ok: true, allowance: { vetted: true, dailyGrant: vettedGrant, remaining: 0 } });
 }
 
-atTest('AT-004.03a', 'an unverified-tier NGO at zero credits is blocked with exactly three remedies', { surface: 'ui' }, {
-  default: async ({ open }) => {
-    const world = await open();
-    return proveUnverified(async () => world, loopDrive(world.h.vendors.anthropic),
-      world.h.config.get<number>('req-002.discovery.daily_credits.vetted'));
+const TIMEOUT = { timeoutMs: { loop: 120_000, integration: 900_000 } };
+
+atTest('AT-004.03a', 'an unvetted NGO with no free turn and no fuel is blocked with two remedies, keeps its draft, and vetting raises the grant without resetting used turns', { surface: 'ui', ...TIMEOUT }, {
+  default: async (ctx) => {
+    const world = await ctx.open();
+    const grants = { unverified: world.h.config.get<number>(UNVERIFIED_PIN), vetted: world.h.config.get<number>(VETTED_PIN) };
+    await proveUnverified(world, loopDrive(world.h.vendors.anthropic), grants);
+    await withDiscovery(ctx, { scenario: 'daily-empty', viewport: 'desktop' }, (screen) => expectExhaustedScreen(screen, grants.unverified));
   },
-  integration: async ({ open }) => {
-    const world = await open();
-    await proveUnverified(async () => world, operatorDrive,
-      world.h.config.get<number>('req-002.discovery.daily_credits.vetted'));
-    throw new CapabilityPending([AWAITED.discoverySurface]);
+  integration: async (ctx) => {
+    const world = await ctx.open();
+    const grants = { unverified: world.h.config.get<number>(UNVERIFIED_PIN), vetted: world.h.config.get<number>(VETTED_PIN) };
+    await proveUnverified(world, operatorDrive, grants);
+    await withDiscovery(ctx, { scenario: 'daily-empty', viewport: 'desktop' }, (screen) => expectExhaustedScreen(screen, grants.unverified));
   },
 });
-atTest('AT-004.03b', 'a vetted NGO at zero credits is blocked without the get-vetted remedy', { surface: 'ui' }, {
-  default: async ({ open }) => {
-    const world = await open();
-    return proveVetted(async () => world, loopDrive(world.h.vendors.anthropic));
+atTest('AT-004.03b', 'a vetted NGO with no free turn and no fuel is blocked with the same two remedies and keeps its draft', { surface: 'ui', ...TIMEOUT }, {
+  default: async (ctx) => {
+    const world = await ctx.open();
+    await proveVetted(world, loopDrive(world.h.vendors.anthropic), world.h.config.get<number>(VETTED_PIN));
+    await withDiscovery(ctx, { scenario: 'daily-empty', viewport: 'desktop', vetted: true }, (screen) => expectExhaustedScreen(screen, null));
   },
-  integration: async ({ open }) => {
-    const world = await open();
-    await proveVetted(async () => world, operatorDrive);
-    throw new CapabilityPending([AWAITED.discoverySurface]);
+  integration: async (ctx) => {
+    const world = await ctx.open();
+    const vettedGrant = world.h.config.get<number>(VETTED_PIN);
+    await proveVetted(world, operatorDrive, vettedGrant);
+    await withDiscovery(ctx, { scenario: 'daily-empty', viewport: 'desktop', vetted: true }, (screen) => expectExhaustedScreen(screen, vettedGrant));
   },
 });

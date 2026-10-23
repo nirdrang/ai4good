@@ -794,7 +794,7 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           ok: false,
           kind: 'daily-allowance-exhausted',
           status: 409,
-          reason: dailyAllowanceExhaustedReason(organizationId, discoveryTier(vetted)),
+          reason: dailyAllowanceExhaustedReason(organizationId),
         };
       }
       if (credits > remaining) {

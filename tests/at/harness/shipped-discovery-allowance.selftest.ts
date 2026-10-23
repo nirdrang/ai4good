@@ -9,21 +9,13 @@ import {
 const ORG = '00000000-0000-4000-8000-000000000002';
 
 describe('the shipped exhausted-sentence renderer', () => {
-  it('names three remedies for an unverified caller and two for a vetted caller', () => {
-    const unverified = dailyAllowanceExhaustedReason(ORG, 'unverified');
-    const vetted = dailyAllowanceExhaustedReason(ORG, 'vetted');
+  it('names exactly two remedies, fund project fuel or wait for the next UTC day, and never get vetted', () => {
+    const reason = dailyAllowanceExhaustedReason(ORG);
 
-    expect(unverified, 'the get-vetted remedy is missing for an unverified caller').toMatch(/get vetted/i);
-    expect(unverified, 'the fund-fuel remedy is missing for an unverified caller').toMatch(/fund project fuel/i);
-    expect(unverified, 'the wait-for-the-next-day remedy is missing for an unverified caller').toMatch(
-      /wait for the next UTC day/i,
+    expect(reason).toBe(
+      `discovery_allowance refuses: organisation ${ORG} has no Discovery credits left today — fund project fuel to continue now, or wait for the next UTC day`,
     );
-
-    expect(vetted, 'the get-vetted remedy is still named for a vetted caller').not.toMatch(/get vetted/i);
-    expect(vetted, 'the fund-fuel remedy is missing for a vetted caller').toMatch(/fund project fuel/i);
-    expect(vetted, 'the wait-for-the-next-day remedy is missing for a vetted caller').toMatch(
-      /wait for the next UTC day/i,
-    );
+    expect(reason, 'the get-vetted remedy came back').not.toMatch(/get vetted/i);
   });
 });
 

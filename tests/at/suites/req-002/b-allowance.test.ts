@@ -1,7 +1,11 @@
 import { describe, expect } from 'vitest';
 import { debitExceedsRemainingReason, utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createConfigRegistry } from '../../harness/config.ts';
-import { atTest } from './_bind.ts';
+import { createHarness } from '../../harness/index.ts';
+import { atTest, TIER } from './_bind.ts';
+import { expectExhaustedScreen } from '../req-004/_flows.ts';
+import { discoveryScreens } from '../req-004/_screen.ts';
+import type { DiscoverySut } from '../req-004/_contract.ts';
 import { AWAITED, awaiting } from './_pending.ts';
 import { exhaustedSentenceProblems, grantPinProblems, scanGrantPins } from './_source-pins.ts';
 import type { AllowanceOutcome, OrganizationsSut, Session, World } from './_contract.ts';
@@ -409,29 +413,51 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
     },
   );
 
-  atTest('AT-002.05', 'at zero remaining credits on an unfunded project the next Discovery message is blocked and the remedies shown are get vetted, fund fuel, or wait for the next day', {
-    default: async ({ open }) => {
-      const pins = createConfigRegistry();
-      const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
-      const vettedGrant = pins.get<number>(VETTED_PIN);
-      expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL debit raise disagree').toEqual(
-        [],
-      );
+  describe('the exhausted Discovery screen', () => {
+    const withDiscovery = discoveryScreens();
+
+    async function proveExhausted(open: () => Promise<{ w: World; sut: OrganizationsSut }>) {
+      const unverifiedGrant = createConfigRegistry().get<number>(UNVERIFIED_PIN);
+      expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL raises disagree').toEqual([]);
 
       const { w, sut } = await open();
       const ngo = await sut.provisionNgo(w.email('ngo-05'), { emailVerified: true });
 
       const blocked = await reachZeroCreditBlock(sut, ngo.session, ngo.organizationId, unverifiedGrant);
       if (blocked === null) return;
-      expect(blocked.reason, 'the get-vetted remedy is missing').toMatch(/get vetted/i);
-      expect(
-        blocked.reason,
-        'the vetted grant the first remedy names is not the pinned vetted grant',
-      ).toMatch(new RegExp(`daily grant becomes ${vettedGrant}(?!\\d)`));
-      expect(blocked.reason, 'the fund-fuel remedy is missing').toMatch(/fund project fuel/i);
-      expect(blocked.reason, 'the wait-for-the-next-day remedy is missing').toMatch(/wait for the next UTC day/i);
-    },
-    integration: awaiting(AWAITED.discoverySurface),
+      expect(blocked.reason).toBe(
+        `discovery_allowance refuses: organisation ${ngo.organizationId} has no Discovery credits left today — fund project fuel to continue now, or wait for the next UTC day`,
+      );
+      expect(blocked.reason, 'the get-vetted remedy came back').not.toMatch(/get vetted/i);
+
+      if (TIER === null) throw new Error('AT_TIER is unset');
+      const h = await createHarness({ requirement: 'req-004', tier: TIER });
+      try {
+        const discovery = {
+          open: async () => ({
+            w: (await h.fixtures.world('req-004/base')) as unknown as { email(name: string): string },
+            sut: h.sut.discovery as DiscoverySut,
+          }),
+        };
+        await withDiscovery(discovery, { scenario: 'daily-empty', viewport: 'desktop' }, (screen) =>
+          expectExhaustedScreen(screen, unverifiedGrant),
+        );
+      } finally {
+        await h.teardown();
+      }
+    }
+
+    atTest('AT-002.05', 'with no free turn and no fuel the next Discovery message is blocked, the draft stays, and the remedies shown are fund project fuel or wait for the next UTC day', {
+      surface: 'ui',
+      timeoutMs: { loop: 120_000, integration: 900_000 },
+    }, {
+      default: async ({ open }) => {
+        await proveExhausted(open);
+      },
+      integration: async ({ open }) => {
+        await proveExhausted(open);
+      },
+    });
   });
 
   atTest('AT-002.26', 'after the zero-credit block, funding project fuel makes the very next Discovery turn succeed, billed to fuel', awaiting(AWAITED.projectFuelCheckout, AWAITED.fundedTurnBilling));

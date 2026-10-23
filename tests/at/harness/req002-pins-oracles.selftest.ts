@@ -12,6 +12,7 @@ import {
   exhaustedSentenceProblems,
   noticeChannelPinProblems,
   parseDebitRefusalRaises,
+  parseReserveRefusalRaises,
   parseEmailUnverifiedRaise,
   parseTypescriptEmailUnverifiedRenderer,
   parseTypescriptExhaustedRenderer,
@@ -32,21 +33,17 @@ describe('REQ-002 pin source oracles over the real tree', () => {
 describe('scanExhaustedSentence refusals', () => {
   const SAMPLE_ORG = '00000000-0000-4000-8000-000000000002';
   const SAMPLE_REMAINING = remainingCredits(dailyGrantFor('unverified'), 0);
-  const UNVERIFIED_FORMAT =
-    'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted (daily grant becomes %), fund project fuel to continue now, or wait for the next UTC day';
-  const VETTED_FORMAT =
+  const EXHAUSTED_FORMAT =
     'discovery_allowance refuses: organisation % has no Discovery credits left today — fund project fuel to continue now, or wait for the next UTC day';
+  const GET_VETTED_FORMAT =
+    'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted, fund project fuel to continue now, or wait for the next UTC day';
   const EXCEEDS_FORMAT =
     'discovery_allowance refuses: organisation % still has % Discovery credits remaining today — this debit is larger than what remains';
   const MATCHING_EXHAUSTED_RENDERER =
-    'export function dailyAllowanceExhaustedReason(organizationId: string, tier: DiscoveryTier): string {\n' +
-    '  const remedies =\n' +
-    "    tier === 'vetted'\n" +
-    "      ? 'fund project fuel to continue now, or wait for the next UTC day'\n" +
-    "      : `get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`;\n" +
+    'export function dailyAllowanceExhaustedReason(organizationId: string): string {\n' +
     '  return (\n' +
     '    `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today` +\n' +
-    '    ` — ${remedies}`\n' +
+    '    ` — fund project fuel to continue now, or wait for the next UTC day`\n' +
     '  );\n' +
     '}\n';
   const MATCHING_EXCEEDS_RENDERER =
@@ -58,84 +55,91 @@ describe('scanExhaustedSentence refusals', () => {
     '}\n';
 
   function allowanceSql(over: {
-    unverifiedFormat?: string;
-    vettedFormat?: string;
+    exhaustedFormat?: string;
     exceedsFormat?: string;
-    grantArg?: string;
     remainingArg?: string;
-    omitUnverified?: boolean;
-    omitVetted?: boolean;
+    omitExhausted?: boolean;
     omitExceeds?: boolean;
   } = {}): string {
-    const unverified = over.omitUnverified
+    const exhausted = over.omitExhausted
       ? ''
-      : `raise exception '${over.unverifiedFormat ?? UNVERIFIED_FORMAT}', p_organization_id, ${over.grantArg ?? 'public.discovery_daily_grant(true)'} using errcode = 'P0001', detail = 'daily-allowance-exhausted';\n`;
-    const vetted = over.omitVetted
-      ? ''
-      : `raise exception '${over.vettedFormat ?? VETTED_FORMAT}', p_organization_id using errcode = 'P0001', detail = 'daily-allowance-exhausted';\n`;
+      : `raise exception '${over.exhaustedFormat ?? EXHAUSTED_FORMAT}', p_organization_id using errcode = 'P0001', detail = 'daily-allowance-exhausted';\n`;
     const exceeds = over.omitExceeds
       ? ''
       : `raise exception '${over.exceedsFormat ?? EXCEEDS_FORMAT}', p_organization_id, ${over.remainingArg ?? 'v_remaining'} using errcode = 'P0001', detail = 'debit-exceeds-remaining';\n`;
-    return 'create function public.discovery_allowance()\nas $$\n' + unverified + vetted + exceeds + '$$;\n';
+    return 'create function public.discovery_allowance()\nas $$\n' + exhausted + exceeds + '$$;\n';
+  }
+
+  function reserveSql(over: { format?: string; omit?: boolean } = {}): string {
+    const exhausted = over.omit
+      ? ''
+      : `raise exception '${over.format ?? EXHAUSTED_FORMAT}', p_organization_id using errcode = 'P0001', detail = 'daily-limit';\n`;
+    return 'create or replace function public.discovery_turn_reserve()\nas $$\n' + exhausted + '$$;\n';
   }
 
   function input(
     over: Partial<{
       organizationId: string;
-      vettedGrant: number;
       remaining: number;
-      exhaustedUnverified: string;
-      exhaustedVetted: string;
+      exhausted: string;
       exceedsRemaining: string;
       allowanceFunctionSql: string;
+      reserveFunctionSql: string;
       typescriptExhaustedRendererSource: string;
       typescriptExceedsRemainingRendererSource: string;
     }> = {},
   ) {
     return {
       organizationId: SAMPLE_ORG,
-      vettedGrant: dailyGrantFor('vetted'),
       remaining: SAMPLE_REMAINING,
-      exhaustedUnverified: dailyAllowanceExhaustedReason(SAMPLE_ORG, 'unverified'),
-      exhaustedVetted: dailyAllowanceExhaustedReason(SAMPLE_ORG, 'vetted'),
+      exhausted: dailyAllowanceExhaustedReason(SAMPLE_ORG),
       exceedsRemaining: debitExceedsRemainingReason(SAMPLE_ORG, SAMPLE_REMAINING),
       allowanceFunctionSql: allowanceSql(),
+      reserveFunctionSql: reserveSql(),
       typescriptExhaustedRendererSource: MATCHING_EXHAUSTED_RENDERER,
       typescriptExceedsRemainingRendererSource: MATCHING_EXCEEDS_RENDERER,
       ...over,
     };
   }
 
-  it('accepts matching SQL raises and TypeScript renderers for every arm', () => {
+  it('accepts matching SQL raises in both functions and matching TypeScript renderers', () => {
     expect(scanExhaustedSentence(input())).toEqual([]);
   });
 
-  it('fails when the unverified SQL sentence drops the remedies', () => {
+  it('fails when the allowance SQL sentence drops a remedy', () => {
     const problems = scanExhaustedSentence(
       input({
         allowanceFunctionSql: allowanceSql({
-          unverifiedFormat: 'discovery_allowance refuses: organisation % has no Discovery credits left today — wait only %',
+          exhaustedFormat: 'discovery_allowance refuses: organisation % has no Discovery credits left today — wait only',
         }),
       }),
     );
-    expect(problems.some((problem) => /TypeScript unverified exhausted sentence/.test(problem))).toBe(true);
+    expect(problems.some((problem) => /SQL discovery_allowance exhausted raise filled/.test(problem))).toBe(true);
   });
 
-  it('fails when the vetted SQL sentence still names get vetted', () => {
+  it('fails when the reserve SQL sentence disagrees with the TypeScript sentence', () => {
     const problems = scanExhaustedSentence(
       input({
-        allowanceFunctionSql: allowanceSql({
-          vettedFormat:
-            'discovery_allowance refuses: organisation % has no Discovery credits left today — get vetted, fund project fuel to continue now, or wait for the next UTC day',
+        reserveFunctionSql: reserveSql({
+          format: 'discovery_allowance refuses: organisation % has no Discovery credits left today — wait for tomorrow',
         }),
       }),
     );
-    expect(problems.some((problem) => /TypeScript vetted exhausted sentence/.test(problem))).toBe(true);
+    expect(problems.some((problem) => /SQL discovery_turn_reserve exhausted raise filled/.test(problem))).toBe(true);
   });
 
-  it('fails when the SQL grant argument is a numeric literal', () => {
-    const problems = scanExhaustedSentence(input({ allowanceFunctionSql: allowanceSql({ grantArg: '30' }) }));
-    expect(problems.some((problem) => /grant argument/.test(problem))).toBe(true);
+  it('fails when either SQL sentence names get vetted again', () => {
+    const allowance = scanExhaustedSentence(input({ allowanceFunctionSql: allowanceSql({ exhaustedFormat: GET_VETTED_FORMAT }) }));
+    expect(allowance).toContain('the SQL discovery_allowance exhausted sentence names get vetted');
+    const reserve = scanExhaustedSentence(input({ reserveFunctionSql: reserveSql({ format: GET_VETTED_FORMAT }) }));
+    expect(reserve).toContain('the SQL discovery_turn_reserve exhausted sentence names get vetted');
+  });
+
+  it('fails when the TypeScript sentence names get vetted again', () => {
+    const problems = scanExhaustedSentence(
+      input({ exhausted: GET_VETTED_FORMAT.replace('%', SAMPLE_ORG) }),
+    );
+    expect(problems).toContain('dailyAllowanceExhaustedReason names get vetted');
   });
 
   it('fails when the exceeds-remaining SQL sentence disagrees', () => {
@@ -153,24 +157,12 @@ describe('scanExhaustedSentence refusals', () => {
     const problems = scanExhaustedSentence(
       input({
         typescriptExhaustedRendererSource:
-          'export function dailyAllowanceExhaustedReason(organizationId: string, tier: DiscoveryTier): string {\n' +
-          "  return `get vetted (daily grant becomes 30) ${organizationId} ${dailyGrantFor('vetted')}`;\n" +
+          'export function dailyAllowanceExhaustedReason(organizationId: string): string {\n' +
+          '  return `daily grant becomes 30 ${organizationId}`;\n' +
           '}\n',
       }),
     );
     expect(problems.some((problem) => /numeric literal/.test(problem))).toBe(true);
-  });
-
-  it('fails when the TypeScript exhausted renderer does not read dailyGrantFor vetted', () => {
-    const problems = scanExhaustedSentence(
-      input({
-        typescriptExhaustedRendererSource:
-          'export function dailyAllowanceExhaustedReason(organizationId: string, tier: DiscoveryTier): string {\n' +
-          '  return `get vetted ${organizationId}`;\n' +
-          '}\n',
-      }),
-    );
-    expect(problems.some((problem) => /dailyGrantFor/.test(problem))).toBe(true);
   });
 
   it('throws when the allowance function is absent', () => {
@@ -179,15 +171,21 @@ describe('scanExhaustedSentence refusals', () => {
     );
   });
 
-  it('throws when the unverified exhausted raise is absent', () => {
-    expect(() => scanExhaustedSentence(input({ allowanceFunctionSql: allowanceSql({ omitUnverified: true }) }))).toThrow(
-      /unverified exhausted/,
+  it('throws when the reserve function is absent', () => {
+    expect(() => parseReserveRefusalRaises('create function public.other() as $$ begin null; end; $$;')).toThrow(
+      /no public.discovery_turn_reserve/,
     );
   });
 
-  it('throws when the vetted exhausted raise is absent', () => {
-    expect(() => scanExhaustedSentence(input({ allowanceFunctionSql: allowanceSql({ omitVetted: true }) }))).toThrow(
-      /vetted exhausted/,
+  it('throws when the allowance exhausted raise is absent', () => {
+    expect(() => scanExhaustedSentence(input({ allowanceFunctionSql: allowanceSql({ omitExhausted: true }) }))).toThrow(
+      /discovery_allowance exhausted/,
+    );
+  });
+
+  it('throws when the reserve exhausted raise is absent', () => {
+    expect(() => scanExhaustedSentence(input({ reserveFunctionSql: reserveSql({ omit: true }) }))).toThrow(
+      /discovery_turn_reserve exhausted/,
     );
   });
 
