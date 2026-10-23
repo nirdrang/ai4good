@@ -19,8 +19,10 @@ const sql = postgres(env('SPIKE_DB_URL'), { max: 2 });
 
 const OPUS_RATE_MICROS = { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2 };
 const MANAGED_RUNTIME_MICROS_PER_SECOND = 80_000 / 3600;
-const HOLD_MICROS = 250_000;
 const MAX_STEPS = 6;
+const MAX_OUTPUT_TOKENS = 8000;
+const ESTIMATED_INPUT_TOKENS = 4000;
+const HOLD_MICROS = MAX_STEPS * (ESTIMATED_INPUT_TOKENS * OPUS_RATE_MICROS.input + MAX_OUTPUT_TOKENS * OPUS_RATE_MICROS.output);
 const SYSTEM = 'You are the ai4good PRD assistant spike. When asked, use edit_repo_file to write the file and create_linear_issue to file the item, then confirm in one sentence.';
 
 const TOOLS = [
@@ -51,7 +53,9 @@ function tokenMicros(usage: { input_tokens?: number | null; output_tokens?: numb
 
 async function editRepoFile(input: Record<string, unknown>): Promise<string> {
   const repo = env('SPIKE_GITHUB_REPO');
-  const url = `https://api.github.com/repos/${repo}/contents/${String(input.path)}`;
+  const segments = String(input.path).split('/');
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) return `refused path ${input.path}`;
+  const url = `https://api.github.com/repos/${repo}/contents/${segments.map(encodeURIComponent).join('/')}`;
   const headers = { authorization: `Bearer ${env('SPIKE_GITHUB_TOKEN')}`, accept: 'application/vnd.github+json' };
   const existing = await fetch(url, { headers });
   const sha = existing.ok ? (await existing.json()).sha : undefined;
@@ -88,11 +92,19 @@ async function anthropicPath(prompt: string, emit: Emit, settle: (r: Receipt) =>
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
   for (let step = 0; step < MAX_STEPS; step++) {
     const stream = client.messages.stream({
-      model: 'claude-opus-5-5', max_tokens: 8000, system: SYSTEM, output_config: { effort: 'low' },
+      model: 'claude-opus-5-5', max_tokens: MAX_OUTPUT_TOKENS, system: SYSTEM, output_config: { effort: 'low' },
       tools: TOOLS.map((tool) => ({ ...tool, strict: true })), messages,
     });
     stream.on('text', (delta) => emit(delta));
-    const message = await stream.finalMessage();
+    let startedId = '';
+    stream.on('streamEvent', (event) => { if (event.type === 'message_start') startedId = event.message.id; });
+    let message: Anthropic.Message;
+    try {
+      message = await stream.finalMessage();
+    } catch (failure) {
+      if (startedId) await settle({ receiptId: startedId, micros: null, basis: 'tokens-x-rate' });
+      throw failure;
+    }
     await settle({ receiptId: message.id, micros: tokenMicros(message.usage), basis: 'tokens-x-rate' });
     messages.push({ role: 'assistant', content: message.content });
     if (message.stop_reason !== 'tool_use') return;
@@ -112,7 +124,7 @@ async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) =
       method: 'POST',
       headers: { authorization: `Bearer ${env('SPIKE_OPENROUTER_PROJECT_KEY')}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: Deno.env.get('SPIKE_OPENROUTER_MODEL') ?? 'anthropic/claude-opus-5.5', stream: true, max_tokens: 8000,
+        model: Deno.env.get('SPIKE_OPENROUTER_MODEL') ?? 'anthropic/claude-opus-5.5', stream: true, max_tokens: MAX_OUTPUT_TOKENS,
         usage: { include: true }, messages,
         tools: TOOLS.map((tool) => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.input_schema } })),
       }),
@@ -123,6 +135,7 @@ async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) =
     let text = '';
     const calls = new Map<number, { id: string; name: string; args: string }>();
     let buffer = '';
+    let streamError: unknown = null;
     for await (const chunk of response.body.pipeThrough(new TextDecoderStream())) {
       buffer += chunk;
       const lines = buffer.split('\n');
@@ -131,6 +144,7 @@ async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) =
         if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
         const event = JSON.parse(line.slice(6));
         generationId ||= event.id ?? '';
+        if (event.error) streamError = event.error;
         if (typeof event.usage?.cost === 'number') costUsd = event.usage.cost;
         const delta = event.choices?.[0]?.delta;
         if (delta?.content) { text += delta.content; emit(delta.content); }
@@ -143,7 +157,8 @@ async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) =
         }
       }
     }
-    await settle({ receiptId: generationId, micros: costUsd === null ? null : costUsd * 1_000_000, basis: 'provider-reported' });
+    if (generationId) await settle({ receiptId: generationId, micros: costUsd === null ? null : costUsd * 1_000_000, basis: 'provider-reported' });
+    if (streamError) throw new Error(`OpenRouter stream error ${JSON.stringify(streamError)}`);
     if (calls.size === 0) return;
     const toolCalls = [...calls.values()];
     messages.push({ role: 'assistant', content: text || null,
@@ -158,17 +173,21 @@ async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => P
   const client = new Anthropic({ apiKey: env('SPIKE_ANTHROPIC_PROJECT_KEY') });
   const session = await client.beta.sessions.create({
     agent: env('SPIKE_MANAGED_AGENT_ID'), environment_id: env('SPIKE_MANAGED_ENVIRONMENT_ID'),
-    budget: { type: 'limit', max_list_cost: { amount: '100', currency: 'USD' } },
+    budget: { type: 'limit', max_list_cost: { amount: String(Math.ceil(HOLD_MICROS / 10_000)), currency: 'USD' } },
     resources: [{
       type: 'github_repository', url: `https://github.com/${env('SPIKE_GITHUB_REPO')}`,
       mount_path: '/workspace/repo', authorization_token: env('SPIKE_GITHUB_TOKEN'),
     }],
   });
-  emit('');
+  let previewed = false;
   const stream = await client.beta.sessions.events.stream(session.id, { event_deltas: ['agent.message'] });
   await client.beta.sessions.events.send(session.id, { events: [{ type: 'user.message', content: [{ type: 'text', text: prompt }] }] });
   for await (const event of stream) {
-    if (event.type === 'event_delta' && event.delta.content.type === 'text') emit(event.delta.content.text);
+    if (event.type === 'event_delta' && event.delta.content.type === 'text') { previewed = true; emit(event.delta.content.text); }
+    if (event.type === 'agent.message' && !previewed) {
+      for (const block of event.content) if (block.type === 'text') emit(block.text);
+    }
+    if (event.type === 'agent.message') previewed = false;
     if (event.type === 'span.model_request_end' && event.model_usage) {
       await settle({ receiptId: event.id, micros: tokenMicros(event.model_usage), basis: 'tokens-x-rate' });
     }
@@ -180,19 +199,18 @@ async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => P
       const finished = await client.beta.sessions.retrieve(session.id);
       const activeSeconds = finished.usage?.active_seconds ?? null;
       await settle({ receiptId: `${session.id}:runtime`, micros: activeSeconds === null ? null : activeSeconds * MANAGED_RUNTIME_MICROS_PER_SECOND, basis: 'runtime-x-rate' });
-      console.log(JSON.stringify({ session: session.id, list_cost: finished.usage?.list_cost, active_seconds: activeSeconds }));
-      return;
+      return { session: session.id, list_cost: finished.usage?.list_cost, active_seconds: activeSeconds };
     }
     if (event.type === 'session.status_terminated') return;
   }
 }
 
-const PATHS: Record<Path, typeof anthropicPath> = { anthropic: anthropicPath, openrouter: openrouterPath, managed: managedPath };
+const PATHS: Record<Path, (prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>) => Promise<unknown>> = { anthropic: anthropicPath, openrouter: openrouterPath, managed: managedPath };
 
 Deno.serve(async (request) => {
   const { path, prompt, project } = await request.json() as { path: Path; prompt: string; project: string };
-  const run = PATHS[path];
-  if (!run) return new Response(`unknown path ${path}`, { status: 400 });
+  const run = Object.hasOwn(PATHS, path) ? PATHS[path] : undefined;
+  if (!run || typeof prompt !== 'string' || typeof project !== 'string') return new Response(`unknown path ${path}`, { status: 400 });
   const [{ hold }] = await sql`select spike.hold(${project}, ${path}, ${HOLD_MICROS}) as hold`;
   const settled: Array<Receipt & { first: boolean }> = [];
   const settle = async (receipt: Receipt) => {
@@ -205,12 +223,15 @@ Deno.serve(async (request) => {
       controller.enqueue(start(crypto.randomUUID()));
       controller.enqueue(textStart(textId));
       try {
-        await run(prompt, (delta) => delta && controller.enqueue(textDelta(textId, delta)), settle);
+        const providerTruth = await run(prompt, (delta) => delta && controller.enqueue(textDelta(textId, delta)), settle);
         controller.enqueue(textEnd(textId));
-        controller.enqueue(`data: ${JSON.stringify({ type: 'data-receipts', data: { hold, settled } })}\n\n`);
+        controller.enqueue(`data: ${JSON.stringify({ type: 'data-receipts', data: { hold, settled, providerTruth: providerTruth ?? null } })}\n\n`);
         controller.enqueue(finish());
       } catch (failure) {
-        controller.enqueue(errorPart(failure instanceof Error ? failure.message : String(failure)));
+        console.error(failure);
+        controller.enqueue(errorPart('The AI request failed.'));
+      } finally {
+        await sql`select spike.close(${hold})`;
       }
       controller.enqueue(done());
       controller.close();

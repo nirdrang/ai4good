@@ -1,22 +1,28 @@
-# Each path called once through the edge runtime with placeholder keys (sk-ant-PLACEHOLDER..., sk-or-PLACEHOLDER..., ghp_PLACEHOLDER...).
+# Each path called once in the edge runtime with placeholder keys.
 == anthropic
-data: {"type":"start","messageId":"6f98f8e3-428a-4877-a114-c88b6e629c91"}
-data: {"type":"text-start","id":"bcb8c4ef-fcec-42c4-91e5-f997b80955be"}
-data: {"type":"error","errorText":"401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"},\"request_id\":\"req_011CgJegW7WXjgYMV7iKxbWw\"}"}
+data: {"type":"start","messageId":"fe855b27-dfd3-428d-9bb4-51796135b22a"}
+data: {"type":"text-start","id":"582b32ed-a182-4054-b38d-46cad775a2a3"}
+data: {"type":"error","errorText":"The AI request failed."}
 data: [DONE]
-[http 200 total 0.268736s]
 placeholder occurrences in browser bytes: 0
+hold after the request: closed
 == openrouter
-data: {"type":"start","messageId":"207d40db-5951-48cc-a930-19cbe23b7b1c"}
-data: {"type":"text-start","id":"40498010-bb7d-4306-855b-307f139ee2de"}
-data: {"type":"error","errorText":"OpenRouter 401: {\"error\":{\"message\":\"Missing Authentication header\",\"code\":401}}"}
+data: {"type":"start","messageId":"3547be64-7591-4c26-91cf-e53e14762aab"}
+data: {"type":"text-start","id":"6bc730c6-4621-411c-a993-735d12a68b63"}
+data: {"type":"error","errorText":"The AI request failed."}
 data: [DONE]
-[http 200 total 0.154727s]
 placeholder occurrences in browser bytes: 0
+hold after the request: closed
 == managed
-data: {"type":"start","messageId":"97c18380-7c4b-4cb8-8e4a-2686cef2011b"}
-data: {"type":"text-start","id":"1772cc9d-3d93-4ae3-aa8f-ef984171777e"}
-data: {"type":"error","errorText":"401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"},\"request_id\":\"req_011CgJegXHTQLGTMuv4zyG7T\"}"}
+data: {"type":"start","messageId":"f4f26540-7eb0-424f-8868-ce1ed798e3e8"}
+data: {"type":"text-start","id":"be7e2cf8-f33f-4d6c-8e4b-fba85b880d57"}
+data: {"type":"error","errorText":"The AI request failed."}
 data: [DONE]
-[http 200 total 0.081484s]
 placeholder occurrences in browser bytes: 0
+hold after the request: closed
+== provider errors in the server log, not sent to the browser
+invalid x-api-key
+invalid x-api-key
+User not found
+invalid x-api-key
+invalid x-api-key
