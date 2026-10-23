@@ -24,7 +24,7 @@ Keep path B. The PRD workspace's AI calls OpenRouter from edge functions, and ou
 
 Do not adopt Managed Agents for the PRD workspace. Revisit it for the planning package only if one package step cannot finish inside one edge function call, or if the package must run code against the repository. Supabase allows 400 seconds per call on a paid plan. AI4DEV-164 (sign-off into Build) builds that job.
 
-Keep path C as the fallback. Switch to it if the live run shows that OpenRouter's reported cost differs from its own generation lookup, or if Anthropic models through OpenRouter lose prompt caching.
+Keep path C as the fallback. Switch to it if the live run shows that OpenRouter's reported cost differs from its own generation lookup, or that cache reads do not show up in the reported usage. OpenRouter's documentation says both work: it passes Claude's `cache_control` through and reports cached tokens and a `cache_discount` for each request (read).
 
 This memo first recommended path C. Review overturned that. The section "What review changed" says why.
 
@@ -47,6 +47,28 @@ This memo first recommended path C. Review overturned that. The section "What re
 - It has no exact settlement for a reply whose usage never arrives (point 2 above). REQ-036 would need a new rule, for example "settle at the reservation after a set time, with a visible adjustment".
 - The Discovery port cannot serve the PRD unchanged (read in `supabase/functions/_shared/anthropic-messages.ts`). It keeps only the first tool call, returns no provider message id, folds cache reads and writes into input tokens, and streams only the `reply` tool's text. Discovery's rate columns are whole micro-dollars per token, so they cannot express Haiku 5.5's input rate of 0.1 micro-dollars per token, or Opus 5.5's cache-read rate of 0.2.
 - It is a valid fallback, because it keeps one vendor and no rate markup. The change list below is complete, so the founder can switch with the facts in hand.
+
+## Continuous section updates
+
+The PRD chats rewrite PRD sections as the conversation goes. The contract says so: "The AI updates topic text and state from recorded answers and decisions, with their sources" (`design/prd-ui-contract.md`, line 60). Writing sections is the chats' main tool, not an occasional action. Five consequences follow, and none of them favours path A.
+
+1. **The sections live in our database, not in files.** REQ-036 persists "topic states" and "PRD revisions", and both humans see them on screen. The repository receives the PRD only when the planning package runs after UI Design. A file that path A's agent edits in its sandbox is invisible to the screen and to the NGO. Path A would therefore write sections through a custom tool that our edge function runs, which is the same tool paths B and C run in their own loop.
+2. **Each write is a guarded state change, not a text replace.** It must carry the revision the AI read, so a stale write is refused (contract, lines 56 and 110). It sets the section to Draft, or to Needs review if it was confirmed. It sends confirmed sections that depend on it to Needs review with the "Changed since you confirmed" line. It records the sources. That needs one database transaction with row locks, which only our backend can run.
+3. **The chats write at the same time.** Under d99 there are no turns, so the main chat and a section chat can rewrite the same section at once. A stale write must come back to the model with the current text, so the model merges and writes again.
+4. **One reply is several paid generations.** Each tool round trip is a new generation. That is why the reservation has to cover the whole request, the first of the three rules above.
+5. **Every generation resends the current PRD and the Discovery document.** Prompt caching therefore decides most of the cost of a long PRD chat. OpenRouter supports it for Claude and for OpenAI models and reports it for each request (read). Path C has it natively.
+
+Measured in this run, on the local database. `spike/sections.sql` is a throwaway section store with a revision-checked `write_section` function, and `spike/sections-check.sh` exercises it. The output is in `spike/sections-check.out`.
+
+- One reply wrote two sections in a row. Both became Draft at revision 1.
+- After the developer confirmed both, a later answer changed the users section. That section went to Needs review with "drivers added as users". The stories section, which depends on it, went to Needs review with "Depends on users: drivers added as users".
+- A section chat then wrote from revision 1, which was stale. The write was refused and returned the current text and revision 2.
+- Five chats wrote the same section at once from the same revision. Exactly one write landed in each of 20 rounds.
+- Every landed write is kept with its revision, its writer and its sources.
+
+All three spike paths now offer this as their main tool, `write_prd_section`. Paths B and C run it in our loop. Path A runs it as a custom tool that the edge function answers. The live run exercises it, with keys.
+
+One design point for AI4DEV-170 (section states and chats), not for this decision. The contract binds requests to the whole PRD revision. With no turns, one PRD-wide revision makes a section chat's write fail whenever the main chat changed any other section. The spike checks revisions for each section instead, so only writes to the same section collide. AI4DEV-170 should choose between the two.
 
 ## The seven checks
 

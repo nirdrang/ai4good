@@ -12,6 +12,7 @@ const runs = Number(Deno.env.get('SPIKE_RUNS') ?? '3');
 const secrets = ['SPIKE_ANTHROPIC_PROJECT_KEY', 'SPIKE_OPENROUTER_PROJECT_KEY', 'SPIKE_LINEAR_API_KEY', 'SPIKE_GITHUB_TOKEN'].map(need);
 
 const CHAT_PROMPT = 'In two sentences, what does a PRD completion check compare?';
+const SECTION_PROMPT = 'The users section is at revision 0 and empty. The developer answers: the users are kitchen volunteers and the coordinator, and drivers too. Update the users section.';
 const ACT_PROMPT = (stamp: string) =>
   `Write the file spike/${stamp}.md containing "spike ${stamp}", then create a Linear issue titled "spike ${stamp}" with description "throwaway".`;
 
@@ -64,11 +65,15 @@ async function issueExists(stamp: string): Promise<boolean> {
   return (body.data?.issues?.nodes?.length ?? 0) === 1;
 }
 
+await sql`insert into spike.sections ${sql(paths.map((path) => ({ project_id: `spike-${path}`, section_id: 'users' })))} on conflict do nothing`;
 await sql`insert into spike.allocations ${sql(paths.map((path) => ({ project_id: `spike-${path}`, cap_micros: 20_000_000 })))} on conflict do nothing`;
 
 const results = [];
 for (const path of paths) {
   for (let index = 0; index < runs; index++) results.push({ kind: 'chat', ...(await once(path, CHAT_PROMPT)) });
+  const section = await once(path, SECTION_PROMPT);
+  const [written] = await sql`select revision, body from spike.sections where project_id = ${`spike-${path}`} and section_id = 'users'`;
+  results.push({ kind: 'section', ...section, sectionRevision: written.revision, sectionBody: written.body });
   const stamp = `${path}-${Date.now()}`;
   const act = await once(path, ACT_PROMPT(stamp));
   results.push({ kind: 'act', ...act, fileWritten: await fileExists(stamp), issueCreated: await issueExists(stamp) });

@@ -9,6 +9,7 @@ type Basis = 'provider-reported' | 'tokens-x-rate' | 'runtime-x-rate';
 type Receipt = { receiptId: string; micros: number | null; basis: Basis };
 type ToolCall = { id: string; name: string; input: Record<string, unknown> };
 type Emit = (chunk: string) => void;
+type Tools = (call: ToolCall) => Promise<string>;
 
 const env = (name: string) => {
   const value = Deno.env.get(name);
@@ -23,9 +24,20 @@ const MAX_STEPS = 6;
 const MAX_OUTPUT_TOKENS = 8000;
 const ESTIMATED_INPUT_TOKENS = 4000;
 const HOLD_MICROS = MAX_STEPS * (ESTIMATED_INPUT_TOKENS * OPUS_RATE_MICROS.input + MAX_OUTPUT_TOKENS * OPUS_RATE_MICROS.output);
-const SYSTEM = 'You are the ai4good PRD assistant spike. When asked, use edit_repo_file to write the file and create_linear_issue to file the item, then confirm in one sentence.';
+const SYSTEM = 'You are the ai4good PRD assistant spike. After each answer the developer gives, call write_prd_section for every section the answer changes, with the revision you last read; if the write is stale, merge your change into the current text it returns and write again. When asked, use edit_repo_file to write a repository file and create_linear_issue to file an item. Confirm in one sentence.';
 
 const TOOLS = [
+  {
+    name: 'write_prd_section',
+    description: 'Replace one PRD section with new text. Pass the revision you last read; a stale revision returns the current text and revision instead of writing.',
+    input_schema: {
+      type: 'object' as const, additionalProperties: false, required: ['section', 'expected_revision', 'body', 'sources', 'change'],
+      properties: {
+        section: { type: 'string' }, expected_revision: { type: 'integer' }, body: { type: 'string' },
+        sources: { type: 'array', items: { type: 'string' } }, change: { type: 'string' },
+      },
+    },
+  },
   {
     name: 'edit_repo_file',
     description: 'Create or replace one file in the sandbox repository.',
@@ -82,12 +94,19 @@ async function createLinearIssue(input: Record<string, unknown>): Promise<string
   return issue ? `created ${issue.identifier} ${issue.url}` : `Linear ${response.status}: ${JSON.stringify(body.errors)}`;
 }
 
-const runTool = (call: ToolCall) =>
-  call.name === 'edit_repo_file' ? editRepoFile(call.input)
+async function writePrdSection(project: string, input: Record<string, unknown>): Promise<string> {
+  const [{ result }] = await sql`select spike.write_section(${project}, ${String(input.section)}, ${Number(input.expected_revision)},
+    ${String(input.body)}, ${(input.sources as string[]) ?? []}, ${String(input.change ?? '')}, 'ai') as result`;
+  return JSON.stringify(result);
+}
+
+const runTool = (call: ToolCall, project: string) =>
+  call.name === 'write_prd_section' ? writePrdSection(project, call.input)
+  : call.name === 'edit_repo_file' ? editRepoFile(call.input)
   : call.name === 'create_linear_issue' ? createLinearIssue(call.input)
   : Promise.resolve(`unknown tool ${call.name}`);
 
-async function anthropicPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>) {
+async function anthropicPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools) {
   const client = new Anthropic({ apiKey: env('SPIKE_ANTHROPIC_PROJECT_KEY'), maxRetries: 0 });
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
   for (let step = 0; step < MAX_STEPS; step++) {
@@ -111,13 +130,13 @@ async function anthropicPath(prompt: string, emit: Emit, settle: (r: Receipt) =>
     const calls = message.content.filter((block) => block.type === 'tool_use');
     const results = await Promise.all(calls.map(async (block) => ({
       type: 'tool_result' as const, tool_use_id: block.id,
-      content: await runTool({ id: block.id, name: block.name, input: block.input as Record<string, unknown> }),
+      content: await tools({ id: block.id, name: block.name, input: block.input as Record<string, unknown> }),
     })));
     messages.push({ role: 'user', content: results });
   }
 }
 
-async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>) {
+async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools) {
   const messages: Array<Record<string, unknown>> = [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }];
   for (let step = 0; step < MAX_STEPS; step++) {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -164,12 +183,12 @@ async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) =
     messages.push({ role: 'assistant', content: text || null,
       tool_calls: toolCalls.map((call) => ({ id: call.id, type: 'function', function: { name: call.name, arguments: call.args } })) });
     for (const call of toolCalls) {
-      messages.push({ role: 'tool', tool_call_id: call.id, content: await runTool({ id: call.id, name: call.name, input: JSON.parse(call.args || '{}') }) });
+      messages.push({ role: 'tool', tool_call_id: call.id, content: await tools({ id: call.id, name: call.name, input: JSON.parse(call.args || '{}') }) });
     }
   }
 }
 
-async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>) {
+async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools) {
   const client = new Anthropic({ apiKey: env('SPIKE_ANTHROPIC_PROJECT_KEY') });
   const session = await client.beta.sessions.create({
     agent: env('SPIKE_MANAGED_AGENT_ID'), environment_id: env('SPIKE_MANAGED_ENVIRONMENT_ID'),
@@ -192,7 +211,7 @@ async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => P
       await settle({ receiptId: event.id, micros: tokenMicros(event.model_usage), basis: 'tokens-x-rate' });
     }
     if (event.type === 'agent.custom_tool_use') {
-      const output = await runTool({ id: event.id, name: event.name, input: event.input as Record<string, unknown> });
+      const output = await tools({ id: event.id, name: event.name, input: event.input as Record<string, unknown> });
       await client.beta.sessions.events.send(session.id, { events: [{ type: 'user.custom_tool_result', custom_tool_use_id: event.id, content: [{ type: 'text', text: output }] }] });
     }
     if (event.type === 'session.status_idle' && event.stop_reason.type !== 'requires_action') {
@@ -205,7 +224,7 @@ async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => P
   }
 }
 
-const PATHS: Record<Path, (prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>) => Promise<unknown>> = { anthropic: anthropicPath, openrouter: openrouterPath, managed: managedPath };
+const PATHS: Record<Path, (prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools) => Promise<unknown>> = { anthropic: anthropicPath, openrouter: openrouterPath, managed: managedPath };
 
 Deno.serve(async (request) => {
   const { path, prompt, project } = await request.json() as { path: Path; prompt: string; project: string };
@@ -223,7 +242,7 @@ Deno.serve(async (request) => {
       controller.enqueue(start(crypto.randomUUID()));
       controller.enqueue(textStart(textId));
       try {
-        const providerTruth = await run(prompt, (delta) => delta && controller.enqueue(textDelta(textId, delta)), settle);
+        const providerTruth = await run(prompt, (delta) => delta && controller.enqueue(textDelta(textId, delta)), settle, (call) => runTool(call, project));
         controller.enqueue(textEnd(textId));
         controller.enqueue(`data: ${JSON.stringify({ type: 'data-receipts', data: { hold, settled, providerTruth: providerTruth ?? null } })}\n\n`);
         controller.enqueue(finish());
