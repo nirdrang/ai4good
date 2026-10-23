@@ -14,21 +14,43 @@ The three paths, as this memo names them:
 - Path B is OpenRouter, with our own tool loop in Supabase edge functions. REQ-036 says this today.
 - Path C is the third path the evidence turned up. It calls the Claude API (the Messages endpoint) directly from edge functions, with our own tool loop. The shipped Discovery chat calls the Claude API this way.
 
-## The recommendation
+## The direction
 
-Keep path B. The PRD workspace's AI calls OpenRouter from edge functions, and our own tool loop runs every tool. Fix three gaps in the money rules before AI4DEV-171 (OpenRouter costs) is built. The section "Changes each path needs" gives the exact text.
+The founder chose path A on 2026-10-23: "I want the harness in the cloud to run the prd tools". This memo now describes that design. The analysis that led to the earlier recommendation of path B stays below, in "Why path B was recommended first", because it names what the founder gives up.
 
-1. Hold the reservation for the whole request, across every tool step. Today's text and the first spike settled the hold on the first generation, so later steps ran on no reservation.
-2. Release the reservation when the provider rejects a call before it starts a generation. Keep it pending only when a generation started and its cost is missing.
-3. State where the product's actions run. The chat tools write PRD state through the backend's role checks. The planning package writes the repository and Linear only through the task-management writer (REQ-026).
+## The design: Managed Agents runs the loop, our MCP server runs the PRD tools
 
-Do not adopt Managed Agents for the PRD workspace. Revisit it for the planning package only if one package step cannot finish inside one edge function call, or if the package must run code against the repository. Supabase allows 400 seconds per call on a paid plan. AI4DEV-164 (sign-off into Build) builds that job.
+1. **Anthropic runs the harness.** Each chat (the main chat, each section chat, each NGO side chat) is one Managed Agents session. The session keeps the chat's working memory, queues messages, and compacts long history by itself (read in the Managed Agents reference).
+2. **The PRD tools are an MCP server that we host as a Supabase edge function.** The agent declares it in `mcp_servers`, with an `mcp_toolset` set to `always_allow`. Anthropic's proxy calls it directly over MCP's Streamable HTTP transport (read). Our backend does not relay any tool call, so the loop never pauses waiting for our relay. The tools are `list_sections`, `read_section`, `stage_section` and `commit_turn`, plus the REQ-036 state tools (`propose_ready`, `suggest_ngo_question`, `recommend`), which the spike leaves out.
+3. **The guards live inside the tools.** `commit_turn` applies every staged section in one transaction, refuses the whole commit if any section went stale, and returns the stale sections for the agent to merge. It also runs the Needs review cascade and records the sources. The role check and the project scope come from the token (next point).
+4. **Each chat gets its own signed token.** When a chat's session starts, our backend mints a token naming the project, the chat and an expiry, signed with a key that stays in our edge function. It stores the token in a vault created for that session as a `static_bearer` credential for the MCP server's URL, and attaches the vault with `vault_ids`. The token never enters the sandbox; Anthropic's proxy adds it to each MCP call (read). A leaked token reaches one chat of one project until it expires.
+5. **Our backend still does three jobs.**
+   - It starts each turn. It checks the sender's role, holds the money, and sends `user.message`. The browser never holds the Anthropic key.
+   - It relays the reply's text to useChat from the session's event stream.
+   - It settles money from the events, once per `span.model_request_end` event id, plus runtime from `active_seconds` when the session goes idle.
 
-Keep path C as the fallback. Switch to it if the live run shows that OpenRouter's reported cost differs from its own generation lookup, or that cache reads do not show up in the reported usage. OpenRouter's documentation says both work: it passes Claude's `cache_control` through and reports cached tokens and a `cache_discount` for each request (read).
+   If the relay dies mid-turn, the agent keeps working, because no tool waits on the relay. The relay or a webhook catches up with `events.list` and settles by event id.
+6. **The sandbox has no work in the chats.** No repository is mounted for the PRD workspace. The planning package after UI Design is where repository and Linear writes happen, through the task-management writer (REQ-026). A Managed Agents session can run that job past the 400-second edge function limit.
 
-This memo first recommended path C. Review overturned that. The section "What review changed" says why.
+Measured in this run, in the real Supabase edge runtime against the local database (`spike/mcp-check.sh`, output in `spike/mcp-check.out`). A script played Anthropic's MCP client against the spike's PRD tools server (`spike/prd-mcp/index.ts`).
 
-## Why path B
+- A request with no token, a forged token, or an expired token was refused with 401.
+- The MCP handshake worked: `initialize`, the `initialized` notification, and `tools/list`, which returned the four tools.
+- One turn staged two sections. Neither was visible before `commit_turn`, and both landed together at revision 1 as Draft.
+- Another chat then changed one section. The agent's next commit was refused with the current text. After a read, a merge and a fresh stage, the commit succeeded at revision 3.
+- A token for project a could not read project b's section.
+
+Not measured: Anthropic's client against this server, which needs a key and a public URL. Also not measured: how well the model uses the tools, the cost of a turn, and its latency. The live run in `spike/README.md` covers them.
+
+## What this choice needs from the founder
+
+- **A ruling on one credential.** Our MCP token is held in an Anthropic vault. CLAUDE.md (founder, 2026-10-03) keeps the keys of outside services inside our edge functions. This token is a credential for our own service, held by an outside one. That is a new boundary, so it needs an explicit founder ruling before it is built.
+- **Claude only.** The wiring plan of 2026-10-14 chose OpenRouter with luna, otherwise Haiku, and free development and tests on the Codex CLI provider. Managed Agents runs Claude models only. Claude Haiku 5.5 costs $0.10 per million input tokens and $0.50 per million output tokens (read), so a cheap model remains available. Development and tests then spend real money, or use a fake harness.
+- **Tests need a public URL.** Anthropic's proxy must reach the MCP server over the internet. The local stack that `bun run at:verify --tier integration` uses is not reachable from outside, so the integration tier needs either a tunnel to the local stack or a stand-in for the harness that calls the MCP server the same way. The harness has no stand-in today, and CLAUDE.md allows no new stand-ins without a founder ruling.
+- **Cost per reply comes from our own pricing.** Managed Agents reports tokens for each model request, not dollars. The backend prices them with versioned rates and adds runtime at $0.08 per active session-hour (read). `list_cost` exists only as a session total rounded to the cent, so it is a check, not the charge.
+- **A beta.** Managed Agents is in beta (read).
+
+## Why path B was recommended first
 
 1. **The PRD workspace's actions are product writes, not sandbox work.** In the chats, the AI records an answer in a section, proposes Ready to confirm, and suggests an NGO question. Each one writes our database and needs the backend's role checks (REQ-036, "The backend enforces membership and role authority"). The repository and Linear writes happen only in the planning package. REQ-026 requires that job to write through the task-management writer, with stable identifiers and resume without duplicates. So every path runs its tools in our backend, and path A's sandbox has no work to do in the PRD workspace.
 2. **Path B is the only path whose provider states the charged amount for each reply.** OpenRouter puts `usage.cost`, "the total amount charged to your account", in the last stream chunk. A missing cost can be looked up later by generation id at `/generation` (read in OpenRouter's documentation). The FAQ says "there is no markup on inference pricing" (read). Path C reports tokens, which we must price with our own rate table. Anthropic's only dollar figure is the daily cost report, grouped by workspace, with no lookup for one message (read). That leaves no way to settle one missing reply exactly. REQ-036's money rules ("settle the reported generation cost once", "reconcile by generation identifier") fit path B as written.
@@ -36,13 +58,15 @@ This memo first recommended path C. Review overturned that. The section "What re
 4. **Path B keeps the model choice the founder asked for.** The wiring plan the founder approved on 2026-10-14 ("yes record it in the wiring brief") puts production on OpenRouter with the luna model if offered, otherwise Haiku. It puts development and tests on the Codex CLI provider at no cost (`design/canvas/prd-workspace/review.md`, lines 17 to 24, on the PRD workspace branch). Path C offers Claude models only. Its cheapest, Claude Haiku 5.5, costs $0.10 per million input tokens and $0.50 per million output tokens (read in the claude-api reference), so model price alone does not rule C out.
 5. **Path B changes the least.** OpenRouter is named in about thirty places on the PRD workspace branch: REQ-006, REQ-009, REQ-034 and REQ-036, three acceptance-file banners, AT-036.05, four manifests, the UI contract, and the wiring plan. Path B adds a few sentences. Path C or path A rewrites all of them.
 
-## Why not path A
+## The case against path A before the founder chose it
+
+The MCP design above removes the first point for the chats. No repository is mounted and no outside service's key leaves our edge functions; only our own MCP token sits in the vault.
 
 - A mounted repository gives the GitHub token to Anthropic's git proxy, and a Linear MCP server takes its credential from an Anthropic vault (read in the Managed Agents reference). CLAUDE.md (founder, 2026-10-03) says an outside service that needs a key is called only from an edge function, with the key in that function's environment. Path A meets that rule only if every outside write is a custom tool that our function answers. Then the sandbox does nothing that path B's loop does not already do.
 - The money gap is small and can be bounded. Path A reports tokens for each model request (`span.model_request_end.model_usage`), and we price them as under path C. Session runtime costs $0.08 per active hour, about $0.0013 for a 60-second reply (read). The backend can bound it per reply by sending the next message only after the session goes idle, then differencing `usage.active_seconds`. That is a backend choice, not a vendor limit. The case against A rests on the first point, not on money.
 - Path A is in beta, and its reported `list_cost` is rounded to the cent at public list rates (read).
 
-## Why not path C now
+## Why not path C
 
 - It has no exact settlement for a reply whose usage never arrives (point 2 above). REQ-036 would need a new rule, for example "settle at the reservation after a set time, with a visible adjustment".
 - The Discovery port cannot serve the PRD unchanged (read in `supabase/functions/_shared/anthropic-messages.ts`). It keeps only the first tool call, returns no provider message id, folds cache reads and writes into input tokens, and streams only the `reply` tool's text. Discovery's rate columns are whole micro-dollars per token, so they cannot express Haiku 5.5's input rate of 0.1 micro-dollars per token, or Opus 5.5's cache-read rate of 0.2.
@@ -99,7 +123,7 @@ The model streams its reply text to useChat as it works. The turn ends when the 
 | Extra cost | None. | $0.08 per active session-hour (read). |
 | What the sandbox adds | Not applicable. | Nothing, unless the PRD is kept as files, which the screen cannot show. |
 
-A harness, then, does not require path A. The PRD turn needs a loop with guarded tools, and an edge function can run that loop. Path A would move the loop to Anthropic, but every tool call would still reach our backend. It would add a vendor-held credential or a round trip per tool call, and it would limit the PRD to Claude. Path A becomes the better host only if a turn regularly needs more than 400 seconds, which a chat turn should not. That is not measured. The live run measures it.
+An edge function could run this loop. The founder chose to run it on Managed Agents (see "The direction"). With the PRD tools served over MCP, each tool call goes from Anthropic's proxy straight to our MCP server, with no round trip through our relay. That leaves the vault-held token as the one cost of the custom-tool column above.
 
 **What this changes in the money rules.** A turn makes several generations, one for each round of tool calls. That makes the first of the three rules above, a reservation that covers the whole request, the rule that matters most.
 
@@ -150,7 +174,7 @@ The review ran with one model. The Codex and Grok reviewers dropped out at their
 
 The founder edits the requirements through `/doc-sync`. This run edits nothing. Quotes are from the PRD workspace branch at `9fa487d`.
 
-### Path B (recommended)
+### Path B (the earlier recommendation)
 
 **REQ-036, Effort and spending** (`loop/out/pure-s6-req-027-036.md`, line 82). Keep every sentence. After "Missing cost remains Pending with its reservation until reconciliation; it is not zero." add:
 
@@ -206,19 +230,27 @@ Every other place that names OpenRouter or generation cost also changes. Each en
 - `design/canvas/prd-workspace/review.md:22`, the wiring plan. This is a record of a founder answer, so it stays as written. A new line under it records the change of plan.
 - `design/references/prd-grill-me-chat.html` is an old reference mock. It stays as it is.
 
-### Path A
+### Path A (the founder's choice)
 
-**REQ-036, Effort and spending** (line 82). Replace the four OpenRouter sentences with:
+**REQ-036, Effort and spending** (`loop/out/pure-s6-req-027-036.md`, line 82). Replace the four sentences that begin "All PRD model calls use OpenRouter through the backend." with:
 
-> PRD chats run as Claude Managed Agents sessions started from edge functions. The backend sends the next message to a session only after the session goes idle. Price each model request's reported tokens with versioned rates and settle it once per model-request event. Price the session runtime between two idle events from the change in active seconds, and settle it once per reply. A session budget equal to the reservation caps each session at the provider. Missing usage remains Pending with its reservation.
+> Each PRD chat runs as one Claude Managed Agents session, started and relayed by an edge function. The PRD tools are an MCP server that the platform hosts; the session calls it with a token scoped to that chat and project. Hold the reservation for the whole turn. Price each model request's reported tokens with versioned rates and settle it once per model-request event, and price session runtime from active seconds once per turn. A session budget equal to the reservation caps the session at the provider. Missing usage remains Pending with its reservation until the session's events are read again; it is not zero. A turn the provider rejects before any model request releases its reservation.
 
-**REQ-036, acceptance criteria** (line 100). After: "Each model request and each reply's runtime settle once, with fee and pending amounts explicit in the ledger."
+**REQ-036, Bootstrap and shared record** (line 72). Add at the end of the paragraph:
 
-**REQ-009, PRD boundary** (line 47). "calls OpenRouter through server-held credentials" becomes "runs Claude Managed Agents sessions with server-held credentials". "settles reported generation cost" becomes "settles priced model requests and runtime". Add: "Repository and Linear writes are custom tools that the edge function runs, so no outside credential leaves the edge function."
+> The AI changes sections only through the PRD tools: it stages the sections a turn affects and commits them together. A commit is refused as a whole when any staged section changed since the AI read it.
 
-**AI4DEV-171 (OpenRouter costs).** New title: "PRD costs on Managed Agents sessions (D4.L1)". In the new text, the reserve, pending, fee and gauge rules stay. Settlement uses the two keys above. The planning package becomes a background session that webhooks wake.
+**REQ-036, acceptance criteria** (line 100). Before: "OpenRouter cost settles once per generation with fee and pending amounts explicit in the ledger." After: "Each model request and each turn's runtime settle once, with fee and pending amounts explicit in the ledger; a turn rejected before any model request releases its reservation."
 
-Path A also needs every other change in the path C list, with "Managed Agents sessions" in place of "the Claude API". If the founder accepts a mounted repository, the keys rule in CLAUDE.md needs an explicit founder exception for the GitHub token held by Anthropic's git proxy.
+**REQ-009, PRD boundary** (`loop/out/pure-s4-req-007-012.md`, line 47). Before: "the platform-owned PRD workspace calls OpenRouter through server-held credentials (REQ-036). Its billing handler reserves project funds and settles reported generation cost under REQ-006." After: "the platform-owned PRD workspace runs Claude Managed Agents sessions with a server-held key (REQ-036). The PRD tools are a platform MCP server; each session reaches it with a token that names one chat and one project, expires, and is held in a vault created for that session. Its billing handler reserves project funds and settles priced model requests and runtime under REQ-006." The rest of the paragraph stays.
+
+**AI4DEV-171 (OpenRouter costs).** New title: "PRD costs on Managed Agents sessions (D4.L1)". New text:
+
+> Every PRD model call (main, section, and side chats, the completion check, and the planning package) runs in a Claude Managed Agents session that an edge function starts and relays. Reserve before sending the turn's message and hold the reservation for the whole turn. Settle each model request's tokens, priced with versioned rates, once per `span.model_request_end` event id, and the session runtime from `active_seconds` once per turn. Keep missing usage pending until the session's events are read again, release the reservation when the session rejects the turn before any model request, and keep the platform fee and fractional cents. Set each session's budget to its reservation. No effort selector; fixed service settings. The gauge band comes from settled spend, with pending spend as text and a hatched part of the bar.
+
+**A new unit, the PRD tools server.** It belongs before AI4DEV-170 (section states and chats), which uses it. It is an MCP server in an edge function, with `list_sections`, `read_section`, `stage_section`, `commit_turn`, `propose_ready`, `suggest_ngo_question` and `recommend`, signed per-chat tokens, and the all-or-nothing commit. The spike's `prd-mcp/index.ts` is its sketch. Filing it is the founder's call; this run files nothing.
+
+Path A also needs every other change in the path C list, with "Managed Agents sessions" in place of "the Claude API". The line about the wiring plan changes too: it records that the plan of 2026-10-14 is replaced by the founder's choice of 2026-10-23.
 
 ## Draft decision entry
 
@@ -226,6 +258,7 @@ Path A also needs every other change in the path C list, with "Managed Agents se
 
 ## What the founder decides
 
-- The path. The recommendation is B.
-- The PRD model, which the wiring plan already leaves to the founder after a price check.
-- Whether to add keys and a Linear test team so the live half of the spike runs. Without it, latency and the match between OpenRouter's reported cost and its lookup stay unmeasured. The fallback to path C depends on that match.
+- Whether our MCP token may be held in an Anthropic vault. This is the one ruling the design needs before it is built.
+- How the integration test tier reaches the MCP server: a tunnel to the local stack, or a stand-in harness. A stand-in is new test machinery, which CLAUDE.md allows only on a founder ruling.
+- The PRD model. Managed Agents runs Claude only, so the choice is between Claude models after a price check.
+- Whether to add keys and a Linear test team so the live run happens. It measures Anthropic's client against the MCP server, the cost of a turn, and its latency.

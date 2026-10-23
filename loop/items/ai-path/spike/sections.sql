@@ -66,3 +66,14 @@ begin
   end loop;
   return jsonb_build_object('ok', true, 'applied', v_applied);
 end $$;
+
+create table spike.staged_writes (
+  session_id text not null,
+  project_id text not null,
+  section_id text not null,
+  base_revision integer not null,
+  body text not null,
+  sources text[] not null,
+  change text not null,
+  primary key (session_id, section_id)
+);

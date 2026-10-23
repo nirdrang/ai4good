@@ -1,5 +1,6 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@1.1.0';
 import postgres from 'npm:postgres@3.4.7';
+import { mintGrant } from '../grant.ts';
 import {
   DISCOVERY_STREAM_HEADERS, done, error as errorPart, finish, start, textDelta, textEnd, textStart,
 } from '../../../../../supabase/functions/_shared/discovery-stream.ts';
@@ -188,10 +189,19 @@ async function openrouterPath(prompt: string, emit: Emit, settle: (r: Receipt) =
   }
 }
 
-async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools) {
+async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools, project: string) {
   const client = new Anthropic({ apiKey: env('SPIKE_ANTHROPIC_PROJECT_KEY') });
+  const chat = crypto.randomUUID();
+  const vault = await client.beta.vaults.create({ display_name: `prd ${project} ${chat}` });
+  await client.beta.vaults.credentials.create(vault.id, {
+    auth: {
+      type: 'static_bearer', mcp_server_url: env('SPIKE_MCP_URL'),
+      token: await mintGrant(env('SPIKE_MCP_SIGNING_KEY'), { project, chat, session: chat, exp: Math.floor(Date.now() / 1000) + 3600 }),
+    },
+  });
   const session = await client.beta.sessions.create({
-    agent: env('SPIKE_MANAGED_AGENT_ID'), environment_id: env('SPIKE_MANAGED_ENVIRONMENT_ID'),
+    agent: env('SPIKE_MANAGED_AGENT_ID'), environment_id: env('SPIKE_MANAGED_ENVIRONMENT_ID'), vault_ids: [vault.id],
+    metadata: { project, chat },
     budget: { type: 'limit', max_list_cost: { amount: String(Math.ceil(HOLD_MICROS / 10_000)), currency: 'USD' } },
     resources: [{
       type: 'github_repository', url: `https://github.com/${env('SPIKE_GITHUB_REPO')}`,
@@ -224,7 +234,7 @@ async function managedPath(prompt: string, emit: Emit, settle: (r: Receipt) => P
   }
 }
 
-const PATHS: Record<Path, (prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools) => Promise<unknown>> = { anthropic: anthropicPath, openrouter: openrouterPath, managed: managedPath };
+const PATHS: Record<Path, (prompt: string, emit: Emit, settle: (r: Receipt) => Promise<void>, tools: Tools, project: string) => Promise<unknown>> = { anthropic: anthropicPath, openrouter: openrouterPath, managed: managedPath };
 
 Deno.serve(async (request) => {
   const { path, prompt, project } = await request.json() as { path: Path; prompt: string; project: string };
@@ -242,7 +252,7 @@ Deno.serve(async (request) => {
       controller.enqueue(start(crypto.randomUUID()));
       controller.enqueue(textStart(textId));
       try {
-        const providerTruth = await run(prompt, (delta) => delta && controller.enqueue(textDelta(textId, delta)), settle, (call) => runTool(call, project));
+        const providerTruth = await run(prompt, (delta) => delta && controller.enqueue(textDelta(textId, delta)), settle, (call) => runTool(call, project), project);
         controller.enqueue(textEnd(textId));
         controller.enqueue(`data: ${JSON.stringify({ type: 'data-receipts', data: { hold, settled, providerTruth: providerTruth ?? null } })}\n\n`);
         controller.enqueue(finish());
