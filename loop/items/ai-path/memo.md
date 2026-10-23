@@ -1,6 +1,6 @@
 # How the product runs its AI, starting with the PRD workspace
 
-Written 2026-10-23 as a proposal for the founder. Nothing in the requirements, the board, or the PRD workspace branch changes until the founder rules.
+Written 2026-10-23. The founder ruled the same day, and the requirement and document changes are applied on this branch as decision d100. The board changes are written out below for `/controller` to apply.
 
 ## The question
 
@@ -57,6 +57,43 @@ Not measured: Anthropic's client against this server, which needs a key and a pu
 3. **No project-money code exists yet on any path.** The paid branch of Discovery is a stub. `public.project_fuel_available_micros` returns `0`, and every reserve function has the line "the Stripe run adds perform public.project_fuel_reserve(...) here" (read in `supabase/migrations/20260921120000_discovery_funded_routing.sql` and three later migrations). The reserve, settle and release work in AI4DEV-171 (OpenRouter costs) costs the same on every path. It gives path C no head start.
 4. **Path B keeps the model choice the founder asked for.** The wiring plan the founder approved on 2026-10-14 ("yes record it in the wiring brief") puts production on OpenRouter with the luna model if offered, otherwise Haiku. It puts development and tests on the Codex CLI provider at no cost (`design/canvas/prd-workspace/review.md`, lines 17 to 24, on the PRD workspace branch). Path C offers Claude models only. Its cheapest, Claude Haiku 5.5, costs $0.10 per million input tokens and $0.50 per million output tokens (read in the claude-api reference), so model price alone does not rule C out.
 5. **Path B changes the least.** OpenRouter is named in about thirty places on the PRD workspace branch: REQ-006, REQ-009, REQ-034 and REQ-036, three acceptance-file banners, AT-036.05, four manifests, the UI contract, and the wiring plan. Path B adds a few sentences. Path C or path A rewrites all of them.
+
+## What this branch changed
+
+The founder confirmed the direction ("Yes this is the correct direction") and chose three options on 2026-10-23: board items "Via /controller (Recommended)", documents "Yes, on this branch (Recommended)", and for the vault-held token "Allow it". This branch merged the PRD workspace branch (at `9fa487d`) so that the edits apply to the current REQ-036, then made this change set through the `/doc-sync` ritual.
+
+- Requirements, in the pure sections. REQ-036 (Bootstrap and shared record; Effort and spending; two acceptance criteria), REQ-009 (PRD boundary), REQ-006 (the PRD settlement line), and REQ-034 (PRD attribution). The assembled PRD and the four isolates were regenerated. The assembly gate, the requirement tree check and the REQ-036 acceptance bijection all pass.
+- Acceptance. AT-036.05 (settlement on Managed Agents), AT-036.08 (the PRD tools: staged commit and token refusal), the AT-036 index row, and the d93 banners of REQ-006, REQ-009 and REQ-034, each tagged d100.
+- Manifests. `loop/decomp/req-036.md` (D4 renamed, its leaf rewritten, the PRD tools server added to D3.L1, the screen wiring model route, the item table), and the PRD lines of `req-006.md`, `req-009.md` and `req-034.md`.
+- Design. The backend lines of `design/prd-ui-contract.md`, and a dated line under the wiring plan in `design/canvas/prd-workspace/review.md` that marks the OpenRouter route replaced, leaving the founder's recorded answer as it was.
+- CLAUDE.md. A written exception to the keys rule for the PRD tools token, citing the founder's choice.
+- Decision log. d100 appended to `loop/state/decisions.jsonl`.
+
+The PRD tools server became part of AI4DEV-170 (section states and chats) rather than a new item. AT-036.08 already belongs to that unit, so the acceptance bijection stays one to one and the board needs no new item.
+
+## Board changes for /controller
+
+`/controller` applies these. Each replaces the named text and keeps the rest of the item.
+
+**AI4DEV-171 (OpenRouter costs).** Title: "PRD costs on Managed Agents sessions (D4.L1)". Replace the first paragraph with:
+
+> Every PRD model call (main, section, and side chats, the completion check, and the planning package) runs in a Claude Managed Agents session that an edge function starts and relays. Reserve before the turn and hold the reservation for the whole turn. Settle each model request's tokens, priced with versioned rates, once per model-request event, and the session runtime once per turn. Keep missing usage pending, release the reservation when a turn is rejected before any model request, set each session's budget to its reservation, and keep the platform fee and fractional cents. No effort selector; fixed service settings. The gauge band comes from settled spend, with pending spend as text and a hatched part of the bar.
+>
+> Design and evidence: `loop/items/ai-path/memo.md`. Decision d100.
+
+**AI4DEV-170 (section states and chats).** After "Each section has its own lasting chat with the current PRD and approved Discovery as context." add:
+
+> This unit builds the PRD tools MCP server in an edge function: list_sections, read_section, stage_section, and commit_turn, plus the state tools for Ready to confirm, NGO question suggestions, and recommendations. A commit applies a reply's staged sections together and is refused as a whole when any of them changed since the AI read it. Each session reaches the server with a signed token that names one chat and one project and expires, held in a vault created for that session. The AI changes sections only through these tools. Sketch: `loop/items/ai-path/spike/prd-mcp/index.ts`. Decision d100.
+
+**AI4DEV-174 (screen wiring).** Replace "Model calls go through OpenRouter in production, using the AI SDK as planned in design/canvas/prd-workspace/review.md; an environment setting may pick another provider for development and tests only." with:
+
+> Model calls run in Claude Managed Agents sessions (decision d100). The edge function starts each turn and relays the session's events to the chat; the OpenRouter route in design/canvas/prd-workspace/review.md is replaced. The integration tier needs a way for the session to reach the PRD tools server, a tunnel or a stand-in harness, which the founder decides first.
+
+**AI4DEV-166 (PRD workspace backend and wiring).** In the decisions line, "(decisions d97, d98, d99)" becomes "(decisions d97, d98, d99, d100)". In the units line, "AI4DEV-171 (OpenRouter costs)" becomes "AI4DEV-171 (PRD costs on Managed Agents)". Add to the canonical sources:
+
+> * loop/items/ai-path/memo.md (the AI path: Managed Agents and the PRD tools MCP server)
+
+The REQ-036 PM item gets its forward sync (`/doc-sync`, a re-pin comment and a new sync stamp) after this branch merges, because the sync stamp must name a commit on main.
 
 ## The case against path A before the founder chose it
 
@@ -258,7 +295,7 @@ Path A also needs every other change in the path C list, with "Managed Agents se
 
 ## What the founder decides
 
-- Whether our MCP token may be held in an Anthropic vault. This is the one ruling the design needs before it is built.
+- Whether our MCP token may be held in an Anthropic vault. Ruled on 2026-10-23: "Allow it".
 - How the integration test tier reaches the MCP server: a tunnel to the local stack, or a stand-in harness. A stand-in is new test machinery, which CLAUDE.md allows only on a founder ruling.
 - The PRD model. Managed Agents runs Claude only, so the choice is between Claude models after a price check.
 - Whether to add keys and a Linear test team so the live run happens. It measures Anthropic's client against the MCP server, the cost of a turn, and its latency.

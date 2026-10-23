@@ -123,13 +123,13 @@ The composer has no effort selector. Each request uses a fixed service configura
 Automatic scoring and the planning package use an explicit service configuration.
 Validate the configured model's capabilities and record the effective provider parameters.
 
-The backend sends PRD model requests through OpenRouter. Credentials stay on the server.
+Each PRD chat runs as one Claude Managed Agents session that the backend starts and relays. The Anthropic key and the token signing key stay on the server. The AI changes PRD state only through the platform's PRD tools MCP server.
 PRD uses USD fuel. Discovery's free turn allowance does not continue into PRD.
-Read OpenRouter's reported cost from the completed response, including the final streaming usage message.
-Settle once per provider generation identifier, associated with a stable application request identifier.
+Price each model request's reported tokens with versioned rates when its span ends, and the session runtime when the turn ends.
+Settle once per model-request event identifier, associated with a stable application request identifier.
 Preserve fractional cents and distinguish a reported zero cost from missing cost.
-If usage is missing, retain the reservation, display Pending cost, and reconcile by generation identifier.
-Do not issue a second generation merely to retrieve the first generation's cost.
+If usage is missing, retain the reservation, display Pending cost, and reconcile by reading the session's events again.
+Do not start a second turn merely to retrieve the first turn's cost.
 
 Retain the existing platform fee from the ledger requirement.
 The chat shows no receipt under each reply. Provider cost, platform fee, and total deducted stay in the ledger for a later spending page.
@@ -205,6 +205,4 @@ The approved canvas in `design/canvas/prd-workspace/project/` shows every intera
 The older [conversation reference](references/prd-grill-me-chat.html) predates the screen design and is kept for history only.
 Neither makes live model calls, settles money, writes to Linear, or proves production acceptance.
 
-OpenRouter implementation references checked on 2026-09-21:
-[usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting) and
-[model reasoning capabilities](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens).
+The OpenRouter references of 2026-09-21 are replaced by decision d100. The design, evidence, and Managed Agents interface are in `loop/items/ai-path/memo.md`.
