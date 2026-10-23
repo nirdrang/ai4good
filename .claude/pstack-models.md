@@ -12,8 +12,8 @@ feature, refactoring: grok:grok-4.7@xhigh
 bug-fix: codex:gpt-6.1-sol@high
 perf-issue: codex:gpt-6.1-sol@high
 hillclimb: claude:opus@medium
-judgment and prose: claude:opus@high
-hardest tasks: claude:opus@high
+judgment and prose: claude:opus@medium
+hardest tasks: claude:opus@medium
 how explorer: grok:grok-4.7@xhigh
 how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
@@ -22,7 +22,7 @@ arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, cl
 arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: claude:sonnet@high
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
-interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@high
+interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 codex writer sandbox: full-access
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
@@ -34,6 +34,17 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Opus at medium in every seat, 2026-10-23
+
+By founder ruling and not by measurement. Written by hand on pstack 1.16.0.
+`judgment and prose`, `hardest tasks` and the opus lane in `interrogate reviewers` move from opus
+at high to opus at medium. The opus family now holds one effort on the sheet. The lead still
+raises a unit one step, to high, for the hardest or subtlest work.
+
+To undo, on those three rows:
+
+    claude:opus@high
 
 ### Codex writers get full access, and the Astra lane stays, 2026-10-22
 
