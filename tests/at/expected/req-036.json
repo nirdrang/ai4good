@@ -26,15 +26,12 @@
     },
     "integration": {
       "green": [
+        "AT-036.02",
         "AT-036.11",
         "AT-036.12"
       ],
       "red": {
         "AT-036.01": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-036.02": {
           "kind": "pending",
           "phase": "sut-missing"
         },

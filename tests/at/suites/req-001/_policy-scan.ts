@@ -31,6 +31,13 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   notification_deliveries: 'tenant-isolated',
   notification_ops_items: 'unreachable-by-client-roles',
   notification_fixture_transitions: 'unreachable-by-client-roles',
+  prd_records: 'unreachable-by-client-roles',
+  prd_revisions: 'unreachable-by-client-roles',
+  prd_sections: 'unreachable-by-client-roles',
+  prd_section_versions: 'unreachable-by-client-roles',
+  prd_chats: 'unreachable-by-client-roles',
+  prd_messages: 'unreachable-by-client-roles',
+  prd_drafts: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };

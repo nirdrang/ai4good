@@ -31,6 +31,10 @@ export function json(body: unknown, status: number): Response {
   });
 }
 
+export function empty(status: number): Response {
+  return new Response(null, { status, headers: CORS_HEADERS });
+}
+
 export function refusal(reason: string, status: number): Response {
   return json({ ok: false, reason }, status);
 }
@@ -97,7 +101,7 @@ export function callerIp(request: Request): string | null {
   return isIpv4(candidate) || isIpv6(candidate) ? candidate : null;
 }
 
-type RpcOutcome =
+export type RpcOutcome =
   | { ok: true; value: unknown }
   | { ok: false; status: number; message: string; details: string | null; hint: string | null; code: string | null };
 
@@ -134,6 +138,19 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+/** The PRD tables are closed to the browser, so the snapshot read is this service-role call. */
+export function readPrdSnapshot(
+  actorId: string,
+  projectId: string,
+  sinceSequence: number | null,
+): Promise<RpcOutcome> {
+  return callDatabaseFunction('prd_snapshot', {
+    p_actor: actorId,
+    p_project: projectId,
+    p_since_sequence: sinceSequence,
+  });
 }
 
 function settledRefusal(value: unknown): string | null {

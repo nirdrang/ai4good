@@ -81,6 +81,14 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'set_organization_discovery' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },
   },
+  'prd-open': {
+    surface: { kind: 'edge', rpc: 'prd_open' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
+  'prd-draft': {
+    surface: { kind: 'edge', rpc: 'prd_save_draft' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
 } as const satisfies Record<string, { surface: RouteSurface; standing: RouteStanding }>;
 
 export type WriteRouteName = keyof typeof WRITE_ROUTES;
@@ -114,6 +122,8 @@ export const WRITE_REFUSAL_KINDS = [
   'transferee-deactivated',
   'subject-no-account',
   'no-such-project',
+  'forbidden',
+  'discovery-frozen',
   'need-not-in-discovery',
   'turn-in-flight',
   'turn-not-open',

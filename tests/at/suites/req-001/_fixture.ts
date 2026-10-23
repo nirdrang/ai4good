@@ -1,6 +1,7 @@
 import { decideDiscoveryMessage, type DiscoveryReserveArgs } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { decideDiscoveryScope, type DiscoveryScopeArgs } from '../../../../supabase/functions/_shared/scope.ts';
 import { decideDiscoveryBrief, type DiscoveryBriefCommitArgs } from '../../../../supabase/functions/_shared/discovery-brief-write.ts';
+import { decidePrdDraft, decidePrdOpen, projectTarget } from '../../../../supabase/functions/_shared/prd/routes.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -1136,6 +1137,26 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
           );
           if (!run.ok) return run;
           return { ok: true };
+        },
+        'prd-open': async () => {
+          if (subject.route !== 'prd-open') throw new Error('unreachable');
+          const run = runWrite(
+            { name: 'prd-open', target: projectTarget, decide: decidePrdOpen },
+            session,
+            { organizationId: subject.organizationId, projectId: subject.projectId },
+            null,
+          );
+          return run.ok ? { ok: true } : run;
+        },
+        'prd-draft': async () => {
+          if (subject.route !== 'prd-draft') throw new Error('unreachable');
+          const run = runWrite(
+            { name: 'prd-draft', target: projectTarget, decide: decidePrdDraft },
+            session,
+            { projectId: subject.projectId, key: subject.key, text: subject.text },
+            null,
+          );
+          return run.ok ? { ok: true } : run;
         },
       };
       return attempts[subject.route]();

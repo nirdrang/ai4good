@@ -598,3 +598,12 @@ verify_jwt = true
 
 [functions.set-organization-discovery]
 verify_jwt = true
+
+[functions.prd-open]
+verify_jwt = true
+
+[functions.prd-snapshot]
+verify_jwt = true
+
+[functions.prd-draft]
+verify_jwt = true

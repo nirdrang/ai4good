@@ -3,6 +3,7 @@ import { eventually } from "../../harness/screen.ts";
 import { PRD_GIVEN } from "../../../../design/astra/src/prd-givens.ts";
 import { scopeKey } from "../../../../src/lib/prd-stream.ts";
 import { atTest } from "./_bind.ts";
+import { proveRecordOpens, proveRecordSurvives } from "./_record.ts";
 import {
   closeFlow,
   closePassedFlow,
@@ -85,7 +86,7 @@ async function showChat(prd: PrdPage): Promise<void> {
 atTest(
   "AT-036.01",
   "Kickoff shows the Discovery topics once, and entry again does not duplicate them",
-  { surface: "ui", timeoutMs: { loop: 60_000 } },
+  { surface: "ui", timeoutMs: { loop: 60_000, integration: 90_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "first-entry", viewport: "desktop" }, async (prd) => {
@@ -119,13 +120,16 @@ atTest(
       });
     },
     default: wiringPending("AT-036.01"),
+    integration: async () => {
+      await proveRecordOpens();
+    },
   },
 );
 
 atTest(
   "AT-036.02",
   "Drafts, history, and chats survive reload, with no turn to restore",
-  { surface: "ui", timeoutMs: { loop: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000, integration: 90_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
@@ -183,6 +187,9 @@ atTest(
       );
     },
     default: wiringPending("AT-036.02"),
+    integration: async () => {
+      await proveRecordSurvives();
+    },
   },
 );
 

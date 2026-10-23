@@ -216,6 +216,17 @@ export type WriteSubject =
       readonly sectionId: string;
       readonly text: string;
       readonly baseRevision: number;
+    }
+  | {
+      readonly route: 'prd-open';
+      readonly organizationId: string;
+      readonly projectId: string;
+    }
+  | {
+      readonly route: 'prd-draft';
+      readonly projectId: string;
+      readonly key: string;
+      readonly text: string;
     };
 
 export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
