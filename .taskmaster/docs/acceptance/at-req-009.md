@@ -1,6 +1,6 @@
 # AT-REQ-009 — LLM Gateway: Virtual Keys, Caps & Inline Fuel Metering
 
-> **[d93 PRD boundary]:** platform-owned PRD calls use OpenRouter and settle provider-reported generation cost once in the money ledger. Preserve the platform fee and pending reservations. Attribution retains tokens only. The Claude Code build gateway and assistant retain their existing accounting. PRD settlement and effort are verified by AT-036.05/07.
+> **[d93 PRD boundary]:** platform-owned PRD calls run in Claude Managed Agents sessions and settle each model request's priced usage and the session runtime once in the money ledger. [d100: replaces OpenRouter] Preserve the platform fee and pending reservations. Attribution retains tokens only. The Claude Code build gateway and assistant retain their existing accounting. PRD settlement and effort are verified by AT-036.05/07.
 
 > **[d92 Discovery boundary]:** platform-owned paid Discovery prices response usage into a separate provisional money entry, then reconciles to provider billing. Free Discovery uses the platform budget and never debits NGO fuel. The token log keeps no money fields. Replaying attribution rows cannot charge fuel. Gateway and assistant accounting remain unchanged. Discovery settlement, free-first routing, and source isolation are verified by AT-004.04/05/48; this suite retains its other contracts.
 

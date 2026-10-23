@@ -1,0 +1,27 @@
+## one reply updates two sections in a row
+write users at r0: {"ok": true, "revision": 1}
+write stories at r0: {"ok": true, "revision": 1}
+data-handling r0 open
+stories r1 draft
+users r1 draft
+## the developer confirms both, then a later answer changes users
+write users at r1: {"ok": true, "revision": 2}
+data-handling r0 open
+stories r1 needs_review / Depends on users: drivers added as users
+users r2 needs_review / drivers added as users
+## a section chat writes with the revision it read before that change
+write users at r1 again: {"ok": false, "body": "Kitchen volunteers, the coordinator and drivers.", "reason": "stale", "revision": 2}
+## 5 chats write the same section at once from r0, 20 rounds
+rounds where more or fewer than one write landed: 0
+## history kept for every landed write
+stories r1 by main-chat from msg-12
+users r1 by main-chat from msg-12
+users r2 by main-chat from msg-31
+## one reply changes three sections in one transaction
+apply: {"ok": true, "applied": [{"ok": true, "revision": 1}, {"ok": true, "revision": 1}, {"ok": true, "revision": 1}]}
+data-handling r1 draft
+notifications r1 draft
+schedule r1 draft
+## a section chat changed one of them while the next reply was being written
+apply: {"ok": false, "stale": [{"body": "Email the day before.", "section": "notifications", "revision": 2}]}
+nothing from that reply landed: notifications r2, schedule r1

@@ -12,17 +12,18 @@ feature, refactoring: grok:grok-4.7@xhigh
 bug-fix: codex:gpt-6.1-sol@high
 perf-issue: codex:gpt-6.1-sol@high
 hillclimb: claude:opus@medium
-judgment and prose: claude:opus@high
-hardest tasks: claude:opus@high
+judgment and prose: claude:opus@medium
+hardest tasks: claude:opus@medium
 how explorer: grok:grok-4.7@xhigh
 how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
 arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
-swarm workers: grok:grok-4.7@xhigh
+swarm workers: claude:sonnet@high
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
-interrogate reviewers: codex:gpt-6.1-sol@high, opencode:opencode-go/muse-spark-1.3-contributor@xhigh, grok:grok-4.7@xhigh, claude:opus@high, opencode:opencode-go/deepseek-v4.1-flash@max
+interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
+codex writer sandbox: full-access
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -33,6 +34,59 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Opus at medium in every seat, 2026-10-23
+
+By founder ruling and not by measurement. Written by hand on pstack 1.16.0.
+`judgment and prose`, `hardest tasks` and the opus lane in `interrogate reviewers` move from opus
+at high to opus at medium. The opus family now holds one effort on the sheet. The lead still
+raises a unit one step, to high, for the hardest or subtlest work.
+
+To undo, on those three rows:
+
+    claude:opus@high
+
+### Codex writers get full access, and the Astra lane stays, 2026-10-22
+
+By founder ruling and not by measurement. Written by hand on pstack 1.16.0. The setup skill
+stopped at its matrix check on the Astra lane in `architect runners`: no upstream pstack catalog
+has listed `gpt-6-astra` (1.8.0, 1.15.0 and 1.16.0 list only Sol and Luna for Codex). The block
+is in the setup skill's text only. The runner accepts an unregistered Codex model at any effort,
+and a read-only runner probe of `codex:gpt-6-astra@medium` completed on 2026-10-22 with the
+expected marker. Every later setup run stops on this lane again until upstream registers Astra.
+
+The new setting line `codex writer sandbox: full-access` makes the runner launch every Codex
+`isolated-write` lane with Codex's full-access sandbox. Today that is `bug-fix` and
+`perf-issue`. Full access removes every Codex sandbox limit, including confinement to the
+writer's worktree.
+
+To undo the setting:
+
+    codex writer sandbox: bounded
+
+### Swarm workers move from grok to Sonnet, 2026-10-14
+
+By founder ruling and not by measurement. Written by hand on pstack 1.6.1, which had no Sonnet
+row in its model matrix. pstack 1.8.0, installed 2026-10-15, adds the Sonnet family and ships the
+`pstack-sonnet-*` agents, so the lane dispatches natively through `pstack-sonnet-high`.
+
+To undo:
+
+    grok:grok-4.7@xhigh
+
+### The fork is retired and the two opencode lanes leave, 2026-10-12
+
+By founder ruling and not by measurement: the project installs plain upstream open-pstack 1.6.1
+(`pstack@open-pstack`) instead of the fork `nirdrang/open-pstack`. Upstream has no opencode
+provider, so the runner would refuse both opencode lanes. `interrogate reviewers` drops from five
+lanes to three: the muse lane and the DeepSeek Flash lane leave, and the sol, grok and opus lanes
+are unchanged. No other row named opencode.
+
+There is no undo on this sheet alone: the two lanes need the fork's opencode provider back. With
+it, the two descriptors were:
+
+    opencode:opencode-go/muse-spark-1.3-contributor@xhigh
+    opencode:opencode-go/deepseek-v4.1-flash@max
 
 ### Sol down to high everywhere, opus takes hillclimb and hardest tasks, 2026-10-02, second change
 

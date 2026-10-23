@@ -1,0 +1,22 @@
+## one request, a tool loop of three generations
+hold before call: available=1000000
+generation 1 settle: t
+after generation 1 (hold still covers the rest): 1234.567 settled, 998765.433 held, 0 overrun
+generation 2 settle: t
+generation 2 replay: f
+generation 3 cost missing: t
+request ends: hold becomes pending
+after close (remainder stays reserved while a cost is pending): 3234.567 settled, 996765.433 held, 0 overrun
+reconcile generation 3: t
+reconcile replay: f
+after reconcile (remainder released): 4135.067 settled, 0 held, 0 overrun / hold closed
+## provider rejects before generating
+request ends with no receipt: hold becomes closed / 4135.067 settled, 0 held, 0 overrun
+## empty receipt id
+settle with empty id: violates check constraint
+## overrun
+settled 70000 against a 50000 hold: 70000.000 settled, 0 held, 20000.000 overrun
+## short funds
+hold above available: insufficient funds: 1995864.933 available, 1999000 needed
+## parallel holds, 20 rounds of 5 concurrent 100000 holds against 300000
+rounds where the winners were not exactly 3: 0

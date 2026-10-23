@@ -1,0 +1,23 @@
+## access
+no token: 401
+forged token: 401
+expired token: 401
+## handshake
+initialize: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"ai4good-prd","version":"0.0.1"}}}
+initialized notification: 202
+tools: ['list_sections', 'read_section', 'stage_section', 'commit_turn']
+## one turn changes two sections
+list_sections: [{'section_id': 'stories', 'state': 'open', 'revision': 0, 'depends_on': ['users']}, {'section_id': 'users', 'state': 'open', 'revision': 0, 'depends_on': []}]
+stage users: {'staged': 'users'}
+stage stories: {'staged': 'stories'}
+visible before commit: stories r0, users r0
+commit_turn: {'ok': True, 'applied': [{'ok': True, 'revision': 1}, {'ok': True, 'revision': 1}]}
+visible after commit: stories r1 draft, users r1 draft
+## another chat changes users before the next commit
+stage users from r1: {'staged': 'users'}
+commit_turn: {'ok': False, 'stale': [{'body': 'Kitchen volunteers, the coordinator and drivers.', 'section': 'users', 'revision': 2}]}
+read_section users: {'section_id': 'users', 'body': 'Kitchen volunteers, the coordinator and drivers.', 'state': 'draft', 'revision': 2, 'depends_on': [], 'changed_since_confirmed': None}
+stage merged at r2: {'staged': 'users'}
+commit_turn: {'ok': True, 'applied': [{'ok': True, 'revision': 3}]}
+## a token for project a cannot see project b
+read_section secret-plan: {'error': 'no such section'}
