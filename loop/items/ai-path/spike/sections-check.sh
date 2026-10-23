@@ -34,3 +34,16 @@ done
 echo "rounds where more or fewer than one write landed: $bad"
 echo "## history kept for every landed write"
 q "select section_id || ' r' || revision || ' by ' || written_by || ' from ' || array_to_string(sources, ',') from spike.section_writes where project_id = 'p' and section_id <> 'data-handling' order by section_id, revision"
+
+echo "## one reply changes three sections in one transaction"
+q "insert into spike.sections (project_id, section_id, depends_on) values ('p', 'schedule', '{}'), ('p', 'notifications', '{schedule}') on conflict do nothing"
+q "update spike.sections set revision = 0, body = '', state = 'open', changed_since_confirmed = null where project_id = 'p' and section_id in ('schedule', 'notifications', 'data-handling'); delete from spike.section_writes where project_id = 'p' and section_id in ('schedule', 'notifications', 'data-handling')"
+turn='[{"section":"schedule","base_revision":0,"body":"Rota published weekly.","sources":["msg-40"],"change":""},{"section":"notifications","base_revision":0,"body":"SMS the day before.","sources":["msg-40"],"change":""},{"section":"data-handling","base_revision":0,"body":"Phone numbers only.","sources":["msg-40"],"change":""}]'
+echo "apply: $(q "select spike.apply_turn('p', '$turn'::jsonb, 'main-chat')")"
+q "select section_id || ' r' || revision || ' ' || state from spike.sections where project_id = 'p' and section_id in ('schedule', 'notifications', 'data-handling') order by section_id"
+
+echo "## a section chat changed one of them while the next reply was being written"
+q "select spike.write_section('p', 'notifications', 1, 'Email the day before.', '{msg-41}', '', 'section-chat')" >/dev/null
+turn2='[{"section":"schedule","base_revision":1,"body":"Rota published two weeks ahead.","sources":["msg-42"],"change":"two weeks ahead"},{"section":"notifications","base_revision":1,"body":"SMS two weeks and one day before.","sources":["msg-42"],"change":""}]'
+echo "apply: $(q "select spike.apply_turn('p', '$turn2'::jsonb, 'main-chat')")"
+echo "nothing from that reply landed: $(q "select string_agg(section_id || ' r' || revision, ', ' order by section_id) from spike.sections where project_id = 'p' and section_id in ('schedule', 'notifications')")"

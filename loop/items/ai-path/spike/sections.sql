@@ -41,3 +41,28 @@ begin
   where project_id = p_project and p_section = any(depends_on) and state = 'confirmed';
   return jsonb_build_object('ok', true, 'revision', p_expected_revision + 1);
 end $$;
+
+create function spike.apply_turn(p_project text, p_updates jsonb, p_writer text) returns jsonb
+language plpgsql as $$
+declare
+  v_update jsonb;
+  v_stale jsonb := '[]';
+  v_current spike.sections;
+  v_applied jsonb := '[]';
+begin
+  for v_update in select value from jsonb_array_elements(p_updates) order by value->>'section' loop
+    select * into v_current from spike.sections
+    where project_id = p_project and section_id = v_update->>'section' for update;
+    if v_current is null or v_current.revision <> (v_update->>'base_revision')::integer then
+      v_stale := v_stale || jsonb_build_object('section', v_update->>'section', 'revision', v_current.revision, 'body', v_current.body);
+    end if;
+  end loop;
+  if jsonb_array_length(v_stale) > 0 then
+    return jsonb_build_object('ok', false, 'stale', v_stale);
+  end if;
+  for v_update in select value from jsonb_array_elements(p_updates) order by value->>'section' loop
+    v_applied := v_applied || spike.write_section(p_project, v_update->>'section', (v_update->>'base_revision')::integer,
+      v_update->>'body', array(select jsonb_array_elements_text(v_update->'sources')), coalesce(v_update->>'change', ''), p_writer);
+  end loop;
+  return jsonb_build_object('ok', true, 'applied', v_applied);
+end $$;

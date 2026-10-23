@@ -17,3 +17,11 @@ rounds where more or fewer than one write landed: 0
 stories r1 by main-chat from msg-12
 users r1 by main-chat from msg-12
 users r2 by main-chat from msg-31
+## one reply changes three sections in one transaction
+apply: {"ok": true, "applied": [{"ok": true, "revision": 1}, {"ok": true, "revision": 1}, {"ok": true, "revision": 1}]}
+data-handling r1 draft
+notifications r1 draft
+schedule r1 draft
+## a section chat changed one of them while the next reply was being written
+apply: {"ok": false, "stale": [{"body": "Email the day before.", "section": "notifications", "revision": 2}]}
+nothing from that reply landed: notifications r2, schedule r1

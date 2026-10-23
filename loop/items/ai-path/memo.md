@@ -70,6 +70,40 @@ All three spike paths now offer this as their main tool, `write_prd_section`. Pa
 
 One design point for AI4DEV-170 (section states and chats), not for this decision. The contract binds requests to the whole PRD revision. With no turns, one PRD-wide revision makes a section chat's write fail whenever the main chat changed any other section. The spike checks revisions for each section instead, so only writes to the same section collide. AI4DEV-170 should choose between the two.
 
+## How one PRD turn works
+
+This design reuses the shape of the shipped Discovery turn (`supabase/functions/_shared/discovery-turn.ts`). Discovery makes one model call per turn. The model answers through one structured reply that holds the visible text and the brief updates for every topic the answer touched. The backend applies them against the brief revision the turn was based on. The PRD needs the same shape, with sections in place of topics.
+
+**The turn is a fixed pipeline, not a tool loop.** One edge function runs these steps for every message in the main chat, a section chat, or an NGO side chat.
+
+1. Authorize the sender, the chat and the role (REQ-036).
+2. Reserve money for one reply.
+3. Read the current PRD, recording each section's revision, and assemble the context (below).
+4. Make one model call, streaming the visible text to useChat as it arrives.
+5. Parse the structured reply against its schema. A reply that fails the schema is a failed turn, and nothing is written.
+6. Apply every section update from the reply in one database transaction (`spike.apply_turn`). Then settle the money and store the message.
+7. Send the changed sections to the screen as data parts. The other person sees them through the shared record.
+
+**The structured reply.** It carries the text the person reads, then a list of section updates. Each update holds the section id, the revision it was based on, the new text, the sources, and a one-line change note. It also carries Ready to confirm proposals, suggested NGO questions, and an inline recommendation. One answer that affects several sections is one list with several entries. On OpenRouter this is `response_format` with a `json_schema`, which streams (read in OpenRouter's documentation). Setting `require_parameters: true` routes only to endpoints that support it. Claude Opus 5.5 and Sonnet 5.5 reject a forced tool choice, so the schema goes in structured output, not in a forced tool (read in the claude-api reference).
+
+**Context assembly, in cache order.** Stable parts go first, so each turn reuses the cached prefix.
+
+1. The system prompt: the PRD rules, the section list with ids and dependencies, and the reply schema. This never changes during a PRD.
+2. The approved Discovery document. It froze when the developer opened the PRD (d99), so it never changes either.
+3. The chat's settled history. It only grows, so the cache covers everything except the newest messages. A section chat sends its own history. The main chat sends the main history.
+4. The current PRD: every section with its revision, state and text. A section chat gets its own section in full and the others as text with revision numbers. This part changes every turn, so it goes after the cached history, not inside the system prompt. Discovery puts its brief inside the system prompt, which resets the cache every turn.
+5. The new message.
+
+**How the database changes.** `spike.apply_turn` locks every section the reply names and checks each base revision. Only if all of them match does it write all of them. Each write bumps that section's revision. A confirmed section moves to Needs review with the change note, confirmed sections that depend on it get the "Changed since you confirmed" line, and the sources are recorded. If any section changed since the turn read it, for example because a section chat wrote it in the meantime, nothing from the reply is written. The function returns the stale sections with their current text. The backend then makes one more call with the fresh text, inside the same reservation. If that also comes back stale, the reply shows text only and says which sections it could not update.
+
+**Why all or nothing.** One answer often changes sections that depend on each other, such as users and stories. Writing half of them leaves a PRD that contradicts itself.
+
+**When a loop would be needed.** Only when the model must fetch something it does not have, such as a Discovery file excerpt. Putting that material in the context avoids the loop. The repository and Linear writes belong to the planning package, not to the chats.
+
+**What this changes in the money rules.** A chat reply becomes one generation, plus at most one retry, so it gets one receipt in the normal case. The whole-request reservation rule stays, because the retry and the planning package make more than one call.
+
+Measured in this run, on the local database (`spike/sections-check.out`). One reply updated three sections in one transaction, and all three went to revision 1. Next, a section chat changed one of them, and then a reply came back based on the older revisions. Nothing from that reply landed. The function returned the stale section with its current text and revision 2.
+
 ## The seven checks
 
 Each cell says how we know: **measured** in this run, **read** in code or vendor documentation, **inferred**, or **not measured**.
