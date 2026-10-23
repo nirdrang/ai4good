@@ -1,6 +1,6 @@
 # PRD conversation and progress contract
 
-Status: accepted behavior for implementation, 2026-09-21; revised 2026-10-14 from the approved screen design.
+Status: accepted behavior for implementation, 2026-09-21; revised 2026-10-14 from the approved screen design; revised 2026-10-22 to the screen as built, with the screen changes named in `design/change-orders/016-prd-follows-the-built-screen.md`.
 Source: the founder's PRD conversation review and request to update the PRD and development board.
 The 2026-10-14 revision follows the screen design rulings in `design/canvas/prd-workspace/review.md`.
 The approved canvas copy in `design/canvas/prd-workspace/project/` is the visual target for screen build.
@@ -22,7 +22,8 @@ The backend enforces membership, each role's actions, and the conversation revis
 Use purple for AI, blue for Dev, and amber for NGO throughout the thread.
 Retain actor names and icons, so color is never the only identifier.
 There are no bookmarks to an actor's last turn.
-Retain long history, events, and exact source links when earlier turns are collapsed.
+Retain long history and events when earlier turns are collapsed.
+Name each person in screen copy and never assume a pronoun for them.
 
 ## PRD topics as a progress navigator
 
@@ -47,15 +48,20 @@ If a percentage is shown, derive it from those counts.
 Message counts, fuel consumption, and the scorer's coverage score are separate measures.
 
 Each topic has its own lasting chat with the AI. Its context is the current PRD and the approved Discovery document.
-Opening a topic shows the topic as a document at its current revision: its text with every assimilated decision, its sources, and, for the technical scope, its user stories.
+Opening a topic shows the topic as a document at its current revision: its text with every assimilated decision and its sources.
+Sources show as plain names, with no links to source messages.
+The technical scope section shows the user stories with their nested acceptance criteria, the complexity tier with its rationale and start-small advice, and the risk flags. It has no Lovable recommendation and no build split.
 The document does not list the conversation history. The topic's chat sits below it, and the developer completes the topic there.
 On the phone, the document and the chat form one page with one scroll that opens at the top of the document.
 A request carries the topic identifier and current PRD revision.
 The main chat keeps the chronological history across topics, and messages can link to more than one topic.
-Topic selection, history navigation, and source links make no model call and spend no money.
+Topic selection and history navigation make no model call and spend no money.
 
-The AI updates topic text and state from recorded answers and decisions, with source links.
+The AI updates topic text and state from recorded answers and decisions, with their sources.
 The AI only proposes Ready to confirm. The developer confirms each topic with Confirm section, and can reopen a confirmed topic.
+Confirm section is off until the topic is Ready to confirm or Needs review, while a topic it depends on is not Ready to confirm or Confirmed, and while a completion-check gap on it is open.
+When confirming would start the completion check, Confirm section is also off while the AI is answering and when the funds cannot pay for the check.
+A topic in Needs review after a change shows one line saying what changed since Dev confirmed it, for example "Changed since you confirmed: publishing moved from two weeks to one week ahead."
 A suggestion, a topic click, or a generated paragraph cannot confirm a human decision by itself.
 If a decision changes, mark affected dependent topics Needs review and recalculate progress.
 Preserve unaffected confirmations.
@@ -78,16 +84,20 @@ Selecting a blocked topic exposes its blocker; it does not bypass prerequisites.
 ## NGO questions
 
 Only the developer posts an NGO question, from the AI's suggestion. The NGO never starts a question.
-Each posted question is marked blocking or not blocking and appears in the question list. The developer keeps working while it waits.
+Each question is blocking or not blocking as the AI suggested it. Post offers no blocking choice.
+A posted question appears in the question list. The developer keeps working while it waits.
 The NGO answers each question in a side chat with the AI, paid from the PRD funds.
 The AI asks real follow-ups and answers the NGO's questions about the question there.
 Mark answer complete stays off while the AI's last message to the NGO is an unanswered follow-up, with the line "Answer the AI's question first."
+The screen reads an open follow-up from the outcome the AI's reply records, never from a question mark in its text.
+Mark answer complete is also off before the NGO has written anything ("Write your answer first."), while the AI is answering, and when the funds cannot pay for the answer.
 On Mark answer complete, the AI writes one clean answer from the whole side chat and sends it to the developer at once.
 The NGO returns to the question list, where the question shows the answer that was sent. The NGO does not edit a draft answer during the chat.
 
 On a completed answer, the developer has View answer and Use answer.
 View answer lets the developer edit the answer and add a note for the AI before using it.
-Use answer posts a brief (question, answer, PRD impact, open points) as the developer's own message in the main chat.
+Use answer is off while the AI is answering and when the funds are short.
+Use answer posts a brief as the developer's own message in the main chat. Its rows are Question, the NGO's answer, I changed it to (only when Dev edited the answer), How the answer was reached, What it changes, To discuss (the open point), and My note (only with a note).
 The AI records the answer in its topic and raises any open point. A note settles the point and is written into the topic.
 If the developer changed the wording, the AI tells the NGO the final wording.
 Used answers move to an Answered list; selecting one shows its brief in the main chat.
@@ -96,14 +106,16 @@ Used answers move to an Answered list; selecting one shows its brief in the main
 
 Ordinary AI continuation presents questions without a Keep working or Continue button.
 An actionable recommendation appears inline in the current AI reply only when it proposes a state change.
-It names the reason and links the relevant topics and source turns.
+It names the reason and links the relevant topics.
 Bind every recommendation to the conversation revision and PRD revision.
 Changed answers invalidate stale actions in history and in other browser tabs.
 The backend rejects replayed or unauthorized actions without extra events or model charges.
 Preserve each human's draft across reload.
 
-Messages the developer sends while the AI is answering are queued and sent in order, each as its own paid request.
-A queued message can be edited or removed until it is sent.
+Every chat queues: the main chat, each topic chat, and each NGO side chat.
+A message sent while the AI is answering in a chat waits in that chat's queue and is sent in order, each as its own paid request.
+A queued plain message can be edited while the input box is empty, and removed until it is sent.
+A queued Use answer or Close PRD can only be removed.
 
 ## Effort and USD usage
 
@@ -125,8 +137,9 @@ Admission reserves a bounded amount from available PRD allocation before a paid 
 Release unused reservation after settlement. Reconcile corrections without duplicating consumption.
 Revocation, project binding, and funding checks apply before dispatch.
 
-The PRD gauge covers this phase only. It writes available and pending USD as text and shows spent as the bar.
-Use the unrounded consumed percentage: green below 80%, yellow from 80% through 95%, and red above 95%.
+The PRD gauge covers this phase only. It writes available and pending USD as text.
+The bar shows settled spend, with pending spend as a hatched part of it.
+The color band uses the unrounded settled percentage only: green below 80%, yellow from 80% through 95%, and red above 95%. Pending spend never changes the band.
 Red alone does not block a funded request.
 Keep pending reservations distinct from settled spend and subtract them from available funds.
 Topic navigation and viewing the current PRD do not consume fuel.
@@ -135,8 +148,11 @@ Topic navigation and viewing the current PRD do not consume fuel.
 
 The process bar reads Intake, Discovery, Volunteer match, PRD, UI Design, Build plan, Build, Handoff.
 These are workspace phases, not new project lifecycle enum values.
-Only Dev can close the PRD, and Dev can close it at any time.
-The PRD panel lists what is still open (topics not confirmed, blocking questions not posted or waiting, answers to use, completion-check gaps) above a Close PRD button that is always available to Dev.
+Only Dev can close the PRD, and Dev can close it at any time, with two exceptions.
+Close PRD is off while the AI is answering in any chat, with the line "Wait for the AI to finish."
+Close PRD is also off when no completion check ran for the current revision and the funds cannot pay for one.
+The PRD panel lists what is still open above the Close PRD button: sections ready to confirm, sections waiting on another section, sections still being written, blocking questions not posted or waiting for the NGO, answers to use, and completion-check gaps. Each line opens what it names.
+The PRD panel shows the latest completion-check score and the threshold as a line, not only inside the AI's message.
 The AI's completion message also offers Close PRD.
 
 The completion check (the scorer) checks stories, acceptance criteria, data handling, and constraints against approved Discovery, and names gaps.
@@ -144,10 +160,12 @@ It runs when all required topics are confirmed, and when Dev presses Close PRD u
 If that check passed, Close PRD closes at once. If it found gaps, the AI shows its result again with Close anyway and Keep working, and makes no model call. A new check runs once the revision changes.
 Keep the configured threshold open until its existing configuration decision is resolved.
 Gaps, unconfirmed required topics, and open blocking questions are a warning, not a block: the AI lists them with Close anyway and Keep working.
+An open blocking question to the NGO counts as an open point, so it brings up Close anyway and Keep working even after a passing check.
 Each gap links to its topic, and the topic goes to Needs review until Dev fixes it in the topic chat and confirms it again.
 Close anyway closes the PRD and records the open points in the closed revision.
 
 Closing freezes the PRD revision and opens UI Design. The workspace becomes read-only.
+The read-only banner shows for Dev as well as the NGO. For Dev it reads "The PRD is closed. Its revision is frozen and nothing here can change."
 The banner reads "PRD closed at revision N · UI Design starts from it", with "with K open points" when Dev closed anyway, and Open UI Design for Dev.
 UI Design takes its screen inventory from the closed PRD. Nothing is written to the board at close.
 
@@ -179,8 +197,9 @@ The NGO can see PRD progress and package status, but never development board con
 Use edge functions for all writes and reads that need backend data. UI code never accesses the database or Linear directly.
 Test backend permissions as well as visible controls, including stale tabs, duplicate requests, and interrupted streams.
 Verify topic chats, cross-topic prerequisites, revised answers, the NGO question flow from post to use, and Close PRD with and without open points.
-Verify color boundaries at 79.999%, 80%, 95%, and 95.001%, using the stored values before display rounding.
-Verify long history, source links, keyboard navigation, narrow layouts, and both themes.
+Verify color boundaries at 79.999%, 80%, 95%, and 95.001% of settled spend, using the stored values before display rounding.
+Verify the queue in every chat, and Close PRD while the AI is answering in another chat.
+Verify long history, plain-name sources, keyboard navigation, narrow layouts, and both themes.
 
 The approved canvas in `design/canvas/prd-workspace/project/` shows every interaction on sample data, on desktop at 1280 by 900 and on the phone at 390 by 844.
 The older [conversation reference](references/prd-grill-me-chat.html) predates the screen design and is kept for history only.
