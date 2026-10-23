@@ -1,6 +1,6 @@
 # How the product runs its AI, starting with the PRD workspace
 
-Written 2026-10-23. The founder ruled the same day, and the requirement and document changes are applied on this branch as decision d100. The board changes are written out below for `/controller` to apply.
+Written 2026-10-23. The founder ruled the same day, and the requirement and document changes are applied on this branch as decision d100. The board changes below were applied on 2026-10-23 over the Linear connection, on the founder's word "Apply".
 
 ## The question
 
@@ -71,9 +71,9 @@ The founder confirmed the direction ("Yes this is the correct direction") and ch
 
 The PRD tools server became part of AI4DEV-170 (section states and chats) rather than a new item. AT-036.08 already belongs to that unit, so the acceptance bijection stays one to one and the board needs no new item.
 
-## Board changes for /controller
+## Board changes
 
-`/controller` applies these. Each replaces the named text and keeps the rest of the item.
+Applied on 2026-10-23 over the Linear connection, on the founder's word "Apply". Each replaced the named text and kept the rest of the item. No item changed state.
 
 **AI4DEV-171 (OpenRouter costs).** Title: "PRD costs on Managed Agents sessions (D4.L1)". Replace the first paragraph with:
 
