@@ -27,9 +27,24 @@ Rewritten at every step gate. Read this first after a compaction or in a new ses
 - Edge code must never import from `src/`. Shared wire types live in `supabase/functions/_shared/prd/wire.ts`.
 - `bun run lint` reports tree-wide line-ending noise on Windows. Judge lint by errors other than line endings.
 
+## Founder rulings of 2026-10-24 (after the investigation in prd-storage.md)
+
+- The PRD sections are markdown files under `prd/` in the NGO project's GitHub repo, from the day the PRD opens. The PRD tools server writes them through the GitHub API, one commit per AI turn, refused when a changed section moved (option B1). The database keeps states, questions, chats, money, drafts, and a read copy keyed by commit.
+- The platform creates the project repo at PRD open through a new platform GitHub App. The integration tier uses a real GitHub test organization. The Lovable prose is dropped from the requirements. All nine pure sections name Lovable, 69 lines in total.
+- Live updates use a data-free Realtime ping on a private per-project channel. Polling is gone from the design.
+- Next decision number: d101 (the log is `loop/state/decisions.jsonl`, and its last entry is d100).
+- Unit 2 state: Grok was cancelled again. Its WIP is commit `94799931` on `lane/ai4dev-166/u2`, not merged. The writer seat moves to Opus at medium.
+
+## Plan after the rulings, step by step, each ending at a gate
+
+1. Fold d101 into the PRD with `/doc-sync fold`: REQ-036, REQ-021 (repo created by the platform at PRD open, no Lovable), REQ-008, the d100 refinement, the Lovable prose dropped everywhere, and the AT and decomp files that follow.
+2. Redesign `design.md`: git storage through a GitHub writer, the commit-keyed read copy, the Realtime ping, and the new unit order (unit 1 rework first).
+3. Founder setup: the platform GitHub App and the test organization. The founder creates them; the lead writes the steps.
+4. Resume the units.
+
 ## Open founder items
 
-- OPEN, asked on 2026-10-24: where the PRD's section text lives while it is being written. The options are (A) the database, with git at the package (today's design and unit 1), (B) git in the project repo from the day the PRD opens, with a database read cache for the screen and the AI's reads, or (C) the database with a one-way mirror of each committed revision to git. The founder pushed on why it isn't git, the way ai4good keeps its own PRD, because coding agents will read the PRD often. The lead's answer: coding agents read git in every option, because the package writes the PRD before Build. B's costs are that the repo must exist at PRD open, a GitHub credential, a real GitHub test repo for the integration tier, and rework of unit 1's storage. No ruling yet.
-- OPEN: live updates. The founder called 1.5-second polling intensive. The lead proposed a data-free Realtime ping per change (only the sequence number, on a private per-project channel), after which the tab fetches through the edge function. The founder declined to answer that question when it was asked. Revisit before unit 9.
+- RULED (see above), asked on 2026-10-24: where the PRD's section text lives while it is being written. The options are (A) the database, with git at the package (today's design and unit 1), (B) git in the project repo from the day the PRD opens, with a database read cache for the screen and the AI's reads, or (C) the database with a one-way mirror of each committed revision to git. The founder pushed on why it isn't git, the way ai4good keeps its own PRD, because coding agents will read the PRD often. The lead's answer: coding agents read git in every option, because the package writes the PRD before Build. B's costs are that the repo must exist at PRD open, a GitHub credential, a real GitHub test repo for the integration tier, and rework of unit 1's storage. No ruling yet.
+- RULED (push ping): live updates. The founder called 1.5-second polling intensive. The lead proposed a data-free Realtime ping per change (only the sequence number, on a private per-project channel), after which the tab fetches through the edge function. The founder declined to answer that question when it was asked. Revisit before unit 9.
 - Report the budget interpretation.
 - Before the model part of unit 9, confirm the tunnel at the gate.
