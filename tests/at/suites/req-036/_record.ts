@@ -10,6 +10,7 @@ import {
 } from "../../harness/live-stack.ts";
 import { parsePrdSnapshot, type PrdSnapshot } from "../../../../src/lib/prd-stream.ts";
 import { renderPrdFacts } from "../../../../supabase/functions/_shared/prd/routes.ts";
+import type { Scope } from "../../../../supabase/functions/_shared/scope.ts";
 
 const PASSWORD = "correct horse battery staple";
 const DEV_NAME = "Priya Shah";
@@ -532,6 +533,69 @@ export async function proveRecordOpens(): Promise<void> {
       "sut-missing",
       "The PM scope requirements and the Author the project PRD bootstrap are not in this tree, so this case cannot prove them.",
     );
+  } finally {
+    await seeded.sql.close();
+  }
+}
+
+export async function proveScopeSection(written: Scope): Promise<void> {
+  const seeded = await seed();
+  try {
+    const opened = await open(seeded, seeded.dev);
+    expect(opened.status, JSON.stringify(opened.json)).toBe(200);
+    const before = snapshotOf(opened.json);
+    for (const topic of before.topics) {
+      expect(topic.scope, topic.id).toEqual(
+        topic.id === "technical-scope" ? { kind: "not-written" } : null,
+      );
+    }
+
+    const sections = (await seeded.sql`select id from public.prd_sections
+      where project_id = ${seeded.projectId}::uuid and stable_key = 'technical-scope'`) as Array<{
+      id: string;
+    }>;
+    const document = { statements: [], decisions: [], technicalScope: written };
+    const versions = (await seeded.sql`insert into public.prd_section_versions
+      (project_id, section_id, document)
+      values (${seeded.projectId}::uuid, ${sections[0].id}::uuid, ${JSON.stringify(document)}::text::jsonb)
+      returning id`) as Array<{ id: string }>;
+    await seeded.sql`insert into public.prd_revisions (project_id, revision, discovery_revision, manifest)
+      select project_id, 2, discovery_revision,
+             manifest || jsonb_build_object('technical-scope', ${versions[0].id}::text)
+        from public.prd_revisions
+       where project_id = ${seeded.projectId}::uuid and revision = 1`;
+    await seeded.sql`update public.prd_sections set state = 'draft' where id = ${sections[0].id}::uuid`;
+    await seeded.sql`update public.prd_records
+      set current_revision = 2, snapshot_sequence = snapshot_sequence + 1
+      where project_id = ${seeded.projectId}::uuid`;
+
+    const read = await functionPost(
+      seeded.stack,
+      "prd-snapshot",
+      { projectId: seeded.projectId },
+      seeded.dev.token,
+    );
+    expect(read.status, JSON.stringify(read.json)).toBe(200);
+    const after = parsePrdSnapshot(read.json);
+    expect(after.revision).toBe(2);
+    expect(after.sequence).toBe(2);
+    sameAsFacts(after, await readFacts(seeded.sql, seeded.dev.accountId, seeded.projectId));
+    const technical = after.topics.find((topic) => topic.id === "technical-scope");
+    expect(technical?.state).toBe("draft");
+    expect(technical?.scope).toEqual({
+      kind: "written",
+      stories: written.userStories.map((story) => ({
+        story: story.story,
+        acceptanceCriteria: story.acceptanceCriteria,
+      })),
+      suggestedStack: written.suggestedStack,
+      complexity: written.complexity,
+      riskFlags: written.riskFlags,
+    });
+    expect(technical?.stories).toEqual(written.userStories.map((story) => story.story));
+    for (const topic of after.topics) {
+      if (topic.id !== "technical-scope") expect(topic.scope, topic.id).toBeNull();
+    }
   } finally {
     await seeded.sql.close();
   }

@@ -419,7 +419,7 @@ begin
       'statements', v_statements,
       'decisions', '[]'::jsonb,
       'technicalScope', case
-        when v_technical then jsonb_build_object('stories', '[]'::jsonb)
+        when v_technical then '{}'::jsonb
         else null
       end
     );

@@ -6,9 +6,11 @@ import type {
   PrdWireSnapshot,
   SendAvailability,
   Topic,
+  TopicScope,
   TopicState,
   Viewer,
 } from "./wire.ts";
+import { storedTechnicalScope } from "./technical-scope.ts";
 
 const NOT_YET = "Not available yet.";
 const TOPIC_STATES = ["open", "draft", "ready", "confirmed", "needs-review"] as const;
@@ -50,18 +52,28 @@ function unavailable(): { kind: "unavailable"; reason: string } {
   return { kind: "unavailable", reason: NOT_YET };
 }
 
-function storiesOf(document: Record<string, unknown>): readonly string[] | null {
-  const scope = document.technicalScope;
-  if (scope === null || scope === undefined) return null;
-  if (!isRecord(scope)) fail("the section document names its technical scope");
-  const stories = scope.stories;
-  if (stories === undefined) return [];
-  if (!Array.isArray(stories)) fail("the technical scope lists its stories");
-  return stories.map((story) => {
-    if (typeof story === "string") return story;
-    if (isRecord(story) && typeof story.text === "string") return story.text;
-    return fail("a story is text");
-  });
+function scopeOf(document: Record<string, unknown>): TopicScope | null {
+  const value = document.technicalScope;
+  if (value === null || value === undefined) return null;
+  const stored = storedTechnicalScope(value);
+  if (stored === null) fail("the technical scope is a scope");
+  if (stored.kind === "not-written") return { kind: "not-written" };
+  const scope = stored.scope;
+  return {
+    kind: "written",
+    stories: scope.userStories.map((story) => ({
+      story: story.story,
+      acceptanceCriteria: story.acceptanceCriteria,
+    })),
+    suggestedStack: scope.suggestedStack,
+    complexity: scope.complexity,
+    riskFlags: scope.riskFlags,
+  };
+}
+
+function storiesOf(scope: TopicScope | null): readonly string[] | null {
+  if (scope === null) return null;
+  return scope.kind === "written" ? scope.stories.map((story) => story.story) : [];
 }
 
 function statementsOf(document: Record<string, unknown>): {
@@ -94,6 +106,7 @@ function topicOf(section: unknown): Topic {
   if (typeof section.required !== "boolean") fail("a section says whether it is required");
   if (!isRecord(section.document)) fail("a section carries its document");
   const content = statementsOf(section.document);
+  const scope = scopeOf(section.document);
   const changed = section.changedSinceConfirmed;
   return {
     id: text(section.key, "section key") as Topic["id"],
@@ -104,7 +117,8 @@ function topicOf(section: unknown): Topic {
     blocker: typeof section.blocker === "string" ? section.blocker : null,
     statements: content.statements,
     sources: content.sources,
-    stories: storiesOf(section.document),
+    stories: storiesOf(scope),
+    scope,
     changeSummary: typeof changed === "string" ? changed : null,
     confirm: unavailable(),
     reopen: unavailable(),

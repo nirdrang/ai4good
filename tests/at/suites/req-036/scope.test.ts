@@ -6,6 +6,8 @@ import { openingDocument, decideFinish } from '../../../../supabase/functions/_s
 import { buildScopeRequest, renderScopeMarkdown, scopeMoneyProblems, type Scope, type ConfirmedDiscovery } from '../../../../supabase/functions/_shared/scope.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
 import { SCOPE_TIER_FIXTURES, GRANT_TRACKER_SCOPE, scopeContractProblems, scopeDocumentProblems } from '../req-004/fixtures/scope-tiers.ts';
+import { parseTechnicalScope } from '../../../../supabase/functions/_shared/prd/technical-scope.ts';
+import { proveScopeSection } from './_record.ts';
 
 function confirmed(scope: Scope): ConfirmedDiscovery {
   const brief = openingDocument({ need: scope.summary });
@@ -19,7 +21,7 @@ function confirmed(scope: Scope): ConfirmedDiscovery {
   return { brief, confirmation: decision.confirmation };
 }
 
-atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technical scope', {
+atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technical scope', { timeoutMs: { integration: 180_000 } }, {
   default: async ({ open }) => {
     const { h, sut } = await open();
     const input = confirmed(GRANT_TRACKER_SCOPE);
@@ -57,6 +59,8 @@ atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technica
         await expect(generate(input)).rejects.toThrow();
       }
     }
+    expect(parseTechnicalScope(generated.scope, input)).toEqual({ ok: true, scope: generated.scope });
+    if (TIER === 'integration') await proveScopeSection(generated.scope);
   },
 });
 

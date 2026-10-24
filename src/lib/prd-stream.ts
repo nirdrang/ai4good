@@ -156,6 +156,21 @@ const ngoQuestionSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+const topicScopeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("not-written") }),
+  z.object({
+    kind: z.literal("written"),
+    stories: z.array(z.object({ story: z.string(), acceptanceCriteria: z.array(z.string()) })),
+    suggestedStack: z.array(z.string()),
+    complexity: z.object({
+      tier: z.enum(["small", "medium", "large"]),
+      rationale: z.string(),
+      startSmallAdvice: z.string(),
+    }),
+    riskFlags: z.array(z.string()),
+  }),
+]);
+
 const topicSchema = z.object({
   id: topicIdSchema,
   title: z.string(),
@@ -166,6 +181,7 @@ const topicSchema = z.object({
   statements: z.array(z.string()),
   sources: z.array(z.string()),
   stories: z.array(z.string()).nullable(),
+  scope: topicScopeSchema.nullable(),
   changeSummary: z.string().nullable(),
   confirm: availabilitySchema(actionSchema("confirm-topic")),
   reopen: availabilitySchema(actionSchema("reopen-topic")),

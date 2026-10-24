@@ -29,6 +29,20 @@ export type Availability<T> =
   | { readonly kind: "unavailable"; readonly reason: string };
 
 export type TopicState = "open" | "draft" | "ready" | "confirmed" | "needs-review";
+export type ScopeStory = Readonly<{ story: string; acceptanceCriteria: readonly string[] }>;
+export type TopicScope =
+  | { readonly kind: "not-written" }
+  | Readonly<{
+      kind: "written";
+      stories: readonly ScopeStory[];
+      suggestedStack: readonly string[];
+      complexity: Readonly<{
+        tier: "small" | "medium" | "large";
+        rationale: string;
+        startSmallAdvice: string;
+      }>;
+      riskFlags: readonly string[];
+    }>;
 export type Topic = Readonly<{
   id: TopicId;
   title: string;
@@ -39,6 +53,7 @@ export type Topic = Readonly<{
   statements: readonly string[];
   sources: readonly string[];
   stories: readonly string[] | null;
+  scope: TopicScope | null;
   changeSummary: string | null;
   confirm: Availability<Action<"confirm-topic">>;
   reopen: Availability<Action<"reopen-topic">>;

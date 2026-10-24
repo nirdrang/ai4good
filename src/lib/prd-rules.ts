@@ -778,6 +778,7 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
     statements: statementsFor(topic, role),
     sources: [...topic.sources],
     stories: topic.stories === null ? null : [...topic.stories],
+    scope: null,
     changeSummary: changeSummary(record, topic, role),
     confirm,
     reopen,

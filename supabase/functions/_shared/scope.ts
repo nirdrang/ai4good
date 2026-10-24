@@ -67,7 +67,7 @@ export const RECORD_SCOPE_TOOL = {
 } as const;
 export type RecordScopeTool = typeof RECORD_SCOPE_TOOL;
 
-const SCOPE_KEYS = ['summary', 'userStories', 'suggestedStack', 'complexity', 'riskFlags', 'dataSensitivity',
+export const SCOPE_KEYS = ['summary', 'userStories', 'suggestedStack', 'complexity', 'riskFlags', 'dataSensitivity',
   'maintainabilityFit', 'causeLabels'] as const;
 
 function trimmed(value: unknown): string | null {
@@ -169,19 +169,27 @@ export async function generateConfirmedScope(input: ConfirmedDiscovery, skills: 
   const scope = answer.toolUse?.name === 'record_scope' ? parseScope(answer.toolUse.input) : null;
   if (answer.stopReason === 'refusal' || scope === null) throw new Error('The model did not record a valid scope.');
   scope.causeLabels = [...input.brief.document.causeLabels];
+  const problems = scopeSourceProblems(scope, input);
+  if (problems.length > 0) throw new Error(problems[0]);
+  return { scope, markdown: renderScopeMarkdown(scope, { title: input.brief.document.need.text }), model: answer.model, usage: answer.usage };
+}
+
+/** Every way a parsed scope departs from the confirmed Discovery document, in plain English. */
+export function scopeSourceProblems(scope: Scope, input: ConfirmedDiscovery): string[] {
+  const problems: string[] = [];
   const gaps = new Set(input.confirmation.acceptedGaps.map((gap) => gap.topicId));
   for (const story of scope.userStories) {
     const topic = input.brief.document.topics[story.discoveryTopicId ?? ''];
     if (!topic || !((topic.state.kind === 'agreed' && !topic.needsReview) || gaps.has(topic.id))) {
-      throw new Error('A scope story has no confirmed Discovery source.');
+      problems.push(`A scope story has no confirmed Discovery source: ${story.story}`);
     }
   }
   const data = input.brief.document.dataTier;
   const fit = input.brief.document.fit;
-  if (data && scope.dataSensitivity.tier !== `tier${data.tier}`) throw new Error('The scope changed the confirmed data tier.');
-  if (fit && scope.maintainabilityFit.verdict !== (fit.verdict === 'fits' ? 'fit' : 'declined')) throw new Error('The scope changed the confirmed fit verdict.');
-  if (scopeMoneyProblems(scopeModelText(scope)).length > 0) throw new Error('The scope contains a forbidden money figure.');
-  return { scope, markdown: renderScopeMarkdown(scope, { title: input.brief.document.need.text }), model: answer.model, usage: answer.usage };
+  if (data && scope.dataSensitivity.tier !== `tier${data.tier}`) problems.push('The scope changed the confirmed data tier.');
+  if (fit && scope.maintainabilityFit.verdict !== (fit.verdict === 'fits' ? 'fit' : 'declined')) problems.push('The scope changed the confirmed fit verdict.');
+  if (scopeMoneyProblems(scopeModelText(scope)).length > 0) problems.push('The scope contains a forbidden money figure.');
+  return problems;
 }
 
 function listBlock(items: readonly string[]): string {
