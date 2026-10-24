@@ -35,9 +35,16 @@ Rewritten at every step gate. Read this first after a compaction or in a new ses
 - Next decision number: d101 (the log is `loop/state/decisions.jsonl`, and its last entry is d100).
 - Unit 2 state: Grok was cancelled again. Its WIP is commit `94799931` on `lane/ai4dev-166/u2`, not merged. The writer seat moves to Opus at medium.
 
+## Progress since the rulings
+
+- Step 1 is DONE: d101 is folded and pushed as `b064d5df`. That covers REQ-036, REQ-008, the repository lines of REQ-021, two framing sentences, the acceptance files and manifests of 008, 021 and 036, `design/prd-ui-contract.md`, and d101 in `loop/state/decisions.jsonl`. The Linear forward sync for the PM items of 008, 021 and 036 is deferred to `/controller done`, because the lead never touches the board. The founder ruled the PRD files may become public on the existing REQ-008 schedule.
+- Lovable leaves the MVP (founder: postponed as a publish-to-deploy option). That fold is a separate session card, "Remove Lovable from the MVP PRD" (task_8e25de99), which the founder starts. It needs the founder's answer on MVP build and hosting. Until it runs, REQ-021 still describes a Lovable setup that connects to the existing repository.
+- Items the fold writer left for the design step: how the read copy repairs itself after a direct push to `prd/`; the order of kickoff and PRD open; whether the GitHub App permission allowlist (AT-008.24) grows; and design.md lines 55 and 63, which still describe polling.
+- NEXT: step 2, the design.md redesign.
+
 ## Plan after the rulings, step by step, each ending at a gate
 
-1. Fold d101 into the PRD with `/doc-sync fold`: REQ-036, REQ-021 (repo created by the platform at PRD open, no Lovable), REQ-008, the d100 refinement, the Lovable prose dropped everywhere, and the AT and decomp files that follow.
+1. (done) Fold d101 into the PRD with `/doc-sync fold`: REQ-036, REQ-021 (repo created by the platform at PRD open, no Lovable), REQ-008, the d100 refinement, the Lovable prose dropped everywhere, and the AT and decomp files that follow.
 2. Redesign `design.md`: git storage through a GitHub writer, the commit-keyed read copy, the Realtime ping, and the new unit order (unit 1 rework first).
 3. Founder setup: the platform GitHub App and the test organization. The founder creates them; the lead writes the steps.
 4. Resume the units.
