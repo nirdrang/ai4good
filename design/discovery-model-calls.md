@@ -12,7 +12,7 @@ This records the wired Discovery implementation. Sources are `discovery-turn.ts`
 
 ## Reply and live brief
 
-The opening and every chat turn use the same `reply` tool. It carries the NGO-facing text, questions with suggestions and importance, answers agreed on the turn, open questions, optional free-turn off-topic classification, and proposed cause labels. The parser rejects a missing tool or malformed input. The caller treats this as a system error and releases the original reservation; it does not publish a result.
+The opening and every chat turn use the same `reply` tool. It carries the NGO-facing text, questions with suggestions and importance, answers agreed on the turn, open questions, and proposed cause labels. The parser rejects a missing tool or malformed input. The caller treats this as a system error and releases the original reservation; it does not publish a result.
 
 The request carries settled conversation text, the current brief, cause-label vocabulary, recorded need and completed file digests. Skill 06, which writes technical scope, is excluded from reply prompts. Every answer submitted through a question card is applied before model updates, so the model cannot replace that human answer. A semantic document change creates a new brief revision in the turn settlement. The reply and brief come from one call.
 

@@ -1,11 +1,11 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
-import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
+import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
-import { DECLINE_COPY, SCOPE_COPY } from './scope-copy.ts';
+import { DECLINE_COPY } from './scope-copy.ts';
 import { scopeSourceFromBrief, scopeViewFromSql, type ScopeView } from './scope.ts';
 import type { DiscoverySkill } from './discovery-skills.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED } from './tenant-reads.ts';
@@ -14,8 +14,8 @@ import { orgAdminActionAllowed } from './memberships.ts';
 import { needIntakeAnswer } from './need-intake.ts';
 import type { Caller } from './caller.ts';
 import { isRecord, refuseWrite, stringField, uuidField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
-import type { Decision } from './accounts.ts';
 import { fileDigestContext, fileReport, type FileRow } from './discovery-files.ts';
+import type { Decision } from './accounts.ts';
 
 export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
@@ -52,7 +52,6 @@ export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
     reservedMicros: row.reserved_micros, actualMicros: row.actual_micros, overrunMicros: row.overrun_micros,
     inputTokens: row.input_tokens, outputTokens: row.output_tokens, stopReason: row.stop_reason,
     servedModel: row.served_model, openedAt: row.opened_at, settledAt: row.settled_at,
-    offTopic: row.off_topic === true,
     ...(row.assistant_ui != null ? { assistantUi: row.assistant_ui } : {}),
   };
 }
@@ -89,26 +88,11 @@ export function discoveryPrepare(port: MessagesPort, skills: readonly DiscoveryS
   return async (_caller: Caller, args: DiscoveryReserveArgs, reads: CallerReads): Promise<WriteRouteDecision<DiscoveryReserveArgs>> =>
     prepareReply(port, skills, args, reads);
 }
-const OFF_TOPIC_FLAGGED_EVENT = 'discovery.off_topic_flagged';
-export type OffTopicFlaggedNotice = {
+export type DeclineNotice = {
   readonly channels: readonly Channel[];
   readonly copy: { readonly subject: string; readonly body: string };
+  readonly payload: Record<string, string>;
 };
-export function offTopicFlaggedNotice(payload: {
-  projectId: string; organizationId: string; strikes: number;
-}, row = taxonomyRow(OFF_TOPIC_FLAGGED_EVENT) ?? null): Decision<OffTopicFlaggedNotice> {
-  if (row === null) {
-    return { ok: false, reason: 'discovery.off_topic_flagged is missing from the notification taxonomy' };
-  }
-  return {
-    ok: true,
-    value: {
-      channels: channelsFor(row),
-      copy: renderCopy(row, payload),
-    },
-  };
-}
-export type DeclineNotice = OffTopicFlaggedNotice & { readonly payload: Record<string, string> };
 export type DiscoveryDecline = Omit<DeclinedFit, 'verdict'> & { ngo: DeclineNotice; review: DeclineNotice };
 function declineNotice(event: string, payload: Record<string, string>): Decision<DeclineNotice> {
   const row = taxonomyRow(event);
@@ -128,7 +112,7 @@ export type DiscoverySettleArgs = {
   p_account_id: string; p_turn_id: string; p_outcome: 'completed' | 'failed'; p_assistant_message: string | null;
   p_input_tokens: number | null; p_output_tokens: number | null; p_stop_reason: string | null;
   p_served_model: string | null; p_elicitation: Record<string, unknown> | null;
-  p_off_topic: boolean; p_notice: OffTopicFlaggedNotice | null; p_decline: DiscoveryDecline | null;
+  p_decline: DiscoveryDecline | null;
 };
 export function discoveryAct(port: MessagesPort) {
   return async (value: unknown, args: DiscoveryReserveArgs) => actReply(port, value, args, null, undefined);
@@ -176,26 +160,14 @@ export async function conversationAnswer(
     return TENANT_READ_FAILED;
   }
 }
-export type DiscoveryGuardrailView = {
-  offTopicCount: number; flagged: boolean; notice: string | null;
-};
 export function renderDiscoveryMessage(value: unknown): {
   turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null; scopeReady: boolean;
-  guardrail: DiscoveryGuardrailView | null;
 } {
   if (!isRecord(value) || !isRecord(value.turn)) throw new Error('discovery settle returned no turn');
-  const row = value.turn as DiscoveryTurnSqlRow;
-  const turn = turnViewFromSql(row);
-  const counted = typeof value.off_topic_count === 'number' ? value.off_topic_count : Number(value.off_topic_count ?? 0);
-  const offTopicCount = Number.isFinite(counted) ? counted : 0;
-  const strikes = row.request_settings?.guardrails?.off_topic_flag_strikes;
-  const flagged = typeof strikes === 'number' && offTopicCount >= strikes;
+  const turn = turnViewFromSql(value.turn as DiscoveryTurnSqlRow);
   return { turn, reply: turn.assistantMessage ?? '', elicitation: turn.elicitation,
     allowance: value.allowance === null ? null : renderDiscoveryAllowance(value.allowance),
-    scopeReady: turn.elicitation?.complete === true,
-    guardrail: turn.billing === 'fuel' ? null : {
-      offTopicCount, flagged, notice: flagged ? SCOPE_COPY.offTopicNotice : null,
-    } };
+    scopeReady: turn.elicitation?.complete === true };
 }
 
 const USER_MESSAGE_ID_MAX = 200;
@@ -294,7 +266,7 @@ async function prepareReply(
     system: replySystemPrompt({
       title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
       reference_files: need.body.need.referenceFiles.map((file) => file.fileName),
-    }, topicIds, skills, args.p_settings.expected_charge !== 'paid'),
+    }, topicIds, skills),
     messages: [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }],
     tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },
     reply: {
@@ -370,7 +342,7 @@ async function actReply(
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'failed',
       p_assistant_message: null, p_input_tokens: null, p_output_tokens: null, p_stop_reason: null,
-      p_served_model: null, p_elicitation: null, p_off_topic: false, p_notice: null, p_decline: null,
+      p_served_model: null, p_elicitation: null, p_decline: null,
     },
     failure: reason,
   });
@@ -397,12 +369,6 @@ async function actReply(
   const decline = plan.decline === null ? null : discoveryDecline(plan.decline);
   if (decline !== null && !decline.ok) return failed(decline.reason);
   const messageId = assistantMessageId(reservation.turn, prepared.reply.messageId);
-  const offTopic = reservation.turn.billing === 'free' && isRecord(answer.toolUse?.input)
-    && answer.toolUse.input.offTopic === true;
-  const notice = offTopic ? offTopicFlaggedNotice({
-    projectId: reservation.turn.project_id, organizationId: reservation.turn.org_id,
-    strikes: DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
-  }) : null;
   return {
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'completed',
@@ -417,7 +383,6 @@ async function actReply(
         baseRevision: current?.revision ?? null,
         source: scopeSourceFromBrief(plan.brief),
       },
-      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null,
       p_decline: decline === null ? null : decline.value,
     },
     failure: null, suffix: plan.suffix, tail,

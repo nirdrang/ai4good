@@ -26,8 +26,7 @@ function scriptedReplyInput(reply: Exclude<ScriptedReply, { kind: 'error' }>, re
     }
     return input;
   }
-  return { text: reply.text ?? '', questions: [], agreed: [], openQuestions: [],
-    ...(reply.kind === 'tool' && reply.name === 'decline_off_topic' ? { offTopic: true } : {}) };
+  return { text: reply.text ?? '', questions: [], agreed: [], openQuestions: [] };
 }
 
 export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port: AnthropicMessagesPort } {
