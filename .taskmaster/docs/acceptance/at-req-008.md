@@ -2,14 +2,14 @@
 
 Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ-007, REQ-021, REQ-026.
 
-**Boundary note:** REQ-008 owns the repo's home, access model, seeding, the org's base-permission invariant, and the GitHub credential posture. The Lovable setup *flow* is owned by REQ-021; Linear task-status rules by REQ-026; completion gating by REQ-005.5; the project-binding marker's gateway check by REQ-009 — `[cross:]` here.
+**Boundary note:** REQ-008 owns the repo's home, access model, seeding, the org's base-permission invariant, and the GitHub credential posture. The Lovable setup *flow* is owned by REQ-021; Linear task-status rules by REQ-026; completion gating by REQ-005.5; the project-binding marker's gateway check by REQ-009 — `[cross:]` here. [d101] The platform creates the repo when the developer opens the PRD; the PRD files under `prd/` and their commits are owned by REQ-036.
 
 ## A. Repo creation & home
 
-- **AT-008.01 (P0)** — Given a funded project, When the volunteer completes the Lovable→GitHub setup, Then the resulting repository lives in the platform GitHub org — created with no platform-admin step in the path. [cross: REQ-021]
-- **AT-008.02 (P0)** — Given kickoff has fired but the volunteer has not yet run the Lovable→GitHub setup, When the org is inspected, Then no repo exists for the project — nothing is pre-created at funding.
+- **AT-008.01 (P0)** — Given a funded project, When the volunteer completes the Lovable→GitHub setup, Then the resulting repository lives in the platform GitHub org — created with no platform-admin step in the path. [cross: REQ-021] [d101: the given and when change — Given a funded project, When the developer opens the project PRD, Then the platform GitHub App creates the repository, private, in the platform GitHub org, with no platform-admin step, and records its URL; the later Lovable→GitHub setup connects to that repository and creates none] [cross: AT-036.01]
+- **AT-008.02 (P0)** — Given kickoff has fired but the volunteer has not yet run the Lovable→GitHub setup, When the org is inspected, Then no repo exists for the project — nothing is pre-created at funding. [d101: the given changes to "kickoff has fired but the developer has not opened the PRD"; after the developer opens it, exactly one repo exists for the project, and opening it again creates no second one]
 - **AT-008.03 (P0)** — Given the project's repo after setup validation with NO active REQ-031 hide (precondition), When it is inspected, Then it is public and carries the MIT license. [d79: public-state tests are scoped to no-active-hide — the hide is the one authorized visibility exception; licensing is never suspended]
-- **AT-008.04 (P0)** — Given the volunteer-created repo, When the platform validates it, Then the repo URL is recorded on the project and the recorded URL resolves to that org repo.
+- **AT-008.04 (P0)** — Given the volunteer-created repo, When the platform validates it, Then the repo URL is recorded on the project and the recorded URL resolves to that org repo. [d101: the repo is platform-created at PRD open and its URL is recorded at creation; validation confirms the recorded URL still resolves to that org repo]
 - **AT-008.28 (P0)** — Given a nonexistent URL, a malformed URL, and a URL pointing outside the platform org (three cases), When each is submitted for validation, Then each is rejected, nothing is recorded, and the setup remains unresolved. [cx r2: validation negative added]
 - **AT-008.05 (P0)** — Given a project `in_progress` whose repo setup remains unresolved, When the follow-up check runs, Then the setup-pending state is surfaced to the NGO and volunteer (blocker/notice) — the admin escalation after 7 days of mutual silence is owned by REQ-024. [cx: aligned with REQ-024's aging ladder] [cross: REQ-024]
 - **AT-008.06 (P0)** — Given a project with no recorded repo URL — including the case where a valid org repo EXISTS but was never validated/recorded — When completion evaluates, Then it is blocked in both cases: REQ-005.5's "the repo exists" is operationalized as a validated, recorded URL, the hard precondition. [cx r2: existing-but-unrecorded differential added; wording note — REQ-005.5 says "repo exists", REQ-008 pins the stricter recorded-URL reading, which both AT suites test] [cross: AT-005.5.26]
@@ -24,7 +24,7 @@ Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ
 
 ## C. Code events & task linkage
 
-- **AT-008.12 (P0)** — Given the FIRST commit pushed immediately after repo creation/recording, carrying a known task identifier in its message (fixture), When the project's activity data is read, Then the project's activity-event count increments by exactly one, the newest event references the fixture commit SHA, and the event links to exactly that task — ingestion runs from repo creation, not from some later milestone. [cx r2: exact before/after oracle (event count + SHA + task id); fixture pinned to the creation boundary] [cross: REQ-010 owns cadence display, REQ-026 owns task linkage]
+- **AT-008.12 (P0)** — Given the FIRST commit pushed immediately after repo creation/recording, carrying a known task identifier in its message (fixture), When the project's activity data is read, Then the project's activity-event count increments by exactly one, the newest event references the fixture commit SHA, and the event links to exactly that task — ingestion runs from repo creation, not from some later milestone. [d101: the repo's first commits are now the platform's PRD commits from PRD open (REQ-036); the fixture commit is the first commit pushed after them, and the oracle is unchanged] [cx r2: exact before/after oracle (event count + SHA + task id); fixture pinned to the creation boundary] [cross: REQ-010 owns cadence display, REQ-026 owns task linkage]
 - **AT-008.13 (P0)** — Given the two trees (d82), When GitHub events flow: a DEV leaf's PR merge flips that leaf Done vendor-natively (and is never reverted), while NO GitHub event moves a PM item — PM In Progress comes only from the pull, PM Done only from verified completion, and an unauthorized manual PM status edit may exist transiently but never becomes authoritative (detected + reverted, final mirror state unchanged). [d82: two-tier status provenance] [cross: REQ-026 owns the Linear rules]
 
 ## D. Issues — dev-internal only
@@ -41,14 +41,14 @@ Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ
 
 ## F. Platform GitHub credentials
 
-- **AT-008.19 (P0)** — Given the platform's GitHub operations, When its credential store and API calls are inspected, Then only short-lived, on-demand credentials are used and no user PAT is stored anywhere.
+- **AT-008.19 (P0)** — Given the platform's GitHub operations, When its credential store and API calls are inspected, Then only short-lived, on-demand credentials are used and no user PAT is stored anywhere. [d101: the operations include repo creation at PRD open and the PRD tools' commits; the GitHub App key stays in the edge function environment, and no AI session holds a repository credential]
 
 ## G. Org setup & base-permission invariant
 
 > **Resolved [founder, d66]:** mimic Lovable's behavior — Lovable creates every repo PRIVATE by default (vendor behavior, all plans), so "public from first commit" was physically impossible. The ruled sequence: repo born private → platform validates → platform flips public. Promise §2 reworded ("public MIT ... flipped public at setup validation"). AT-008.20/21 stand exactly as written.
 
 - **AT-008.20 (P0)** — Given org member A (a volunteer) and another project's repo B, When A attempts a write to B, Then it is rejected; and while B is private — BOTH pre-validation AND under an active REQ-031 hide (two fixtures) — A cannot read it, while B's own assigned volunteer and NGO retain their explicit permissions throughout — org membership grants no repo access by default, and the hide relaxes nothing. [d79: the hidden-repo case added]
-- **AT-008.21 (P0)** — Given a member-created repo before setup validation, When its visibility is read, Then it is private; after the platform validates the repo URL (no active hide), Then it is public — desired visibility is EXACT per state: private pre-validation, public post-validation without an active REQ-031 hide, private while a hide is active. [d79: the three-branch desired-state function]
+- **AT-008.21 (P0)** — [d101: the repo is platform-created at PRD open, not member-created; the three-branch rule is unchanged] Given a member-created repo before setup validation, When its visibility is read, Then it is private; after the platform validates the repo URL (no active hide), Then it is public — desired visibility is EXACT per state: private pre-validation, public post-validation without an active REQ-031 hide, private while a hide is active. [d79: the three-branch desired-state function]
 - **AT-008.22 (P0)** — Given every non-owner role — the volunteer, AND the NGO admin both during the build and after completion (when they hold repository-admin) — When each attempts a repository visibility change via GitHub directly, Then each attempt is rejected or does not stand — visibility changes are limited to owners and platform automation. [cx: split from the remediation case] [cx r2: NGO-admin cases added, incl. post-completion repo-admin]
 - **AT-008.23 (P0)** — Given a sentinel org repo matching no active project, When the orphan monitor runs, Then an observable orphan signal/alert records that repo — surface-agnostic; no specific UI is prescribed. [cx r2: "admin surface" was an unstated implementation]
 - **AT-008.24 (P0)** — Given the one-time org setup and a versioned permission allowlist for each GitHub App, When the installed grants are compared, Then each App's grants equal its allowlist with no extras, and the break-glass org-compromise runbook exists as a document; and When an app credential is rotated, Then the old credential is rejected while the replacement works — rotation exercised, not just documented. [cx: P1→P0 + rotation made observable] [cx r2: least-privilege judged against a versioned allowlist, not prose]
@@ -63,7 +63,7 @@ Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ
 
 | REQ-008 clause | Tests |
 |---|---|
-| Public-MIT repo in the platform org via volunteer-driven Lovable→GitHub setup | 01, 03 |
+| Public-MIT repo in the platform org, created by the platform when the developer opens the PRD [d101] | 01, 03 |
 | Uniform repo home: permanent, no transfer; NGO admin holds admin from completion | 07, 11 |
 | MIT + two-way sync keep code forkable/exportable | 25 [cx] |
 | Access: volunteer maintains (merge authority → REQ-026/OD-1); NGO read + comment, never push | 08, 09 |
@@ -76,6 +76,6 @@ Source: requirements/req-008.md (prd-mvp.md REQ-008). Dependencies: REQ-006, REQ
 | Membership grants no default repo access; NGO admins outside collaborators only | 10, 20 |
 | Base-permission invariant: exact three-branch desired state (pre-validation private / public / hide private, d66 + d79); non-owner change rejected (all roles); continuously remediated BOTH directions with audit-record authority; hidden repo grants no member access | 20, 21, 22, 27 [d79] |
 | Orphan repos monitored | 23 |
-| Lovable path: nothing pre-created; volunteer-driven; validate + record URL (invalid rejected); unresolved surfaced to parties (admin aging → REQ-024); URL gates completion (existing-but-unrecorded still blocks) | 02, 04, 05, 06, 28 [cx r2] |
+| Repo creation and Lovable path: nothing pre-created at funding; platform creates at PRD open and records the URL [d101]; Lovable setup volunteer-driven; validate URL (invalid rejected); unresolved surfaced to parties (admin aging → REQ-024); URL gates completion (existing-but-unrecorded still blocks) | 02, 04, 05, 06, 28 [cx r2] |
 | Seeded README fields | 17 |
 | Completion Lovable offboarding (volunteer + monitoring account removed by NGO on prompt) | 26 [cx] |

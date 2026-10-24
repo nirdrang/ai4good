@@ -164,14 +164,15 @@ An open blocking question to the NGO counts as an open point, so it brings up Cl
 Each gap links to its topic, and the topic goes to Needs review until Dev fixes it in the topic chat and confirms it again.
 Close anyway closes the PRD and records the open points in the closed revision.
 
-Closing freezes the PRD revision and opens UI Design. The workspace becomes read-only.
+Closing freezes the PRD revision as a tagged commit in the project repository and opens UI Design. The workspace becomes read-only.
 The read-only banner shows for Dev as well as the NGO. For Dev it reads "The PRD is closed. Its revision is frozen and nothing here can change."
 The banner reads "PRD closed at revision N · UI Design starts from it", with "with K open points" when Dev closed anyway, and Open UI Design for Dev.
 UI Design takes its screen inventory from the closed PRD. Nothing is written to the board at close.
 
-After the last screen sign-off in UI Design, one background job writes the planning package once, using the ai4good planning structure:
+The PRD sections are already markdown files under `prd/` in the project repository, one file per section, from the moment the PRD opens.
+After the last screen sign-off in UI Design, one background job writes the planning package once, using the ai4good planning structure, beside the PRD files:
 
-- The PRD and isolated requirements, linked to Discovery and conversation decisions.
+- Isolated requirements, linked to Discovery and conversation decisions.
 - Acceptance specifications with stable identifiers, traceability, and explicit Not run execution status.
 - Decomposition manifests with session-sized work, dependency relations, and acceptance coverage.
 - The Linear PM requirement items and development plan, with stable links to repository artifacts.
