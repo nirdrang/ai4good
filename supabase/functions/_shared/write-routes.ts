@@ -131,6 +131,7 @@ export const WRITE_REFUSAL_KINDS = [
   'file-limit',
   'duplicate-file',
   'file-too-large',
+  'project-files-too-large',
   'unsupported-file-type',
   'no-such-file',
   'open-gaps',
