@@ -63,11 +63,8 @@ claude plugin install pstack@open-pstack
 claude plugin list | grep -q pstack@open-pstack
 
 # --- 2. PowerShell -----------------------------------------------------------------
-# The way-of-work scripts under loop/work are PowerShell, and PowerShell 7 runs them on
-# Linux: work-lib.ps1 and guard-branch-switch.ps1 were each measured working in a cloud VM
-# (so was the attribution stamp hook, which is parked under loop/parked/v1/ and no longer
-# runs anywhere). Without this, a cloud session has no branch guard. Delete this block if
-# you decide cloud sessions do not need it.
+# The /controller, /doc-sync and /ui-design skills run PowerShell scripts under loop/, and
+# PowerShell 7 runs them on Linux. The binary here is `pwsh`, not `powershell`.
 curl -sS -o /tmp/packages-microsoft-prod.deb \
   https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
 dpkg -i /tmp/packages-microsoft-prod.deb
