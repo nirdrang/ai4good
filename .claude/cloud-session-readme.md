@@ -10,9 +10,9 @@ A cloud environment has three places to put things, and they do not overlap:
 
 | surface | runs | carries |
 |---|---|---|
-| **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: the codex and grok CLIs, PowerShell, the docker shim, image and package caches |
+| **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: the codex CLI, PowerShell, the docker shim, image and package caches |
 | **Environment variables** (web form) | copied into every SESSION at start | nothing today; the harness reads no environment variable for the database |
-| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, reports codex and grok login state, and replaces every grok lane on the pstack sheet with `codex:gpt-6.1-sol@max` (see "pstack, in cloud") |
+| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, reports codex login state, and replaces every grok lane on the pstack sheet with `codex:gpt-6.1-sol@max` (see "pstack, in cloud") |
 | **Tracked project files** (`.claude/settings.json`, `.claude/pstack-models.md`, `CLAUDE.md`) | read by Claude Code inside every session | the pstack plugin and where to fetch it, the model sheet, the way of work |
 
 Two boundaries explain the split, both learned by watching the wrong version fail:
@@ -39,9 +39,7 @@ Two boundaries explain the split, both learned by watching the wrong version fai
 6. Restart the first session once. The pstack plugin is installed by Claude Code inside
    the session, and in the first session of a fresh environment it is not active yet (see
    "pstack, in cloud" below). The banner line `pstack: marketplace NOT cloned yet` says so.
-7. Run `codex login --device-auth`. The banner says when it is missing. A cloud session
-   runs no grok lane (see "pstack, in cloud"), so the grok login is needed only to run grok
-   by hand.
+7. Run `codex login --device-auth`. The banner says when it is missing.
 
 ## Secrets
 
@@ -53,12 +51,6 @@ environment can read them". So the rules are about damage control, not concealme
   Run `codex login --device-auth` once per fresh VM; the session banner says when this is
   needed. Device code authorization must be enabled once in the ChatGPT account's security
   settings.
-- **The grok.com login cannot be stored either**, for the same reason. Run
-  `grok login --device-auth` once per fresh VM; the banner says when. Grok tokens expire
-  after 7 days, so a session that lives longer logs in again. Do NOT use an xAI API key
-  (`XAI_API_KEY`) instead: it would work headless, but it bills console.x.ai per token,
-  and the founder wants the subscription used, as with codex (founder 2026-09-03: *"i want
-  to benefit from my grok sunscription like codex not pay per PAI"*).
 - **`AT_JUDGE_API_KEY`** (the semantic judge's credential) has no reader: the judge is parked
   under `loop/parked/v1/`, and `.env.example` says so. Nothing needs it in the variables box.
 
@@ -71,7 +63,6 @@ The SessionStart hook prints a banner on every start and resume:
 docker: daemon started
 pstack: marketplace present
 codex: NOT logged in - run: codex login --device-auth
-grok: NOT logged in - run: grok login --device-auth
 pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start
 ```
 
@@ -79,8 +70,8 @@ pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read 
   dockerd is started fresh every session.
 - `pstack: marketplace NOT cloned yet` appears in the first session of a fresh environment.
   Restart that session once and the line turns to `marketplace present`.
-- `codex: NOT logged in` and `grok: NOT logged in` are expected on every fresh VM (see
-  Secrets). Every pstack item needs codex. No cloud pstack lane needs grok.
+- `codex: NOT logged in` is expected on every fresh VM (see Secrets). Every pstack item
+  needs codex.
 - `pstack sheet: grok lanes NOT replaced` means the rewrite failed; fix the sheet before
   dispatching a lane.
 - A `node_modules: missing, installing...` line appears only when the clone lacks them;
@@ -118,7 +109,8 @@ The way of work runs on the pstack plugin. Four facts decide how it reaches a cl
   `/setup-pstack-project`, the tracked wrapper that runs the plugin's setup skill and
   redirects its two writes into the tree. The home `CLAUDE.md` must not include a sheet as
   well: two live includes make duplicate role rows, and the setup skill stops on those.
-- **Grok does not run in cloud sessions** (founder 2026-10-24). At every session start the
+- **Grok does not run in cloud sessions** (founder 2026-10-24), and the setup script does not
+  install it. At every session start the
   SessionStart hook replaces each grok descriptor on the sheet's role rows with
   `codex:gpt-6.1-sol@max`, and marks the file `skip-worktree` so the rewrite never reaches a
   commit. The indented undo lines keep their grok descriptors. A sheet change made in a cloud

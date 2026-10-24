@@ -69,35 +69,6 @@ if command -v codex >/dev/null 2>&1; then
   fi
 fi
 
-# `grok models` is the same preflight the pstack runner uses. The runner also requires the
-# requested model in the list, so the check does too; the model is the grok family on the sheet.
-if command -v grok >/dev/null 2>&1; then
-  if out=$(grok models 2>&1) && grep -qi "logged in" <<<"$out" && grep -q "grok-4.6" <<<"$out"; then
-    lines+=("grok: logged in, grok-4.6 available")
-  else
-    lines+=("grok: NOT logged in - run: grok login --device-auth")
-  fi
-fi
-
-# The grok wrapper. This VM's kernel boots without Landlock, and grok 1.0.13 refuses its
-# read-only and workspace sandbox profiles there, so every grok lane the pstack runner dispatches
-# dies at start. The committed wrapper (loop/work/grok-shim, README beside it) maps those profiles
-# to devbox only when the live probe says Landlock is absent; on any other kernel it is a no-op.
-# The runner finds grok through the session's PATH, and a hook's own `export` dies with the hook
-# process, so the prefix goes through CLAUDE_ENV_FILE, the file Claude Code loads into the
-# session's shell after SessionStart hooks run.
-shim="$CLAUDE_PROJECT_DIR/loop/work/grok-shim"
-if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -x "$shim/grok" ]; then
-  printf 'export PATH=%s:$PATH\n' "$shim" >>"$CLAUDE_ENV_FILE"
-  if grep -qs landlock /sys/kernel/security/lsm; then
-    lines+=("grok wrapper: on PATH, idle (kernel has Landlock)")
-  else
-    lines+=("grok wrapper: on PATH, active (kernel lacks Landlock)")
-  fi
-else
-  lines+=("grok wrapper: NOT on PATH - run: export PATH=$shim:\$PATH before a grok lane")
-fi
-
 # Grok lanes do not run in cloud sessions (founder 2026-10-24); role rows only, so the sheet's
 # indented undo lines keep their grok descriptors.
 sheet="$CLAUDE_PROJECT_DIR/.claude/pstack-models.md"

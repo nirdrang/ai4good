@@ -29,7 +29,7 @@
 # ---------------------------------------------------------------------------------------
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
-#   - the codex and grok CLIs, and PowerShell
+#   - the codex CLI, and PowerShell
 #   - the pstack plugin and its marketplace clone, in the home folder
 #   - the docker ulimit shim at /usr/local/bin/docker
 #   - all 12 Supabase images, about 8.4 GB
@@ -41,10 +41,6 @@
 #   - the codex ChatGPT login. That is OAuth, it can rotate, and the snapshot is readable
 #     by anyone using this environment. Run `codex login --device-auth` per fresh VM; the
 #     SessionStart banner says when it is needed.
-#   - the grok.com login, for the same reason. Run `grok login --device-auth` per fresh VM;
-#     the banner says when it is needed. Grok tokens expire after 7 days, so a long-lived
-#     session logs in again. No API key: the founder wants the grok subscription billed,
-#     not per-token API use (2026-09-03).
 #   - anything derived from the REPOSITORY - node_modules. Cloud sessions start from a
 #     fresh clone, so project setup belongs to the SessionStart hook, which runs inside
 #     the session with the tree present. The hook already installs node_modules when they
@@ -54,15 +50,6 @@ set -euo pipefail
 
 # --- 1. the agent CLIs -------------------------------------------------------------
 npm install -g @openai/codex
-
-# The Grok CLI is the pstack grok lane: the feature and refactoring writer, the how explorer,
-# the swarm worker, and one panel lane. The pstack runner never falls back, so without this
-# binary every grok lane drops out. The installer writes ~/.grok/bin/grok; the symlink puts
-# it on the PATH of every session without touching shell profiles. If the installer ever
-# moves the binary, the test fails loudly here instead of every grok lane failing later.
-curl -fsSL https://x.ai/cli/install.sh | bash
-test -x "$HOME/.grok/bin/grok"
-ln -sf "$HOME/.grok/bin/grok" /usr/local/bin/grok
 
 # The pstack plugin, from the open-pstack marketplace the tracked .claude/settings.json
 # names. Claude Code is meant to install it at session start from that source. On
