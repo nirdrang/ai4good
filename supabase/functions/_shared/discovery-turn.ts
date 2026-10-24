@@ -1,6 +1,6 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
-import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
+import { DATA_REPORT_REQUEST, DATA_REPORT_TOOL, openQuestions, parseDataReport, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
@@ -349,14 +349,30 @@ async function actReply(
   if (!answer.ok) return failed(answer.reason);
   if (answer.stopReason === 'refusal') return failed('the model refused the request');
   const current = briefFromReservation(value);
-  const plan = planReplyTurn({
+  const reply = prepared.reply;
+  const planWith = (toolInput: unknown) => planReplyTurn({
     current, need: reservation.need.description ?? reservation.need.title,
-    answers: prepared.reply.answers, userMessageId: prepared.reply.userMessageId, round: reservation.turn.seq,
-    toolInput: answer.toolUse?.name === 'reply' ? answer.toolUse.input : null,
-    topicIds: prepared.reply.topicIds, opening: prepared.reply.opening,
-    discoveryFileCount: prepared.reply.discoveryFileCount,
+    answers: reply.answers, userMessageId: reply.userMessageId, round: reservation.turn.seq,
+    toolInput, topicIds: reply.topicIds, opening: reply.opening, discoveryFileCount: reply.discoveryFileCount,
   });
+  const toolInput = answer.toolUse?.name === 'reply' ? answer.toolUse.input : null;
+  let plan = planWith(toolInput);
   if (!plan.ok) return failed('The model did not record a valid reply tool answer.');
+  const usageTokens = { ...answer.usage };
+  if (plan.dataReportMissing) {
+    const followUp = await port.create({
+      ...request,
+      messages: [...request.messages, { role: 'assistant', content: (toolInput as { text: string }).text }, { role: 'user', content: DATA_REPORT_REQUEST }],
+      tools: [DATA_REPORT_TOOL], toolChoice: { type: 'tool', name: DATA_REPORT_TOOL.name },
+    });
+    if (!followUp.ok) return failed(followUp.reason);
+    usageTokens.inputTokens += followUp.usage.inputTokens;
+    usageTokens.outputTokens += followUp.usage.outputTokens;
+    const data = followUp.toolUse?.name === DATA_REPORT_TOOL.name ? parseDataReport(followUp.toolUse.input) : null;
+    if (data === null) return failed('The model did not report the data the tool will handle.');
+    plan = planWith({ ...(toolInput as Record<string, unknown>), data });
+    if (!plan.ok) return failed('The model did not record a valid reply tool answer.');
+  }
   if (prepared.reply.fileReports) plan.text = `${plan.prefix}${prepared.reply.fileReports}\n\n${plan.text.slice(plan.prefix.length)}`;
   const usage = screenUsage(isRecord(value) ? value.usage : null);
   if (usage === null) return failed('Discovery usage could not be read');
@@ -372,8 +388,8 @@ async function actReply(
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'completed',
       p_assistant_message: plan.text,
-      p_input_tokens: Math.max(0, answer.usage.inputTokens),
-      p_output_tokens: Math.min(reservation.turn.max_output_tokens, Math.max(0, answer.usage.outputTokens)),
+      p_input_tokens: Math.max(0, usageTokens.inputTokens),
+      p_output_tokens: Math.min(reservation.turn.max_output_tokens, Math.max(0, usageTokens.outputTokens)),
       p_stop_reason: answer.stopReason, p_served_model: answer.model,
       p_elicitation: {
         replyContract: true,

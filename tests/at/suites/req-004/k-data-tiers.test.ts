@@ -28,6 +28,7 @@ type Flow = {
   first: { message: string; data?: { kinds: DataKind[]; reason: string } };
   answer: { text: string; certain: boolean; message: string };
   data?: { kinds: DataKind[]; reason: string };
+  followUp?: { kinds: DataKind[]; reason: string } | 'silent';
 };
 
 async function tierFlow(sut: DiscoverySut, anthropic: AnthropicMessagesSim, email: string, flow: Flow) {
@@ -39,7 +40,11 @@ async function tierFlow(sut: DiscoverySut, anthropic: AnthropicMessagesSim, emai
   const before = await briefOf(sut, ngo.session, projectId);
   expect(await sut.briefAction(ngo.session, { organizationId: ngo.organizationId, projectId, action: 'ask', topicId: DATA_TOPIC_ID }))
     .toMatchObject({ ok: true });
-  if (TIER === 'loop') anthropic.script([reply('Recorded.', flow.data)]);
+  if (TIER === 'loop') {
+    anthropic.script([reply('Recorded.', flow.data), ...(flow.followUp === undefined ? [] : [flow.followUp === 'silent'
+      ? { kind: 'text' as const, text: 'Recorded.', usage: USAGE }
+      : { kind: 'tool' as const, name: 'data_report', input: flow.followUp, usage: USAGE }])]);
+  }
   const sent = await sut.sendMessage(ngo.session, {
     organizationId: ngo.organizationId, projectId, message: flow.answer.message,
     answers: [{ questionId: DATA_TOPIC_ID, choice: 'other', text: flow.answer.text, certain: flow.answer.certain }],
@@ -116,6 +121,16 @@ atTest('AT-004.29', 'health, immigration, abuse-victim and financial data are ne
       });
       expect(brief.dataTier?.tier).toBe(2);
     }
+    if (TIER !== 'loop') return;
+    const health = { text: 'Names and medical conditions', certain: true, message: 'The tool keeps client names and medical conditions.' };
+    const recovered = await tierFlow(sut, h.vendors.anthropic, w.email('tiers-29-unreported'), {
+      first: { message: 'Hello.' }, answer: health, followUp: { kinds: ['health'], reason: 'Client medical conditions.' },
+    });
+    expect(recovered.brief.dataTier?.tier).toBe(2);
+    expect(recovered.brief.dataTier?.kinds).toEqual(['health']);
+    await expect(tierFlow(sut, h.vendors.anthropic, w.email('tiers-29-silent'), {
+      first: { message: 'Hello.' }, answer: health, followUp: 'silent',
+    })).rejects.toThrow('the data answer was refused');
   },
 });
 

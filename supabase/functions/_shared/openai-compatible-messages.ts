@@ -61,77 +61,103 @@ function answerFromPayload(payload: unknown, fallbackModel: string): DiscoveryMo
   };
 }
 
+async function createOnce(request: DiscoveryModelRequest): Promise<DiscoveryModelAnswer> {
+  try {
+    const response = await post(request, false);
+    const text = await response.text();
+    if (!response.ok) return { ok: false, status: response.status, reason: `the provider answered ${response.status}` };
+    return answerFromPayload(JSON.parse(text), request.model);
+  } catch (error) {
+    return { ok: false, status: null, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function streamOnce(
+  request: DiscoveryModelRequest, onDelta: (text: string) => void, signal: AbortSignal,
+): Promise<{ answer: DiscoveryModelAnswer; sawArguments: boolean }> {
+  const decoder = new JsonTextFieldDecoder('text');
+  let argumentsText = '';
+  let toolName = 'reply';
+  let model = request.model;
+  let usage: unknown = null;
+  let sawChunk = false;
+  const failed = (status: number | null, reason: string) => ({ answer: { ok: false as const, status, reason }, sawArguments: argumentsText !== '' });
+  try {
+    if (signal.aborted) return failed(499, 'the client cancelled before the provider answered');
+    const response = await post(request, true, signal);
+    if (!response.ok || response.body === null) {
+      return failed(response.status, `the provider answered ${response.status}`);
+    }
+    const reader = response.body.getReader();
+    const textDecoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const step = await reader.read();
+      if (step.done) break;
+      sawChunk = true;
+      buffer += textDecoder.decode(step.value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const data = trimmed.slice(5).trim();
+        if (data === '' || data === '[DONE]') continue;
+        const event = JSON.parse(data) as {
+          model?: unknown;
+          usage?: unknown;
+          choices?: { delta?: { tool_calls?: { function?: { name?: unknown; arguments?: unknown } }[] } }[];
+        };
+        if (typeof event.model === 'string') model = event.model;
+        if (event.usage) usage = event.usage;
+        const call = event.choices?.[0]?.delta?.tool_calls?.[0];
+        if (typeof call?.function?.name === 'string' && call.function.name.length > 0) toolName = call.function.name;
+        if (typeof call?.function?.arguments === 'string' && (toolName === 'reply' || request.toolChoice?.name === 'reply')) {
+          argumentsText += call.function.arguments;
+          const decoded = decoder.push(call.function.arguments);
+          if (decoded.length > 0) onDelta(decoded);
+        }
+      }
+    }
+    if (signal.aborted) {
+      return failed(499, sawChunk ? 'the client cancelled the reply' : 'the client cancelled before the provider answered');
+    }
+    return {
+      answer: {
+        ok: true, text: '', stopReason: 'stop', model, usage: usageOf(usage, 0),
+        toolUse: toolFromArguments(toolName, argumentsText),
+      },
+      sawArguments: argumentsText !== '',
+    };
+  } catch (error) {
+    if (signal.aborted) return failed(499, sawChunk ? 'the client cancelled the reply' : 'the client cancelled before the provider answered');
+    return failed(null, error instanceof Error ? error.message : String(error));
+  }
+}
+
+function missedTool(request: DiscoveryModelRequest, answer: DiscoveryModelAnswer): boolean {
+  return request.toolChoice !== undefined && answer.ok && answer.toolUse == null;
+}
+
+function withEarlierUsage(earlier: DiscoveryModelAnswer, answer: DiscoveryModelAnswer): DiscoveryModelAnswer {
+  if (!earlier.ok || !answer.ok) return answer;
+  return { ...answer, usage: {
+    inputTokens: earlier.usage.inputTokens + answer.usage.inputTokens,
+    outputTokens: earlier.usage.outputTokens + answer.usage.outputTokens,
+  } };
+}
+
 export function openaiCompatiblePort(): MessagesPort {
   return {
     model: servedModel(),
     create: async (request) => {
-      try {
-        const response = await post(request, false);
-        const text = await response.text();
-        if (!response.ok) return { ok: false, status: response.status, reason: `the provider answered ${response.status}` };
-        return answerFromPayload(JSON.parse(text), request.model);
-      } catch (error) {
-        return { ok: false, status: null, reason: error instanceof Error ? error.message : String(error) };
-      }
+      const first = await createOnce(request);
+      return missedTool(request, first) ? withEarlierUsage(first, await createOnce(request)) : first;
     },
     stream: async (request, onDelta, signal) => {
-      const decoder = new JsonTextFieldDecoder('text');
-      let argumentsText = '';
-      let toolName = 'reply';
-      let model = request.model;
-      let usage: unknown = null;
-      let sawChunk = false;
-      const failed = (status: number | null, reason: string): DiscoveryModelAnswer => ({ ok: false, status, reason });
-      try {
-        if (signal.aborted) return failed(499, 'the client cancelled before the provider answered');
-        const response = await post(request, true, signal);
-        if (!response.ok || response.body === null) {
-          return failed(response.status, `the provider answered ${response.status}`);
-        }
-        const reader = response.body.getReader();
-        const textDecoder = new TextDecoder();
-        let buffer = '';
-        for (;;) {
-          const step = await reader.read();
-          if (step.done) break;
-          sawChunk = true;
-          buffer += textDecoder.decode(step.value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith('data:')) continue;
-            const data = trimmed.slice(5).trim();
-            if (data === '' || data === '[DONE]') continue;
-            const event = JSON.parse(data) as {
-              model?: unknown;
-              usage?: unknown;
-              choices?: { delta?: { tool_calls?: { function?: { name?: unknown; arguments?: unknown } }[] } }[];
-            };
-            if (typeof event.model === 'string') model = event.model;
-            if (event.usage) usage = event.usage;
-            const call = event.choices?.[0]?.delta?.tool_calls?.[0];
-            if (typeof call?.function?.name === 'string' && call.function.name.length > 0) toolName = call.function.name;
-            if (typeof call?.function?.arguments === 'string' && (toolName === 'reply' || request.toolChoice?.name === 'reply')) {
-              argumentsText += call.function.arguments;
-              const decoded = decoder.push(call.function.arguments);
-              if (decoded.length > 0) onDelta(decoded);
-            }
-          }
-        }
-        if (signal.aborted) {
-          return sawChunk
-            ? { ok: false, status: 499, reason: 'the client cancelled the reply' }
-            : failed(499, 'the client cancelled before the provider answered');
-        }
-        return {
-          ok: true, text: '', stopReason: 'stop', model, usage: usageOf(usage, 0),
-          toolUse: toolFromArguments(toolName, argumentsText),
-        };
-      } catch (error) {
-        if (signal.aborted) return failed(499, sawChunk ? 'the client cancelled the reply' : 'the client cancelled before the provider answered');
-        return failed(null, error instanceof Error ? error.message : String(error));
-      }
+      const first = await streamOnce(request, onDelta, signal);
+      if (first.sawArguments || signal.aborted || !missedTool(request, first.answer)) return first.answer;
+      return withEarlierUsage(first.answer, (await streamOnce(request, onDelta, signal)).answer);
     },
   };
 }
