@@ -143,6 +143,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       if (args.p_elicitation?.document) {
         const brief = briefVersionFrom(briefs.get(row.project_id) ? briefs.get(row.project_id)!.revision + 1 : 1, args.p_elicitation.document);
         if (brief) briefs.set(row.project_id, brief);
+        if (brief?.document.dataTier?.tier === 2) await needs.classifyTier2AsOperator(row.project_id);
       }
       if (row.billing === 'fuel') {
         const entry = funding.get(row.project_id);
@@ -275,7 +276,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
         p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
         p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: { replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null, baseRevision: row?.base_revision ?? null },
-        p_off_topic: input.offTopic === true, p_notice: null,
+        p_off_topic: input.offTopic === true, p_notice: null, p_decline: null,
       });
     },
     backdateOpenTurnAsOperator: async (id, openedAt) => {

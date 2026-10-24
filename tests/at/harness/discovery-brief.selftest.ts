@@ -176,7 +176,7 @@ it('refuses finish for a file still reading, open gaps, and a missing data ackno
     .toEqual({ ok: false, kind: 'file-reading', reason: BRIEF_REASONS.fileReading });
   expect(decideFinish(version, finishInput({ acks: { reviewed: true, openGaps: false, data: false } })))
     .toEqual({ ok: false, kind: 'open-gaps', reason: BRIEF_REASONS.openGaps });
-  version.document.dataTier = { tier: 2, reason: 'The tool handles contact details.' };
+  version.document.dataTier = { tier: 2, kinds: ['special-category'], reason: 'The tool handles contact details.', responsibility: 'ngo' };
   expect(decideFinish(version, finishInput())).toEqual({ ok: false, kind: 'data-ack', reason: BRIEF_REASONS.dataAck });
   const allowed = decideFinish(version, finishInput({ acks: { reviewed: true, openGaps: true, data: true } }));
   expect(allowed.ok).toBe(true);

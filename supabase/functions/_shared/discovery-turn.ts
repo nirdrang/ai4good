@@ -112,7 +112,7 @@ export type DiscoverySettleArgs = {
   p_account_id: string; p_turn_id: string; p_outcome: 'completed' | 'failed'; p_assistant_message: string | null;
   p_input_tokens: number | null; p_output_tokens: number | null; p_stop_reason: string | null;
   p_served_model: string | null; p_elicitation: Record<string, unknown> | null;
-  p_off_topic: boolean; p_notice: OffTopicFlaggedNotice | null;
+  p_off_topic: boolean; p_notice: OffTopicFlaggedNotice | null; p_decline: null;
 };
 export function discoveryAct(port: MessagesPort) {
   return async (value: unknown, args: DiscoveryReserveArgs) => actReply(port, value, args, null, undefined);
@@ -353,7 +353,7 @@ async function actReply(
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'failed',
       p_assistant_message: null, p_input_tokens: null, p_output_tokens: null, p_stop_reason: null,
-      p_served_model: null, p_elicitation: null, p_off_topic: false, p_notice: null,
+      p_served_model: null, p_elicitation: null, p_off_topic: false, p_notice: null, p_decline: null,
     },
     failure: reason,
   });
@@ -397,7 +397,7 @@ async function actReply(
         baseRevision: current?.revision ?? null,
         source: scopeSourceFromBrief(plan.brief),
       },
-      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null,
+      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null, p_decline: null,
     },
     failure: null, suffix: plan.suffix, tail,
   };

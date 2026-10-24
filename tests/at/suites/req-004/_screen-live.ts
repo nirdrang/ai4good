@@ -36,7 +36,8 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
   }
   if (finish) {
     doc.usersToday = { text: given.users, source: { kind: 'intake' } };
-    doc.dataTier = { tier: scenario === 'finish-tier-0' ? 0 : scenario.endsWith('2') ? 2 : 1, reason: 'Volunteer contact information.' };
+    const tier = scenario === 'finish-tier-0' ? 0 : scenario.endsWith('2') ? 2 : 1;
+    doc.dataTier = { tier, kinds: [(['none', 'ordinary-pii', 'special-category'] as const)[tier]], reason: 'Volunteer contact information.', responsibility: 'ngo' };
     doc.fit = { verdict: 'fits', reason: 'The need fits a small volunteer scheduling tool.' };
     doc.causeLabels = ['food security'];
     if (confirmed) {

@@ -56,8 +56,36 @@ export type StoredQuestion = {
   askedInRound: number;
 };
 
-export type DataTier = { tier: 0 | 1 | 2; reason: string };
-export type BriefFit = { verdict: 'fits' | 'declined'; reason: string };
+export const DATA_KINDS = ['none', 'ordinary-pii', 'special-category', 'high-volume',
+  'health', 'immigration', 'abuse-victim', 'financial', 'unsure'] as const;
+export type DataKind = (typeof DATA_KINDS)[number];
+export const DATA_TOPIC_ID = 'info';
+
+export type Tier = 0 | 1 | 2;
+export type DataTier = { tier: Tier; kinds: DataKind[]; reason: string; responsibility: 'ngo' };
+
+const TIER_OF_KIND: Record<DataKind, Tier> = {
+  'none': 0,
+  'ordinary-pii': 1,
+  'special-category': 2,
+  'high-volume': 2,
+  'health': 2,
+  'immigration': 2,
+  'abuse-victim': 2,
+  'financial': 2,
+  'unsure': 2,
+};
+
+export function tierFor(kinds: readonly DataKind[], dataTopicNotSure: boolean): Tier {
+  if (dataTopicNotSure || kinds.length === 0) return 2;
+  return kinds.reduce<Tier>((tier, kind) => Math.max(tier, TIER_OF_KIND[kind]) as Tier, 0);
+}
+
+export const DECLINE_CAUSES = ['developer-maintenance', 'confidential-codebase'] as const;
+export type DeclineCause = (typeof DECLINE_CAUSES)[number];
+export type BriefFit =
+  | { verdict: 'fits'; reason: string }
+  | { verdict: 'declined'; cause: DeclineCause; reason: string; reshaping: string };
 
 export type BriefDocument = {
   schemaVersion: 1;
@@ -647,9 +675,12 @@ export type ReplyQuestionUpdate = {
 export type ReplyAgreedUpdate = { topicId: string; answer: string };
 export type ReplyOpenUpdate = { topicId: string; importance: Importance };
 
+export type ReplyDataReport = { kinds: readonly DataKind[]; reason: string };
+
 export type ReplyUpdate = {
   text: string;
   causeLabels?: readonly string[];
+  data?: ReplyDataReport;
   questions: readonly ReplyQuestionUpdate[];
   agreed: readonly ReplyAgreedUpdate[];
   openQuestions: readonly ReplyOpenUpdate[];
@@ -731,6 +762,18 @@ function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: n
   return changed;
 }
 
+function applyDataReport(document: BriefDocument, report: ReplyDataReport, round: number): void {
+  const question = document.questions[DATA_TOPIC_ID];
+  const topic = document.topics[DATA_TOPIC_ID];
+  if (!question || !topic || question.askedInRound >= round || !hasAnswer(topic)) return;
+  document.dataTier = {
+    tier: tierFor(report.kinds, topic.state.kind === 'not-sure'),
+    kinds: [...report.kinds],
+    reason: report.reason,
+    responsibility: 'ngo',
+  };
+}
+
 /** Answers land first. A model entry that repeats an answer already stored does not change the brief. */
 export function applyReplyTurn(current: BriefVersion, input: {
   answers: readonly DiscoveryAnswer[];
@@ -764,6 +807,7 @@ export function applyReplyTurn(current: BriefVersion, input: {
       .filter((label) => label !== '' && label.length <= SCOPE_CAUSE_LABEL_MAX_CHARS && !document.removedCauseLabels.includes(label))
       .slice(0, SCOPE_CAUSE_LABELS_MAX);
   }
+  if (input.update.data !== undefined) applyDataReport(document, input.update.data, input.round);
   const modelChanged = JSON.stringify(document) !== before;
   if (!modelChanged) return answered.kind === 'changed' ? answered : unchanged(current);
   const revision = answered.kind === 'changed' ? answered.brief.revision : current.revision + 1;
