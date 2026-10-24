@@ -18,8 +18,9 @@ async function contextSize($: any) {
   return b ? `${Math.round(b.totalTokens / 1000)}k tokens (${b.percentage}% of the window)` : 'unknown';
 }
 
-async function fullCompact($: any) {
-  await $.session.compact({ instructions: INSTRUCTIONS });
+// $.session.compact() is refused in SDK sessions (the desktop app); a queued /compact runs at idle.
+async function compactThenGo($: any) {
+  void $.command.run({ command: 'compact', args: INSTRUCTIONS });
   await $.prompt.submit({ text: GO });
 }
 
@@ -53,26 +54,13 @@ export const register = (on: any) => {
     const mode = pending;
     pending = null;
     try {
-      if (mode === 'full') {
-        await fullCompact($);
-        return r;
-      }
-      const before = await contextSize($);
-      trimming = true;
-      await $.session.compact({ instructions: INSTRUCTIONS });
-      const after = await contextSize($);
-      $.ui.log(`SELFCOMPACT fast compact: ${before} -> ${after}`);
-      const pick = await $.ui.ask(`Fast compact done. Context was ${before}, now ${after}. Continue, or run the full /compact too?`, [
-        'Continue',
-        FULL,
-      ]);
-      if (pick === FULL) await fullCompact($);
-      else await $.prompt.submit({ text: pick === 'Continue' ? GO : pick });
+      trimming = mode === 'fast';
+      $.ui.log(`SELFCOMPACT ${mode} compact queued at ${await contextSize($).catch(() => 'unknown')}`);
+      await compactThenGo($);
     } catch (err: any) {
+      trimming = false;
       $.ui.log('SELFCOMPACT gate compaction failed: ' + (err?.message ?? String(err)));
       $.ui.toast('Gate compaction failed; see the debug log. Type /compact or continue by hand.');
-    } finally {
-      trimming = false;
     }
     return r;
   });
