@@ -782,6 +782,13 @@ function applyDataReport(document: BriefDocument, report: ReplyDataReport | unde
   };
 }
 
+export function dataReportMissing(document: BriefDocument, report: ReplyDataReport | undefined, round: number): boolean {
+  const question = document.questions[DATA_TOPIC_ID];
+  const state = document.topics[DATA_TOPIC_ID]?.state;
+  return report === undefined && question !== undefined && question.askedInRound < round
+    && state?.kind === 'agreed' && state.source.kind === 'chat' && state.source.round === round;
+}
+
 /** Answers land first. A model entry that repeats an answer already stored does not change the brief. */
 export function applyReplyTurn(current: BriefVersion, input: {
   answers: readonly DiscoveryAnswer[];
