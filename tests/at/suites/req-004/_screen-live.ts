@@ -3,9 +3,10 @@ import { seedFileProject } from '../req-032/_files.ts';
 import { openingDocument, snapshotOf, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { GIVEN, type ScreenScenario } from '../../../../design/astra/src/givens.ts';
 import type { DiscoverySut } from './_contract.ts';
+import { dailyGrantFor, discoveryTier } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import type { DiscoveryState } from '../../../../src/lib/discovery-stream.ts';
 
-export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scenario: ScreenScenario) {
+export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scenario: ScreenScenario, adminEmail: string | null) {
   const stack = stackFromEnv();
   const given = GIVEN['finish-open'];
   const first = scenario.startsWith('first-reply') || scenario.startsWith('three-files');
@@ -36,7 +37,8 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
   }
   if (finish) {
     doc.usersToday = { text: given.users, source: { kind: 'intake' } };
-    doc.dataTier = { tier: scenario === 'finish-tier-0' ? 0 : scenario.endsWith('2') ? 2 : 1, reason: 'Volunteer contact information.' };
+    const tier = scenario === 'finish-tier-0' ? 0 : scenario.endsWith('2') ? 2 : 1;
+    doc.dataTier = { tier, kinds: [(['none', 'ordinary-pii', 'special-category'] as const)[tier]], reason: 'Volunteer contact information.', responsibility: 'ngo' };
     doc.fit = { verdict: 'fits', reason: 'The need fits a small volunteer scheduling tool.' };
     doc.causeLabels = ['food security'];
     if (confirmed) {
@@ -57,6 +59,7 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
     description: doc.need.text, intakeName: 'intake-notes.pdf' });
   const scope = { organizationId: seed.ngo.organizationId, projectId: seed.projectId };
   try {
+    if (adminEmail !== null) await sut.vetOrganizationAsAdmin(await sut.provisionPlatformAdmin(adminEmail), scope.organizationId);
     if (scenario === 'three-files-funded') await sut.setProjectFundingAsOperator(seed.projectId, { fundedAt: new Date().toISOString(), fuelMicros: 0 });
     if (finish || scenario.includes('three-files')) {
       const files = finish ? (confirmed ? GIVEN['confirmed-tier-2'].files : given.files).slice(1) : GIVEN['first-reply-three-files'].files.map((name) => ({ name, took: 'Volunteer scheduling source material.' }));
@@ -74,7 +77,8 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
         { message: 'Volunteers book themselves', reply: 'Booking answer saved.', usage: { inputTokens: 100, outputTokens: 20 } },
         { message: "I'm not sure", reply: 'You can ask the people who schedule shifts how long last week took.', usage: { inputTokens: 100, outputTokens: 20 } },
       ]);
-      await sut.writeSpendRowAsOperator({ organizationId: scope.organizationId, utcDay: new Date().toISOString().slice(0, 10), spent: scenario === 'daily-empty' ? 10 : 7, granted: 10 });
+      const grant = dailyGrantFor(discoveryTier(adminEmail !== null));
+      await sut.writeSpendRowAsOperator({ organizationId: scope.organizationId, utcDay: new Date().toISOString().slice(0, 10), spent: scenario === 'daily-empty' ? grant : 7, granted: grant });
       await seed.sql.begin(async (tx) => {
         await tx`alter table public.discovery_turns disable trigger discovery_turns_immutable`;
         await tx`update public.discovery_turns set user_message_id = case seq when 2 then 'seed-priority' when 3 then 'seed-booking' else 'seed-' || seq end,

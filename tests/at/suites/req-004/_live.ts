@@ -2,8 +2,8 @@ import { createLiveAdapter as createNeedsAdapter } from '../req-003/_live.ts';
 import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '../../harness/live-stack.ts';
 import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
-import { reserveSettings, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
-import { turnViewFromSql, renderReservation, renderDiscoveryMessage, offTopicFlaggedNotice, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { reserveSettings, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
+import { turnViewFromSql, renderReservation, renderDiscoveryMessage, discoveryDecline, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { canonicalLabel } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
@@ -109,26 +109,13 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     },
     settleTurnAsOperator: async (input) => {
       try {
-        let noticeJson: string | null = null;
-        if (input.offTopic === true) {
-          const found = await sql`select project_id, org_id, request_settings from public.discovery_turns
-            where id = ${input.turnId}::uuid` as { project_id: string; org_id: string; request_settings: unknown }[];
-          const row = found[0];
-          if (row === undefined) return sqlRefusal(new Error('no open Discovery turn'));
-          const settings = (typeof row.request_settings === 'string' ? JSON.parse(row.request_settings) : row.request_settings) as {
-            guardrails?: { off_topic_flag_strikes?: number };
-          } | null;
-          const notice = offTopicFlaggedNotice({
-            projectId: String(row.project_id), organizationId: String(row.org_id),
-            strikes: settings?.guardrails?.off_topic_flag_strikes ?? DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
-          });
-          if (notice.ok) noticeJson = JSON.stringify(notice.value);
-        }
+        const decline = input.decline === undefined ? null : discoveryDecline(input.decline);
+        if (decline !== null && !decline.ok) throw new Error(decline.reason);
         const result = await sql`select public.discovery_turn_settle(${input.accountId}::uuid, ${input.turnId}::uuid,
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
           ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text,
           ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb,
-          ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb) as value` as { value: unknown }[];
+          ${decline === null ? null : JSON.stringify(decline.value)}::text::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },
@@ -235,6 +222,23 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
             'end_turn', ${settings.model}, ${cost.actualMicros}, ${cost.chargedCredits}, ${cost.overrunMicros}, clock_timestamp(), clock_timestamp())`;
         }
       });
+    },
+    declineRecordAsOperator: async (projectId) => {
+      const rows = await sql`select cause, reason, reshaping, declined_at from public.discovery_declines
+        where project_id = ${projectId}::uuid` as { cause: string; reason: string; reshaping: string; declined_at: Date | string }[];
+      const row = rows[0];
+      return row === undefined ? null
+        : { cause: row.cause, reason: row.reason, reshaping: row.reshaping, declinedAt: new Date(row.declined_at).toISOString() };
+    },
+    opsItemsAsOperator: async (kind) => {
+      const rows = await sql`select kind, detail from public.notification_ops_items
+        where kind = ${kind} order by created_at, id` as { kind: string; detail: unknown }[];
+      return rows.map((row) => ({ kind: String(row.kind), detail: decoded(row.detail) as Record<string, unknown> }));
+    },
+    projectList: async (session, organizationId) => {
+      const answer = await functionPost(opts.stack, 'organization-dashboard', { organizationId }, inner.bearerOf(session));
+      if (answer.json.ok !== true) throw new Error(`the project list was refused: ${String(answer.json.reason)}`);
+      return answer.json.projects as Awaited<ReturnType<DiscoverySut['projectList']>>;
     },
     notificationEvents: async (event) => {
       const rows = await sql`select event, payload from public.notification_events

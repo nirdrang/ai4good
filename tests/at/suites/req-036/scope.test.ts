@@ -9,8 +9,9 @@ import { SCOPE_TIER_FIXTURES, GRANT_TRACKER_SCOPE, scopeContractProblems, scopeD
 
 function confirmed(scope: Scope): ConfirmedDiscovery {
   const brief = openingDocument({ need: scope.summary });
-  brief.document.dataTier = { tier: Number(scope.dataSensitivity.tier.at(-1)) as 0 | 1 | 2, reason: scope.dataSensitivity.rationale };
-  brief.document.fit = { verdict: scope.maintainabilityFit.verdict === 'fit' ? 'fits' : 'declined', reason: scope.maintainabilityFit.rationale };
+  const tier = Number(scope.dataSensitivity.tier.at(-1)) as 0 | 1 | 2;
+  brief.document.dataTier = { tier, kinds: [(['none', 'ordinary-pii', 'special-category'] as const)[tier]], reason: scope.dataSensitivity.rationale, responsibility: 'ngo' };
+  brief.document.fit = { verdict: 'fits', reason: scope.maintainabilityFit.rationale };
   brief.document.topics.priority!.state = { kind: 'agreed', answer: scope.summary, source: { kind: 'chat', round: 1 }, answerMessageId: 'answer-1' };
   const decision = decideFinish(brief, { acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'ngo', displayName: 'NGO' }, at: '2026-10-04T00:00:00Z', existing: null });

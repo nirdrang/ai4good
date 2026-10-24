@@ -145,6 +145,8 @@ export const WRITE_REFUSAL_KINDS = [
   'no-such-file',
   'open-gaps',
   'data-ack',
+  'declined',
+  'discovery-declined',
   'unknown-section',
   'unknown-topic',
   'no-suggestion',

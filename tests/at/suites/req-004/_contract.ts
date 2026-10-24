@@ -13,16 +13,18 @@ export type DiscoveryMessageRequest = { organizationId: string; projectId: strin
 };
 export type DiscoveryMessageOutcome = {
   ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
-  scopeReady: boolean; guardrail: { offTopicCount: number; flagged: boolean; notice: string | null } | null;
+  scopeReady: boolean;
 } | WriteRefusal;
 export type CauseLabelRow = { label: string; firstProjectId: string | null };
 export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; mode?: 'answer' | 'opening'; userMessageId?: string; expectedCharge?: 'free' | 'paid' };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
 export type OperatorSettleInput = {
-  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage; offTopic?: boolean;
+  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage;
+  decline?: Omit<import('../../../../supabase/functions/_shared/discovery-brief.ts').DeclinedFit, 'verdict'>;
 };
 export type { DiscoveryConversationView };
 export type DiscoverySwitchOutcome = { ok: true; organizationId: string; discoveryEnabled: boolean; changed: boolean; disabledAt: string | null } | WriteRefusal;
+export type DeclineRecord = { cause: string; reason: string; reshaping: string; declinedAt: string };
 export type DiscoverySwitchAuditRow = { id: string; actorAccountId: string | null; subjectOrgId: string; reason: string; detail: { enabled: boolean; previously_disabled_at: string | null } };
 export type DiscoverySut = NeedsSut & {
   provisionPlatformAdmin(email: string): Promise<Session>;
@@ -48,4 +50,7 @@ export type DiscoverySut = NeedsSut & {
   setEmailVerifiedAsOperator(accountId: string, verified: boolean): Promise<void>;
   seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage; elicitation?: Elicitation; utcDay?: string }[]): Promise<void>;
   spendLedgerInvariantProblems(organizationId: string): Promise<string[]>;
+  declineRecordAsOperator(projectId: string): Promise<DeclineRecord | null>;
+  opsItemsAsOperator(kind: string): Promise<{ kind: string; detail: Record<string, unknown> }[]>;
+  projectList(session: Session, organizationId: string): Promise<import('../../../../supabase/functions/_shared/tenant-reads.ts').OrganizationDashboard['projects']>;
 };

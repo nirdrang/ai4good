@@ -5,7 +5,7 @@ Send `POST /functions/v1/discovery-conversation` with the member's token and `{ 
 Expect 200 with
 `{ ok: true, conversation: { projectId, turns, elicitation, scopes, scope }, allowance }`.
 Turns include open, settled, failed and abandoned rows in sequence order. Each turn also
-carries `billing` (`free`, `fuel` or `retry`), `offTopic`, and the reserved and actual cost
+carries `billing` (`free`, `fuel` or `retry`), and the reserved and actual cost
 and token counts in camelCase; compare them field by field with the operator read, because
 the view drops some columns. Elicitation is the latest non-null record. `scopes` is every
 scope version in order, and `scope` is the `current` one or null (`discovery-scope.md`).

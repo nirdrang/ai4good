@@ -22,9 +22,8 @@ with its status, including a 502 from token counting.
 ## Drive and readback
 
 With the provider credential in the function environment, expect 200 with
-`{ ok, turn, reply, elicitation, allowance, scopeReady, guardrail }`. `guardrail` is
-`{ offTopicCount, flagged, notice }`, and null on a fuel turn. The turn carries `billing`
-(`free`, `fuel` or `retry`) and `offTopic`. Read `discovery_turns` and `discovery_spend`
+`{ ok, turn, reply, elicitation, allowance, scopeReady }`. The turn carries `billing`
+(`free`, `fuel` or `retry`). Read `discovery_turns` and `discovery_spend`
 over the operator SQL connection. The turn is settled, its served model is recorded, and
 the allowance has fallen by the charged credits. The reservation uses counted input plus
 the fixed margin and bounded output. Unused reserved credits return to the same day row.
@@ -49,11 +48,7 @@ Retry billing: on an unfunded project, when the latest turn is `failed` or `aban
 the new message is the same trimmed text, the new turn is `billing = 'retry'` with zero
 reserved and zero charged credits. The day's spend row does not change.
 
-Off-topic guardrail: free and retry turns offer the model a `decline_off_topic` tool. A
-declined turn settles with `off_topic` true. The third off-topic turn on a project flags the
-conversation and emits `discovery.off_topic_flagged` once to the active platform admins
-(email and in-app). Fuel turns have no guardrail, and a check constraint forbids `off_topic`
-on them. A model `stop_reason` of `refusal` settles the turn failed, releases its credits, and
+There is no off-topic guardrail; it is postponed until after MVP. A model `stop_reason` of `refusal` settles the turn failed, releases its credits, and
 answers 502 (JSON) or an `error` part (SSE).
 
 Without the credential, a verified caller's send answers 502 from token-count preparation,
@@ -83,7 +78,6 @@ instead lower its output cap. Settled turns reject updates and every turn reject
 Read both tables before and after refusals. Two projects under one NGO must share one daily
 spend row. Use synthetic usage through the operator reserve and settle functions when the
 provider credential is absent; that proves persistence and accounting, not a provider call.
-The settle function takes `p_off_topic` and `p_notice` as well.
 
 `scripts/drive-discovery.ts` drives the provider path and spends real credits.
 `scripts/drive-discovery-refusals.ts` needs no credential: it proves the over-length,

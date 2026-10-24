@@ -1,4 +1,3 @@
-import type { AtContext } from '../../harness/registry.ts';
 import {
   eventually,
   shellUrl,
@@ -16,12 +15,14 @@ import { AWAITED } from './_pending.ts';
 import { stackFromEnv } from '../../harness/live-stack.ts';
 import { seedDiscoveryScreen } from './_screen-live.ts';
 import type { DiscoveryState } from '../../../../src/lib/discovery-stream.ts';
+import type { DiscoverySut } from './_contract.ts';
 
 export type ScreenGiven = {
   scenario: ScreenScenario;
   viewport: Viewport;
   colorScheme?: 'light' | 'dark';
   pace?: 'test' | 'demo';
+  vetted?: boolean;
 };
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -199,6 +200,11 @@ export class DiscoveryPage {
     formCount: (): Promise<number> => this.page.count([landmark(SCREEN.composer.role, SCREEN.composer.name)]),
     messageCount: (): Promise<number> => this.page.count([landmark(SCREEN.messageBox.role, SCREEN.messageBox.name)]),
     sendCount: (): Promise<number> => this.page.count([landmark('button', TEXT.send)]),
+    sendDisabled: async (): Promise<boolean> =>
+      (await this.page.attribute(
+        [landmark(SCREEN.composer.role, SCREEN.composer.name), landmark('button', TEXT.send)],
+        'disabled',
+      )) !== null,
     oneLineLimit: async (): Promise<number> => {
       const chain = [
         landmark(SCREEN.composer.role, SCREEN.composer.name),
@@ -530,13 +536,13 @@ export function discoveryScreens() {
     ...(stack ? { appEnv: { VITE_SUPABASE_URL: stack.apiUrl, VITE_SUPABASE_PUBLISHABLE_KEY: stack.anonKey } } : {}) });
 
   return async function withDiscovery(
-    ctx: AtContext<'req-004', 'discovery', 'loop'> | AtContext<'req-004', 'discovery', 'integration'>,
+    ctx: { open(): Promise<{ w: { email(name: string): string }; sut: DiscoverySut }> },
     given: ScreenGiven,
     body: (screen: DiscoveryPage) => Promise<void>,
   ): Promise<void> {
     if (TIER !== 'loop' && TIER !== 'integration') throw new CapabilityPending([AWAITED.discoverySurface]);
     const { w, sut } = await ctx.open();
-    const seed = stack ? await seedDiscoveryScreen(sut, w.email('screen'), given.scenario) : null;
+    const seed = stack ? await seedDiscoveryScreen(sut, w.email('screen'), given.scenario, given.vetted ? w.email('screen-admin') : null) : null;
     const start = GIVEN[given.scenario].start === 'review' ? 'review' : 'chat';
     const route = start === 'review' ? 'discovery-review' : 'discovery';
     const opened = await driver.open({

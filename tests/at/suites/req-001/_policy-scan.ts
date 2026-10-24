@@ -18,6 +18,7 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   discovery_brief_messages: 'tenant-isolated',
   discovery_files: 'tenant-isolated',
   discovery_file_parts: 'tenant-isolated',
+  discovery_declines: 'tenant-isolated',
   acknowledgments: 'tenant-isolated',
   accounts: 'unreachable-by-client-roles',
   volunteer_profiles: 'unreachable-by-client-roles',

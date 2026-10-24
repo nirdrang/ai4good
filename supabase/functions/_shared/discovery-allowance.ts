@@ -37,14 +37,10 @@ export function remainingCredits(granted: number, spent: number): number {
   return granted - spent;
 }
 
-export function dailyAllowanceExhaustedReason(organizationId: string, tier: DiscoveryTier): string {
-  const remedies =
-    tier === 'vetted'
-      ? 'fund project fuel to continue now, or wait for the next UTC day'
-      : `get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`;
+export function dailyAllowanceExhaustedReason(organizationId: string): string {
   return (
     `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today` +
-    ` — ${remedies}`
+    ` — fund project fuel to continue now, or wait for the next UTC day`
   );
 }
 
