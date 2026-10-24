@@ -158,7 +158,7 @@ describe('scanDiscoveryWallet refusals', () => {
           '}\n' +
           'export function dailyAllowanceExhaustedReason(organizationId: string) {\n' +
           "  return `discovery_allowance refuses: organisation ${organizationId} has no Discovery credits left today` +\n" +
-          "    ` — get vetted (daily grant becomes ${dailyGrantFor('vetted')}), fund project fuel to continue now, or wait for the next UTC day`;\n" +
+          '    ` — fund project fuel to continue now, or wait for the next UTC day`;\n' +
           '}\n',
       },
       {

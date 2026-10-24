@@ -1,5 +1,6 @@
 import { requireEnv } from './env.ts';
 import { requestBody } from './openai-compatible-request.ts';
+import { conversationId } from './openai-responses-request.ts';
 import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
@@ -16,6 +17,8 @@ async function post(request: DiscoveryModelRequest, stream: boolean, signal?: Ab
     headers: {
       authorization: `Bearer ${requireEnv('DISCOVERY_API_KEY')}`,
       'content-type': 'application/json',
+      'user-agent': 'ai4good-discovery/1.0',
+      'x-opencode-session': await conversationId(request),
     },
     body: JSON.stringify(requestBody(request, stream, servedModel(), Deno.env.get('DISCOVERY_REASONING_EFFORT') || request.effort)),
     signal: signal ?? AbortSignal.timeout(120_000),

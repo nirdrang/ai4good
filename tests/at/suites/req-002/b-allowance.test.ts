@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest';
 import { debitExceedsRemainingReason, utcDayOf } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createConfigRegistry } from '../../harness/config.ts';
-import { atTest } from './_bind.ts';
+import { atTest, CapabilityPending } from './_bind.ts';
 import { AWAITED, awaiting } from './_pending.ts';
 import { exhaustedSentenceProblems, grantPinProblems, scanGrantPins } from './_source-pins.ts';
 import type { AllowanceOutcome, OrganizationsSut, Session, World } from './_contract.ts';
@@ -409,29 +409,27 @@ describe('AT-REQ-002 B — tiers and the daily Discovery allowance', () => {
     },
   );
 
-  atTest('AT-002.05', 'at zero remaining credits on an unfunded project the next Discovery message is blocked and the remedies shown are get vetted, fund fuel, or wait for the next day', {
+  async function proveExhaustedSentence(open: () => Promise<{ w: World; sut: OrganizationsSut }>) {
+    const unverifiedGrant = createConfigRegistry().get<number>(UNVERIFIED_PIN);
+    expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL raises disagree').toEqual([]);
+    const { w, sut } = await open();
+    const ngo = await sut.provisionNgo(w.email('ngo-05'), { emailVerified: true });
+    const blocked = await reachZeroCreditBlock(sut, ngo.session, ngo.organizationId, unverifiedGrant);
+    if (blocked === null) return;
+    expect(blocked.reason).toBe(
+      `discovery_allowance refuses: organisation ${ngo.organizationId} has no Discovery credits left today — fund project fuel to continue now, or wait for the next UTC day`,
+    );
+    expect(blocked.reason, 'the get-vetted remedy came back').not.toMatch(/get vetted/i);
+  }
+
+  atTest('AT-002.05', 'with no free turn and no fuel the next Discovery message is blocked, and the remedies named are fund project fuel or wait for the next UTC day', {
     default: async ({ open }) => {
-      const pins = createConfigRegistry();
-      const unverifiedGrant = pins.get<number>(UNVERIFIED_PIN);
-      const vettedGrant = pins.get<number>(VETTED_PIN);
-      expect(exhaustedSentenceProblems(), 'the TypeScript exhausted renderer and the SQL debit raise disagree').toEqual(
-        [],
-      );
-
-      const { w, sut } = await open();
-      const ngo = await sut.provisionNgo(w.email('ngo-05'), { emailVerified: true });
-
-      const blocked = await reachZeroCreditBlock(sut, ngo.session, ngo.organizationId, unverifiedGrant);
-      if (blocked === null) return;
-      expect(blocked.reason, 'the get-vetted remedy is missing').toMatch(/get vetted/i);
-      expect(
-        blocked.reason,
-        'the vetted grant the first remedy names is not the pinned vetted grant',
-      ).toMatch(new RegExp(`daily grant becomes ${vettedGrant}(?!\\d)`));
-      expect(blocked.reason, 'the fund-fuel remedy is missing').toMatch(/fund project fuel/i);
-      expect(blocked.reason, 'the wait-for-the-next-day remedy is missing').toMatch(/wait for the next UTC day/i);
+      await proveExhaustedSentence(open);
     },
-    integration: awaiting(AWAITED.discoverySurface),
+    integration: async ({ open }) => {
+      await proveExhaustedSentence(open);
+      throw new CapabilityPending([AWAITED.discoverySurface]);
+    },
   });
 
   atTest('AT-002.26', 'after the zero-credit block, funding project fuel makes the very next Discovery turn succeed, billed to fuel', awaiting(AWAITED.projectFuelCheckout, AWAITED.fundedTurnBilling));

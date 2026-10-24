@@ -1,7 +1,7 @@
 import { decideDiscoveryBrief, prepareDiscoveryBrief, renderDiscoveryBrief } from '../../../../supabase/functions/_shared/discovery-brief-write.ts';
 import type { Confirmation } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { briefVersionFrom, requiredAgreement, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
-import { dailyAllowanceExhaustedReason, discoveryTier } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
+import { dailyAllowanceExhaustedReason } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
 import { createFixtureAdapter as createNeedsAdapter } from '../req-003/_fixture.ts';
 import { reserveSettings,
   DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
@@ -96,7 +96,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     if (!before.ok) return before;
     const opening = args.p_settings.mode === 'opening';
     const actual = before.allowance.remaining > 0 ? 'free' : (funding.get(need.projectId)?.fuelMicros ?? 0) >= 100000 ? 'paid' : 'unavailable';
-    if (!opening && actual === 'unavailable') return refuse('daily-limit', dailyAllowanceExhaustedReason(need.organizationId, discoveryTier(before.allowance.vetted)));
+    if (!opening && actual === 'unavailable') return refuse('daily-limit', dailyAllowanceExhaustedReason(need.organizationId));
     if (!opening && actual !== args.p_settings.expected_charge) return refuse('mode-changed', 'The reply cost changed. Review the usage card, then send again.');
     const billing = opening ? 'opening' as const : actual === 'paid' ? 'fuel' as const : 'free' as const;
     const maxOutputTokens = DISCOVERY_REQUEST_SETTINGS.maxOutputTokens;
