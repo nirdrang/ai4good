@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RECORD_SCOPE_TOOL, SCOPE_MONEY } from '../../../../supabase/functions/_shared/scope.ts';
-import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import { WRITE_ROUTES } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { splitSqlStatements } from '../req-001/_policy-scan.ts';
 import {
@@ -518,30 +517,10 @@ export type ScopeMoneySourceInput = {
   toolDescription: string;
 };
 
-function allowedSpans(text: string): Array<{ start: number; end: number }> {
-  const spans: Array<{ start: number; end: number }> = [];
-  for (const piece of [SCOPE_COPY.maintenance, SCOPE_COPY.lovablePricingUrl]) {
-    let from = 0;
-    while (from < text.length) {
-      const at = text.indexOf(piece, from);
-      if (at < 0) break;
-      spans.push({ start: at, end: at + piece.length });
-      from = at + piece.length;
-    }
-  }
-  return spans;
-}
-
-function inAllowed(index: number, spans: readonly { start: number; end: number }[]): boolean {
-  return spans.some((span) => index >= span.start && index < span.end);
-}
-
 function moneyHits(text: string, path: string, lineAt: (index: number) => number): string[] {
-  const spans = allowedSpans(text);
   const problems: string[] = [];
   for (const match of text.matchAll(SCOPE_MONEY)) {
     const index = match.index ?? 0;
-    if (inAllowed(index, spans)) continue;
     if (match[0] === '$' && text[index + 1] === '{') continue;
     problems.push(`${path}:${lineAt(index)} names ${JSON.stringify(match[0])}`);
   }

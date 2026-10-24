@@ -6,7 +6,7 @@ import { GRANT_TRACKER_ELICITATION } from './grant-tracker.ts';
 export const GRANT_TRACKER_SCOPE: Scope = {
   summary: 'A shared list of funder reporting deadlines with email reminders seven days before each due date, used by two staff with no developer.',
   userStories: GRANT_TRACKER_ELICITATION.userStories,
-  suggestedStack: ['Lovable', 'Supabase', 'email delivery'],
+  suggestedStack: ['Supabase', 'email delivery'],
   complexity: {
     tier: 'small',
     rationale: 'One shared list and one reminder for two staff.',
@@ -22,14 +22,6 @@ export const GRANT_TRACKER_SCOPE: Scope = {
     rationale: 'Two non-technical staff can keep the list by chat after the volunteer leaves.',
   },
   causeLabels: ['grant reporting'],
-  lovableRecommendation: {
-    recommended: true,
-    rationale: 'The NGO edits the list by chat and has no developer on staff.',
-  },
-  buildSplit: {
-    lovable: ['Deadline list screens', 'Staff login and shared records'],
-    claudeCode: ['Seven-day reminder email job'],
-  },
 };
 
 export const GRANT_TRACKER_SCOPE_REPLY: ScriptedReply = {
@@ -45,7 +37,7 @@ export const VOLUNTEER_ROSTER_SCOPE: Scope = {
     { story: 'As a coordinator, I want to take a filled shift off the roster so the list stays current.',
       acceptanceCriteria: ['A coordinator can mark a shift as filled and it leaves the open list.'] },
   ],
-  suggestedStack: ['Lovable', 'Supabase'],
+  suggestedStack: ['Supabase'],
   complexity: {
     tier: 'small',
     rationale: 'One roster of roles and time slots, edited by a coordinator.',
@@ -61,14 +53,6 @@ export const VOLUNTEER_ROSTER_SCOPE: Scope = {
     rationale: 'A coordinator can keep the roster by chat after the volunteer leaves.',
   },
   causeLabels: ['volunteer coordination'],
-  lovableRecommendation: {
-    recommended: true,
-    rationale: 'The coordinator edits the roster by chat and has no developer on staff.',
-  },
-  buildSplit: {
-    lovable: ['Shift roster screens', 'Coordinator login'],
-    claudeCode: ['A weekly reminder that the roster needs a review'],
-  },
 };
 
 export const CASE_NOTES_SCOPE: Scope = {
@@ -79,7 +63,7 @@ export const CASE_NOTES_SCOPE: Scope = {
     { story: 'As a case worker, I want only case workers on this project to read notes so client health details stay inside the team.',
       acceptanceCriteria: ['A person without the case-worker role cannot open a note.'] },
   ],
-  suggestedStack: ['Supabase', 'Claude Code'],
+  suggestedStack: ['Supabase'],
   complexity: {
     tier: 'medium',
     rationale: 'Notes, role-gated access and a later join to records the organisation holds.',
@@ -95,14 +79,6 @@ export const CASE_NOTES_SCOPE: Scope = {
     rationale: 'Case workers can add notes by chat once the volunteer has set the screens.',
   },
   causeLabels: ['health support'],
-  lovableRecommendation: {
-    recommended: false,
-    rationale: 'Health records should live in the organisation system after completion, not in a chat-edited app.',
-  },
-  buildSplit: {
-    lovable: ['Fixture note screens for the build'],
-    claudeCode: ['Role-gated access and the join the NGO uses to connect real records after completion'],
-  },
 };
 
 export type ScopeTierFixture = { title: string; scope: Scope };
@@ -125,13 +101,26 @@ export function scopeDocumentProblems(markdown: string, fixture: ScopeTierFixtur
   }
   if (!markdown.includes(fixture.scope.complexity.rationale)) problems.push('missing complexity rationale');
   if (!markdown.includes(SCOPE_COPY.startSmall)) problems.push('missing start-small lead');
-  if (!markdown.includes(SCOPE_COPY.maintenance)) problems.push('missing maintenance sentence');
-  const pricingLink = '](' + SCOPE_COPY.lovablePricingUrl + ')';
-  if (fixture.scope.lovableRecommendation.recommended) {
-    if (!markdown.includes(pricingLink)) problems.push('missing pricing link');
-  } else if (markdown.includes(SCOPE_COPY.lovablePricingUrl)) {
-    problems.push('pricing link present when not recommended');
+  if (!markdown.includes(fixture.scope.complexity.startSmallAdvice)) problems.push('missing start-small advice');
+  if (fixture.scope.riskFlags.length < 1) problems.push('missing risk flags');
+  for (const flag of fixture.scope.riskFlags) {
+    if (!markdown.includes(flag)) problems.push('missing risk flag');
   }
+  for (const story of fixture.scope.userStories) {
+    if (story.acceptanceCriteria.length < 1) problems.push('a user story has no acceptance criteria');
+    if (!markdown.includes(story.story)) problems.push('missing user story');
+    for (const criterion of story.acceptanceCriteria) {
+      if (!markdown.includes(criterion)) problems.push('missing acceptance criterion');
+    }
+  }
+  if (fixture.scope.suggestedStack.length < 1) problems.push('missing suggested stack');
+  for (const item of fixture.scope.suggestedStack) {
+    if (!markdown.includes(item)) problems.push('missing suggested stack');
+  }
+  if (markdown.includes('## Lovable recommendation') || markdown.includes('## Build split') || markdown.includes('## Maintenance')) {
+    problems.push('lovable recommendation or build split is present');
+  }
+  if (markdown.includes('lovable.dev/pricing')) problems.push('pricing link present');
   return problems;
 }
 
@@ -143,10 +132,14 @@ export function scopeContractProblems(input: unknown): string[] {
   if (scope.userStories.some((story) => story.acceptanceCriteria.length < 1)) {
     problems.push('a user story has no acceptance criteria');
   }
-  if (scope.suggestedStack.length < 1) problems.push('missing suggested stack');
-  if (scope.buildSplit.lovable.length < 1 || scope.buildSplit.claudeCode.length < 1) {
-    problems.push('a build-split part is empty');
+  if (scope.userStories.some((story) => !story.discoveryTopicId)) {
+    problems.push('a user story has no Discovery topic');
   }
+  if (scope.suggestedStack.length < 1) problems.push('missing suggested stack');
+  if (!scope.complexity.tier || !scope.complexity.rationale || !scope.complexity.startSmallAdvice) {
+    problems.push('missing complexity tier, rationale, or start-small advice');
+  }
+  if (scope.riskFlags.length < 1) problems.push('missing risk flags');
   if (scope.causeLabels.length > SCOPE_CAUSE_LABELS_MAX) problems.push('too many cause labels');
   return problems;
 }

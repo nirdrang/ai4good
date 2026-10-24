@@ -18,25 +18,40 @@ function confirmed(scope: Scope): ConfirmedDiscovery {
   return { brief, confirmation: decision.confirmation };
 }
 
-atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technical scope with both build parts', {
+atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technical scope', {
   default: async ({ open }) => {
     const { h, sut } = await open();
     const input = confirmed(GRANT_TRACKER_SCOPE);
     const scope = { ...GRANT_TRACKER_SCOPE, userStories: GRANT_TRACKER_SCOPE.userStories.map((story) => ({ ...story, discoveryTopicId: 'priority' })) };
+    expect(JSON.stringify(buildScopeRequest(input, DISCOVERY_SKILLS))).not.toMatch(/lovableRecommendation|buildSplit|build-split|Lovable|Claude Code/);
     const generate = sut.generate;
     if (TIER === 'loop') h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: scope, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
     const generated = await generate(input);
     expect(scopeContractProblems(generated.scope)).toEqual([]);
-    expect(generated.scope.buildSplit.lovable.length).toBeGreaterThan(0);
-    expect(generated.scope.buildSplit.claudeCode.length).toBeGreaterThan(0);
+    expect(generated.scope).not.toHaveProperty('lovableRecommendation');
+    expect(generated.scope).not.toHaveProperty('buildSplit');
+    expect(generated.scope.suggestedStack.length).toBeGreaterThan(0);
+    expect(['small', 'medium', 'large']).toContain(generated.scope.complexity.tier);
+    expect(generated.scope.complexity.rationale.length).toBeGreaterThan(0);
+    expect(generated.scope.complexity.startSmallAdvice.length).toBeGreaterThan(0);
+    expect(generated.scope.riskFlags.length).toBeGreaterThan(0);
     for (const story of generated.scope.userStories) {
+      expect(story.acceptanceCriteria.length).toBeGreaterThan(0);
       const topic = input.brief.document.topics[story.discoveryTopicId!];
       expect(topic).toBeDefined();
       expect(topic.state.kind === 'agreed' || input.confirmation.acceptedGaps.some((gap) => gap.topicId === topic.id)).toBe(true);
     }
+    expect(scopeDocumentProblems(generated.markdown, { title: 'Funder reporting deadline tracker', scope: generated.scope })).toEqual([]);
+    expect(scopeMoneyProblems(generated.markdown)).toEqual([]);
     expect(() => buildScopeRequest({ ...input, confirmation: { ...input.confirmation, revision: 2 } }, DISCOVERY_SKILLS)).toThrow('stale');
     if (TIER === 'loop') {
-      for (const invalid of [null, { ...scope, buildSplit: { lovable: ['Screens'], claudeCode: [] } }, { ...scope, userStories: [{ ...scope.userStories[0], discoveryTopicId: 'unknown' }] }]) {
+      const story = scope.userStories[0];
+      for (const invalid of [
+        null,
+        { ...scope, lovableRecommendation: { recommended: true, rationale: 'Edit the list by chat.' }, buildSplit: { lovable: ['Screens'], claudeCode: ['Jobs'] } },
+        { ...scope, userStories: [{ ...story, acceptanceCriteria: [] }] },
+        { ...scope, userStories: [{ ...story, discoveryTopicId: 'unknown' }] },
+      ]) {
         h.vendors.anthropic.script([{ kind: 'tool', name: 'record_scope', input: invalid, text: '', usage: { inputTokens: 1800, outputTokens: 640 } }]);
         await expect(generate(input)).rejects.toThrow();
       }
@@ -44,7 +59,7 @@ atTest('AT-036.11', 'a confirmed Discovery document produces a grounded technica
   },
 });
 
-atTest('AT-036.12', 'each data tier explains complexity, maintenance and public pricing without a build estimate', { timeoutMs: { integration: 180_000 } }, {
+atTest('AT-036.12', 'each data tier shows its complexity, start-small advice and risk flags with no build estimate', { timeoutMs: { integration: 180_000 } }, {
   default: async ({ open }) => {
     const { h, sut } = await open();
     expect(scopeMoneySourceProblems()).toEqual([]);

@@ -1,7 +1,4 @@
 export const SCOPE_COPY = {
-  maintenance:
-    'The NGO evolves the tool by chat, pays Lovable directly about 25 dollars a month, and owns the code.',
-  lovablePricingUrl: 'https://lovable.dev/pricing',
   dataTier: {
     tier0: 'This tool has no personal-data restriction.',
     tier1: 'This tool handles ordinary personal data. Minimise what you collect. The NGO owns the exposure risk.',

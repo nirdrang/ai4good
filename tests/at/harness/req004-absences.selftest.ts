@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { WRITE_ROUTES } from '../../../supabase/functions/_shared/write-routes.ts';
-import { SCOPE_COPY } from '../../../supabase/functions/_shared/scope-copy.ts';
 import {
   freeCreditsOutsideMoneyProblems,
   noPlatformBreakerProblems,
@@ -219,18 +218,13 @@ const cleanScopeMoney = [
   { path: SCOPE_TS, text: "export const RECORD_SCOPE_TOOL = { description: 'Record the technical scope of this NGO software need.' };\n" },
   {
     path: SCOPE_COPY_TS,
-    text:
-      'export const SCOPE_COPY = { maintenance: ' +
-      JSON.stringify(SCOPE_COPY.maintenance) +
-      ', lovablePricingUrl: ' +
-      JSON.stringify(SCOPE_COPY.lovablePricingUrl) +
-      ' };\n',
+    text: "export const SCOPE_COPY = { startSmall: 'Start small. Build the least the NGO needs first, then grow it by chat.' };\n",
   },
   { path: SCOPE_SKILL, text: 'When you write the scope, call record_scope. Never name a project or build figure in money.\n' },
 ];
 
 describe('scanScopeMoneySource refusals', () => {
-  it('accepts the allow-listed maintenance sentence and pricing URL', () => {
+  it('accepts scope source that names no money figure', () => {
     expect(scanScopeMoneySource({
       files: cleanScopeMoney, toolDescription: 'Record the technical scope of this NGO software need.',
     })).toEqual([]);
