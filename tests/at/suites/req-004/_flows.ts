@@ -520,3 +520,32 @@ export async function expectReviewFits(screen: DiscoveryPage, given: (typeof GIV
   await expectFullyVisible(screen, 'Cancel', await screen.review.cancelBox('The need'));
   await expectFullyVisible(screen, 'Save', await screen.review.saveBox('The need'));
 }
+
+export async function expectExhaustedScreen(screen: DiscoveryPage, grant: number | null): Promise<void> {
+  const usage = await screen.usage.text();
+  expect(usage, 'no free reply is left today').toMatch(new RegExp(`(?:^|\\D)0 of ${grant ?? '\\d+'}(?!\\d)`));
+  expect(usage, 'no fuel is available').toContain('$0.00');
+  expect(usage, 'Buy fuel offers the ordinary fuel checkout').toContain(TEXT.buyFuel);
+  expect(usage, 'the card names the next daily reset').toContain('Free replies return at');
+  const backend = screen.backend;
+  const turnCount = async (): Promise<number | null> => {
+    if (!backend) return null;
+    const rows = await backend.sql`select count(*)::int as n from public.discovery_turns where project_id = ${backend.projectId}::uuid` as { n: number }[];
+    return rows[0]!.n;
+  };
+  const turnsBefore = await turnCount();
+  const callsBefore = await screen.modelCalls();
+  const draft = 'We also need reminders before the quarterly report.';
+  await screen.composer.fill(draft);
+  expect(await screen.composer.value(), 'the typed draft stays in the message box').toBe(draft);
+  expect(await screen.composer.sendDisabled(), 'Send cannot send the draft').toBe(true);
+  expect(await turnCount(), 'no turn row appears').toBe(turnsBefore);
+  expect(await screen.modelCalls(), 'no model call runs').toEqual(callsBefore);
+  expect(await screen.composer.value(), 'the draft is still in the message box').toBe(draft);
+  if (backend) {
+    const state = await backend.read();
+    expect(state.usage.nextReply).toBe('unavailable');
+    expect(state.usage.dailyLeft).toBe(0);
+    if (grant !== null) expect(state.usage.dailyGrant).toBe(grant);
+  }
+}
