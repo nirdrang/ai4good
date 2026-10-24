@@ -53,6 +53,16 @@ GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVA
 
 For the private key, put the whole `.pem` content on one line, with `\n` where each line break was. Then tell the lead "GitHub is set up". The lead restarts the stack and checks that the App can mint a token, without printing any secret.
 
+## 7. The cloud environment
+
+Cloud sessions run the integration tier too, so they need the same four values. They do not go in the setup script: that script runs before any session starts, it cannot see the environment's variables, and the tracked copy must never hold a key.
+
+1. On claude.ai/code, open the cloud environment's settings, then the **Environment variables** box.
+2. Add the four lines from step 6, the private key as one line with `\n`, exactly as in `.env`.
+3. A cloud session copies them into its own `supabase/functions/.env` before it starts the stack, the same way it copies `DISCOVERY_API_KEY` today.
+
+Anyone who uses that environment can read the variables box. So treat the private key as shared with them, and generate a new key on the App's page if that ever matters.
+
 ## Later, for CI
 
 The same four values go into the GitHub repository's Actions secrets, under the same names, so the integration tier runs there too. The lead names the step when the first CI run needs it.
