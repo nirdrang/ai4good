@@ -156,8 +156,8 @@ A member removed while subscribed can keep receiving numbers, not data, until th
 - The scorer threshold, the platform fee in basis points, and the turn reservation size are pilot decisions. They are seeded as configuration rows, which name the value and record that it is a placeholder. A test never invents its own value.
 - The REQ-026 bootstrap pull does not exist in this tree. AT-036.01 proves the PRD half, and its bootstrap half stays pending, with the reason.
 - The package half of AT-036.06 and the `backlog.live` producer belong to AI4DEV-164 (sign-off into Build).
-- Founder: may the integration run delete the repositories it created in the GitHub test organization? Until the founder answers, they stay, and the run prefix keeps them apart.
-- Founder: should edits pushed to `prd/` by a person count as described above, applied and sent to Needs review, or be refused and reverted? The design applies them, because the PRD is a set of git files.
+- Ruled 2026-10-24: each integration run deletes the repositories it created in the GitHub test organization, chosen by its run prefix, never any other.
+- Ruled 2026-10-24: an edit pushed to `prd/` by a person is applied as a new revision credited to their GitHub login, and confirmed sections it changed go to Needs review.
 - Lovable leaves the MVP in a separate fold. Until it lands, REQ-021 still describes a Lovable setup that connects to the existing repository. Nothing in this design depends on it.
 
 ## Unit plan
