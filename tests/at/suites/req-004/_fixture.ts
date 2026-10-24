@@ -14,7 +14,7 @@ import { decideOrganizationDiscovery, renderDiscoverySwitch } from '../../../../
 import { discoveryMessageAllowed } from '../../../../supabase/functions/_shared/verification.ts';
 import type { AnthropicMessagesPort } from '../../harness/contracts.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
-import type { DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome, DiscoverySwitchAuditRow } from './_contract.ts';
+import type { DeclineRecord, DiscoverySut, Session, OperatorReserveOutcome, DiscoveryMessageOutcome, DiscoverySwitchAuditRow } from './_contract.ts';
 
 export const requirement = 'req-004' as const;
 export const VETTING_EVIDENCE = {
@@ -40,6 +40,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
   const switches = new Map<string, { disabledAt: string; disabledBy: string; reason: string }>();
   const switchAudits: DiscoverySwitchAuditRow[] = [];
   const notificationRows: { event: string; payload: Record<string, unknown> }[] = [];
+  const declines = new Map<string, DeclineRecord>();
   const skills = DISCOVERY_SKILLS;
   const now = () => new Date(opts.clock.now()).toISOString();
   const sqlAllowance = (allowance: { organizationId: string; utcDay: string; vetted: boolean; dailyGrant: number; spentToday: number; remaining: number }) => ({
@@ -144,6 +145,9 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         const brief = briefVersionFrom(briefs.get(row.project_id) ? briefs.get(row.project_id)!.revision + 1 : 1, args.p_elicitation.document);
         if (brief) briefs.set(row.project_id, brief);
         if (brief?.document.dataTier?.tier === 2) await needs.classifyTier2AsOperator(row.project_id);
+      }
+      if (args.p_decline !== null && !declines.has(row.project_id)) {
+        declines.set(row.project_id, { cause: args.p_decline.cause, reason: args.p_decline.reason, reshaping: args.p_decline.reshaping, declinedAt: now() });
       }
       if (row.billing === 'fuel') {
         const entry = funding.get(row.project_id);
@@ -276,7 +280,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
         p_account_id: input.accountId, p_turn_id: input.turnId, p_outcome: input.outcome, p_assistant_message: input.reply ?? '',
         p_input_tokens: input.usage?.inputTokens ?? null, p_output_tokens: input.usage?.outputTokens ?? null,
         p_stop_reason: 'end_turn', p_served_model: DISCOVERY_REQUEST_SETTINGS.model, p_elicitation: { replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null, baseRevision: row?.base_revision ?? null },
-        p_off_topic: input.offTopic === true, p_notice: null, p_decline: null,
+        p_off_topic: input.offTopic === true, p_notice: null, p_decline: input.decline ?? null,
       });
     },
     backdateOpenTurnAsOperator: async (id, openedAt) => {
@@ -435,6 +439,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       }
       turns.set(projectId, rows);
     },
+    declineRecordAsOperator: async (projectId) => structuredClone(declines.get(projectId) ?? null),
     notificationEvents: async (event) => notificationRows.filter((row) => row.event === event).map((row) => structuredClone(row)),
     spendLedgerInvariantProblems: async (organizationId) => {
       const spend = await organizations.spendRows(organizationId);
@@ -453,5 +458,5 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
       return problems;
     },
   };
-  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); vocabulary.clear(); needCauseLabels.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; notificationRows.length = 0; } };
+  return { sut: { discovery: sut }, fixtures: inner.fixtures, teardown: async () => { await inner.teardown(); actors.clear(); turns.clear(); vocabulary.clear(); needCauseLabels.clear(); funding.clear(); switches.clear(); switchAudits.length = 0; notificationRows.length = 0; declines.clear(); } };
 }

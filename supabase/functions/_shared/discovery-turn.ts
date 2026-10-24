@@ -1,5 +1,5 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
-import { briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
+import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclineCause, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
@@ -108,11 +108,12 @@ export function offTopicFlaggedNotice(payload: {
     },
   };
 }
+export type DiscoveryDecline = { cause: DeclineCause; reason: string; reshaping: string };
 export type DiscoverySettleArgs = {
   p_account_id: string; p_turn_id: string; p_outcome: 'completed' | 'failed'; p_assistant_message: string | null;
   p_input_tokens: number | null; p_output_tokens: number | null; p_stop_reason: string | null;
   p_served_model: string | null; p_elicitation: Record<string, unknown> | null;
-  p_off_topic: boolean; p_notice: OffTopicFlaggedNotice | null; p_decline: null;
+  p_off_topic: boolean; p_notice: OffTopicFlaggedNotice | null; p_decline: DiscoveryDecline | null;
 };
 export function discoveryAct(port: MessagesPort) {
   return async (value: unknown, args: DiscoveryReserveArgs) => actReply(port, value, args, null, undefined);
@@ -263,6 +264,7 @@ async function prepareReply(
   const briefRead = await reads.discoveryBriefOf(args.p_project_id);
   if (!briefRead.ok) throw new Error(briefRead.detail);
   const current = isRecord(briefRead.value) ? briefVersionFrom(briefRead.value.revision, briefRead.value.document) : null;
+  if (current?.document.fit?.verdict === 'declined') return refuseWrite('discovery-declined', 409, BRIEF_REASONS.declined);
   const topicIds = current?.document.topicOrder
     ?? openingDocument({ need: need.body.need.description ?? need.body.need.title }).document.topicOrder;
   const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
@@ -372,9 +374,10 @@ async function actReply(
   if (prepared.reply.fileReports) plan.text = `${plan.prefix}${prepared.reply.fileReports}\n\n${plan.text.slice(plan.prefix.length)}`;
   const usage = screenUsage(isRecord(value) ? value.usage : null);
   if (usage === null) return failed('Discovery usage could not be read');
+  const declined = plan.brief.document.fit?.verdict === 'declined';
   const tail = replyTail({
-    filed: plan.filed, charge: replyCharge(reservation.turn.billing), questions: openQuestions(plan.brief),
-    ready: plan.ready, brief: snapshotOf(plan.brief), usage,
+    filed: plan.filed, charge: replyCharge(reservation.turn.billing), questions: declined ? [] : openQuestions(plan.brief),
+    ready: declined ? null : plan.ready, brief: snapshotOf(plan.brief), usage,
   });
   const messageId = assistantMessageId(reservation.turn, prepared.reply.messageId);
   const offTopic = reservation.turn.billing === 'free' && isRecord(answer.toolUse?.input)
@@ -397,7 +400,8 @@ async function actReply(
         baseRevision: current?.revision ?? null,
         source: scopeSourceFromBrief(plan.brief),
       },
-      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null, p_decline: null,
+      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null,
+      p_decline: plan.decline === null ? null : { cause: plan.decline.cause, reason: plan.decline.reason, reshaping: plan.decline.reshaping },
     },
     failure: null, suffix: plan.suffix, tail,
   };

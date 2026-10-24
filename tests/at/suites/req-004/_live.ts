@@ -128,7 +128,8 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
           ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text,
           ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb,
-          ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb) as value` as { value: unknown }[];
+          ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb,
+          ${input.decline === undefined ? null : JSON.stringify(input.decline)}::text::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },
@@ -235,6 +236,13 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
             'end_turn', ${settings.model}, ${cost.actualMicros}, ${cost.chargedCredits}, ${cost.overrunMicros}, clock_timestamp(), clock_timestamp())`;
         }
       });
+    },
+    declineRecordAsOperator: async (projectId) => {
+      const rows = await sql`select cause, reason, reshaping, declined_at from public.discovery_declines
+        where project_id = ${projectId}::uuid` as { cause: string; reason: string; reshaping: string; declined_at: Date | string }[];
+      const row = rows[0];
+      return row === undefined ? null
+        : { cause: row.cause, reason: row.reason, reshaping: row.reshaping, declinedAt: new Date(row.declined_at).toISOString() };
     },
     notificationEvents: async (event) => {
       const rows = await sql`select event, payload from public.notification_events

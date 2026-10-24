@@ -86,6 +86,7 @@ export type DeclineCause = (typeof DECLINE_CAUSES)[number];
 export type BriefFit =
   | { verdict: 'fits'; reason: string }
   | { verdict: 'declined'; cause: DeclineCause; reason: string; reshaping: string };
+export type DeclinedFit = Extract<BriefFit, { verdict: 'declined' }>;
 
 export type BriefDocument = {
   schemaVersion: 1;
@@ -188,7 +189,7 @@ export type FinishInput = {
 
 export type FinishDecision =
   | { ok: true; confirmation: Confirmation }
-  | { ok: false; kind: 'file-reading' | 'open-gaps' | 'data-ack' | 'invalid-request'; reason: string };
+  | { ok: false; kind: 'declined' | 'file-reading' | 'open-gaps' | 'data-ack' | 'invalid-request'; reason: string };
 
 export type OpeningTopic = {
   id: string;
@@ -215,6 +216,7 @@ export const BRIEF_REASONS = {
   fileReading: 'A file is still being read. You can finish when it is ready.',
   openGaps: 'Open questions stay in the brief unless you accept them.',
   dataAck: 'Tick the data box before you finish.',
+  declined: 'Discovery declined this need, so it has no publishable scope.',
   unknownSection: 'That part of the brief cannot be edited.',
   unknownTopic: 'That topic is not in the brief.',
   noSuggestion: 'This topic has no suggestion to accept.',
@@ -681,6 +683,7 @@ export type ReplyUpdate = {
   text: string;
   causeLabels?: readonly string[];
   data?: ReplyDataReport;
+  fit?: BriefFit;
   questions: readonly ReplyQuestionUpdate[];
   agreed: readonly ReplyAgreedUpdate[];
   openQuestions: readonly ReplyOpenUpdate[];
@@ -808,6 +811,7 @@ export function applyReplyTurn(current: BriefVersion, input: {
       .slice(0, SCOPE_CAUSE_LABELS_MAX);
   }
   if (input.update.data !== undefined) applyDataReport(document, input.update.data, input.round);
+  if (input.update.fit !== undefined && document.fit?.verdict !== 'declined') document.fit = { ...input.update.fit };
   const modelChanged = JSON.stringify(document) !== before;
   if (!modelChanged) return answered.kind === 'changed' ? answered : unchanged(current);
   const revision = answered.kind === 'changed' ? answered.brief.revision : current.revision + 1;
@@ -859,6 +863,7 @@ export function decideFinish(version: BriefVersion, input: FinishInput): FinishD
   if (input.existing && input.existing.revision === version.revision) {
     return { ok: true, confirmation: clone(input.existing) };
   }
+  if (version.document.fit?.verdict === 'declined') return { ok: false, kind: 'declined', reason: BRIEF_REASONS.declined };
   if (input.filesReading) return { ok: false, kind: 'file-reading', reason: BRIEF_REASONS.fileReading };
   if (input.acks.reviewed !== true) return { ok: false, kind: 'invalid-request', reason: 'Finish needs the review acknowledgement.' };
   const open = openTopics(version);
