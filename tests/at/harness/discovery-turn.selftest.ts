@@ -63,5 +63,5 @@ it('prepares a forced reply without a provider call and skips an empty assistant
 });
 
 it('has no token prices in reserve settings', () => {
-  expect(Object.keys(reserveSettings()).sort()).toEqual(['effort', 'max_output_tokens', 'message_max_chars', 'model', 'off_topic_flag_strikes', 'turn_deadline_seconds']);
+  expect(Object.keys(reserveSettings()).sort()).toEqual(['effort', 'max_output_tokens', 'message_max_chars', 'model', 'turn_deadline_seconds']);
 });

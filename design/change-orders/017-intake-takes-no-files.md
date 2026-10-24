@@ -38,4 +38,4 @@ Manifests: `loop/decomp/req-003.md` retires deliverable D2 and drops REQ-032 fro
 
 ## Code
 
-The same change removes the intake path from the code. It drops the `attach` action of the project need write, the `need_intakes.reference_files` column and every function that read it (migration `20261024120000_intake_takes_no_files.sql`), the intake view's file list and upload disclosure, the intake file names in the Discovery prompt, and the intake origin in the Discovery file panel and its sample data. The verify drive for need intake now proves that an attach is refused.
+The same change removes the intake path from the code. It drops the `attach` action of the project need write, the `need_intakes.reference_files` column and every function that read it (migration `20261024130000_intake_takes_no_files.sql`), the intake view's file list and upload disclosure, the intake file names in the Discovery prompt, and the intake origin in the Discovery file panel and its sample data. The verify drive for need intake now proves that an attach is refused.

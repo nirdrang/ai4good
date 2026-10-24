@@ -13,12 +13,11 @@ export type DiscoveryTurnSqlRow = {
   } | null;
   request_settings: {
     model: string; max_tokens: number; effort: 'low'; assistant_message_id?: string;
-    guardrails?: { active: boolean; off_topic_flag_strikes: number };
   };
   max_output_tokens: number; reserved_micros: number; reserved_credits: number;
   input_tokens: number | null; output_tokens: number | null; stop_reason: string | null; served_model: string | null;
   actual_micros: number | null; charged_credits: number | null; overrun_micros: number | null;
-  opened_at: string; settled_at: string | null; off_topic: boolean;
+  opened_at: string; settled_at: string | null;
 };
 
 export type DiscoveryReads = {

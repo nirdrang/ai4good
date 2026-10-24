@@ -102,9 +102,14 @@ function seededEventNames(): { file: string; names: string[] } {
   const names: string[] = [];
   for (const file of migrations) {
     const seed = /insert\s+into\s+public\.notification_event_types\s*\(\s*event\s*\)\s*values\s*([^;]+);/i.exec(file.text);
-    if (!seed) continue;
-    files.push(file.path);
-    names.push(...[...seed[1].matchAll(/\(\s*'([^']+)'\s*\)/g)].map((match) => match[1]));
+    if (seed) {
+      files.push(file.path);
+      names.push(...[...seed[1].matchAll(/\(\s*'([^']+)'\s*\)/g)].map((match) => match[1]));
+    }
+    for (const removed of file.text.matchAll(/delete\s+from\s+public\.notification_event_types\s+where\s+event\s*=\s*'([^']+)'\s*;/gi)) {
+      files.push(file.path);
+      names.splice(0, names.length, ...names.filter((name) => name !== removed[1]));
+    }
   }
   if (names.length === 0) {
     throw new Error(

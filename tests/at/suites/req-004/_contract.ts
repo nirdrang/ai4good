@@ -13,13 +13,13 @@ export type DiscoveryMessageRequest = { organizationId: string; projectId: strin
 };
 export type DiscoveryMessageOutcome = {
   ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
-  scopeReady: boolean; guardrail: { offTopicCount: number; flagged: boolean; notice: string | null } | null;
+  scopeReady: boolean;
 } | WriteRefusal;
 export type CauseLabelRow = { label: string; firstProjectId: string | null };
 export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; mode?: 'answer' | 'opening'; userMessageId?: string; expectedCharge?: 'free' | 'paid' };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
 export type OperatorSettleInput = {
-  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage; offTopic?: boolean;
+  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage;
   decline?: Omit<import('../../../../supabase/functions/_shared/discovery-brief.ts').DeclinedFit, 'verdict'>;
 };
 export type { DiscoveryConversationView };
