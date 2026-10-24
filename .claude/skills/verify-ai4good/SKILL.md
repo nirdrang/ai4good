@@ -87,7 +87,7 @@ each with an optional evidence directory as its only argument:
 ```
 bun .claude/skills/verify-ai4good/scripts/drive-ngo-signup.ts [outDir]       # signup, confirmation, NGO completion
 bun .claude/skills/verify-ai4good/scripts/drive-vetting.ts [outDir]          # profile, allowance, admin vetting, unvet
-bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]      # need start, save, attach, submit, snapshot
+bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]      # need start, save, submit, snapshot
 bun .claude/skills/verify-ai4good/scripts/drive-access-and-admin.ts [outDir] # volunteer gate, organisations, tenant reads, admin operations
 bun .claude/skills/verify-ai4good/scripts/drive-discovery-refusals.ts [outDir] # Discovery read, refusals, scope refusals, the switch; no provider key
 bun .claude/skills/verify-ai4good/scripts/drive-discovery-screen.ts [outDir] # wired screen, desktop and phone
@@ -172,7 +172,7 @@ on PATH.
   profile, an allowance read and debit, a platform administrator (admin users API plus the
   operator insert), vet, the vetted grant, unvet, and three refusals.
 - [`scripts/drive-need-intake.ts`](scripts/drive-need-intake.ts) — the need's start, save,
-  attach, Tier-2 classification, submit, the audit snapshot, and the public page's 404 for a
+  the refused attach, Tier-2 classification, submit, the audit snapshot, and the public page's 404 for a
   need in progress.
 - [`scripts/drive-access-and-admin.ts`](scripts/drive-access-and-admin.ts) — the volunteer
   GitHub gate refusals, create and update organisation with their refusals, the three tenant

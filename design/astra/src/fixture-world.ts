@@ -412,7 +412,7 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
       if (state.confirmation && state.confirmation.revision === input.revision) {
         return { ok: true, value: structuredClone(state.confirmation) };
       }
-      if (state.files.some((file) => file.origin === "discovery" && file.status.kind === "reading")) {
+      if (state.files.some((file) => file.status.kind === "reading")) {
         return refusal("file-reading", TEXT.fileStillReading);
       }
       if (input.revision !== state.brief.revision) return stale();
@@ -473,8 +473,7 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
   }
 
   function discoveryFile(snapshot: DiscoveryState, fileId: string) {
-    const file = snapshot.files.find((item) => item.id === fileId && item.origin === "discovery");
-    return file && file.origin === "discovery" ? file : null;
+    return snapshot.files.find((item) => item.id === fileId) ?? null;
   }
 
   function setReadingPercent(fileId: string, percent: number): boolean {
@@ -525,7 +524,7 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
       .join("\n");
     const lines: string[] = [];
     for (const file of state.files) {
-      if (file.origin !== "discovery" || file.status.kind !== "ready" || file.tookFromIt === null) continue;
+      if (file.status.kind !== "ready" || file.tookFromIt === null) continue;
       if (shown.includes(file.tookFromIt)) continue;
       lines.push(scriptForName(file.name).report);
     }
@@ -534,9 +533,9 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
 
   function fileRefusal(file: File): { kind: string; reason: string } | null {
     if (state.confirmation) return { kind: "finished", reason: TEXT.filesFinished };
-    const discoveryCount = state.files.filter((item) => item.origin === "discovery").length;
+    const discoveryCount = state.files.length;
     if (!state.project.funded && discoveryCount >= 3) return { kind: "file-limit", reason: TEXT.fileLimit };
-    if (state.files.some((item) => item.origin === "discovery" && item.name === file.name)) {
+    if (state.files.some((item) => item.name === file.name)) {
       return { kind: "duplicate-file", reason: TEXT.fileDuplicate };
     }
     return null;
@@ -548,7 +547,6 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
     const next = structuredClone(state);
     const id = nextFileId(file.name, next.files.map((item) => item.id));
     const created: DiscoveryFile = {
-      origin: "discovery",
       id,
       name: file.name,
       sizeBytes: file.size,
@@ -564,7 +562,7 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
   }
 
   for (const file of state.files) {
-    if (file.origin === "discovery" && file.status.kind === "reading") scheduleRead(file.id, file.status.percent);
+    if (file.status.kind === "reading") scheduleRead(file.id, file.status.percent);
   }
 
   return world;

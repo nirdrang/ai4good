@@ -4,14 +4,11 @@ import { openingDocument, type BriefVersion } from '../../../../supabase/functio
 import type { NeedsSut } from '../req-003/_contract.ts';
 import type { FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
 
-export async function seedFileProject(stack: Stack, needs: NeedsSut, email: string, input?: { brief: BriefVersion | null; title: string; description: string; intakeName: string }) {
+export async function seedFileProject(stack: Stack, needs: NeedsSut, email: string, input?: { brief: BriefVersion | null; title: string; description: string }) {
   const ngo = await needs.provisionNgo(email, { emailVerified: true });
   const started = await needs.startNeed(ngo.session, { organizationId: ngo.organizationId, title: input?.title ?? 'Kitchen volunteer rota', description: input?.description ?? 'Coordinate volunteers across three community kitchens.' });
   if (!started.ok) throw new Error(started.reason);
   const projectId = started.need.projectId;
-  const attached = await needs.attachReferenceFile(ngo.session, { organizationId: ngo.organizationId, projectId,
-    file: { fileName: input?.intakeName ?? 'intake.txt', mediaType: 'text/plain', byteSize: 12, description: 'An intake reference' } });
-  assert.equal(attached.ok, true);
   const sql = sqlClient(stack);
   const brief = input ? input.brief : openingDocument({ need: started.need.description! });
   await sql`update public.need_intakes set stage = 'discovery_in_progress', submitted_at = clock_timestamp() where project_id = ${projectId}::uuid`;

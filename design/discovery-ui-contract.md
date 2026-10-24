@@ -272,7 +272,7 @@ Files:
 - When the read finishes, its facts enter the brief. The brief marks them as coming from that file. A file fact does not agree a topic. The NGO agrees topics in the chat.
 - The next main-chat reply says, in one sentence, what the file showed. It asks nothing about the file.
 - Finish Discovery on the review page stays unavailable while a file is still being read. After confirmation, Add a file stays disabled.
-- There is no "AI can read" switch. Every uploaded file is read. At most three Discovery files while the project is not funded. Intake files do not count.
+- There is no "AI can read" switch. Every uploaded file is read. At most three Discovery files while the project is not funded. Intake takes no files (d101), so every file in the panel was added during Discovery.
 
 ### Open minor findings
 

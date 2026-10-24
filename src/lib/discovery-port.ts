@@ -39,7 +39,7 @@ export function isDiscoveryState(value: unknown): value is DiscoveryState {
 }
 
 export function filesReading(files: readonly DiscoveryFile[]): boolean {
-  return files.some((file) => file.origin === "discovery" && file.status.kind === "reading");
+  return files.some((file) => file.status.kind === "reading");
 }
 
 export function discoveryPort(scope: { organizationId: string; projectId: string }): DiscoveryPort {

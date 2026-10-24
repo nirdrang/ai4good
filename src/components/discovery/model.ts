@@ -119,7 +119,6 @@ function formatFileSize(bytes: number): string {
 }
 
 function statusText(file: DiscoveryFile): string {
-  if (file.origin === "intake") return TEXT.source.intake;
   switch (file.status.kind) {
     case "reading":
       return TEXT.fileStatus.reading(file.status.percent);
@@ -131,25 +130,23 @@ function statusText(file: DiscoveryFile): string {
 }
 
 function percentOf(file: DiscoveryFile): number | null {
-  if (file.origin !== "discovery") return null;
   if (file.status.kind === "reading") return file.status.percent;
   return null;
 }
 
 function rowTone(file: DiscoveryFile): FileBarTone | null {
-  if (file.origin !== "discovery") return null;
   if (file.status.kind === "reading") return "reading";
   return null;
 }
 
-/** Intake files are listed and never counted. The limit of three applies only while the project is not funded. */
+/** The limit of three applies only while the project is not funded. */
 export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
   rows: FileRowView[];
   discoveryCount: number;
   canAdd: boolean;
   limitText: string | null;
 } {
-  const discoveryCount = files.filter((file) => file.origin === "discovery").length;
+  const discoveryCount = files.length;
   return {
     rows: files.map((file) => ({
       id: file.id,
@@ -158,7 +155,7 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
       statusText: statusText(file),
       percent: percentOf(file),
       tone: rowTone(file),
-      canOpen: file.origin === "discovery",
+      canOpen: true,
     })),
     discoveryCount,
     canAdd: funded || discoveryCount < 3,
@@ -175,7 +172,7 @@ export type FileReadView = {
   factText: string | null;
 };
 
-export function fileReadView(file: Extract<DiscoveryFile, { origin: "discovery" }>): FileReadView {
+export function fileReadView(file: DiscoveryFile): FileReadView {
   const factText = file.tookFromIt ? TEXT.review.took(file.tookFromIt) : null;
   if (file.status.kind === "reading") {
     return {
@@ -634,7 +631,6 @@ export function reviewGate(input: {
 }
 
 export function fileTookLine(file: DiscoveryFile): string {
-  const where = file.origin === "intake" ? TEXT.review.fromIntake : TEXT.review.addedInDiscovery;
   const took = file.tookFromIt ? TEXT.review.took(file.tookFromIt) : TEXT.review.tookNothing;
-  return `${file.name} · ${where}. ${took}`;
+  return `${file.name} · ${TEXT.review.addedInDiscovery}. ${took}`;
 }

@@ -76,16 +76,13 @@ export type FileStatus =
   | { kind: "ready"; facts: number }
   | { kind: "failed"; reason: string };
 
-export type DiscoveryFile =
-  | { origin: "intake"; id: string; name: string; sizeBytes: number; tookFromIt: string | null }
-  | {
-      origin: "discovery";
-      id: string;
-      name: string;
-      sizeBytes: number;
-      status: FileStatus;
-      tookFromIt: string | null;
-    };
+export type DiscoveryFile = {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  status: FileStatus;
+  tookFromIt: string | null;
+};
 
 export type Confirmation = {
   revision: number;

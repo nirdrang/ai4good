@@ -8,7 +8,6 @@ import type { AnthropicMessagesSim } from '../../harness/contracts.ts';
 import type { DiscoveryMessageOutcome, DiscoverySut, ModelUsage } from './_contract.ts';
 import type { NgoActor } from '../req-003/_contract.ts';
 
-const FILE = { fileName: 'deadlines.csv', mediaType: 'text/csv', byteSize: 256 };
 function scriptedStep(index: number) {
   const message = GRANT_TRACKER.ngoMessages[index];
   const reply = GRANT_TRACKER.replies[index];
@@ -49,12 +48,6 @@ async function proveTransparency(sut: DiscoverySut, w: { email(name: string): st
   const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
   const deltas: number[] = [];
   await recordCompleted(sut, ngo, projectId, deltas, drive, STEPS[0]);
-  const beforeAttach = await remainingOf(sut, ngo);
-  const attached = await sut.attachReferenceFile(ngo.session, { organizationId: ngo.organizationId, projectId, file: FILE });
-  expect(attached.ok).toBe(true);
-  const attachDelta = (await remainingOf(sut, ngo)) - beforeAttach;
-  expect(attachDelta).toBe(0);
-  deltas.push(attachDelta);
   await recordCompleted(sut, ngo, projectId, deltas, drive, STEPS[1]);
   const beforeReserve = await remainingOf(sut, ngo);
   const reserved = await sut.reserveTurnAsOperator({

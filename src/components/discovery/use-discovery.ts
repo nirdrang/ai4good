@@ -317,8 +317,7 @@ export function useDiscovery(
   }
 
   function openFile(fileId: string) {
-    const file = filesRef.current.find((item) => item.id === fileId && item.origin === "discovery");
-    if (!file || file.origin !== "discovery") return;
+    if (!filesRef.current.some((item) => item.id === fileId)) return;
     setFileNotice(null);
     remember({ kind: "file", fileId });
     setRestore(null);
@@ -395,9 +394,9 @@ export function useDiscovery(
 
   const openFileRecord =
     panel?.kind === "file"
-      ? files.find((item) => item.id === panel.key && item.origin === "discovery")
+      ? files.find((item) => item.id === panel.key)
       : null;
-  const fileView = openFileRecord && openFileRecord.origin === "discovery" ? fileReadView(openFileRecord) : null;
+  const fileView = openFileRecord ? fileReadView(openFileRecord) : null;
 
   return {
     project: initial.project,
@@ -571,7 +570,7 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
   const open = openForReview(brief);
   const sections = reviewSections(brief);
   const ticks: ReviewTicks = { reviewedRevision, openGapsCount, data: dataAck };
-  const reading = files.some((file) => file.origin === "discovery" && file.status.kind === "reading");
+  const reading = files.some((file) => file.status.kind === "reading");
   const dataRequired = dataTierOf(brief) !== 0;
   const gate = reviewGate({
     revision: brief.revision,
@@ -738,7 +737,7 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
         openCount: openNow.length,
         ticks: { reviewedRevision, openGapsCount, data: dataAck },
         editing: editingId !== null,
-        reading: files.some((file) => file.origin === "discovery" && file.status.kind === "reading"),
+        reading: files.some((file) => file.status.kind === "reading"),
         dataRequired: tier !== 0,
       });
       if (!ready.canFinish || !hold()) return;
