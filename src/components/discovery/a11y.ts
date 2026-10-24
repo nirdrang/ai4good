@@ -192,6 +192,6 @@ export const TEXT = {
   },
   fit: {
     fits: "Fit: a staff member can look after this tool by chat after the volunteer leaves.",
-    declined: "Fit: this need needs ongoing developer work, so ai4good cannot take it on.",
+    declined: "Fit: ai4good cannot take on this need. A person at ai4good reads every decline and will contact you if it was wrong.",
   },
 } as const;

@@ -56,8 +56,37 @@ export type StoredQuestion = {
   askedInRound: number;
 };
 
-export type DataTier = { tier: 0 | 1 | 2; reason: string };
-export type BriefFit = { verdict: 'fits' | 'declined'; reason: string };
+export const DATA_KINDS = ['none', 'ordinary-pii', 'special-category', 'high-volume',
+  'health', 'immigration', 'abuse-victim', 'financial', 'unsure'] as const;
+export type DataKind = (typeof DATA_KINDS)[number];
+export const DATA_TOPIC_ID = 'info';
+
+export type Tier = 0 | 1 | 2;
+export type DataTier = { tier: Tier; kinds: DataKind[]; reason: string; responsibility: 'ngo' };
+
+const TIER_OF_KIND: Record<DataKind, Tier> = {
+  'none': 0,
+  'ordinary-pii': 1,
+  'special-category': 2,
+  'high-volume': 2,
+  'health': 2,
+  'immigration': 2,
+  'abuse-victim': 2,
+  'financial': 2,
+  'unsure': 2,
+};
+
+export function tierFor(kinds: readonly DataKind[], dataTopicNotSure: boolean): Tier {
+  if (dataTopicNotSure || kinds.length === 0) return 2;
+  return kinds.reduce<Tier>((tier, kind) => Math.max(tier, TIER_OF_KIND[kind]) as Tier, 0);
+}
+
+export const DECLINE_CAUSES = ['developer-maintenance', 'confidential-codebase'] as const;
+export type DeclineCause = (typeof DECLINE_CAUSES)[number];
+export type BriefFit =
+  | { verdict: 'fits'; reason: string }
+  | { verdict: 'declined'; cause: DeclineCause; reason: string; reshaping: string };
+export type DeclinedFit = Extract<BriefFit, { verdict: 'declined' }>;
 
 export type BriefDocument = {
   schemaVersion: 1;
@@ -160,7 +189,7 @@ export type FinishInput = {
 
 export type FinishDecision =
   | { ok: true; confirmation: Confirmation }
-  | { ok: false; kind: 'file-reading' | 'open-gaps' | 'data-ack' | 'invalid-request'; reason: string };
+  | { ok: false; kind: 'declined' | 'file-reading' | 'open-gaps' | 'data-ack' | 'invalid-request'; reason: string };
 
 export type OpeningTopic = {
   id: string;
@@ -187,6 +216,7 @@ export const BRIEF_REASONS = {
   fileReading: 'A file is still being read. You can finish when it is ready.',
   openGaps: 'Open questions stay in the brief unless you accept them.',
   dataAck: 'Tick the data box before you finish.',
+  declined: 'Discovery declined this need, so it has no publishable scope.',
   unknownSection: 'That part of the brief cannot be edited.',
   unknownTopic: 'That topic is not in the brief.',
   noSuggestion: 'This topic has no suggestion to accept.',
@@ -647,9 +677,13 @@ export type ReplyQuestionUpdate = {
 export type ReplyAgreedUpdate = { topicId: string; answer: string };
 export type ReplyOpenUpdate = { topicId: string; importance: Importance };
 
+export type ReplyDataReport = { kinds: readonly DataKind[]; reason: string };
+
 export type ReplyUpdate = {
   text: string;
   causeLabels?: readonly string[];
+  data?: ReplyDataReport;
+  fit?: BriefFit;
   questions: readonly ReplyQuestionUpdate[];
   agreed: readonly ReplyAgreedUpdate[];
   openQuestions: readonly ReplyOpenUpdate[];
@@ -731,6 +765,23 @@ function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: n
   return changed;
 }
 
+const UNSURE_REPORT: ReplyDataReport = { kinds: ['unsure'], reason: 'The NGO is not sure what data the tool will handle.' };
+
+function applyDataReport(document: BriefDocument, report: ReplyDataReport | undefined, round: number): void {
+  const question = document.questions[DATA_TOPIC_ID];
+  const topic = document.topics[DATA_TOPIC_ID];
+  if (!question || !topic || question.askedInRound >= round || !hasAnswer(topic)) return;
+  const notSure = topic.state.kind === 'not-sure';
+  const applied = report ?? (notSure && document.dataTier === null ? UNSURE_REPORT : undefined);
+  if (applied === undefined) return;
+  document.dataTier = {
+    tier: tierFor(applied.kinds, notSure),
+    kinds: [...applied.kinds],
+    reason: applied.reason,
+    responsibility: 'ngo',
+  };
+}
+
 /** Answers land first. A model entry that repeats an answer already stored does not change the brief. */
 export function applyReplyTurn(current: BriefVersion, input: {
   answers: readonly DiscoveryAnswer[];
@@ -764,6 +815,8 @@ export function applyReplyTurn(current: BriefVersion, input: {
       .filter((label) => label !== '' && label.length <= SCOPE_CAUSE_LABEL_MAX_CHARS && !document.removedCauseLabels.includes(label))
       .slice(0, SCOPE_CAUSE_LABELS_MAX);
   }
+  applyDataReport(document, input.update.data, input.round);
+  if (input.update.fit !== undefined && document.fit?.verdict !== 'declined') document.fit = { ...input.update.fit };
   const modelChanged = JSON.stringify(document) !== before;
   if (!modelChanged) return answered.kind === 'changed' ? answered : unchanged(current);
   const revision = answered.kind === 'changed' ? answered.brief.revision : current.revision + 1;
@@ -815,6 +868,7 @@ export function decideFinish(version: BriefVersion, input: FinishInput): FinishD
   if (input.existing && input.existing.revision === version.revision) {
     return { ok: true, confirmation: clone(input.existing) };
   }
+  if (version.document.fit?.verdict === 'declined') return { ok: false, kind: 'declined', reason: BRIEF_REASONS.declined };
   if (input.filesReading) return { ok: false, kind: 'file-reading', reason: BRIEF_REASONS.fileReading };
   if (input.acks.reviewed !== true) return { ok: false, kind: 'invalid-request', reason: 'Finish needs the review acknowledgement.' };
   const open = openTopics(version);

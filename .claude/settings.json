@@ -7,7 +7,8 @@
       "Bash(gh pr merge:*)",
       "PowerShell(gh pr merge:*)",
       "Bash(git push origin --delete:*)",
-      "PowerShell(git push origin --delete:*)"
+      "PowerShell(git push origin --delete:*)",
+      "Edit(supabase/functions/.env)"
     ]
   },
   "model": "fable",

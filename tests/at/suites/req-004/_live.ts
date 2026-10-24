@@ -3,7 +3,7 @@ import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '
 import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
 import { reserveSettings, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
-import { turnViewFromSql, renderReservation, renderDiscoveryMessage, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { turnViewFromSql, renderReservation, renderDiscoveryMessage, discoveryDecline, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { canonicalLabel } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
@@ -109,10 +109,13 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     },
     settleTurnAsOperator: async (input) => {
       try {
+        const decline = input.decline === undefined ? null : discoveryDecline(input.decline);
+        if (decline !== null && !decline.ok) throw new Error(decline.reason);
         const result = await sql`select public.discovery_turn_settle(${input.accountId}::uuid, ${input.turnId}::uuid,
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
           ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text,
-          ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb) as value` as { value: unknown }[];
+          ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb,
+          ${decline === null ? null : JSON.stringify(decline.value)}::text::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },
@@ -219,6 +222,31 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
             'end_turn', ${settings.model}, ${cost.actualMicros}, ${cost.chargedCredits}, ${cost.overrunMicros}, clock_timestamp(), clock_timestamp())`;
         }
       });
+    },
+    declineRecordAsOperator: async (projectId) => {
+      const rows = await sql`select cause, reason, reshaping, declined_at from public.discovery_declines
+        where project_id = ${projectId}::uuid` as { cause: string; reason: string; reshaping: string; declined_at: Date | string }[];
+      const row = rows[0];
+      return row === undefined ? null
+        : { cause: row.cause, reason: row.reason, reshaping: row.reshaping, declinedAt: new Date(row.declined_at).toISOString() };
+    },
+    opsItemsAsOperator: async (kind) => {
+      const rows = await sql`select kind, detail from public.notification_ops_items
+        where kind = ${kind} order by created_at, id` as { kind: string; detail: unknown }[];
+      return rows.map((row) => ({ kind: String(row.kind), detail: decoded(row.detail) as Record<string, unknown> }));
+    },
+    projectList: async (session, organizationId) => {
+      const answer = await functionPost(opts.stack, 'organization-dashboard', { organizationId }, inner.bearerOf(session));
+      if (answer.json.ok !== true) throw new Error(`the project list was refused: ${String(answer.json.reason)}`);
+      return answer.json.projects as Awaited<ReturnType<DiscoverySut['projectList']>>;
+    },
+    notificationEvents: async (event) => {
+      const rows = await sql`select event, payload from public.notification_events
+        where event = ${event} order by created_at, id` as { event: string; payload: unknown }[];
+      return rows.map((row) => ({
+        event: String(row.event),
+        payload: (typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload) as Record<string, unknown>,
+      }));
     },
     spendLedgerInvariantProblems: async (organizationId) => {
       const mismatches = await sql`select s.utc_day::text as utc_day, s.spent,

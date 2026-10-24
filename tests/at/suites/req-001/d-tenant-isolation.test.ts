@@ -70,7 +70,7 @@ atTest(
       expect(own.value.organizationName).toBe('Riverside Shelter 21A');
       expect(own.value.seats).toEqual([{ accountId: completionA.accountId, role: 'admin' }]);
       expect(own.value.projects).toEqual([
-        { projectId: project.id, projectName: 'Riverside Shelter Website 21', assignedVolunteerId: null },
+        { projectId: project.id, projectName: 'Riverside Shelter Website 21', assignedVolunteerId: null, decline: null },
       ]);
 
       const sessionB = await sut.registerWithEmailPassword(w.email('ngo-b-21'), PASSWORD);

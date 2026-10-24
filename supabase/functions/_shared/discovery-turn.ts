@@ -1,8 +1,11 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
-import { briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
+import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
+import { renderCopy } from './notification-copy.ts';
+import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
+import { DECLINE_COPY } from './scope-copy.ts';
 import { scopeSourceFromBrief, scopeViewFromSql, type ScopeView } from './scope.ts';
 import type { DiscoverySkill } from './discovery-skills.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED } from './tenant-reads.ts';
@@ -12,6 +15,7 @@ import { needIntakeAnswer } from './need-intake.ts';
 import type { Caller } from './caller.ts';
 import { isRecord, refuseWrite, stringField, uuidField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 import { fileDigestContext, fileReport, type FileRow } from './discovery-files.ts';
+import type { Decision } from './accounts.ts';
 
 export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
 export type Elicitation = NonNullable<DiscoveryTurnSqlRow['elicitation']>;
@@ -84,10 +88,31 @@ export function discoveryPrepare(port: MessagesPort, skills: readonly DiscoveryS
   return async (_caller: Caller, args: DiscoveryReserveArgs, reads: CallerReads): Promise<WriteRouteDecision<DiscoveryReserveArgs>> =>
     prepareReply(port, skills, args, reads);
 }
+export type DeclineNotice = {
+  readonly channels: readonly Channel[];
+  readonly copy: { readonly subject: string; readonly body: string };
+  readonly payload: Record<string, string>;
+};
+export type DiscoveryDecline = Omit<DeclinedFit, 'verdict'> & { ngo: DeclineNotice; review: DeclineNotice };
+function declineNotice(event: string, payload: Record<string, string>): Decision<DeclineNotice> {
+  const row = taxonomyRow(event);
+  if (row === undefined) return { ok: false, reason: `${event} is missing from the notification taxonomy` };
+  return { ok: true, value: { channels: channelsFor(row), copy: renderCopy(row, payload), payload } };
+}
+export function discoveryDecline(fit: Omit<DeclinedFit, 'verdict'>): Decision<DiscoveryDecline> {
+  const ngo = declineNotice('discovery.fit_declined', {
+    declineCause: fit.cause, reshapingSuggestion: fit.reshaping, oversightSentence: DECLINE_COPY.oversight,
+  });
+  if (!ngo.ok) return ngo;
+  const review = declineNotice('discovery.fit_decline_review', { declineCause: fit.cause });
+  if (!review.ok) return review;
+  return { ok: true, value: { cause: fit.cause, reason: fit.reason, reshaping: fit.reshaping, ngo: ngo.value, review: review.value } };
+}
 export type DiscoverySettleArgs = {
   p_account_id: string; p_turn_id: string; p_outcome: 'completed' | 'failed'; p_assistant_message: string | null;
   p_input_tokens: number | null; p_output_tokens: number | null; p_stop_reason: string | null;
   p_served_model: string | null; p_elicitation: Record<string, unknown> | null;
+  p_decline: DiscoveryDecline | null;
 };
 export function discoveryAct(port: MessagesPort) {
   return async (value: unknown, args: DiscoveryReserveArgs) => actReply(port, value, args, null, undefined);
@@ -226,6 +251,7 @@ async function prepareReply(
   const briefRead = await reads.discoveryBriefOf(args.p_project_id);
   if (!briefRead.ok) throw new Error(briefRead.detail);
   const current = isRecord(briefRead.value) ? briefVersionFrom(briefRead.value.revision, briefRead.value.document) : null;
+  if (current?.document.fit?.verdict === 'declined') return refuseWrite('discovery-declined', 409, BRIEF_REASONS.declined);
   const topicIds = current?.document.topicOrder
     ?? openingDocument({ need: need.body.need.description ?? need.body.need.title }).document.topicOrder;
   const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
@@ -316,7 +342,7 @@ async function actReply(
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'failed',
       p_assistant_message: null, p_input_tokens: null, p_output_tokens: null, p_stop_reason: null,
-      p_served_model: null, p_elicitation: null,
+      p_served_model: null, p_elicitation: null, p_decline: null,
     },
     failure: reason,
   });
@@ -335,10 +361,13 @@ async function actReply(
   if (prepared.reply.fileReports) plan.text = `${plan.prefix}${prepared.reply.fileReports}\n\n${plan.text.slice(plan.prefix.length)}`;
   const usage = screenUsage(isRecord(value) ? value.usage : null);
   if (usage === null) return failed('Discovery usage could not be read');
+  const declined = plan.brief.document.fit?.verdict === 'declined';
   const tail = replyTail({
-    filed: plan.filed, charge: replyCharge(reservation.turn.billing), questions: openQuestions(plan.brief),
-    ready: plan.ready, brief: snapshotOf(plan.brief), usage,
+    filed: plan.filed, charge: replyCharge(reservation.turn.billing), questions: declined ? [] : openQuestions(plan.brief),
+    ready: declined ? null : plan.ready, brief: snapshotOf(plan.brief), usage,
   });
+  const decline = plan.decline === null ? null : discoveryDecline(plan.decline);
+  if (decline !== null && !decline.ok) return failed(decline.reason);
   const messageId = assistantMessageId(reservation.turn, prepared.reply.messageId);
   return {
     args: {
@@ -354,6 +383,7 @@ async function actReply(
         baseRevision: current?.revision ?? null,
         source: scopeSourceFromBrief(plan.brief),
       },
+      p_decline: decline === null ? null : decline.value,
     },
     failure: null, suffix: plan.suffix, tail,
   };

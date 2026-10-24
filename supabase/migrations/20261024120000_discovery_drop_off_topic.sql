@@ -18,11 +18,12 @@ begin
 end;
 $$;
 
-drop function public.discovery_turn_settle(uuid, uuid, text, text, integer, integer, text, text, jsonb, boolean, jsonb);
+drop function public.discovery_turn_settle(uuid, uuid, text, text, integer, integer, text, text, jsonb, boolean, jsonb, jsonb);
 
 create function public.discovery_turn_settle(
   p_account_id uuid, p_turn_id uuid, p_outcome text, p_assistant_message text,
-  p_input_tokens integer, p_output_tokens integer, p_stop_reason text, p_served_model text, p_elicitation jsonb
+  p_input_tokens integer, p_output_tokens integer, p_stop_reason text, p_served_model text, p_elicitation jsonb,
+  p_decline jsonb default null
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_turn public.discovery_turns;
@@ -109,6 +110,7 @@ begin
   if v_turn.reserved_credits > v_charged then
     perform public.discovery_spend_release(v_turn.org_id, v_turn.utc_day, v_turn.reserved_credits - v_charged);
   end if;
+  perform public.discovery_reply_effects(v_turn, p_account_id, v_document, p_decline);
   return jsonb_build_object(
     'turn', to_jsonb(v_turn),
     'allowance', public.discovery_allowance(p_account_id, v_turn.org_id, 'read', null),
@@ -117,9 +119,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.discovery_turn_settle(uuid, uuid, text, text, integer, integer, text, text, jsonb)
+revoke execute on function public.discovery_turn_settle(uuid, uuid, text, text, integer, integer, text, text, jsonb, jsonb)
   from public, anon, authenticated, service_role;
-grant execute on function public.discovery_turn_settle(uuid, uuid, text, text, integer, integer, text, text, jsonb) to service_role;
+grant execute on function public.discovery_turn_settle(uuid, uuid, text, text, integer, integer, text, text, jsonb, jsonb) to service_role;
 
 create or replace function public.discovery_turn_reserve(
   p_account_id uuid, p_organization_id uuid, p_project_id uuid, p_message text,
