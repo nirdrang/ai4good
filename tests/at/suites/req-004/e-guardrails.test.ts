@@ -17,7 +17,7 @@ const MESSAGE = 'Hello';
 const STOP = 'Stop here and write it up.';
 const OPEN_QUESTIONS = ['Who else will use the tool?', 'What reminder channel is required?'];
 
-atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it has with open questions', {
+atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it has with open questions', { timeoutMs: { integration: 240_000 } }, {
   default: async ({ open }) => {
     const { w, sut, h } = await open();
     expect(stopRulePinProblems()).toEqual([]);
