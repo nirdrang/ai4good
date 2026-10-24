@@ -27,7 +27,7 @@ async function briefOf(sut: DiscoverySut, session: Session, projectId: string) {
 type Flow = {
   first: { message: string; data?: { kinds: DataKind[]; reason: string } };
   answer: { text: string; certain: boolean; message: string };
-  data: { kinds: DataKind[]; reason: string };
+  data?: { kinds: DataKind[]; reason: string };
 };
 
 async function tierFlow(sut: DiscoverySut, anthropic: AnthropicMessagesSim, email: string, flow: Flow) {
@@ -129,6 +129,11 @@ atTest('AT-004.30', 'an unsure data answer, or an unsure report, gives Tier 2', 
     });
     expect(unsure.brief.dataTier?.tier).toBe(2);
     if (TIER !== 'loop') return;
+    const silent = await tierFlow(sut, h.vendors.anthropic, w.email('tiers-30-silent'), {
+      first: { message: 'Hello.' },
+      answer: { text: 'We have not decided what to keep', certain: false, message: 'We are not sure what data the tool will keep.' },
+    });
+    expect(silent.brief.dataTier).toMatchObject({ tier: 2, kinds: ['unsure'], responsibility: 'ngo' });
     const reported = await tierFlow(sut, h.vendors.anthropic, w.email('tiers-30-report'), {
       first: { message: 'Hello.' }, answer: contacts, data: { kinds: ['unsure'], reason: 'The NGO does not know yet.' },
     });

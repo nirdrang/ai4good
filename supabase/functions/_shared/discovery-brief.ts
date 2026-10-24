@@ -765,14 +765,19 @@ function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: n
   return changed;
 }
 
-function applyDataReport(document: BriefDocument, report: ReplyDataReport, round: number): void {
+const UNSURE_REPORT: ReplyDataReport = { kinds: ['unsure'], reason: 'The NGO is not sure what data the tool will handle.' };
+
+function applyDataReport(document: BriefDocument, report: ReplyDataReport | undefined, round: number): void {
   const question = document.questions[DATA_TOPIC_ID];
   const topic = document.topics[DATA_TOPIC_ID];
   if (!question || !topic || question.askedInRound >= round || !hasAnswer(topic)) return;
+  const notSure = topic.state.kind === 'not-sure';
+  const applied = report ?? (notSure && document.dataTier === null ? UNSURE_REPORT : undefined);
+  if (applied === undefined) return;
   document.dataTier = {
-    tier: tierFor(report.kinds, topic.state.kind === 'not-sure'),
-    kinds: [...report.kinds],
-    reason: report.reason,
+    tier: tierFor(applied.kinds, notSure),
+    kinds: [...applied.kinds],
+    reason: applied.reason,
     responsibility: 'ngo',
   };
 }
@@ -810,7 +815,7 @@ export function applyReplyTurn(current: BriefVersion, input: {
       .filter((label) => label !== '' && label.length <= SCOPE_CAUSE_LABEL_MAX_CHARS && !document.removedCauseLabels.includes(label))
       .slice(0, SCOPE_CAUSE_LABELS_MAX);
   }
-  if (input.update.data !== undefined) applyDataReport(document, input.update.data, input.round);
+  applyDataReport(document, input.update.data, input.round);
   if (input.update.fit !== undefined && document.fit?.verdict !== 'declined') document.fit = { ...input.update.fit };
   const modelChanged = JSON.stringify(document) !== before;
   if (!modelChanged) return answered.kind === 'changed' ? answered : unchanged(current);
