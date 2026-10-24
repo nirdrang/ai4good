@@ -98,12 +98,17 @@ else
   lines+=("grok wrapper: NOT on PATH - run: export PATH=$shim:\$PATH before a grok lane")
 fi
 
-if command -v opencode >/dev/null 2>&1; then
-  if opencode auth list 2>&1 | grep -q "OpenCode Go"; then
-    lines+=("opencode: OpenCode Go authenticated")
-  else
-    lines+=("opencode: NOT authenticated - see the setup script's OPENCODE_GO_API_KEY")
-  fi
+# Grok lanes do not run in cloud sessions (founder 2026-10-24); role rows only, so the sheet's
+# indented undo lines keep their grok descriptors.
+sheet="$CLAUDE_PROJECT_DIR/.claude/pstack-models.md"
+if grep -qE '^[^[:space:]].*grok:grok-' "$sheet"; then
+  sed -i -E '/^[^[:space:]]/ s/grok:grok-[0-9.]+@[a-z]+/codex:gpt-6.1-sol@max/g' "$sheet"
+  git -C "$CLAUDE_PROJECT_DIR" update-index --skip-worktree .claude/pstack-models.md
+fi
+if grep -qE '^[^[:space:]].*grok:grok-' "$sheet"; then
+  lines+=("pstack sheet: grok lanes NOT replaced - check .claude/pstack-models.md")
+else
+  lines+=("pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
 
 banner=$(printf '%s\n' "${lines[@]}")
