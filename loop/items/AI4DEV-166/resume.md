@@ -26,6 +26,8 @@ Rewritten at every step gate. Read this first after a compaction or in a new ses
 - Docker Desktop failed on broken socket files. The fix was to rename `AppData\Local\Docker\run` and `AppData\Local\docker-secrets-engine` aside, which needs the founder's approval each time.
 - Edge code must never import from `src/`. Shared wire types live in `supabase/functions/_shared/prd/wire.ts`.
 - `bun run lint` reports tree-wide line-ending noise on Windows. Judge lint by errors other than line endings.
+- `docker restart` of the edge runtime keeps its old environment. After changing `supabase/functions/.env`, run `bun run db:stop` then `bun run db:start`.
+- `main` moved on 2026-10-24: pull request #98 (Discovery data tiers, AI4DEV-136) touched `scope-copy.ts`, the req-004 suites and `tests/at/suites/req-036/scope.test.ts`. Merge `main` into this branch before the next unit, and expect conflicts in those files.
 
 ## Founder rulings of 2026-10-24 (after the investigation in prd-storage.md)
 
@@ -44,7 +46,7 @@ Rewritten at every step gate. Read this first after a compaction or in a new ses
 - Step 3 is the FOUNDER's: follow `github-setup.md` (create the test organization and the GitHub App, put the four values in `supabase/functions/.env`), then say "GitHub is set up". Open founder questions in design.md: may test runs delete the repositories they create; should pushes to `prd/` by a person be applied (the design's default) or refused.
 - Founder rulings 2026-10-24 afternoon: a person's push to `prd/` is applied as a new revision (confirmed sections it changed go to Needs review), and each test run deletes the repositories it created in the test organization.
 - Unit 2 step 1 is DONE: the scope generator, its skill and its callers have no Lovable recommendation, build split or Lovable copy (`052dcf84`, cherry-picked; `7c82ca12` fixed a stale design note). On the founder's request the Grok writer ran again with a brief that keeps shell commands plain, and it completed with no cancellation (receipt `u2s1c`). Typecheck, the bijections, and the loop tiers of 036 and 004 match their expected files.
-- BLOCKER: the integration tiers fail because `opencode.ai` answers 401 to `DISCOVERY_API_KEY` (a bare `/models` probe too). The key was revoked or expired on 2026-10-24 after 07:55. The founder must renew it in `supabase/functions/.env` (and in the AI4DEV-181 copy). Until then, every model-backed case is red at the integration tier.
+- RESOLVED: the founder revoked the old opencode key and put the new one (from the cloud environment's settings) into this worktree's `supabase/functions/.env`. After db:stop and db:start, the integration tiers match their expected files: req-036 3 green and 15 red, req-004 30 green and 34 red. The AI4DEV-181 worktrees still hold the revoked key.
 - NEXT: unit 2 step 2 puts the structured technical scope into the technical-scope section's document and the wire types. Writers stay on Grok with the plain-shell brief, in lane `AI4DEV-166-u2` (merge the item branch in first).
 
 ## Plan after the rulings, step by step, each ending at a gate
