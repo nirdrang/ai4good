@@ -56,7 +56,7 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
     }
   }
   const seed = await seedFileProject(stack, sut, email, { brief: first ? null : version, title: 'Volunteer scheduling',
-    description: doc.need.text, intakeName: 'intake-notes.pdf' });
+    description: doc.need.text });
   const scope = { organizationId: seed.ngo.organizationId, projectId: seed.projectId };
   try {
     if (adminEmail !== null) await sut.vetOrganizationAsAdmin(await sut.provisionPlatformAdmin(adminEmail), scope.organizationId);

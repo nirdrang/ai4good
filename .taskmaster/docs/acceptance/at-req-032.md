@@ -6,7 +6,7 @@ Source: requirements/req-032.md (prd-mvp.md REQ-032). Dependencies: REQ-004, REQ
 
 ## A. Upload moments & constraints
 
-- **AT-032.01 (P0)** — Given the three upload moments — intake, during Discovery (on the agent's ask), and the project page before completion — When a file is uploaded at each, Then each upload succeeds and the file is attached to the project; and Given a COMPLETED project, When an upload is attempted from its page, Then it is rejected — pre-completion is the boundary.
+- **AT-032.01 (P0)** — Given the two upload moments — during Discovery (on the agent's ask) and the project page before completion — When a file is uploaded at each, Then each upload succeeds and the file is attached to the project, and intake offers no upload [d101]; and Given a COMPLETED project, When an upload is attempted from its page, Then it is rejected — pre-completion is the boundary.
 - **AT-032.02 (P0)** — Given one file of each named supported type (PDF, an image, CSV, TSV, TXT, DOCX, XLSX), When each is uploaded, Then each is accepted. No unsupported-type rejection is asserted — the requirement says supported types "include" these; it defines no exhaustive allow-list. [cx r2: the rejection assertion added behavior]
 - **AT-032.03 (P0)** — Given the configured per-file and per-project size caps, When a file just under the per-file cap is uploaded, Then it succeeds; just over, Then it is rejected; and When an upload would push the project's aggregate just over the per-project cap, Then it is rejected while the just-under aggregate stands — both caps discriminate independently.
 
@@ -26,7 +26,7 @@ Source: requirements/req-032.md (prd-mvp.md REQ-032). Dependencies: REQ-004, REQ
 - **AT-032.09 (P0)** — Given two equivalent Discovery sessions — one with a file read, one without (differential fixture) — on a free project and on a funded project, When credit and fuel consumption are compared, Then the file read adds NO credit charge and NO fuel charge, and the session is not interrupted by the read. [d94: the read is free on funded projects too] [founder decision 2026-10-01: a Discovery file is ingested automatically and the read is not a turn] [cx: zero-credit-turn over-assertion corrected — only the READ is free] [cross: REQ-004 owns the credit meter; REQ-006 the fuel meter]
 - **AT-032.10 (P0)** — Given the assigned volunteer, When they download files, Then the download succeeds from the project page path under their authorization [cross: AT-028.16 owns the Skill helper]; and after the default download flow completes, the files are NOT part of the repo's normal/tracked contents (outcome only — the mechanism, ignore rules or a location outside the repo, is unprescribed) — an accidental-commit residual is accepted at pilot scale and NOT asserted against beyond the default-flow outcome. [cx r2: the seeded-ignore-rules mechanism was an implementation prescription] [cross: AT-008.16 owns seeded hygiene]
 
-- **AT-032.13 (P0)** — Given a project that is not funded, with one intake file and three files added during Discovery, When the NGO tries to add a fourth file during Discovery, Then the upload is refused with the three-file explanation and the intake file is not counted; When the NGO removes one Discovery file, Then one more upload succeeds; and Given the same project after funding, When the NGO adds a fourth Discovery file, Then it succeeds. [d94] [cross: REQ-004 owns the screen, AT-004.70]
+- **AT-032.13 (P0)** — Given a project that is not funded, with three files added during Discovery, When the NGO tries to add a fourth file during Discovery, Then the upload is refused with the three-file explanation; When the NGO removes one Discovery file, Then one more upload succeeds; and Given the same project after funding, When the NGO adds a fourth Discovery file, Then it succeeds. [d94] [d101: the intake-file clause left with intake uploads] [cross: REQ-004 owns the screen, AT-004.70]
 
 ## E. Listing, deletion & audit
 
@@ -37,7 +37,7 @@ Source: requirements/req-032.md (prd-mvp.md REQ-032). Dependencies: REQ-004, REQ
 
 | REQ-032 clause | Tests |
 |---|---|
-| Three upload moments; pre-completion boundary | 01 |
+| Two upload moments (Discovery, project page), none at intake; pre-completion boundary | 01 [d101] |
 | Named supported types accepted (no exhaustive allow-list asserted) | 02 [cx r2] |
 | Per-file + per-project caps (both discriminate) | 03 |
 | Access limited to NGO/CURRENTLY-assigned volunteer/admin; others + former volunteer rejected | 04 [cx] |
@@ -46,6 +46,6 @@ Source: requirements/req-032.md (prd-mvp.md REQ-032). Dependencies: REQ-004, REQ
 | No upload scanning in v1 (instrumented: zero scan calls/jobs, sync or async) | 07 [cx r2] |
 | Discovery cites files; names + descriptions ride context; contents READ multimodally across ALL seven formats | 08, 12 [cx r2] |
 | File reads: no credit or fuel charge (differential), never interrupt; a read is not a turn | 09 [cx] [d94] [founder decision 2026-10-01] |
-| Three Discovery files while not funded; intake excluded; no limit once funded | 13 [d94] |
+| Three Discovery files while not funded; no limit once funded | 13 [d94] [d101] |
 | Volunteer download from page; kept out of repo tracked contents (outcome only, mechanism unprescribed; residual accepted) | 10 [cx r2] |
 | Page listing metadata; delete → RECOVERY PROVEN (metadata + original content); deletion history auditable; uploads/deletes audited | 11 [cx] |
