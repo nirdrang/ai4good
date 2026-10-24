@@ -2074,10 +2074,10 @@ async function provisionActiveControl(
       }
       const ngo = await signIn(w.email(`prd-open-ngo-${tag}`));
       await ensureVerified(sut, ngo);
-      const organizationId = await completeNgo(sut, ngo, `PRD Open Host ${tag}`);
+      await completeNgo(sut, ngo, `PRD Open Host ${tag}`);
       return {
         session: ngo,
-        subject: { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001' },
+        subject: { route, organizationId: '00000000-0000-4000-8000-000000000001', projectId: '00000000-0000-4000-8000-000000000001' },
       };
     }
     case 'prd-draft': {

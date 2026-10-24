@@ -39,6 +39,13 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   prd_chats: 'unreachable-by-client-roles',
   prd_messages: 'unreachable-by-client-roles',
   prd_drafts: 'unreachable-by-client-roles',
+  prd_questions: 'unreachable-by-client-roles',
+  prd_question_prerequisites: 'unreachable-by-client-roles',
+  prd_followups: 'unreachable-by-client-roles',
+  prd_answers: 'unreachable-by-client-roles',
+  prd_answer_uses: 'unreachable-by-client-roles',
+  prd_turns: 'unreachable-by-client-roles',
+  prd_actions: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
@@ -49,6 +56,12 @@ export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
   complete_signup:
     'the caller holds no account row when this runs; a second completion is refused by the accounts ' +
     'primary key, and the TypeScript gate refuses a deactivated account before the call is made',
+  prd_question_outcome:
+    'the PRD tools write the structured outcome of the AI for a turn that prd_turn_reserve already admitted ' +
+    'behind the account gate; no account acts in this call',
+  prd_turn_finish:
+    'the relay closes a turn that prd_turn_reserve or prd_action already admitted behind the account gate; ' +
+    'no account acts in this call',
 };
 
 function matchDollarTag(sql: string, i: number): string | null {

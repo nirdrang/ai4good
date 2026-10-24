@@ -1132,3 +1132,6 @@ grant execute on function public.prd_append_message(uuid, text, text, text, json
   to service_role;
 
 notify pgrst, 'reload schema';
+
+revoke execute on function public.prd_question_post(uuid, uuid, uuid, bigint) from service_role;
+revoke execute on function public.prd_answer_use(uuid, uuid, uuid, integer, text) from service_role;
