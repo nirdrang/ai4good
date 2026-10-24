@@ -18,8 +18,8 @@ export type FileRow = {
   created_by: string; created_at: string; removed_at: string | null; digest: FileDigest | null;
 };
 
-export function fileLimitReached(funded: boolean, files: readonly { origin: string; removedAt?: string | null }[]): boolean {
-  return !funded && files.filter((file) => file.origin === 'discovery' && !file.removedAt).length >= 3;
+export function fileLimitReached(funded: boolean, files: readonly { removedAt?: string | null }[]): boolean {
+  return !funded && files.filter((file) => !file.removedAt).length >= 3;
 }
 
 export function splitFileText(text: string, maxChars = FILE_PART_CHARS): string[] {
@@ -59,7 +59,7 @@ export function mergeFileDigests(parts: readonly FileDigest[]): FileDigest {
 
 export function screenFile(row: FileRow) {
   return {
-    origin: 'discovery' as const, id: row.id, name: row.name, sizeBytes: row.size_bytes,
+    id: row.id, name: row.name, sizeBytes: row.size_bytes,
     status: row.status === 'read' ? { kind: 'ready' as const, facts: row.facts_count }
       : row.status === 'failed' ? { kind: 'failed' as const, reason: row.failure_reason ?? 'The file could not be read.' }
       : { kind: 'reading' as const, percent: row.total_parts > 0 ? Math.min(99, Math.floor(row.completed_parts * 100 / row.total_parts)) : 0 },

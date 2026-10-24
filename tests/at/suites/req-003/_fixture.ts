@@ -1,5 +1,5 @@
 import {
-  applyNeedPatch, submitGate, submitTransition, intakeSnapshotOf, decideProjectNeed, disclosureFor, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload, type ReferenceFileInput, type ReferenceFileMetadata,
+  applyNeedPatch, submitGate, submitTransition, intakeSnapshotOf, decideProjectNeed, needIntakeAnswer, type NeedIntakeSqlRow, type ProjectNeedArgs, type StartPayload,
 } from '../../../../supabase/functions/_shared/need-intake.ts';
 import { publicProjectAnswer } from '../../../../supabase/functions/_shared/public-project.ts';
 import {
@@ -27,8 +27,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
     const need: NeedIntakeView = {
       projectId: crypto.randomUUID(), organizationId: args.p_organization_id,
       title: payload.title, description: payload.description, urgency: payload.urgency,
-      stage: 'draft', causeLabels: [], referenceFiles: [], tier2ClassifiedAt: null,
-      upload: { disclosure: disclosureFor(null) }, submittedAt: null, updatedAt: new Date(opts.clock.now()).toISOString(),
+      stage: 'draft', causeLabels: [], tier2ClassifiedAt: null, submittedAt: null, updatedAt: new Date(opts.clock.now()).toISOString(),
     };
     needs.set(need.projectId, structuredClone(need));
     return { ok: true, changed: true, need: structuredClone(need) };
@@ -44,17 +43,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const result = applyNeedPatch(need, args.p_payload as NeedPatch, new Date(opts.clock.now()).toISOString());
       needs.set(need.projectId, structuredClone(result.need));
       return { ok: true, ...structuredClone(result) };
-    }
-    if (args.p_action === 'attach') {
-      const payload = args.p_payload as ReferenceFileInput;
-      const addedAt = new Date(opts.clock.now()).toISOString();
-      const file: ReferenceFileMetadata = {
-        ...payload, description: payload.description ?? null, id: crypto.randomUUID(),
-        addedByAccountId: args.p_account_id, addedAt,
-      };
-      const attached = { ...need, referenceFiles: [...need.referenceFiles, file], updatedAt: addedAt };
-      needs.set(need.projectId, structuredClone(attached));
-      return { ok: true, changed: true, need: structuredClone(attached) };
     }
     if (args.p_action === 'submit') {
       if (need.stage === 'discovery_in_progress') return { ok: true, changed: false, need: structuredClone(need) };
@@ -118,7 +106,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
     readAllowance: (session, organizationId) => organizations.readAllowance(session, organizationId),
     startNeed: (session, request) => write(session, { ...request, action: 'start' }),
     saveNeed: (session, request) => write(session, { ...request, action: 'save' }),
-    attachReferenceFile: (session, request) => write(session, { ...request, action: 'attach' }),
     submitNeed: (session, request) => write(session, { ...request, action: 'submit' }),
     readNeed: async (session: Session | null, projectId) => {
       const actor = session === null ? undefined : actors.get(session.sessionId);
@@ -171,7 +158,6 @@ export function createFixtureAdapter(opts: Parameters<typeof createOrganizations
       const need = needs.get(projectId);
       if (need === undefined) throw new Error('no such need to classify');
       need.tier2ClassifiedAt ??= new Date(opts.clock.now()).toISOString();
-      need.upload.disclosure = disclosureFor(need.tier2ClassifiedAt);
     },
     intakeSnapshots: async (projectId) => structuredClone(snapshots.filter((row) => row.detail.project_id === projectId)),
   };
@@ -185,10 +171,6 @@ function sqlRow(need: NeedIntakeView): NeedIntakeSqlRow {
   return {
     project_id: need.projectId, org_id: need.organizationId, title: need.title,
     description: need.description, urgency: need.urgency, stage: need.stage, cause_labels: [...need.causeLabels],
-    reference_files: need.referenceFiles.map((file) => ({
-      id: file.id, file_name: file.fileName, media_type: file.mediaType, byte_size: file.byteSize,
-      description: file.description, added_by_account_id: file.addedByAccountId, added_at: file.addedAt,
-    })),
     tier2_classified_at: need.tier2ClassifiedAt, submitted_at: need.submittedAt, updated_at: need.updatedAt,
   };
 }

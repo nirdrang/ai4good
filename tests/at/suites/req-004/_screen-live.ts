@@ -62,7 +62,7 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
     if (adminEmail !== null) await sut.vetOrganizationAsAdmin(await sut.provisionPlatformAdmin(adminEmail), scope.organizationId);
     if (scenario === 'three-files-funded') await sut.setProjectFundingAsOperator(seed.projectId, { fundedAt: new Date().toISOString(), fuelMicros: 0 });
     if (finish || scenario.includes('three-files')) {
-      const files = finish ? (confirmed ? GIVEN['confirmed-tier-2'].files : given.files).slice(1) : GIVEN['first-reply-three-files'].files.map((name) => ({ name, took: 'Volunteer scheduling source material.' }));
+      const files = finish ? (confirmed ? GIVEN['confirmed-tier-2'].files : given.files) : GIVEN['first-reply-three-files'].files.map((name) => ({ name, took: 'Volunteer scheduling source material.' }));
       for (const file of files) {
         const id = crypto.randomUUID();
         await seed.sql`insert into public.discovery_files(id, project_id, name, media_type, size_bytes, content_hash, status, facts_count,

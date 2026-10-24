@@ -34,8 +34,8 @@ Manifests: `loop/decomp/req-003.md` retires deliverable D2 and drops REQ-032 fro
 
 - Project intake (`design/ui-ux-instructions.md` row 5): no upload control. The intake screen has no canvas yet, so nothing else changes.
 - Reference files (row 7): upload mid-Discovery or from the project page, never at intake.
-- Discovery (`design/discovery-ui-contract.md`): every file in the file panel was added during Discovery. The approved canvas in `design/canvas/discovery/project/` still shows one intake file in its sample data. It is not revised here; the next Discovery screen design pass removes it.
+- Discovery (`design/discovery-ui-contract.md`): every file in the file panel was added during Discovery. The approved canvas in `design/canvas/discovery/project/` still shows one intake file in its sample data. It is not revised here; the next Discovery screen design pass removes it. The coded screen and the sample-data shell in `design/astra/` already show no intake file.
 
 ## Code
 
-The intake attach action, the intake file list on the need, and the intake origin in the Discovery file panel are still in the code. A follow-up change removes them.
+The same change removes the intake path from the code. It drops the `attach` action of the project need write, the `need_intakes.reference_files` column and every function that read it (migration `20261024120000_intake_takes_no_files.sql`), the intake view's file list and upload disclosure, the intake file names in the Discovery prompt, and the intake origin in the Discovery file panel and its sample data. The verify drive for need intake now proves that an attach is refused.

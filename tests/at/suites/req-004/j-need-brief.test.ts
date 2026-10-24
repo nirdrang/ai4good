@@ -237,7 +237,7 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
         expect(after.brief.topics.find((topic) => topic.id === question.topicId)?.state).toMatchObject({ kind: 'agreed', answer: question.options[0]!.answer });
         expect(after.brief.revision).toBeGreaterThan(before.brief.revision);
         expect(after.usage.dailyLeft).toBe(before.usage.dailyLeft - 1);
-        expect(after.files.filter((file) => file.origin === 'discovery')).toHaveLength(0);
+        expect(after.files).toHaveLength(0);
         return;
       }
       const priority = given.questions.priority;
@@ -464,7 +464,6 @@ atTest(
           expect(await screen.files.text(), 'the screen explains the limit of three files for free projects').toContain(
             'Free projects can add 3 files in Discovery.',
           );
-          expect(await screen.files.has(unfunded.intake), 'the intake file is listed').toBe(true);
           for (const name of unfunded.files) {
             expect(await screen.files.has(name), `${name} is listed`).toBe(true);
           }
@@ -476,7 +475,6 @@ atTest(
           );
         });
         await withDiscovery(ctx, { scenario: 'three-files-funded', viewport }, async (screen) => {
-          const funded = GIVEN['three-files-funded'];
           const before = await screen.modelCalls();
           expect(await screen.files.addDisabled(), 'a funded project can add a file').not.toBe('true');
           expect(await screen.files.text(), 'a funded project does not show the limit of three').not.toContain(
@@ -484,7 +482,6 @@ atTest(
           );
           expect(await screen.files.text(), 'the count says 3 added').toContain('3 added');
           expect(await screen.files.text(), 'the count does not say 3 of 3').not.toContain('3 of 3');
-          expect(await screen.files.has(funded.intake), 'the intake file is listed').toBe(true);
           await screen.files.openAdd();
           expect(await screen.chooser.visible(), 'Add a file opens the chooser').toBe(true);
           expect(await screen.modelCalls(), 'opening the chooser makes no model call').toEqual(before);

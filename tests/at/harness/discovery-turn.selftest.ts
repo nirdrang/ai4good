@@ -21,7 +21,7 @@ const reads: CallerReads = {
   seatsOf: async () => ({ ok: true, rows: [] }), projectsOf: async () => ({ ok: true, rows: [] }),
   project: async () => ({ ok: true, rows: [{ id: projectId, name: 'Tracker', org_id: orgId, assigned_volunteer_id: null }] }),
   need: async () => ({ ok: true, rows: [{ project_id: projectId, description: 'Need', urgency: 'soon',
-    stage: 'discovery_in_progress', cause_labels: [], reference_files: [], tier2_classified_at: null,
+    stage: 'discovery_in_progress', cause_labels: [], tier2_classified_at: null,
     submitted_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' }] }),
   discoveryTurnsOf: async () => ({ ok: true, rows: [{ seq: 1, status: 'settled', user_message: 'Hello', assistant_message: '' } as DiscoveryTurnSqlRow] }),
   discoveryScopesOf: async () => ({ ok: true, rows: [] }),

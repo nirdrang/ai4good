@@ -90,7 +90,6 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
     },
     startNeed: (session, request) => postNeed(session, { ...request, action: 'start' }),
     saveNeed: (session, request) => postNeed(session, { ...request, action: 'save' }),
-    attachReferenceFile: (session, request) => postNeed(session, { ...request, action: 'attach' }),
     submitNeed: (session, request) => postNeed(session, { ...request, action: 'submit' }),
     readNeed: async (session, projectId): Promise<TenantReadOutcome<{ ok: true; need: NeedIntakeView }>> => {
       const raw = await functionPostRaw(stack, 'need-intake', { projectId }, bearerOf(session));
@@ -112,7 +111,7 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       const projectId = request.action === 'start' ? null : request.projectId;
       const payload = request.action === 'start'
         ? { title: request.title, description: request.description ?? null, urgency: request.urgency ?? null }
-        : request.action === 'save' ? request.patch : request.action === 'attach' ? request.file : {};
+        : request.action === 'save' ? request.patch : {};
       try {
         await sql`select public.project_need(${accountId}::uuid, ${request.organizationId}::uuid,
           ${request.action}::text, ${projectId}::uuid, ${JSON.stringify(payload)}::text::jsonb)`;

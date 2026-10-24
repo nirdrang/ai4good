@@ -293,7 +293,6 @@ async function prepareReply(
     model: port.model, maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: replySystemPrompt({
       title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
-      reference_files: need.body.need.referenceFiles.map((file) => file.fileName),
     }, topicIds, skills, args.p_settings.expected_charge !== 'paid'),
     messages: [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }],
     tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },

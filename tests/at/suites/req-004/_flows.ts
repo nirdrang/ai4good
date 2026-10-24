@@ -8,8 +8,8 @@ export async function fileReady(screen: DiscoveryPage, name: string): Promise<vo
   if (!screen.backend) throw new Error('A backend file check needs the real route.');
   await eventually('the stored file finishes reading', () => screen.backend!.read(), (state) => {
     const file = state.files.find((item) => item.name === name);
-    if (file?.origin === 'discovery' && file.status.kind === 'failed') throw new Error(file.status.reason);
-    return file?.origin === 'discovery' && file.status.kind === 'ready';
+    if (file?.status.kind === 'failed') throw new Error(file.status.reason);
+    return file?.status.kind === 'ready';
   }, 240_000);
   if (!await screen.review.readyVisible()) await eventually('the file row shows Ready', () => screen.files.row(name), (text) => text.includes('Ready'), 10_000);
 }
@@ -442,9 +442,8 @@ export async function expectDocument(
     expect(text, `${file.name} is in the document`).toContain(file.name);
     if (screen.backend) {
       const saved = (await screen.backend.read()).files.find((item) => item.name === file.name);
-      expect(saved).toBeDefined();
-      if (saved!.tookFromIt) expect(text).toContain(saved!.tookFromIt);
-      else expect(saved!.origin).toBe('intake');
+      expect(saved?.tookFromIt).toBeTruthy();
+      expect(text).toContain(saved!.tookFromIt);
     } else {
       expect(text, `${file.name} says what the AI took`).toContain('The AI took from it:');
       expect(text, `${file.name} keeps what the AI took`).toContain(file.took);

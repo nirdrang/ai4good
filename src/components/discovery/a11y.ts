@@ -154,7 +154,6 @@ export const TEXT = {
       `Revision ${revision} · you changed: ${changed}. Tick the review box again for this revision.`,
     took: (fact: string) => `The AI took from it: ${fact}`,
     tookNothing: "The AI took nothing from it yet.",
-    fromIntake: "from intake",
     addedInDiscovery: "added in Discovery",
     causeNote: "The AI chose this label. You can remove it, but not type a new one.",
     noCause: "No cause label.",

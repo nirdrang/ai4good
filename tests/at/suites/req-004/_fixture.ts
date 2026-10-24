@@ -82,7 +82,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     const message = args.p_message.trim();
     const existing = rows.find((row) => row.user_message_id === args.p_settings.user_message_id);
     if (existing) return { ok: true, reservation: { turn: structuredClone(existing),
-      need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: [] },
+      need: { title: need.title, description: need.description, urgency: need.urgency },
       context: contextMessagesFrom(settled), allowance: null, replay: 'stored',
       brief: briefs.get(need.projectId) ?? null, usage: await usageOf(actor.session, need.organizationId, need.projectId) } };
     if (open) {
@@ -124,7 +124,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     };
     turns.set(need.projectId, [...rows, row]);
     return { ok: true, reservation: { turn: structuredClone(row),
-      need: { title: need.title, description: need.description, urgency: need.urgency, reference_files: need.referenceFiles.map((f) => f.fileName) },
+      need: { title: need.title, description: need.description, urgency: need.urgency },
       context: [...contextMessagesFrom(settled), { role: 'user', content: message }], allowance: debitAllowance, brief: current ?? null, usage: await usageOf(actor.session, need.organizationId, need.projectId) } };
   };
   const declineArgs = (decline: Parameters<typeof discoveryDecline>[0] | undefined) => {
@@ -328,9 +328,7 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
           funded_at: funding.get(request.projectId)?.fundedAt ?? null,
         }] : [] }),
         need: async () => ({ ok: true, rows: visible ? [{ project_id: visible.projectId, description: visible.description, urgency: visible.urgency,
-          stage: visible.stage, cause_labels: visible.causeLabels, reference_files: visible.referenceFiles.map((f) => ({ id: f.id, file_name: f.fileName,
-            media_type: f.mediaType, byte_size: f.byteSize, description: f.description, added_by_account_id: f.addedByAccountId, added_at: f.addedAt })),
-          tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
+          stage: visible.stage, cause_labels: visible.causeLabels, tier2_classified_at: visible.tier2ClassifiedAt, submitted_at: visible.submittedAt, updated_at: visible.updatedAt }] : [] }),
         discoveryTurnsOf: async () => ({ ok: true, rows: visible ? structuredClone(turns.get(request.projectId) ?? []) : [] }),
         discoveryScopesOf: async () => ({ ok: true, rows: visible ? [] : [] }),
         discoveryBriefOf: async () => ({ ok: true, value: { revision: briefs.get(request.projectId)?.revision ?? null, document: briefs.get(request.projectId)?.document ?? null, confirmation: null, lines: [], vocabulary: [...vocabulary.keys()].sort() } }),
