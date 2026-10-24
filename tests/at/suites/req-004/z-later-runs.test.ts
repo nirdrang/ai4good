@@ -9,7 +9,6 @@ atTest('AT-004.33', 'Discovery criterion 33 awaits fitDecline', { default: await
 atTest('AT-004.34', 'Discovery criterion 34 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.35', 'Discovery criterion 35 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.36', 'Discovery criterion 36 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
-atTest('AT-004.50', 'Discovery criterion 50 awaits sensitivityTiers', { default: awaiting(AWAITED.sensitivityTiers) });
 atTest('AT-004.53', 'Discovery criterion 53 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.54', 'Discovery criterion 54 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });
 atTest('AT-004.55', 'Discovery criterion 55 awaits fitDecline', { default: awaiting(AWAITED.fitDecline) });

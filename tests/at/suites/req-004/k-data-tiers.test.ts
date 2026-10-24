@@ -5,6 +5,7 @@ import { DATA_TOPIC_ID, type DataKind } from '../../../../supabase/functions/_sh
 import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import type { DiscoverySut, Session } from './_contract.ts';
 import type { AnthropicMessagesSim } from '../../harness/contracts.ts';
+import { tierFinalPinProblems } from './_source-pins.ts';
 
 const ROTA = {
   title: 'Volunteer rota',
@@ -146,6 +147,31 @@ atTest('AT-004.31', 'a tool with no personal data gives Tier 0 and finishes with
     expect(brief.dataTier).toMatchObject({ tier: 0, kinds: ['none'] });
     expect(sent.reply).toContain(SCOPE_COPY.dataTier.tier0);
     expect(await finish(sut, ngo.session, ngo.organizationId, projectId, false)).toMatchObject({ ok: true });
+  },
+  integration: awaiting(AWAITED.anthropicLive),
+});
+
+atTest('AT-004.50', 'the tier attributes the data responsibility to the NGO and asks for the acknowledgment only at Tier 1 and 2', {
+  default: async ({ open }) => {
+    const { w, sut, h } = await open();
+    const flows = [
+      { tier: 0, data: { kinds: ['none'] as DataKind[], reason: 'Shift times only.' } },
+      { tier: 1, data: PII },
+      { tier: 2, data: { kinds: ['ordinary-pii', 'financial'] as DataKind[], reason: 'Names and bank details.' } },
+    ];
+    for (const flow of flows) {
+      const { ngo, projectId, brief } = await tierFlow(sut, h.vendors.anthropic, w.email(`tiers-50-${flow.tier}`), {
+        first: { message: 'Hello.' }, answer: contacts, data: flow.data,
+      });
+      expect(brief.dataTier).toMatchObject({ tier: flow.tier, responsibility: 'ngo' });
+      if (flow.tier !== 0) {
+        expect(await finish(sut, ngo.session, ngo.organizationId, projectId, false)).toMatchObject({ ok: false, kind: 'data-ack' });
+      }
+      const finished = await finish(sut, ngo.session, ngo.organizationId, projectId, flow.tier !== 0);
+      expect(finished).toMatchObject({ ok: true, brief: { dataTier: { tier: flow.tier, responsibility: 'ngo' } } });
+      expect(finished.ok && finished.confirmation?.revision).toBe(brief.revision);
+    }
+    expect(tierFinalPinProblems()).toEqual([]);
   },
   integration: awaiting(AWAITED.anthropicLive),
 });
