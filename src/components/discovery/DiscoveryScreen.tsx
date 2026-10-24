@@ -183,6 +183,8 @@ function Loaded({
       <p className="m-0 text-sm font-semibold">{confirmation.acceptedGaps.length > 0 ? TEXT.finishedOpen : TEXT.finished}</p>
       <p className="m-0 text-sm">{TEXT.finishedClosed}</p>
     </div>
+  ) : discovery.brief.fit?.verdict === "declined" ? (
+    <p className="m-0 shrink-0 text-sm">{TEXT.fit.declined}</p>
   ) : readyToFinish ? (
     <div role={SCREEN.readyInvite.role} aria-label={SCREEN.readyInvite.name} className="shrink-0">
       <p className="m-0 text-sm">{TEXT.readyInvite}</p>

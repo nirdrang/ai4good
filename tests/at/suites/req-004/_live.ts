@@ -3,7 +3,7 @@ import { authPost, functionPost, functionPostRaw, sqlClient, type Stack } from '
 import { CapabilityPending } from '../../harness/pending.ts';
 import { AWAITED } from './_pending.ts';
 import { reserveSettings, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, DISCOVERY_TURN_DEADLINE_SECONDS } from '../../../../supabase/functions/_shared/discovery-metering.ts';
-import { turnViewFromSql, renderReservation, renderDiscoveryMessage, offTopicFlaggedNotice, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
+import { turnViewFromSql, renderReservation, renderDiscoveryMessage, offTopicFlaggedNotice, discoveryDecline, type DiscoveryTurnSqlRow } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { canonicalLabel } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { parseWriteRefusalKind } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { renderDiscoverySwitch } from '../../../../supabase/functions/_shared/discovery-switch.ts';
@@ -124,12 +124,14 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
           });
           if (notice.ok) noticeJson = JSON.stringify(notice.value);
         }
+        const decline = input.decline === undefined ? null : discoveryDecline(input.decline);
+        if (decline !== null && !decline.ok) throw new Error(decline.reason);
         const result = await sql`select public.discovery_turn_settle(${input.accountId}::uuid, ${input.turnId}::uuid,
           ${input.outcome}::text, ${input.reply ?? ''}::text, ${input.usage?.inputTokens ?? null}::integer,
           ${input.usage?.outputTokens ?? null}::integer, 'end_turn', ${DISCOVERY_REQUEST_SETTINGS.model}::text,
           ${JSON.stringify({ replyContract: true, ui: { id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text: input.reply ?? '' }] }, document: null })}::text::jsonb,
           ${input.offTopic === true}::boolean, ${noticeJson}::text::jsonb,
-          ${input.decline === undefined ? null : JSON.stringify(input.decline)}::text::jsonb) as value` as { value: unknown }[];
+          ${decline === null ? null : JSON.stringify(decline.value)}::text::jsonb) as value` as { value: unknown }[];
         return { ok: true, ...renderDiscoveryMessage(decoded(result[0].value)) };
       } catch (error) { return sqlRefusal(error); }
     },
@@ -243,6 +245,16 @@ export async function createLiveAdapter(opts: { stack: Stack }) {
       const row = rows[0];
       return row === undefined ? null
         : { cause: row.cause, reason: row.reason, reshaping: row.reshaping, declinedAt: new Date(row.declined_at).toISOString() };
+    },
+    opsItemsAsOperator: async (kind) => {
+      const rows = await sql`select kind, detail from public.notification_ops_items
+        where kind = ${kind} order by created_at, id` as { kind: string; detail: unknown }[];
+      return rows.map((row) => ({ kind: String(row.kind), detail: decoded(row.detail) as Record<string, unknown> }));
+    },
+    projectList: async (session, organizationId) => {
+      const answer = await functionPost(opts.stack, 'organization-dashboard', { organizationId }, inner.bearerOf(session));
+      if (answer.json.ok !== true) throw new Error(`the project list was refused: ${String(answer.json.reason)}`);
+      return answer.json.projects as Awaited<ReturnType<DiscoverySut['projectList']>>;
     },
     notificationEvents: async (event) => {
       const rows = await sql`select event, payload from public.notification_events

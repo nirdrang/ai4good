@@ -20,7 +20,7 @@ export type OperatorReserveInput = { accountId: string; organizationId: string; 
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
 export type OperatorSettleInput = {
   accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage; offTopic?: boolean;
-  decline?: import('../../../../supabase/functions/_shared/discovery-turn.ts').DiscoveryDecline;
+  decline?: Omit<import('../../../../supabase/functions/_shared/discovery-brief.ts').DeclinedFit, 'verdict'>;
 };
 export type { DiscoveryConversationView };
 export type DiscoverySwitchOutcome = { ok: true; organizationId: string; discoveryEnabled: boolean; changed: boolean; disabledAt: string | null } | WriteRefusal;
@@ -51,4 +51,6 @@ export type DiscoverySut = NeedsSut & {
   seedTurnsAsOperator(projectId: string, turns: { message: string; reply: string; usage: ModelUsage; elicitation?: Elicitation; utcDay?: string }[]): Promise<void>;
   spendLedgerInvariantProblems(organizationId: string): Promise<string[]>;
   declineRecordAsOperator(projectId: string): Promise<DeclineRecord | null>;
+  opsItemsAsOperator(kind: string): Promise<{ kind: string; detail: Record<string, unknown> }[]>;
+  projectList(session: Session, organizationId: string): Promise<import('../../../../supabase/functions/_shared/tenant-reads.ts').OrganizationDashboard['projects']>;
 };

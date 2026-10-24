@@ -21,10 +21,22 @@ export type OrganizationProjection = {
   logo: string | null;
 };
 
+export type DeclineSqlRow = { cause: string; reason: string; reshaping: string; declined_at: string };
+export type ProjectDecline = { cause: string; reason: string; reshapingSuggestion: string; declinedAt: string };
+
+function declineOf(value: DeclineSqlRow | readonly DeclineSqlRow[] | null | undefined): ProjectDecline | null {
+  const row = Array.isArray(value) ? value[0] : value;
+  if (row === undefined || row === null) return null;
+  return { cause: row.cause, reason: row.reason, reshapingSuggestion: row.reshaping, declinedAt: row.declined_at };
+}
+
 export type TenantReads = {
   organization(organizationId: string): Promise<ReadResult<OrganizationProjection>>;
   seatsOf(organizationId: string): Promise<ReadResult<{ account_id: string; role: string }>>;
-  projectsOf(organizationId: string): Promise<ReadResult<{ id: string; name: string; assigned_volunteer_id: string | null }>>;
+  projectsOf(organizationId: string): Promise<ReadResult<{
+    id: string; name: string; assigned_volunteer_id: string | null;
+    discovery_declines?: DeclineSqlRow | readonly DeclineSqlRow[] | null;
+  }>>;
   project(projectId: string): Promise<ReadResult<{
     id: string; name: string; org_id: string; assigned_volunteer_id: string | null; funded_at?: string | null;
   }>>;
@@ -39,7 +51,7 @@ export type OrganizationDashboard = {
   website: string | null;
   logo: string | null;
   seats: { accountId: string; role: string }[];
-  projects: { projectId: string; projectName: string; assignedVolunteerId: string | null }[];
+  projects: { projectId: string; projectName: string; assignedVolunteerId: string | null; decline: ProjectDecline | null }[];
 };
 
 export type ProjectWorkspace = {
@@ -77,6 +89,7 @@ export async function organizationDashboard(
         projectId: project.id,
         projectName: project.name,
         assignedVolunteerId: project.assigned_volunteer_id,
+        decline: declineOf(project.discovery_declines),
       })),
     },
   };

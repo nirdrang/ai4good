@@ -158,3 +158,96 @@ atTest('AT-004.36', 'sensitive data that otherwise fits is served with its tier,
   },
   integration: awaiting(AWAITED.anthropicLive),
 });
+
+async function eventCount(sut: DiscoverySut, event: string) {
+  return (await sut.notificationEvents(event)).length;
+}
+
+async function declineByOperator(sut: DiscoverySut, email: string, cause: DeclineCause) {
+  const ngo = await sut.provisionNgo(email, { emailVerified: true });
+  const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, cause === 'developer-maintenance' ? DEVELOPER : CONFIDENTIAL);
+  const reply = `${EXPLANATION[cause]}\n\n${COPY[cause]}\n\n${DECLINE_COPY.oversight}`;
+  const reserved = await sut.reserveTurnAsOperator({ accountId: ngo.accountId, organizationId: ngo.organizationId, projectId, message: 'We need this tool.' });
+  if (!reserved.ok) throw new Error(reserved.reason);
+  const decline = { cause, reason: EXPLANATION[cause], reshaping: RESHAPING };
+  const settle = () => sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: reserved.reservation.turn.id, outcome: 'completed', reply, usage: USAGE, decline });
+  expect(await settle()).toMatchObject({ ok: true, reply });
+  const conversation: { seq: number; user: string; assistant: string | null }[] = [{ seq: reserved.reservation.turn.seq, user: 'We need this tool.', assistant: reply }];
+  return { ngo, projectId, reply, retry: settle, conversation };
+}
+
+async function declineByChat(sut: DiscoverySut, anthropic: AnthropicMessagesSim, email: string, cause: DeclineCause) {
+  const ngo = await sut.provisionNgo(email, { emailVerified: true });
+  const intake = cause === 'developer-maintenance' ? DEVELOPER : CONFIDENTIAL;
+  const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, intake);
+  anthropic.script([{ kind: 'tool', name: 'reply', usage: USAGE, input: { text: 'Tell me more.', questions: [], agreed: [], openQuestions: [] } }]);
+  const first = await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message: intake.description });
+  if (!first.ok) throw new Error(first.reason);
+  anthropic.script([reply(EXPLANATION[cause], declined(cause))]);
+  const second = await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message: 'It must run every night.' });
+  if (!second.ok) throw new Error(second.reason);
+  const turns = await sut.turnRows(projectId);
+  const settleAgain = () => sut.settleTurnAsOperator({ accountId: ngo.accountId, turnId: second.turn.id, outcome: 'completed',
+    reply: second.reply, usage: USAGE, decline: { cause, reason: EXPLANATION[cause], reshaping: RESHAPING } });
+  return { ngo, projectId, reply: second.reply, retry: settleAgain,
+    conversation: turns.map((turn) => ({ seq: turn.seq, user: turn.userMessage, assistant: turn.assistantMessage })) };
+}
+
+type Declined = Awaited<ReturnType<typeof declineByOperator>>;
+async function proveReview(sut: DiscoverySut, cause: DeclineCause, decline: () => Promise<Declined>) {
+  const before = { ngo: await eventCount(sut, 'discovery.fit_declined'), review: await eventCount(sut, 'discovery.fit_decline_review') };
+  const { ngo, projectId, reply, retry, conversation } = await decline();
+  expect(reply).toContain(DECLINE_COPY.oversight);
+  expect(await sut.declineRecordAsOperator(projectId)).toEqual({ cause, reason: EXPLANATION[cause], reshaping: RESHAPING, declinedAt: expect.any(String) });
+  const items = (await sut.opsItemsAsOperator('discovery.fit_decline_review')).filter((item) => item.detail.projectId === projectId);
+  expect(items).toEqual([{ kind: 'discovery.fit_decline_review', detail: {
+    projectId, organizationId: ngo.organizationId, cause, reason: EXPLANATION[cause], reshaping: RESHAPING, conversation,
+  } }]);
+  expect(await eventCount(sut, 'discovery.fit_decline_review')).toBe(before.review + 1);
+  expect(await eventCount(sut, 'discovery.fit_declined')).toBe(before.ngo + 1);
+  expect((await sut.notificationEvents('discovery.fit_declined')).at(-1)?.payload).toEqual({
+    declineCause: cause, reshapingSuggestion: RESHAPING, oversightSentence: DECLINE_COPY.oversight,
+  });
+  expect(await retry()).toMatchObject({ ok: false, kind: 'turn-not-open' });
+  expect((await sut.opsItemsAsOperator('discovery.fit_decline_review')).filter((item) => item.detail.projectId === projectId)).toHaveLength(1);
+  expect(await eventCount(sut, 'discovery.fit_decline_review')).toBe(before.review + 1);
+  expect(await eventCount(sut, 'discovery.fit_declined')).toBe(before.ngo + 1);
+  return { ngo, projectId };
+}
+
+atTest('AT-004.53', 'one decline of either cause emits the NGO message, the record, one ops item with the conversation, and the notification', {
+  default: async ({ open }) => {
+    const { w, sut, h } = await open();
+    await sut.provisionPlatformAdmin(w.email('admin-53'));
+    for (const cause of ['developer-maintenance', 'confidential-codebase'] as const) {
+      await proveReview(sut, cause, () => declineByChat(sut, h.vendors.anthropic, w.email(`review-53-${cause}`), cause));
+    }
+  },
+  integration: async ({ open }) => {
+    const { w, sut } = await open();
+    await sut.provisionPlatformAdmin(w.email('admin-53'));
+    for (const cause of ['developer-maintenance', 'confidential-codebase'] as const) {
+      await proveReview(sut, cause, () => declineByOperator(sut, w.email(`review-53-${cause}`), cause));
+    }
+  },
+});
+
+atTest('AT-004.54', 'the declined project stays in the project list with its decline, and the decline copy carries the oversight sentence', {
+  default: async ({ open }) => {
+    const { w, sut, h } = await open();
+    const { ngo, projectId, reply: message } = await declineByChat(sut, h.vendors.anthropic, w.email('review-54'), 'developer-maintenance');
+    expect(message).toContain(DECLINE_COPY.oversight);
+    expect(await sut.projectList(ngo.session, ngo.organizationId)).toContainEqual(expect.objectContaining({
+      projectId, decline: { cause: 'developer-maintenance', reason: EXPLANATION['developer-maintenance'], reshapingSuggestion: RESHAPING, declinedAt: expect.any(String) },
+    }));
+  },
+  integration: async ({ open }) => {
+    const { w, sut } = await open();
+    const { ngo, projectId, reply: message } = await declineByOperator(sut, w.email('review-54'), 'confidential-codebase');
+    expect(message).toContain(DECLINE_COPY.oversight);
+    expect((await sut.notificationEvents('discovery.fit_declined')).at(-1)?.payload.oversightSentence).toBe(DECLINE_COPY.oversight);
+    expect(await sut.projectList(ngo.session, ngo.organizationId)).toContainEqual(expect.objectContaining({
+      projectId, decline: { cause: 'confidential-codebase', reason: EXPLANATION['confidential-codebase'], reshapingSuggestion: RESHAPING, declinedAt: expect.any(String) },
+    }));
+  },
+});

@@ -1,11 +1,11 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
-import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclineCause, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
+import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
-import { SCOPE_COPY } from './scope-copy.ts';
+import { DECLINE_COPY, SCOPE_COPY } from './scope-copy.ts';
 import { scopeSourceFromBrief, scopeViewFromSql, type ScopeView } from './scope.ts';
 import type { DiscoverySkill } from './discovery-skills.ts';
 import { TENANT_NOT_FOUND, TENANT_READ_FAILED } from './tenant-reads.ts';
@@ -108,7 +108,22 @@ export function offTopicFlaggedNotice(payload: {
     },
   };
 }
-export type DiscoveryDecline = { cause: DeclineCause; reason: string; reshaping: string };
+export type DeclineNotice = OffTopicFlaggedNotice & { readonly payload: Record<string, string> };
+export type DiscoveryDecline = Omit<DeclinedFit, 'verdict'> & { ngo: DeclineNotice; review: DeclineNotice };
+function declineNotice(event: string, payload: Record<string, string>): Decision<DeclineNotice> {
+  const row = taxonomyRow(event);
+  if (row === undefined) return { ok: false, reason: `${event} is missing from the notification taxonomy` };
+  return { ok: true, value: { channels: channelsFor(row), copy: renderCopy(row, payload), payload } };
+}
+export function discoveryDecline(fit: Omit<DeclinedFit, 'verdict'>): Decision<DiscoveryDecline> {
+  const ngo = declineNotice('discovery.fit_declined', {
+    declineCause: fit.cause, reshapingSuggestion: fit.reshaping, oversightSentence: DECLINE_COPY.oversight,
+  });
+  if (!ngo.ok) return ngo;
+  const review = declineNotice('discovery.fit_decline_review', { declineCause: fit.cause });
+  if (!review.ok) return review;
+  return { ok: true, value: { cause: fit.cause, reason: fit.reason, reshaping: fit.reshaping, ngo: ngo.value, review: review.value } };
+}
 export type DiscoverySettleArgs = {
   p_account_id: string; p_turn_id: string; p_outcome: 'completed' | 'failed'; p_assistant_message: string | null;
   p_input_tokens: number | null; p_output_tokens: number | null; p_stop_reason: string | null;
@@ -379,6 +394,8 @@ async function actReply(
     filed: plan.filed, charge: replyCharge(reservation.turn.billing), questions: declined ? [] : openQuestions(plan.brief),
     ready: declined ? null : plan.ready, brief: snapshotOf(plan.brief), usage,
   });
+  const decline = plan.decline === null ? null : discoveryDecline(plan.decline);
+  if (decline !== null && !decline.ok) return failed(decline.reason);
   const messageId = assistantMessageId(reservation.turn, prepared.reply.messageId);
   const offTopic = reservation.turn.billing === 'free' && isRecord(answer.toolUse?.input)
     && answer.toolUse.input.offTopic === true;
@@ -401,7 +418,7 @@ async function actReply(
         source: scopeSourceFromBrief(plan.brief),
       },
       p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null,
-      p_decline: plan.decline === null ? null : { cause: plan.decline.cause, reason: plan.decline.reason, reshaping: plan.decline.reshaping },
+      p_decline: decline === null ? null : decline.value,
     },
     failure: null, suffix: plan.suffix, tail,
   };

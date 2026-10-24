@@ -100,7 +100,7 @@ describe('organizationDashboard and projectWorkspace', () => {
         website: null,
         logo: null,
         seats: [{ accountId: 'acct-a', role: 'admin' }],
-        projects: [{ projectId: PROJECT_A, projectName: 'Website', assignedVolunteerId: null }],
+        projects: [{ projectId: PROJECT_A, projectName: 'Website', assignedVolunteerId: null, decline: null }],
       },
     });
 
