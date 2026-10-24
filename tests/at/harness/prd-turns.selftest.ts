@@ -258,7 +258,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     await sql?.close();
   });
 
-  it("lets the developer send in the main chat and a section chat, and refuses a stale or repeated send", async () => {
+  it("lets the developer send in the main chat and a section chat, and refuses a repeated send", async () => {
     const rev = await revision();
     const devFacts = await facts(dev);
     const devView = snapshotFromRecord(devFacts, viewerFromRecord(devFacts));
@@ -385,18 +385,6 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     expect(await measure()).toEqual(settled);
     expect(
       await refusal(
-        reserve(
-          dev,
-          "main",
-          "send-stale",
-          "hash-stale",
-          { kind: "text", text: "Old tab" },
-          rev + 1,
-        ),
-      ),
-    ).toBe("stale");
-    expect(
-      await refusal(
         reserve(dev, "main", "send-empty", "hash-empty", { kind: "text", text: "  " }, rev),
       ),
     ).toBe("invalid-request");
@@ -429,7 +417,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     );
     const answerParts = (await sql`select parts from public.prd_messages
       where id = ${String(answers.messageId)}::uuid`) as Array<{ parts: unknown }>;
-    expect(JSON.stringify(parsed(answerParts[0].parts))).toContain("swap: Yes\nThey can.");
+    expect(JSON.stringify(parsed(answerParts[0].parts))).toContain(JSON.stringify("swap: Yes\nThey can."));
     await one(finish(String(answers.turnId)));
     const answersAfter = await measure();
     expect(answersAfter.turns).toBe(answersBefore.turns + 1);

@@ -42,7 +42,6 @@ type Seed = {
   organizationId: string;
   projectId: string;
   source: string;
-  sideKey: string;
 };
 
 function whole(value: unknown): number {
@@ -203,7 +202,6 @@ async function seed(): Promise<Seed> {
     organizationId,
     projectId,
     source: "Discovery revision 2",
-    sideKey: `side:${crypto.randomUUID()}`,
   };
 }
 
@@ -305,12 +303,8 @@ function resting(snapshot: PrdSnapshot): void {
     path: "check",
     close: { kind: "unavailable", reason: "Not available yet." },
   });
-  expect(snapshot.canWrite.main).toBe(false);
-  expect(snapshot.send.main).toEqual({
-    kind: "unavailable",
-    block: "role",
-    reason: "Not available yet.",
-  });
+  expect(snapshot.canWrite.main).toBe(true);
+  expect(snapshot.send.main).toEqual({ kind: "available" });
 }
 
 async function append(
@@ -623,27 +617,50 @@ export async function proveRecordSurvives(): Promise<void> {
     });
     expect(refused.status).toBeGreaterThanOrEqual(400);
 
+    const devShared = await append(seeded, "main", "dev", DEV_NAME, DEV_SHARED, null, seeded.dev.accountId);
+    const aiShared = await append(seeded, "main", "ai", "ai4good AI", AI_SHARED, null, seeded.dev.accountId);
+    const bookingLine = await append(
+      seeded,
+      "topic:booking",
+      "dev",
+      DEV_NAME,
+      BOOKING_LINE,
+      null,
+      seeded.dev.accountId,
+    );
+    const suggestion = (await seeded.sql`select public.prd_question_outcome(
+        ${seeded.projectId}::uuid,
+        ${await mainChat(seeded)}::uuid,
+        ${JSON.stringify({
+          kind: "suggest-ngo",
+          message: aiShared.id,
+          question: {
+            section: "booking",
+            text: "How far ahead do volunteers book shifts?",
+            why: "The booking rules depend on it.",
+            options: ["A week ahead.", "A month ahead."],
+            blocking: true,
+            prerequisites: [],
+            anchors: [],
+          },
+        })}::text::jsonb
+      ) as outcome`) as Array<{ outcome: unknown }>;
+    const [questionId] = outcomeQuestions(suggestion[0].outcome);
+    await postQuestion(seeded, seeded.dev.accountId, questionId, await rowRevision(seeded, questionId));
+    const sideKey = `side:${questionId}`;
     const sequences = [
-      await append(seeded, "main", "dev", DEV_NAME, DEV_SHARED, null, seeded.dev.accountId),
-      await append(seeded, "main", "ai", "ai4good AI", AI_SHARED, null, seeded.dev.accountId),
-      await append(
-        seeded,
-        "topic:booking",
-        "dev",
-        DEV_NAME,
-        BOOKING_LINE,
-        null,
-        seeded.dev.accountId,
-      ),
-      await append(seeded, seeded.sideKey, "ngo", NGO_NAME, NGO_SIDE, null, seeded.ngo.accountId),
+      devShared,
+      aiShared,
+      bookingLine,
+      await append(seeded, sideKey, "ngo", NGO_NAME, NGO_SIDE, null, seeded.ngo.accountId),
       await append(seeded, "main", "dev", DEV_NAME, DEV_PRIVATE, "dev", seeded.dev.accountId),
     ];
-    expect(sequences.map((row) => whole(row.sequence))).toEqual([2, 3, 4, 5, 6]);
+    expect(sequences.map((row) => whole(row.sequence))).toEqual([2, 3, 4, 7, 8]);
 
     const beforeDrafts = await functionPostRaw(
       seeded.stack,
       "prd-snapshot",
-      { projectId: seeded.projectId, sinceSequence: 6 },
+      { projectId: seeded.projectId, sinceSequence: 8 },
       seeded.dev.token,
     );
     expect(beforeDrafts.status).toBe(204);
@@ -655,7 +672,7 @@ export async function proveRecordSurvives(): Promise<void> {
       seeded.dev.token,
     );
     expect(emptyDraft.status, JSON.stringify(emptyDraft.json)).toBe(200);
-    expect(snapshotOf(emptyDraft.json).sequence).toBe(6);
+    expect(snapshotOf(emptyDraft.json).sequence).toBe(8);
     const devMain = await functionPost(
       seeded.stack,
       "prd-draft",
@@ -671,17 +688,17 @@ export async function proveRecordSurvives(): Promise<void> {
     const ngoDraft = await functionPost(
       seeded.stack,
       "prd-draft",
-      { projectId: seeded.projectId, key: seeded.sideKey, text: NGO_DRAFT },
+      { projectId: seeded.projectId, key: sideKey, text: NGO_DRAFT },
       seeded.ngo.token,
     );
     expect(devMain.status).toBe(200);
     expect(devTopic.status).toBe(200);
     expect(ngoDraft.status).toBe(200);
-    expect(snapshotOf(ngoDraft.json).sequence).toBe(6);
+    expect(snapshotOf(ngoDraft.json).sequence).toBe(8);
     const afterDrafts = await functionPostRaw(
       seeded.stack,
       "prd-snapshot",
-      { projectId: seeded.projectId, sinceSequence: 6 },
+      { projectId: seeded.projectId, sinceSequence: 8 },
       seeded.ngo.token,
     );
     expect(afterDrafts.status).toBe(204);
@@ -704,9 +721,9 @@ export async function proveRecordSurvives(): Promise<void> {
     const ngoSnapshot = parsePrdSnapshot(ngoRead.json);
     sameAsFacts(devSnapshot, await readFacts(seeded.sql, seeded.dev.accountId, seeded.projectId));
     sameAsFacts(ngoSnapshot, await readFacts(seeded.sql, seeded.ngo.accountId, seeded.projectId));
-    expect(devSnapshot.sequence).toBe(6);
+    expect(devSnapshot.sequence).toBe(8);
     expect(devSnapshot.revision).toBe(1);
-    expect(ngoSnapshot.sequence).toBe(6);
+    expect(ngoSnapshot.sequence).toBe(8);
     const booking = devSnapshot.topics.find((topic) => topic.id === "booking");
     expect(booking?.sources).toContain(seeded.source);
     expect(booking?.statements).toContain(KNOWN_BOOKING);
@@ -727,19 +744,19 @@ export async function proveRecordSurvives(): Promise<void> {
     expect(devSnapshot.chats["topic:booking"].map((message) => message.metadata?.actor)).toEqual([
       "dev",
     ]);
-    expect(devSnapshot.chats[seeded.sideKey].map((message) => message.metadata)).toEqual([
+    expect(devSnapshot.chats[sideKey].map((message) => message.metadata)).toEqual([
       expect.objectContaining({ actor: "ngo", name: NGO_NAME }),
     ]);
     expect(ngoSnapshot.chats.main.map((message) => message.parts)).toEqual([
       [{ type: "text", text: DEV_SHARED }],
       [{ type: "text", text: AI_SHARED }],
     ]);
-    expect(ngoSnapshot.chats[seeded.sideKey][0].parts).toEqual([{ type: "text", text: NGO_SIDE }]);
+    expect(ngoSnapshot.chats[sideKey][0].parts).toEqual([{ type: "text", text: NGO_SIDE }]);
     expect(JSON.stringify(ngoSnapshot)).not.toContain(DEV_PRIVATE);
     expect(JSON.stringify(ngoSnapshot)).not.toContain(DEV_DRAFT);
     expect(JSON.stringify(ngoSnapshot)).not.toContain(DEV_TOPIC_DRAFT);
     expect(devSnapshot.drafts).toEqual({ main: DEV_DRAFT, "topic:booking": DEV_TOPIC_DRAFT });
-    expect(ngoSnapshot.drafts).toEqual({ [seeded.sideKey]: NGO_DRAFT });
+    expect(ngoSnapshot.drafts).toEqual({ [sideKey]: NGO_DRAFT });
     expect(JSON.stringify(devSnapshot)).not.toContain(NGO_DRAFT);
 
     const tally = await counts(
@@ -749,7 +766,7 @@ export async function proveRecordSurvives(): Promise<void> {
       seeded.ngo.accountId,
       seeded.organizationId,
     );
-    expect(tally.sequence).toBe(6);
+    expect(tally.sequence).toBe(8);
     expect(tally.revision).toBe(1);
     expect(tally.chats).toBe(6);
     const stranger = await functionPost(

@@ -408,10 +408,22 @@ begin
   v_chat := (v_gate->>'chatId')::uuid;
   v_question := (v_gate->>'questionId')::uuid;
 
+  if p_intent is null or jsonb_typeof(p_intent) is distinct from 'object' then
+    raise exception 'a send names its intent' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  v_kind := p_intent->>'kind';
+  if v_kind = 'use-answer' and p_chat_key is distinct from 'main' then
+    raise exception 'an answer is used in the main chat' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_kind = 'answers' and left(coalesce(p_chat_key, ''), 6) is distinct from 'topic:' then
+    raise exception 'answers belong in a section chat' using errcode = '22023', detail = 'invalid-request';
+  end if;
+
   if v_record.closed_revision is not null then
     raise exception 'the PRD is closed' using errcode = '42501', detail = 'closed';
   end if;
-  if p_base_revision is distinct from v_record.current_revision then
+  if v_kind in ('use-answer', 'close-check')
+     and p_base_revision is distinct from v_record.current_revision then
     raise exception 'the PRD changed since this was sent' using errcode = '22023', detail = 'stale';
   end if;
   if exists (
@@ -423,11 +435,6 @@ begin
     raise exception 'the AI is still answering in this chat' using errcode = '22023', detail = 'busy';
   end if;
 
-  if p_intent is null or jsonb_typeof(p_intent) is distinct from 'object' then
-    raise exception 'a send names its intent' using errcode = '22023', detail = 'invalid-request';
-  end if;
-  v_kind := p_intent->>'kind';
-
   if v_kind = 'close-check' then
     raise exception 'that action is not available yet' using errcode = '22023', detail = 'not-yet';
   elsif v_kind = 'text' then
@@ -436,9 +443,6 @@ begin
     end if;
     v_parts := jsonb_build_array(jsonb_build_object('type', 'text', 'text', p_intent->>'text'));
   elsif v_kind = 'answers' then
-    if left(coalesce(p_chat_key, ''), 6) <> 'topic:' then
-      raise exception 'answers belong in a section chat' using errcode = '22023', detail = 'invalid-request';
-    end if;
     if jsonb_typeof(p_intent->'picks') is distinct from 'object' then
       raise exception 'answers name their picks' using errcode = '22023', detail = 'invalid-request';
     end if;
@@ -471,9 +475,6 @@ begin
     end if;
     v_parts := jsonb_build_array(jsonb_build_object('type', 'text', 'text', v_lines));
   elsif v_kind = 'use-answer' then
-    if p_chat_key is distinct from 'main' then
-      raise exception 'an answer is used in the main chat' using errcode = '22023', detail = 'invalid-request';
-    end if;
     if jsonb_typeof(p_intent->'questionId') is distinct from 'string' then
       raise exception 'an answer names its question' using errcode = '22023', detail = 'invalid-request';
     end if;
