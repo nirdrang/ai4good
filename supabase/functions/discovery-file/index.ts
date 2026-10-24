@@ -1,6 +1,5 @@
 import { decideDiscoveryFile } from '../_shared/discovery-file-write.ts';
 import { FILE_MAX_BYTES, screenFile, type FileRow } from '../_shared/discovery-files.ts';
-import { readDiscoveryFile } from '../_shared/discovery-file-read.ts';
 import { discoveryFileWorker, readJsonBody, writeRoute } from '../_shared/edge.ts';
 import { organizationIdField, refuseWrite } from '../_shared/write-routes.ts';
 
@@ -45,7 +44,7 @@ Deno.serve(writeRoute({
   },
   render: (value) => {
     const row = value as FileRow;
-    if (row.removed_at === null) EdgeRuntime.waitUntil(readDiscoveryFile(row));
+    if (row.removed_at === null) EdgeRuntime.waitUntil(discoveryFileWorker().startRead(row));
     return { file: screenFile(row) };
   },
 }));

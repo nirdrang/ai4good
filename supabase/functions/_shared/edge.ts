@@ -15,6 +15,7 @@ import {
   type WriteStanding,
 } from './write-routes.ts';
 
+import type { FileRow } from './discovery-files.ts';
 import { requireEnv } from './env.ts';
 export { requireEnv } from './env.ts';
 
@@ -156,6 +157,10 @@ export function discoveryFileWorker() {
       method: 'POST', headers: { ...headers, 'content-type': file.type }, body: file,
     }),
     removeUpload: (projectId: string, fileId: string) => fetch(objectUrl(projectId, fileId), { method: 'DELETE', headers }),
+    startRead: (row: FileRow) => fetch(`${requireEnv('SUPABASE_URL')}/functions/v1/discovery-file-read`, {
+      method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(row),
+    }).then((response) => response.body?.cancel()),
+    admits: (request: Request) => request.headers.get('authorization') === headers.authorization,
   };
 }
 

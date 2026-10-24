@@ -6,7 +6,7 @@ import { FILE_MAX_BYTES } from '../../../../supabase/functions/_shared/discovery
 import type { AccountWriteRouteInput } from '../../../../supabase/functions/_shared/write-routes.ts';
 import { seedFileProject, uploadFile } from './_files.ts';
 
-const PROJECT_FILES_MAX_BYTES = 50 * 1024 * 1024;
+const PROJECT_FILES_MAX_BYTES = 100 * 1024 * 1024;
 
 const NAMED_TYPES = [
   ['brief.pdf', 'application/pdf'],
@@ -64,11 +64,13 @@ atTest('AT-032.03', 'file and aggregate project size caps', { timeoutMs: { integ
 
       const room = 100;
       const seeded = PROJECT_FILES_MAX_BYTES - FILE_MAX_BYTES - room;
-      for (let index = 0; index < 4; index++) {
+      for (let left = seeded, index = 0; left > 0; index++) {
+        const size = Math.min(left, FILE_MAX_BYTES);
         const id = crypto.randomUUID();
         await seed.sql`insert into public.discovery_files(id, project_id, name, media_type, size_bytes, content_hash, created_by)
-          values (${id}::uuid, ${seed.projectId}::uuid, ${`seeded-${index}.pdf`}, 'application/pdf', ${seeded / 4},
+          values (${id}::uuid, ${seed.projectId}::uuid, ${`seeded-${index}.pdf`}, 'application/pdf', ${size},
           ${id.replaceAll('-', '').repeat(2)}, ${seed.ngo.accountId}::uuid)`;
+        left -= size;
       }
       const fits = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'fills-project.pdf', 'c'.repeat(room), 'application/pdf');
       expect(fits.status, JSON.stringify(fits.body)).toBe(200);
@@ -76,7 +78,7 @@ atTest('AT-032.03', 'file and aggregate project size caps', { timeoutMs: { integ
       expect(Number(live!.total)).toBe(PROJECT_FILES_MAX_BYTES);
       const over = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'one-byte.pdf', 'd', 'application/pdf');
       expect(over).toMatchObject({ status: 409, body: { kind: 'project-files-too-large' } });
-      expect(String(over.body.reason)).toContain('50 MB');
+      expect(String(over.body.reason)).toContain('100 MB');
     } finally { await seed.sql.close(); }
   },
   default: async () => { throw new AtPending('AT-032.03', 'sut-missing', 'The project size cap is enforced in the database; only the integration tier reaches it.'); },
