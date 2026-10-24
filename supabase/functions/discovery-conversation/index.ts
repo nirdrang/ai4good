@@ -1,9 +1,8 @@
 import { screenUsage } from '../_shared/discovery-reply.ts';
 import { conversationAnswer } from '../_shared/discovery-turn.ts';
 import { uuidField } from '../_shared/write-routes.ts';
-import { callerReads, edgeHandler, json, readJsonBody, refusal, requireEnv, resolveCaller } from '../_shared/edge.ts';
+import { callerReads, discoveryFileWorker, edgeHandler, json, readJsonBody, refusal, requireEnv, resolveCaller } from '../_shared/edge.ts';
 import { screenFile } from '../_shared/discovery-files.ts';
-import { readDiscoveryFile } from '../_shared/discovery-file-read.ts';
 import { needIntakeAnswer } from '../_shared/need-intake.ts';
 
 const SUPABASE_URL = requireEnv('SUPABASE_URL');
@@ -30,7 +29,7 @@ Deno.serve(edgeHandler('discovery-conversation', async (request: Request): Promi
   if (!files.ok) throw new Error(files.detail);
   for (const file of files.rows) {
     if (file.status === 'reading' && Date.parse(file.heartbeat) < Date.now() - 5 * 60 * 1000) {
-      EdgeRuntime.waitUntil(readDiscoveryFile(file));
+      EdgeRuntime.waitUntil(discoveryFileWorker().startRead(file));
     }
   }
   const need = await needIntakeAnswer(reads, projectId);
