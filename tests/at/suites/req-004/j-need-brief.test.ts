@@ -406,8 +406,8 @@ atTest(
             expect(context[0]!.content).toContain(JSON.stringify(rows[0]!.digest));
             const state = await screen.backend.read();
             expect(state.brief.revision).toBeGreaterThan(4);
-            expect(state.files[1]!.tookFromIt).toBeTruthy();
-            expect(brief).toContain(state.files[1]!.tookFromIt!);
+            expect(state.files[0]!.tookFromIt).toBeTruthy();
+            expect(brief).toContain(state.files[0]!.tookFromIt!);
             expect(await screen.modelCalls()).toEqual(['file-read', 'chat-turn', 'chat-turn']);
           } else {
           const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.xlsx'));
