@@ -32,9 +32,9 @@ There is no closing call or regeneration. Review reads the live brief, with open
 
 ## PRD technical scope
 
-The shared generator takes the brief at its confirmed revision and the confirmation with its accepted gaps. Each story names an agreed topic or a kept open question. The data tier and maintainability verdict stay consistent with that document. The generator rejects a missing or malformed `record_scope`, an ungrounded story, a missing build-split part or a forbidden money figure.
+The shared generator takes the brief at its confirmed revision and the confirmation with its accepted gaps. Each story names an agreed topic or a kept open question. The data tier and maintainability verdict stay consistent with that document. The generator rejects a missing or malformed `record_scope`, an ungrounded story or a forbidden money figure.
 
-The PRD workspace is not built yet. The acceptance tests drive this shared generator at both tiers; the retained scope edge entry is keyed to the latest confirmed brief and has no Discovery-screen caller. It accepts generation only. Technical scope, complexity, stack, build split and Lovable maintenance guidance are rendered in the PRD step, outside the Discovery document. Cause labels are copied from the confirmed brief.
+The PRD workspace is not built yet. The acceptance tests drive this shared generator at both tiers; the retained scope edge entry is keyed to the latest confirmed brief and has no Discovery-screen caller. It accepts generation only. Technical scope, complexity and stack are rendered in the PRD step, outside the Discovery document. Cause labels are copied from the confirmed brief.
 
 ## Model adapters
 
