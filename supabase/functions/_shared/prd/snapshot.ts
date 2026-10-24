@@ -21,6 +21,10 @@ import { storedTechnicalScope } from "./technical-scope.ts";
 const NOT_YET = "Not available yet.";
 const CLOSED_REASON = "The PRD is closed.";
 const FOLLOW_UP_REASON = "Answer the AI’s question first.";
+const STALE_REASON = "The PRD changed since this was offered. Use the current version.";
+const WRITE_FIRST = "Write your answer first.";
+const STILL_ANSWERING = "The AI is still answering.";
+const BUSY_REASON = "The AI is still answering in this chat.";
 const TOPIC_STATES = ["open", "draft", "ready", "confirmed", "needs-review"] as const;
 const QUESTION_STATES = ["suggested", "posted", "answering", "complete", "used"] as const;
 
@@ -162,7 +166,49 @@ function messageOf(value: unknown): PrdWireMessage {
   return message;
 }
 
-function chatsOf(value: unknown): {
+function sendReason(code: unknown, names: Names): string {
+  switch (code) {
+    case "only-dev":
+      return `Only ${names.dev} writes to the AI here.`;
+    case "only-ngo":
+      return `Only ${names.ngo} answers in her side chat.`;
+    case "not-open":
+      return "This question is not open for an answer.";
+    case "closed":
+      return CLOSED_REASON;
+    case "busy":
+      return BUSY_REASON;
+    default:
+      return NOT_YET;
+  }
+}
+
+function chatAccess(
+  chat: Record<string, unknown>,
+  names: Names,
+): { canWrite: boolean; send: SendAvailability } {
+  if (
+    typeof chat.canWrite !== "boolean" ||
+    !isRecord(chat.send) ||
+    typeof chat.send.allowed !== "boolean"
+  ) {
+    fail("a chat names who can send");
+  }
+  if (chat.send.allowed) return { canWrite: chat.canWrite, send: { kind: "available" } };
+  const block = chat.send.block;
+  if (block !== "role" && block !== "closed" && block !== "busy") {
+    fail("a chat names why sending is off");
+  }
+  return {
+    canWrite: chat.canWrite,
+    send: { kind: "unavailable", block, reason: sendReason(chat.send.reason, names) },
+  };
+}
+
+function chatsOf(
+  value: unknown,
+  names: Names,
+): {
   chats: Record<string, readonly PrdWireMessage[]>;
   canWrite: Record<string, boolean>;
   send: Record<string, SendAvailability>;
@@ -176,9 +222,10 @@ function chatsOf(value: unknown): {
       fail("a chat has a key");
     }
     if (!Array.isArray(chat.messages)) fail("a chat lists its messages");
+    const access = chatAccess(chat, names);
     chats[chat.key] = chat.messages.map(messageOf);
-    canWrite[chat.key] = false;
-    send[chat.key] = { kind: "unavailable", block: "role", reason: NOT_YET };
+    canWrite[chat.key] = access.canWrite;
+    send[chat.key] = access.send;
   }
   return { chats, canWrite, send };
 }
@@ -250,6 +297,25 @@ function reasonText(code: unknown, forbidden: string): string {
   }
 }
 
+function completeReason(code: unknown, names: Names): string {
+  switch (code) {
+    case "forbidden":
+      return `Only ${names.ngo} marks her answer complete.`;
+    case "closed":
+      return CLOSED_REASON;
+    case "follow-up-open":
+      return FOLLOW_UP_REASON;
+    case "busy":
+      return STILL_ANSWERING;
+    case "invalid-request":
+      return WRITE_FIRST;
+    case "stale":
+      return STALE_REASON;
+    default:
+      return NOT_YET;
+  }
+}
+
 function fact(value: unknown, label: string): Record<string, unknown> {
   if (!isRecord(value) || typeof value.allowed !== "boolean") fail(`a question names its ${label}`);
   return value;
@@ -300,10 +366,18 @@ function ngoQuestionOf(value: unknown, names: Names): NgoQuestion {
         ...common,
         kind: "answering",
         followUp: value.followUpOpen === true ? "pending" : "none",
-        complete: {
-          kind: "unavailable",
-          reason: reasonText(complete.reason, `Only ${names.ngo} marks her answer complete.`),
-        },
+        complete: complete.allowed
+          ? {
+              kind: "available",
+              action: {
+                kind: "complete-answer",
+                token: text(complete.token, "complete token") as ActionToken,
+              },
+            }
+          : {
+              kind: "unavailable",
+              reason: completeReason(complete.reason, names),
+            },
       };
     }
     case "complete":
@@ -358,9 +432,9 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
   if (!Array.isArray(record.sections)) fail("the PRD facts list its sections");
   if (!Array.isArray(record.devQuestions)) fail("the PRD facts list the developer questions");
   if (!Array.isArray(record.questions)) fail("the PRD facts list the questions for the NGO");
-  const presented = chatsOf(record.chats);
   const people = peopleOf(record.people);
   const names = namesOf(people);
+  const presented = chatsOf(record.chats, names);
   return {
     sequence: wholeNumber(record.sequence, "sequence"),
     revision: wholeNumber(record.revision, "revision"),

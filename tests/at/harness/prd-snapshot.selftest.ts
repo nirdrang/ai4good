@@ -121,3 +121,121 @@ it("reads an open follow-up, the latest answer, and who may use it", () => {
   ).questions[0];
   expect(used).toMatchObject({ kind: "used", answer: "A year.", briefTurn: "m1", changed: false });
 });
+
+it("maps who can send from the facts, in the screen's words", () => {
+  const snap = snapshotFromRecord(
+    {
+      ...record([]),
+      chats: [
+        { key: "main", messages: [], canWrite: true, send: { allowed: true, reason: null } },
+        {
+          key: "topic:booking",
+          messages: [],
+          canWrite: false,
+          send: { allowed: false, block: "role", reason: "only-dev" },
+        },
+        {
+          key: "side:q1",
+          messages: [],
+          canWrite: false,
+          send: { allowed: false, block: "role", reason: "only-ngo" },
+        },
+        {
+          key: "side:q2",
+          messages: [],
+          canWrite: false,
+          send: { allowed: false, block: "role", reason: "not-open" },
+        },
+        {
+          key: "topic:rules",
+          messages: [],
+          canWrite: false,
+          send: { allowed: false, block: "closed", reason: "closed" },
+        },
+        {
+          key: "side:q3",
+          messages: [],
+          canWrite: true,
+          send: { allowed: false, block: "busy", reason: "busy" },
+        },
+      ],
+    },
+    DEV,
+  );
+  expect(snap.canWrite).toEqual({
+    main: true,
+    "topic:booking": false,
+    "side:q1": false,
+    "side:q2": false,
+    "topic:rules": false,
+    "side:q3": true,
+  });
+  expect(snap.send.main).toEqual({ kind: "available" });
+  expect(snap.send["topic:booking"]).toEqual({
+    kind: "unavailable",
+    block: "role",
+    reason: "Only Priya writes to the AI here.",
+  });
+  expect(snap.send["side:q1"]).toEqual({
+    kind: "unavailable",
+    block: "role",
+    reason: "Only Maya answers in her side chat.",
+  });
+  expect(snap.send["side:q2"]).toEqual({
+    kind: "unavailable",
+    block: "role",
+    reason: "This question is not open for an answer.",
+  });
+  expect(snap.send["topic:rules"]).toEqual({
+    kind: "unavailable",
+    block: "closed",
+    reason: "The PRD is closed.",
+  });
+  expect(snap.send["side:q3"]).toEqual({
+    kind: "unavailable",
+    block: "busy",
+    reason: "The AI is still answering in this chat.",
+  });
+});
+
+it("offers complete-answer when the facts allow it, and keeps the existing refusal sentences", () => {
+  const token = "complete-answer|question:q1|1|4";
+  const offered = snapshotFromRecord(
+    record([
+      {
+        ...QUESTION,
+        status: "answering",
+        complete: { allowed: true, reason: null, token },
+      },
+    ]),
+    NGO,
+  ).questions[0];
+  expect(offered).toMatchObject({
+    kind: "answering",
+    complete: { kind: "available", action: { kind: "complete-answer", token } },
+  });
+  const reasonFor = (reason: string) =>
+    snapshotFromRecord(
+      record([{ ...QUESTION, status: "answering", complete: { allowed: false, reason } }]),
+      NGO,
+    ).questions[0];
+  expect(reasonFor("invalid-request")).toMatchObject({
+    kind: "answering",
+    complete: { kind: "unavailable", reason: "Write your answer first." },
+  });
+  expect(reasonFor("busy")).toMatchObject({
+    kind: "answering",
+    complete: { kind: "unavailable", reason: "The AI is still answering." },
+  });
+  expect(reasonFor("forbidden")).toMatchObject({
+    kind: "answering",
+    complete: { kind: "unavailable", reason: "Only Maya marks her answer complete." },
+  });
+  expect(reasonFor("stale")).toMatchObject({
+    kind: "answering",
+    complete: {
+      kind: "unavailable",
+      reason: "The PRD changed since this was offered. Use the current version.",
+    },
+  });
+});
