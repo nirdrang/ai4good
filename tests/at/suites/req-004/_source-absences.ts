@@ -739,3 +739,12 @@ export function labelCurationSurfaceProblems(): string[] {
     uiRoutes: surfaces.uiRoutes,
   });
 }
+
+const SECOND_TRACK = /wait[_ -]?list|second[_ -]track/gi;
+export function declineTrackProblems(): string[] {
+  const problems: string[] = [];
+  for (const file of productFiles('declineTrackProblems')) {
+    for (const match of file.text.matchAll(SECOND_TRACK)) problems.push(`${file.path}:${lineOf(file.text, match.index ?? 0)} names ${match[0]}`);
+  }
+  return problems;
+}
