@@ -1,7 +1,7 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { openQuestions, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
-import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_OFF_TOPIC_FLAG_STRIKES, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
+import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
 import { channelsFor, taxonomyRow, type Channel } from './notification-taxonomy.ts';
@@ -277,7 +277,7 @@ async function prepareReply(
     system: replySystemPrompt({
       title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
       reference_files: need.body.need.referenceFiles.map((file) => file.fileName),
-    }, topicIds, skills, args.p_settings.expected_charge !== 'paid'),
+    }, topicIds, skills),
     messages: [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }],
     tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },
     reply: {
@@ -377,12 +377,6 @@ async function actReply(
     ready: plan.ready, brief: snapshotOf(plan.brief), usage,
   });
   const messageId = assistantMessageId(reservation.turn, prepared.reply.messageId);
-  const offTopic = reservation.turn.billing === 'free' && isRecord(answer.toolUse?.input)
-    && answer.toolUse.input.offTopic === true;
-  const notice = offTopic ? offTopicFlaggedNotice({
-    projectId: reservation.turn.project_id, organizationId: reservation.turn.org_id,
-    strikes: DISCOVERY_OFF_TOPIC_FLAG_STRIKES,
-  }) : null;
   return {
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'completed',
@@ -397,7 +391,7 @@ async function actReply(
         baseRevision: current?.revision ?? null,
         source: scopeSourceFromBrief(plan.brief),
       },
-      p_off_topic: offTopic, p_notice: notice?.ok ? notice.value : null,
+      p_off_topic: false, p_notice: null,
     },
     failure: null, suffix: plan.suffix, tail,
   };

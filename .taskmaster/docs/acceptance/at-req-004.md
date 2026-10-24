@@ -24,10 +24,10 @@ Source: prd-mvp.md REQ-004 (isolated: requirements/req-004.md). Dependencies: RE
 
 - **AT-004.10 (P0)** — Given a representative intake, Discovery uses NGO and AI roles only, reuses known facts, and targets 5–10 structured turns on Claude Opus. Ask the next unresolved question with its reason. Group only independent questions. Dependent questions wait. Suggested answers, custom answers, and uncertainty are supported. The resulting scope satisfies the fixture's required facts, constraints, stories, and criteria. Unknown answers remain explicit. [d92]
 - **AT-004.11 (P0)** — Given an active conversation, leaving and returning restores the transcript, answers, pending questions, brief, and usage. Editing an earlier answer marks dependent answers for review and updates the brief. The AI cannot approve the brief for the NGO. [d92]
-- **AT-004.12 (P0)** — Given free-credit Discovery, When the NGO asks an unrelated task (general Q&A, document drafting, translation, coding help), Then the agent declines/redirects to scoping.
-- **AT-004.13 (P0)** — Given repeated off-topic requests on free credits, When the pattern continues, Then a plain notice is shown and the conversation is flagged for founder visibility — and the NGO is never locked out.
+- **AT-004.12 [retired — free-turn scope redirect; off-topic handling is postponed until after MVP; founder 2026-10-24: "we should drop the on topic off topic completely and from tests this should be postponed post MVP"]**
+- **AT-004.13 [retired — repeated off-topic notice and flag; off-topic handling is postponed until after MVP; founder 2026-10-24: "we should drop the on topic off topic completely and from tests this should be postponed post MVP"]**
 - **AT-004.14 (P0)** — Given a Discovery conversation of any length, When the NGO says to stop, Then Discovery wraps up on request: the live brief keeps what is known and lists the rest as open questions, and the NGO can finish Discovery. [d94: no closing model call and no scope generation] There is no per-conversation turn ceiling. On free turns, the daily free-turn quota is the only bound. When a quota runs out, Discovery offers scope review or paid continuation. A fresh conversation does not reset the daily usage, cannot mint a grant, and cannot approve unresolved scope. [founder 2026-09-19: "No limit of number of turns (except credit) but ngo can always say stop now"; d92 quotas; the founder chose this combination on 2026-09-25] [d95]
-- **AT-004.15 (P0)** — Given a paid-mode turn after free capacity is exhausted, free scope redirects and off-topic notices do not apply. Given a funded project still using free capacity, those free guardrails do apply. The selected turn mode decides, not whether fuel was purchased. [d92; the founder kept this over "funded = no guardrail" on 2026-09-25]
+- **AT-004.15 [retired — paid turns carry no free-turn guardrail; off-topic handling is postponed until after MVP; founder 2026-10-24: "we should drop the on topic off topic completely and from tests this should be postponed post MVP"]**
 
 ## C. Reference files [cross: REQ-032]
 
@@ -132,7 +132,7 @@ Founder rulings on 2026-09-29, from the Discovery screen design session. Discove
 | Disposition upheld (stays cancelled, no further NGO notice) / overturned (Discovery reopens, NGO notified) | 55, 56 [d89] |
 | Dispositions retrievable as the decline evaluator's calibration dataset; no unauditable decline | 57 [d89] |
 | Regeneration bounded/logged/free; error retries free | 37–39 |
-| Free-turn guardrails (scope rule, stop on request, free-turn quotas, notice+flag, never lockout); paid turns have no free guardrail | 12–15 |
+| Stop on request; free-turn quotas are the only bound (off-topic handling postponed until after MVP) | 14 |
 | Abuse guardrails (verification floor, kill switch, no grants, no platform breaker, credits outside ledger) | 41–45 |
 | Transparency (credits visible, per-turn cost, never silently removed) | 02, 46 |
 | File upload and read are free; a read is not a turn | 19, 67 [d94] [founder decision 2026-10-01] |

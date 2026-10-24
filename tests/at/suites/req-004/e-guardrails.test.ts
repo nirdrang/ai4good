@@ -2,7 +2,6 @@ import { expect } from 'vitest';
 import { atTest, CapabilityPending } from './_bind.ts';
 import { AWAITED } from './_pending.ts';
 import { DISCOVERY_STOP_RULE } from '../../../../supabase/functions/_shared/discovery-prompt.ts';
-import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import { discoveryWalletProblems } from '../req-002/_source-absences.ts';
 import {
   freeCreditsOutsideMoneyProblems,
@@ -15,107 +14,8 @@ import type { DiscoverySut } from './_contract.ts';
 
 const USAGE = { inputTokens: 900, outputTokens: 400 };
 const MESSAGE = 'Hello';
-const OFF_TOPIC = 'Please translate this letter into French.';
-const OFF_TOPIC_LETTER = 'Please translate this letter into French: "Dear funder, thank you for your support this year. Our report is attached."';
 const STOP = 'Stop here and write it up.';
-const DECLINE_TEXT = 'I can only help you scope this software need. What should the tracker do first?';
 const OPEN_QUESTIONS = ['Who else will use the tool?', 'What reminder channel is required?'];
-
-atTest('AT-004.12', 'free Discovery declines an unrelated task and redirects to scoping', {
-  default: async ({ open }) => {
-    const { w, sut, h } = await open();
-    const ngo = await sut.provisionNgo(w.email('ngo-12'), { emailVerified: true });
-    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
-    h.vendors.anthropic.script([{
-      kind: 'tool', name: 'decline_off_topic', input: { requested: 'translate this letter' },
-      text: DECLINE_TEXT, usage: USAGE,
-    }]);
-    const sent = await sut.sendMessage(ngo.session, {
-      organizationId: ngo.organizationId, projectId, message: OFF_TOPIC,
-    });
-    expect(sent.ok).toBe(true);
-    if (!sent.ok) return;
-    expect(sent.reply).toBe(DECLINE_TEXT);
-    expect(sent.turn.offTopic).toBe(true);
-    expect(sent.guardrail).toEqual({ offTopicCount: 1, flagged: false, notice: null });
-    const request = h.vendors.anthropic.requests()[0];
-    expect(request.tools.map((tool) => tool.name)).toEqual(['reply']);
-  },
-  integration: async ({ open }) => {
-    const { w, sut } = await open();
-    const ngo = await sut.provisionNgo(w.email('ngo-12'), { emailVerified: true });
-    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
-    const onTopic = await sut.sendMessage(ngo.session, {
-      organizationId: ngo.organizationId, projectId, message: GRANT_TRACKER.ngoMessages[0],
-    });
-    expect(onTopic.ok, JSON.stringify(onTopic)).toBe(true);
-    if (!onTopic.ok) return;
-    expect(onTopic.turn.offTopic).toBe(false);
-    const sent = await sut.sendMessage(ngo.session, {
-      organizationId: ngo.organizationId, projectId, message: OFF_TOPIC_LETTER,
-    });
-    expect(sent.ok, JSON.stringify(sent)).toBe(true);
-    if (!sent.ok) return;
-    expect(sent.turn.offTopic).toBe(true);
-    expect(sent.guardrail).toEqual({ offTopicCount: 1, flagged: false, notice: null });
-    expect(sent.reply).not.toMatch(/merci|cher|soutien/i);
-  },
-});
-
-atTest('AT-004.13', 'repeated off-topic requests on free credits flag once and never lock the NGO out', {
-  default: async ({ open }) => {
-    const { w, sut, h } = await open();
-    await sut.provisionPlatformAdmin(w.email('admin-13'));
-    const ngo = await sut.provisionNgo(w.email('ngo-13'), { emailVerified: true });
-    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
-    const strikes = h.config.get<number>('req-004.discovery.off_topic_flag_strikes');
-    for (let i = 0; i < strikes; i += 1) {
-      const reserved = await sut.reserveTurnAsOperator({
-        accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-        message: OFF_TOPIC,
-      });
-      expect(reserved.ok).toBe(true);
-      if (!reserved.ok) return;
-      const settled = await sut.settleTurnAsOperator({
-        accountId: ngo.accountId, turnId: reserved.reservation.turn.id, outcome: 'completed',
-        reply: DECLINE_TEXT, usage: USAGE, offTopic: true,
-      });
-      expect(settled.ok).toBe(true);
-      if (!settled.ok) return;
-      if (i + 1 < strikes) {
-        expect(settled.guardrail).toEqual({ offTopicCount: i + 1, flagged: false, notice: null });
-      } else {
-        expect(settled.guardrail).toEqual({
-          offTopicCount: strikes, flagged: true, notice: SCOPE_COPY.offTopicNotice,
-        });
-      }
-    }
-    expect(await sut.notificationEvents('discovery.off_topic_flagged')).toHaveLength(1);
-    const extraReserve = await sut.reserveTurnAsOperator({
-      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: OFF_TOPIC,
-    });
-    expect(extraReserve.ok).toBe(true);
-    if (!extraReserve.ok) return;
-    const extra = await sut.settleTurnAsOperator({
-      accountId: ngo.accountId, turnId: extraReserve.reservation.turn.id, outcome: 'completed',
-      reply: DECLINE_TEXT, usage: USAGE, offTopic: true,
-    });
-    expect(extra.ok).toBe(true);
-    if (!extra.ok) return;
-    expect(extra.guardrail).toMatchObject({ flagged: true, notice: SCOPE_COPY.offTopicNotice });
-    expect(await sut.notificationEvents('discovery.off_topic_flagged')).toHaveLength(1);
-    const next = await sut.reserveTurnAsOperator({
-      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
-      message: MESSAGE,
-    });
-    expect(next.ok).toBe(true);
-    if (!next.ok) return;
-    expect(await sut.settleTurnAsOperator({
-      accountId: ngo.accountId, turnId: next.reservation.turn.id, outcome: 'failed',
-    })).toMatchObject({ ok: true });
-  },
-});
 
 atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it has with open questions', {
   default: async ({ open }) => {
@@ -165,7 +65,6 @@ atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it 
     expect(sent.ok, JSON.stringify(sent)).toBe(true);
     if (!sent.ok) return;
     expect(sent.scopeReady).toBe(false);
-    expect(sent.turn.offTopic).toBe(false);
     const read = await sut.readConversation(ngo.session, projectId);
     if (!read.ok || !read.value.brief) throw new Error('The stop turn left no live brief.');
     const brief = read.value.brief;
@@ -174,42 +73,6 @@ atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it 
       organizationId: ngo.organizationId, projectId, action: 'finish', revision: brief.revision,
       acks: { reviewed: true, openGaps: true, data: true },
     })).toMatchObject({ ok: true });
-  },
-});
-
-atTest('AT-004.15', 'the selected paid mode carries no free-turn guardrail', {
-  default: async ({ open }) => {
-    const { w, sut, h } = await open();
-    const ngo = await sut.provisionNgo(w.email('ngo-15'), { emailVerified: true });
-    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
-    const strikes = h.config.get<number>('req-004.discovery.off_topic_flag_strikes');
-    await sut.setProjectFundingAsOperator(projectId, {
-      fundedAt: new Date().toISOString(), fuelMicros: 5_000_000,
-    });
-    const past = strikes + 2;
-    await sut.drainAllowance(ngo.session, ngo.organizationId);
-    h.vendors.anthropic.script(Array.from({ length: past }, () => ({
-      kind: 'text' as const, text: DECLINE_TEXT, usage: USAGE,
-    })));
-    for (let i = 0; i < past; i += 1) {
-      const sent = await sut.sendMessage(ngo.session, {
-        organizationId: ngo.organizationId, projectId, message: OFF_TOPIC, expectedCharge: 'paid',
-      });
-      expect(sent.ok).toBe(true);
-      if (!sent.ok) return;
-      expect(sent.guardrail).toBeNull();
-      expect(sent.turn.offTopic).toBe(false);
-    }
-    const requests = h.vendors.anthropic.requests();
-    expect(requests).toHaveLength(past);
-    requests.forEach((request) => expect(request.tools.map((tool) => tool.name)).toEqual(['reply']));
-    expect(await sut.notificationEvents('discovery.off_topic_flagged')).toEqual([]);
-  },
-  integration: async ({ open }) => {
-    const { w, sut } = await open();
-    const ngo = await sut.provisionNgo(w.email('ngo-15'), { emailVerified: true });
-    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
-    await sut.setProjectFundingAsOperator(projectId, { fundedAt: new Date().toISOString(), fuelMicros: 1 });
   },
 });
 

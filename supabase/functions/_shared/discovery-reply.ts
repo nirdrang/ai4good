@@ -74,7 +74,6 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
       additionalProperties: false,
       properties: {
         text: { type: 'string' },
-        offTopic: { type: 'boolean' },
         causeLabels: { type: 'array', maxItems: SCOPE_CAUSE_LABELS_MAX, items: { type: 'string', maxLength: SCOPE_CAUSE_LABEL_MAX_CHARS } },
         questions: {
           type: 'array',
@@ -113,9 +112,8 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
 }
 
 export function parseReplyInput(input: unknown, topicIds: readonly string[]): ReplyUpdate | null {
-  if (!isRecord(input) || !exactKeys(input, input.offTopic === undefined
-    ? ['text', 'questions', 'agreed', 'openQuestions', ...(input.causeLabels === undefined ? [] : ['causeLabels'])] : ['text', 'questions', 'agreed', 'openQuestions', 'offTopic', ...(input.causeLabels === undefined ? [] : ['causeLabels'])])
-    || (input.offTopic !== undefined && typeof input.offTopic !== 'boolean')) return null;
+  if (!isRecord(input) || !exactKeys(input,
+    ['text', 'questions', 'agreed', 'openQuestions', ...(input.causeLabels === undefined ? [] : ['causeLabels'])])) return null;
   const text = stringValue(input.text);
   if (text === null || !Array.isArray(input.questions) || !Array.isArray(input.agreed) || !Array.isArray(input.openQuestions)) {
     return null;
@@ -157,13 +155,12 @@ export function parseReplyInput(input: unknown, topicIds: readonly string[]): Re
   return { text, questions, agreed, openQuestions, ...(causeLabels === undefined ? {} : { causeLabels }) };
 }
 
-export function replySystemPrompt(need: DiscoveryNeed, topicIds: readonly string[], skills: readonly DiscoverySkill[], free = true): SystemBlock[] {
+export function replySystemPrompt(need: DiscoveryNeed, topicIds: readonly string[], skills: readonly DiscoverySkill[]): SystemBlock[] {
   return [
     {
       text: `You are a scoping partner for an NGO with no developer on staff.
 Your goal is a complete brief of the software need, grounded in what the NGO says.
-Call the reply tool on every turn. Its input has text, questions, agreed, openQuestions, and optionally offTopic. Always include causeLabels: zero to three short domain labels. Classify the cause domain from the recorded need and conversation, not the software feature. When the domain is clear, include its label now; do not wait for all Discovery answers. Reuse a matching existing vocabulary label. If no vocabulary label matches that clear domain, add a short new label. If the cause domain is still unknown, return []. Labels are suggestions in the live brief; finish publishes them.
-${free ? 'Free turns only cover this need. If the request is unrelated, redirect to the need and set offTopic to true. Do not carry out the unrelated task.' : 'This is a paid turn. Free-turn scope redirects and off-topic notices do not apply.'}
+Call the reply tool on every turn. Its input has text, questions, agreed and openQuestions. Always include causeLabels: zero to three short domain labels. Classify the cause domain from the recorded need and conversation, not the software feature. When the domain is clear, include its label now; do not wait for all Discovery answers. Reuse a matching existing vocabulary label. If no vocabulary label matches that clear domain, add a short new label. If the cause domain is still unknown, return []. Labels are suggestions in the live brief; finish publishes them.
 text is the reply the NGO reads. Do not list the questions in the text.
 questions is an array of {topicId, suggestion, suggested, importance, reason}. importance is needed, suggested, or later. suggested is the wording of the option you recommend.
 Every question must include both suggestion and suggested. They are separate required fields. Never omit either field.
