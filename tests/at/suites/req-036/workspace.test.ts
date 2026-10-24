@@ -3,7 +3,7 @@ import { eventually } from "../../harness/screen.ts";
 import { PRD_GIVEN } from "../../../../design/astra/src/prd-givens.ts";
 import { scopeKey } from "../../../../src/lib/prd-stream.ts";
 import { atTest } from "./_bind.ts";
-import { proveRecordOpens, proveRecordSurvives } from "./_record.ts";
+import { proveQuestionOrder, proveRecordOpens, proveRecordSurvives } from "./_record.ts";
 import {
   closeFlow,
   closePassedFlow,
@@ -198,7 +198,7 @@ atTest(
 atTest(
   "AT-036.03",
   "Ready questions show together, and a suggested NGO question stays unposted until Dev posts it",
-  { surface: "ui", timeoutMs: { loop: 60_000 } },
+  { surface: "ui", timeoutMs: { loop: 60_000, integration: 90_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
@@ -243,6 +243,10 @@ atTest(
       });
     },
     default: wiringPending("AT-036.03"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveQuestionOrder();
+    },
   },
 );
 

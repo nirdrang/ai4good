@@ -764,3 +764,348 @@ export async function proveRecordSurvives(): Promise<void> {
     await seeded.sql.close();
   }
 }
+
+function devQuestion(
+  section: string,
+  text: string,
+  why: string,
+  options: readonly string[],
+  suggested: string,
+  prerequisites: readonly string[] = [],
+  anchors: readonly string[] = [],
+): Record<string, unknown> {
+  return { section, text, why, options, suggested, prerequisites, anchors };
+}
+
+function outcomeQuestions(value: unknown): string[] {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value;
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("an outcome did not name its questions");
+  }
+  const questions = (parsed as { questions?: unknown }).questions;
+  if (!Array.isArray(questions)) throw new Error("an outcome did not name its questions");
+  return questions.map((id) => {
+    if (typeof id !== "string" || id.length === 0)
+      throw new Error("an outcome names a question id");
+    return id;
+  });
+}
+
+async function refusal(run: Promise<unknown>): Promise<string> {
+  try {
+    await run;
+  } catch (error) {
+    const detail = (error as { detail?: unknown }).detail;
+    if (typeof detail !== "string" || detail.length === 0) throw error;
+    return detail;
+  }
+  throw new Error("expected a refusal");
+}
+
+async function questionIds(seeded: Seed): Promise<string[]> {
+  const rows = (await seeded.sql`select id from public.prd_questions
+    where project_id = ${seeded.projectId}::uuid
+    order by ordinal`) as Array<{ id: string }>;
+  return rows.map((row) => String(row.id));
+}
+
+async function rowRevision(seeded: Seed, questionId: string): Promise<number> {
+  const rows = (await seeded.sql`select row_revision from public.prd_questions
+    where id = ${questionId}::uuid`) as Array<{ row_revision: unknown }>;
+  return whole(rows[0].row_revision);
+}
+
+async function sideChatCount(seeded: Seed, questionId: string): Promise<number> {
+  const rows = (await seeded.sql`select count(*) as n from public.prd_chats
+    where project_id = ${seeded.projectId}::uuid
+      and kind = 'side'
+      and question_id = ${questionId}::uuid`) as Array<{ n: unknown }>;
+  return whole(rows[0].n);
+}
+
+async function mainChat(seeded: Seed): Promise<string> {
+  const rows = (await seeded.sql`select id from public.prd_chats
+    where project_id = ${seeded.projectId}::uuid and kind = 'main'`) as Array<{ id: string }>;
+  const id = rows[0] ? String(rows[0].id) : "";
+  if (!id) throw new Error("the opened PRD has no main chat");
+  return id;
+}
+
+async function outcome(
+  seeded: Seed,
+  chatId: string,
+  body: Record<string, unknown>,
+): Promise<string[]> {
+  const message = await append(
+    seeded,
+    "main",
+    "ai",
+    "ai4good AI",
+    "The AI asks.",
+    null,
+    seeded.dev.accountId,
+  );
+  const rows = (await seeded.sql`select public.prd_question_outcome(
+      ${seeded.projectId}::uuid,
+      ${chatId}::uuid,
+      ${JSON.stringify({ ...body, message: message.id })}::text::jsonb
+    ) as outcome`) as Array<{ outcome: unknown }>;
+  return outcomeQuestions(rows[0].outcome);
+}
+
+function postQuestion(seeded: Seed, actorId: string, questionId: string, revision: number) {
+  return seeded.sql`select public.prd_question_post(
+    ${actorId}::uuid,
+    ${seeded.projectId}::uuid,
+    ${questionId}::uuid,
+    ${revision}::bigint
+  )`;
+}
+
+async function readSnapshot(seeded: Seed, person: Person): Promise<PrdSnapshot> {
+  const response = await functionPost(
+    seeded.stack,
+    "prd-snapshot",
+    { projectId: seeded.projectId },
+    person.token,
+  );
+  expect(response.status, JSON.stringify(response.json)).toBe(200);
+  const view = parsePrdSnapshot(response.json);
+  sameAsFacts(view, await readFacts(seeded.sql, person.accountId, seeded.projectId));
+  return view;
+}
+
+async function expectRefused(
+  seeded: Seed,
+  chatId: string,
+  body: Record<string, unknown>,
+  reason: string,
+  label: string,
+): Promise<void> {
+  const before = await questionIds(seeded);
+  expect(await refusal(outcome(seeded, chatId, body)), label).toBe(reason);
+  expect(await questionIds(seeded), `${label} changes nothing`).toEqual(before);
+}
+
+export async function proveQuestionOrder(): Promise<void> {
+  const seeded = await seed();
+  try {
+    const opened = await open(seeded, seeded.dev);
+    expect(opened.status, JSON.stringify(opened.json)).toBe(200);
+    const chatId = await mainChat(seeded);
+
+    const swapText = "Can volunteers swap a shift themselves?";
+    const swapWhy = "The swap rule decides which screens the stories need.";
+    const swapYes = "Yes, they swap themselves.";
+    const publishText = "How far ahead are shifts published?";
+    const publishWhy = "Reminders and the Saturday shortage check count from this date.";
+    const publishWeek = "Two weeks ahead.";
+    const approveText = "Who approves a swap?";
+    const approveWhy = "The swap answer decides whether a coordinator has to approve.";
+    const approveBy = "The coordinator approves.";
+    const clarifyText = "Does who books shifts still match the approved Discovery answer?";
+    const clarifyWhy = "The booking rule was agreed in Discovery, and this checks it still holds.";
+    const anchor = "PM requirement: who books shifts";
+    const ngoText = "What would show the kitchen that the tool works?";
+    const ngoWhy = "Only the kitchen can decide what success means.";
+
+    const asked = await outcome(seeded, chatId, {
+      kind: "ask",
+      questions: [
+        devQuestion(
+          "booking",
+          swapText,
+          swapWhy,
+          [swapYes, "No, a coordinator approves."],
+          swapYes,
+        ),
+        devQuestion(
+          "booking",
+          publishText,
+          publishWhy,
+          [publishWeek, "The day before."],
+          publishWeek,
+        ),
+      ],
+    });
+    expect(asked, "two independent questions in one section are asked together").toHaveLength(2);
+    const [swapId, publishId] = asked;
+    const ready = await readSnapshot(seeded, seeded.dev);
+    expect(
+      ready.devQuestions,
+      "the developer sees both questions, each with its why and one suggested option",
+    ).toEqual([
+      {
+        id: swapId,
+        topicId: "booking",
+        text: swapText,
+        why: swapWhy,
+        options: [swapYes, "No, a coordinator approves."],
+        suggested: swapYes,
+        answered: null,
+      },
+      {
+        id: publishId,
+        topicId: "booking",
+        text: publishText,
+        why: publishWhy,
+        options: [publishWeek, "The day before."],
+        suggested: publishWeek,
+        answered: null,
+      },
+    ]);
+
+    const dependent = devQuestion(
+      "booking",
+      approveText,
+      approveWhy,
+      [approveBy, "No one else approves."],
+      approveBy,
+      [swapId],
+    );
+    await expectRefused(
+      seeded,
+      chatId,
+      { kind: "ask", questions: [dependent] },
+      "not-ready",
+      "a question whose prerequisite is unanswered",
+    );
+    await expectRefused(
+      seeded,
+      chatId,
+      {
+        kind: "ask",
+        questions: [
+          devQuestion(
+            "booking",
+            "Are reminders sent the day before a shift?",
+            "Reminders are a screen of their own only if the kitchen wants them.",
+            ["Yes, the day before.", "No reminders."],
+            "Yes, the day before.",
+          ),
+          dependent,
+        ],
+      },
+      "not-ready",
+      "a mixed ask of a ready question and one whose prerequisite is unanswered",
+    );
+    await expectRefused(
+      seeded,
+      chatId,
+      {
+        kind: "ask",
+        questions: [
+          devQuestion(
+            "rules",
+            "How many shifts can one volunteer take in a week?",
+            "A weekly limit means something only once booking is settled.",
+            ["Two shifts.", "As many as are open."],
+            "Two shifts.",
+          ),
+        ],
+      },
+      "not-ready",
+      "a question in a section that waits on an unconfirmed section",
+    );
+
+    expect(
+      await outcome(seeded, chatId, { kind: "answered", question: swapId, answer: swapYes }),
+      "the prerequisite is answered",
+    ).toEqual([swapId]);
+    const [approveId] = await outcome(seeded, chatId, { kind: "ask", questions: [dependent] });
+    expect(approveId, "the answer lets the dependent question be asked").toBeTruthy();
+    const followed = await readSnapshot(seeded, seeded.dev);
+    expect(
+      followed.devQuestions.map((question) => ({
+        id: question.id,
+        text: question.text,
+        answered: question.answered,
+      })),
+      "the answer is kept, and it determines the next question",
+    ).toEqual([
+      { id: swapId, text: swapText, answered: swapYes },
+      { id: publishId, text: publishText, answered: null },
+      { id: approveId, text: approveText, answered: null },
+    ]);
+
+    const [clarificationId] = await outcome(seeded, chatId, {
+      kind: "ask",
+      questions: [
+        devQuestion(
+          "booking",
+          clarifyText,
+          clarifyWhy,
+          ["Yes, it still holds.", "No, it changed."],
+          "Yes, it still holds.",
+          [],
+          [anchor],
+        ),
+      ],
+    });
+    const facts = (await readFacts(seeded.sql, seeded.dev.accountId, seeded.projectId)) as {
+      devQuestions: Array<{ id: string; anchors: string[] }>;
+    };
+    expect(
+      facts.devQuestions.find((question) => question.id === clarificationId)?.anchors,
+      "the clarification keeps its anchor",
+    ).toEqual([anchor]);
+
+    const [ngoQuestionId] = await outcome(seeded, chatId, {
+      kind: "suggest-ngo",
+      question: {
+        section: "booking",
+        text: ngoText,
+        why: ngoWhy,
+        options: ["Fewer missed Saturday shifts.", "Volunteers book themselves every week."],
+        blocking: true,
+        prerequisites: [],
+        anchors: [],
+      },
+    });
+    expect(ngoQuestionId, "the suggestion is recorded").toBeTruthy();
+    const suggested = await readSnapshot(seeded, seeded.ngo);
+    expect(
+      suggested.questions.find((question) => question.id === ngoQuestionId),
+      "the NGO sees the question as a suggestion, and Post is unavailable",
+    ).toMatchObject({
+      kind: "suggested",
+      text: ngoText,
+      post: { kind: "unavailable", reason: "Only Priya posts questions to Maya." },
+    });
+    expect(suggested.chats[`side:${ngoQuestionId}`], "no side chat exists yet").toBeUndefined();
+    expect(await sideChatCount(seeded, ngoQuestionId), "no side chat row exists yet").toBe(0);
+    const revision = await rowRevision(seeded, ngoQuestionId);
+    expect(
+      await refusal(postQuestion(seeded, seeded.ngo.accountId, ngoQuestionId, revision)),
+      "the NGO cannot post the suggestion",
+    ).toBe("forbidden");
+    expect(
+      await refusal(postQuestion(seeded, seeded.stranger.accountId, ngoQuestionId, revision)),
+      "an unrelated account cannot post the suggestion",
+    ).toBe("forbidden");
+    expect(await sideChatCount(seeded, ngoQuestionId), "a refused post creates no side chat").toBe(
+      0,
+    );
+
+    await postQuestion(seeded, seeded.dev.accountId, ngoQuestionId, revision);
+    expect(
+      await refusal(postQuestion(seeded, seeded.dev.accountId, ngoQuestionId, revision)),
+      "posting again with the old row revision is refused",
+    ).toBe("stale");
+    const posted = await readSnapshot(seeded, seeded.ngo);
+    expect(
+      posted.questions.find((question) => question.id === ngoQuestionId),
+      "the NGO sees the question once it is posted",
+    ).toMatchObject({ kind: "posted", text: ngoText });
+    expect(posted.chats[`side:${ngoQuestionId}`], "the side chat exists").toEqual([]);
+    expect(await sideChatCount(seeded, ngoQuestionId), "the side chat is one row").toBe(1);
+
+    throw new AtPending(
+      "AT-036.03",
+      "sut-missing",
+      "The AI's own choices are not yet proven, so this case cannot prove that it explains why it asks, reuses approved facts, offers suggestions, and keeps unknowns open. Those need a real model session, which is not in this tree yet.",
+    );
+  } finally {
+    await seeded.sql.close();
+  }
+}
