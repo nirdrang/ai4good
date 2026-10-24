@@ -682,7 +682,6 @@ as $$
         ) used on true
        where q.project_id = p_project
          and q.audience = 'ngo'
-         and (p_role = 'dev' or q.status <> 'suggested')
     ), '[]'::jsonb)
   );
 $$;

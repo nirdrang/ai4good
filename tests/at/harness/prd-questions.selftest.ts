@@ -270,13 +270,14 @@ describe.skipIf(!live)("PRD questions on the local stack", () => {
     expect(await refusal(post(dev, ids.retention, revision + 1))).toBe("stale");
   });
 
-  it("never shows the NGO a suggested question", async () => {
+  it("shows the NGO a suggested question it cannot post", async () => {
     const ngoFacts = await facts(ngo);
-    expect(ngoFacts.questions.map((question) => question.id)).toEqual([ids.retention]);
+    expect(ngoFacts.questions.map((question) => question.status)).toEqual(["posted", "suggested"]);
     const devFacts = await facts(dev);
     expect(devFacts.questions.map((question) => question.status)).toEqual(["posted", "suggested"]);
     const ngoView = snapshotFromRecord(ngoFacts, viewerFromRecord(ngoFacts));
-    expect(ngoView.questions.map((question) => question.kind)).toEqual(["posted"]);
+    const unposted = ngoView.questions[1];
+    expect(unposted.kind === "suggested" && unposted.post.kind).toBe("unavailable");
     const devView = snapshotFromRecord(devFacts, viewerFromRecord(devFacts));
     const waiting = devView.questions[1];
     expect(waiting.kind === "suggested" && waiting.post).toEqual({
