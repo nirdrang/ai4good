@@ -227,7 +227,9 @@ export type WriteSubject =
       readonly projectId: string;
       readonly key: string;
       readonly text: string;
-    };
+    }
+  | { readonly route: 'prd-message'; readonly projectId: string }
+  | { readonly route: 'prd-action'; readonly projectId: string };
 
 export type WriteAttemptOutcome = { ok: true } | WriteRefusal;
 

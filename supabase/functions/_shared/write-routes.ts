@@ -89,6 +89,14 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'prd_save_draft' },
     standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
   },
+  'prd-message': {
+    surface: { kind: 'edge', rpc: 'prd_turn_reserve' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
+  'prd-action': {
+    surface: { kind: 'edge', rpc: 'prd_action' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
 } as const satisfies Record<string, { surface: RouteSurface; standing: RouteStanding }>;
 
 export type WriteRouteName = keyof typeof WRITE_ROUTES;
@@ -150,6 +158,12 @@ export const WRITE_REFUSAL_KINDS = [
   'unknown-section',
   'unknown-topic',
   'no-suggestion',
+  'stale',
+  'busy',
+  'closed',
+  'not-yet',
+  'follow-up-open',
+  'not-ready',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];

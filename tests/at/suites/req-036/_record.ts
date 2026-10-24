@@ -1126,3 +1126,467 @@ export async function proveQuestionOrder(): Promise<void> {
     await seeded.sql.close();
   }
 }
+
+type HttpAnswer = { status: number; json: Record<string, unknown> };
+type SendScope =
+  | { kind: "main" }
+  | { kind: "topic"; topicId: string }
+  | { kind: "side"; questionId: string };
+
+const ROLE_ACTIONS = ["confirm-topic", "reopen-topic", "close"] as const;
+const EVERY_ACTION = [
+  "post-question",
+  "complete-answer",
+  "confirm-topic",
+  "reopen-topic",
+  "close",
+  "close-anyway",
+  "keep-working",
+] as const;
+
+function expectRefusal(response: HttpAnswer, kind: string, label: string): void {
+  expect(response.status, `${label}: ${JSON.stringify(response.json)}`).toBe(409);
+  expect(response.json.kind, label).toBe(kind);
+}
+
+function landedSend(response: HttpAnswer, label: string): { turnId: string; messageId: string } {
+  expect(response.status, `${label}: ${JSON.stringify(response.json)}`).toBe(200);
+  const turnId = response.json.turnId;
+  const messageId = response.json.messageId;
+  if (typeof turnId !== "string" || typeof messageId !== "string") {
+    throw new Error(`${label} did not name a turn and a message`);
+  }
+  return { turnId, messageId };
+}
+
+function chatTexts(snapshot: PrdSnapshot, key: string): string[] {
+  const found: string[] = [];
+  for (const message of snapshot.chats[key] ?? []) {
+    for (const part of message.parts) {
+      if (part.type === "text") found.push(part.text);
+    }
+  }
+  return found;
+}
+
+function questionBy(snapshot: PrdSnapshot, id: string) {
+  const question = snapshot.questions.find((item) => item.id === id);
+  if (!question) throw new Error("the snapshot has no such question");
+  return question;
+}
+
+function offeredPost(snapshot: PrdSnapshot, id: string): string {
+  const question = questionBy(snapshot, id);
+  if (question.kind !== "suggested" || question.post.kind !== "available") {
+    throw new Error("the developer is not offered a post");
+  }
+  return question.post.action.token;
+}
+
+function actionToken(kind: string, questionId: string): string {
+  const target =
+    kind === "post-question" || kind === "complete-answer"
+      ? `question:${questionId}`
+      : kind === "confirm-topic" || kind === "reopen-topic"
+        ? "booking"
+        : "prd";
+  return `${kind}|${target}|1|1`;
+}
+
+async function openTurns(seeded: Seed, actorId: string): Promise<number> {
+  const rows = (await seeded.sql`select count(*) as n from public.prd_turns
+    where project_id = ${seeded.projectId}::uuid
+      and actor_id = ${actorId}::uuid
+      and state in ('admitted', 'uncertain')`) as Array<{ n: unknown }>;
+  return whole(rows[0].n);
+}
+
+async function turnsNamed(seeded: Seed, left: string, right: string): Promise<number> {
+  const rows = (await seeded.sql`select count(*) as n from public.prd_turns
+    where project_id = ${seeded.projectId}::uuid
+      and (request_id = ${left} or request_id = ${right})`) as Array<{ n: unknown }>;
+  return whole(rows[0].n);
+}
+
+async function sideChatId(seeded: Seed, questionId: string): Promise<string> {
+  const rows = (await seeded.sql`select id from public.prd_chats
+    where project_id = ${seeded.projectId}::uuid
+      and kind = 'side'
+      and question_id = ${questionId}::uuid`) as Array<{ id: string }>;
+  const id = rows[0] ? String(rows[0].id) : "";
+  if (!id) throw new Error("the posted question has no side chat");
+  return id;
+}
+
+async function finishTurn(seeded: Seed, turnId: string): Promise<void> {
+  await seeded.sql`select public.prd_turn_finish(${turnId}::uuid, 'answered')`;
+}
+
+async function send(
+  seeded: Seed,
+  person: Person,
+  scope: SendScope,
+  intent: Record<string, unknown>,
+  revision: number,
+  request: string,
+): Promise<HttpAnswer> {
+  return functionPost(
+    seeded.stack,
+    "prd-message",
+    {
+      projectId: seeded.projectId,
+      scope,
+      requestId: request,
+      baseRevision: revision,
+      intent,
+    },
+    person.token,
+  );
+}
+
+async function act(
+  seeded: Seed,
+  person: Person,
+  kind: string,
+  token: string,
+  request: string,
+): Promise<HttpAnswer> {
+  return functionPost(
+    seeded.stack,
+    "prd-action",
+    { projectId: seeded.projectId, kind, token, requestId: request },
+    person.token,
+  );
+}
+
+export async function proveRolesAndPermissions(): Promise<void> {
+  const seeded = await seed();
+  try {
+    const opened = await open(seeded, seeded.dev);
+    expect(opened.status, JSON.stringify(opened.json)).toBe(200);
+
+    const plainReply = "The AI continues the main chat.";
+    await append(seeded, "main", "ai", "ai4good AI", plainReply, null, seeded.dev.accountId);
+    const plain = await readSnapshot(seeded, seeded.dev);
+    expect(
+      plain.chats.main.map((message) => message.parts),
+      "a plain AI reply offers no state-action button",
+    ).toEqual([[{ type: "text", text: plainReply }]]);
+
+    const postText = "What would show the kitchen that the tool works?";
+    const heldText = "Which Saturday shortage should the kitchen count?";
+    const chatId = await mainChat(seeded);
+    const [postedId] = await outcome(seeded, chatId, {
+      kind: "suggest-ngo",
+      question: {
+        section: "booking",
+        text: postText,
+        why: "Only the kitchen can decide what success means.",
+        options: ["Fewer missed Saturday shifts."],
+        blocking: true,
+        prerequisites: [],
+        anchors: [],
+      },
+    });
+    const [heldId] = await outcome(seeded, chatId, {
+      kind: "suggest-ngo",
+      question: {
+        section: "booking",
+        text: heldText,
+        why: "The shortage rule is the kitchen's to name.",
+        options: ["Count the Saturday shortage."],
+        blocking: false,
+        prerequisites: [],
+        anchors: [],
+      },
+    });
+    const offered = await readSnapshot(seeded, seeded.dev);
+    const postToken = offeredPost(offered, postedId);
+    const heldToken = offeredPost(offered, heldId);
+    const revision = offered.revision;
+
+    const mainLine = "Priya writes the roster in the main chat.";
+    const mainRequest = crypto.randomUUID();
+    expect(await openTurns(seeded, seeded.dev.accountId), "a main send needs no turn the developer owns").toBe(0);
+    const mainIntent = { kind: "text", text: mainLine };
+    const firstMain = await send(seeded, seeded.dev, { kind: "main" }, mainIntent, revision, mainRequest);
+    const againMain = await send(seeded, seeded.dev, { kind: "main" }, mainIntent, revision, mainRequest);
+    const mainLanded = landedSend(firstMain, "the developer writes in main");
+    expect(landedSend(againMain, "the same request is the same send")).toEqual(mainLanded);
+    expect(
+      chatTexts(await readSnapshot(seeded, seeded.dev), "main").filter((text) => text === mainLine),
+      "the same request writes one message",
+    ).toEqual([mainLine]);
+    await finishTurn(seeded, mainLanded.turnId);
+
+    const topicLine = "Priya writes in the booking topic.";
+    expect(await openTurns(seeded, seeded.dev.accountId), "a topic send needs no turn the developer owns").toBe(0);
+    const topicLanded = landedSend(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "topic", topicId: "booking" },
+        { kind: "text", text: topicLine },
+        revision,
+        crypto.randomUUID(),
+      ),
+      "the developer writes in a topic chat",
+    );
+    expect(
+      chatTexts(await readSnapshot(seeded, seeded.dev), "topic:booking").filter((text) => text === topicLine),
+      "the topic chat keeps the developer's message once",
+    ).toEqual([topicLine]);
+    await finishTurn(seeded, topicLanded.turnId);
+
+    const raceLeft = "Priya's first simultaneous line.";
+    const raceRight = "Priya's second simultaneous line.";
+    const leftRequest = crypto.randomUUID();
+    const rightRequest = crypto.randomUUID();
+    const [left, right] = await Promise.all([
+      send(seeded, seeded.dev, { kind: "main" }, { kind: "text", text: raceLeft }, revision, leftRequest),
+      send(seeded, seeded.dev, { kind: "main" }, { kind: "text", text: raceRight }, revision, rightRequest),
+    ]);
+    const won = [left, right].filter((response) => response.status === 200);
+    const lost = [left, right].filter((response) => response.status !== 200);
+    expect(won, "one simultaneous send lands").toHaveLength(1);
+    expect(lost, "the other simultaneous send is refused").toHaveLength(1);
+    expectRefusal(lost[0], "busy", "the other simultaneous send");
+    const raced = await readSnapshot(seeded, seeded.dev);
+    const storedRace = [raceLeft, raceRight].filter((text) => chatTexts(raced, "main").includes(text));
+    expect(storedRace, "two simultaneous sends leave one message").toHaveLength(1);
+    expect(await turnsNamed(seeded, leftRequest, rightRequest), "two simultaneous sends leave one turn").toBe(1);
+    const wonTurn = won[0].json.turnId;
+    if (typeof wonTurn !== "string") throw new Error("the landed send named no turn");
+    await finishTurn(seeded, wonTurn);
+
+    expect(await openTurns(seeded, seeded.dev.accountId), "posting needs no turn the developer owns").toBe(0);
+    const posted = await act(seeded, seeded.dev, "post-question", postToken, crypto.randomUUID());
+    expect(posted.status, JSON.stringify(posted.json)).toBe(200);
+    expect(await openTurns(seeded, seeded.dev.accountId), "posting creates no turn").toBe(0);
+    expect(questionBy(await readSnapshot(seeded, seeded.dev), postedId).kind, "the question is posted once").toBe(
+      "posted",
+    );
+    expectRefusal(
+      await act(seeded, seeded.dev, "post-question", postToken, crypto.randomUUID()),
+      "stale",
+      "a spent post token",
+    );
+    const postedOnce = (await readSnapshot(seeded, seeded.dev)).questions.filter(
+      (question) => question.id === postedId,
+    );
+    expect(postedOnce, "a spent post does not add a question").toHaveLength(1);
+    expect(postedOnce[0]?.kind).toBe("posted");
+
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "side", questionId: postedId },
+        { kind: "text", text: "Priya cannot answer Maya." },
+        revision,
+        crypto.randomUUID(),
+      ),
+      "forbidden",
+      "the developer is refused in the side chat",
+    );
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.ngo,
+        { kind: "main" },
+        { kind: "text", text: "Maya writes in main." },
+        revision,
+        crypto.randomUUID(),
+      ),
+      "forbidden",
+      "the NGO is refused in main",
+    );
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.ngo,
+        { kind: "topic", topicId: "booking" },
+        { kind: "text", text: "Maya writes in a topic." },
+        revision,
+        crypto.randomUUID(),
+      ),
+      "forbidden",
+      "the NGO is refused in a topic chat",
+    );
+    expect(await sideChatCount(seeded, heldId), "a suggested question has no side chat").toBe(0);
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.ngo,
+        { kind: "side", questionId: heldId },
+        { kind: "text", text: "Maya answers too soon." },
+        revision,
+        crypto.randomUUID(),
+      ),
+      "forbidden",
+      "the NGO is refused in a question still suggested",
+    );
+    expectRefusal(
+      await act(seeded, seeded.ngo, "post-question", heldToken, crypto.randomUUID()),
+      "forbidden",
+      "the NGO is refused posting a question",
+    );
+    expect(questionBy(await readSnapshot(seeded, seeded.dev), heldId).kind).toBe("suggested");
+
+    const ngoLine = "Maya writes in the posted side chat.";
+    const ngoLanded = landedSend(
+      await send(
+        seeded,
+        seeded.ngo,
+        { kind: "side", questionId: postedId },
+        { kind: "text", text: ngoLine },
+        revision,
+        crypto.randomUUID(),
+      ),
+      "the NGO writes in the posted side chat",
+    );
+    expect(
+      chatTexts(await readSnapshot(seeded, seeded.ngo), `side:${postedId}`).filter((text) => text === ngoLine),
+      "the side chat keeps the NGO's message once",
+    ).toEqual([ngoLine]);
+    await finishTurn(seeded, ngoLanded.turnId);
+    const answering = questionBy(await readSnapshot(seeded, seeded.ngo), postedId);
+    if (answering.kind !== "answering" || answering.complete.kind !== "available") {
+      throw new Error("the NGO is not offered a way to mark the answer complete");
+    }
+    const completed = await act(
+      seeded,
+      seeded.ngo,
+      "complete-answer",
+      answering.complete.action.token,
+      crypto.randomUUID(),
+    );
+    expect(completed.status, JSON.stringify(completed.json)).toBe(200);
+    expect(completed.json.messageId, "marking the answer complete writes no message").toBeNull();
+    if (typeof completed.json.turnId !== "string") throw new Error("complete-answer named no turn");
+    await finishTurn(seeded, completed.json.turnId);
+
+    const sideId = await sideChatId(seeded, postedId);
+    const recorded = await append(
+      seeded,
+      `side:${postedId}`,
+      "ai",
+      "ai4good AI",
+      "The AI records the settled answer.",
+      null,
+      seeded.dev.accountId,
+    );
+    await seeded.sql`select public.prd_question_outcome(
+      ${seeded.projectId}::uuid,
+      ${sideId}::uuid,
+      ${JSON.stringify({ kind: "final-answer", message: recorded.id, answer: "One month ahead." })}::text::jsonb
+    )`;
+    const completeView = await readSnapshot(seeded, seeded.dev);
+    expect(questionBy(completeView, postedId).kind, "the answer is complete").toBe("complete");
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "use-answer", questionId: postedId, answer: null, note: "" },
+        completeView.revision + 1,
+        crypto.randomUUID(),
+      ),
+      "stale",
+      "use-answer with an old revision",
+    );
+    expect(questionBy(await readSnapshot(seeded, seeded.dev), postedId).kind).toBe("complete");
+    expect(await openTurns(seeded, seeded.dev.accountId), "using an answer needs no turn the developer owns").toBe(0);
+    const used = landedSend(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "use-answer", questionId: postedId, answer: null, note: "" },
+        completeView.revision,
+        crypto.randomUUID(),
+      ),
+      "the developer uses a complete answer",
+    );
+    expect(questionBy(await readSnapshot(seeded, seeded.dev), postedId).kind).toBe("used");
+    await finishTurn(seeded, used.turnId);
+
+    const drafted = await functionPost(
+      seeded.stack,
+      "prd-draft",
+      { projectId: seeded.projectId, key: "main", text: DEV_DRAFT },
+      seeded.dev.token,
+    );
+    expect(drafted.status, JSON.stringify(drafted.json)).toBe(200);
+    const devView = await readSnapshot(seeded, seeded.dev);
+    const ngoView = await readSnapshot(seeded, seeded.ngo);
+    expect(devView.drafts.main).toBe(DEV_DRAFT);
+    expect(ngoView.drafts.main).toBeUndefined();
+    const ngoJson = JSON.stringify(ngoView);
+    expect(ngoJson, "the NGO snapshot has no developer draft").not.toContain(DEV_DRAFT);
+    expect(ngoJson.toLowerCase(), "the NGO snapshot has no development board").not.toContain("development board");
+    expect(ngoJson, "the NGO snapshot has no Linear").not.toContain("Linear");
+    expectRefusal(
+      await functionPost(seeded.stack, "prd-snapshot", { projectId: seeded.projectId }, seeded.stranger.token),
+      "forbidden",
+      "an unrelated account cannot read the snapshot",
+    );
+
+    const strangerSends: Array<{ scope: SendScope; label: string }> = [
+      { scope: { kind: "main" }, label: "main" },
+      { scope: { kind: "topic", topicId: "booking" }, label: "a topic chat" },
+      { scope: { kind: "side", questionId: postedId }, label: "the posted side chat" },
+      { scope: { kind: "side", questionId: heldId }, label: "a question still suggested" },
+    ];
+    for (const item of strangerSends) {
+      expectRefusal(
+        await send(
+          seeded,
+          seeded.stranger,
+          item.scope,
+          { kind: "text", text: "An unrelated account writes." },
+          revision,
+          crypto.randomUUID(),
+        ),
+        "forbidden",
+        `an unrelated account is refused in ${item.label}`,
+      );
+    }
+    for (const kind of EVERY_ACTION) {
+      expectRefusal(
+        await act(seeded, seeded.stranger, kind, actionToken(kind, postedId), crypto.randomUUID()),
+        "forbidden",
+        `an unrelated account is refused ${kind}`,
+      );
+    }
+
+    const before = await readSnapshot(seeded, seeded.dev);
+    const beforeStates = before.topics.map((topic) => ({ id: topic.id, state: topic.state }));
+    expect(before.close.kind).toBe("open");
+    for (const kind of ROLE_ACTIONS) {
+      const token = actionToken(kind, postedId);
+      expectRefusal(
+        await act(seeded, seeded.ngo, kind, token, crypto.randomUUID()),
+        "forbidden",
+        `the NGO is refused ${kind}`,
+      );
+      expectRefusal(
+        await act(seeded, seeded.dev, kind, token, crypto.randomUUID()),
+        "not-yet",
+        `the developer is refused ${kind}`,
+      );
+    }
+    const after = await readSnapshot(seeded, seeded.dev);
+    expect(after.sequence, "confirm, reopen, and close change nothing").toBe(before.sequence);
+    expect(after.close.kind).toBe("open");
+    expect(after.topics.map((topic) => ({ id: topic.id, state: topic.state }))).toEqual(beforeStates);
+
+    throw new AtPending(
+      "AT-036.09",
+      "sut-missing",
+      "Confirm, reopen and close are role-checked but have no effect until section states and closing the PRD are built, so they still answer not-yet for the developer. Changing the threshold or overriding scoring has no endpoint yet; the completion check is not in this tree yet.",
+    );
+  } finally {
+    await seeded.sql.close();
+  }
+}

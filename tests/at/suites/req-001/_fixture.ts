@@ -1,7 +1,7 @@
 import { decideDiscoveryMessage, type DiscoveryReserveArgs } from '../../../../supabase/functions/_shared/discovery-turn.ts';
 import { decideDiscoveryScope, type DiscoveryScopeArgs } from '../../../../supabase/functions/_shared/scope.ts';
 import { decideDiscoveryBrief, type DiscoveryBriefCommitArgs } from '../../../../supabase/functions/_shared/discovery-brief-write.ts';
-import { decidePrdDraft, decidePrdOpen, projectTarget } from '../../../../supabase/functions/_shared/prd/routes.ts';
+import { decidePrdAction, decidePrdDraft, decidePrdMessage, decidePrdOpen, projectTarget } from '../../../../supabase/functions/_shared/prd/routes.ts';
 import { AT_CONFIG } from '../../harness/atconfig.ts';
 import type { ControlledClock } from '../../harness/clock.ts';
 import type { FixtureWorld, FixtureWorldStore } from '../../harness/fixtures.ts';
@@ -1154,6 +1154,37 @@ export function createFixtureAdapter({ clock, worlds }: AdapterOptions) {
             { name: 'prd-draft', target: projectTarget, decide: decidePrdDraft },
             session,
             { projectId: subject.projectId, key: subject.key, text: subject.text },
+            null,
+          );
+          return run.ok ? { ok: true } : run;
+        },
+        'prd-message': async () => {
+          if (subject.route !== 'prd-message') throw new Error('unreachable');
+          const run = runWrite(
+            { name: 'prd-message', target: projectTarget, decide: decidePrdMessage },
+            session,
+            {
+              projectId: subject.projectId,
+              scope: { kind: 'main' },
+              requestId: 'req-001-message',
+              baseRevision: 1,
+              intent: { kind: 'text', text: 'hello' },
+            },
+            null,
+          );
+          return run.ok ? { ok: true } : run;
+        },
+        'prd-action': async () => {
+          if (subject.route !== 'prd-action') throw new Error('unreachable');
+          const run = runWrite(
+            { name: 'prd-action', target: projectTarget, decide: decidePrdAction },
+            session,
+            {
+              projectId: subject.projectId,
+              kind: 'close',
+              token: 'close|prd|1|1',
+              requestId: 'req-001-action',
+            },
             null,
           );
           return run.ok ? { ok: true } : run;

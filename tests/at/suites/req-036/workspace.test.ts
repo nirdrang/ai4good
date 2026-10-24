@@ -3,7 +3,12 @@ import { eventually } from "../../harness/screen.ts";
 import { PRD_GIVEN } from "../../../../design/astra/src/prd-givens.ts";
 import { scopeKey } from "../../../../src/lib/prd-stream.ts";
 import { atTest } from "./_bind.ts";
-import { proveQuestionOrder, proveRecordOpens, proveRecordSurvives } from "./_record.ts";
+import {
+  proveQuestionOrder,
+  proveRecordOpens,
+  proveRecordSurvives,
+  proveRolesAndPermissions,
+} from "./_record.ts";
 import {
   closeFlow,
   closePassedFlow,
@@ -626,7 +631,7 @@ atTest(
 atTest(
   "AT-036.09",
   "Only Dev writes the PRD, and the port refuses everyone else",
-  { surface: "ui", timeoutMs: { loop: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000, integration: 120_000 } },
   {
     loop: async (ctx) => {
       await withPrd(
@@ -778,6 +783,10 @@ atTest(
       }
     },
     default: wiringPending("AT-036.09"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveRolesAndPermissions();
+    },
   },
 );
 

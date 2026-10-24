@@ -607,3 +607,9 @@ verify_jwt = true
 
 [functions.prd-draft]
 verify_jwt = true
+
+[functions.prd-message]
+verify_jwt = true
+
+[functions.prd-action]
+verify_jwt = true
