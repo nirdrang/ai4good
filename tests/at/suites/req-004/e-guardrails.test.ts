@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 import { atTest, CapabilityPending } from './_bind.ts';
-import { AWAITED, awaiting } from './_pending.ts';
+import { AWAITED } from './_pending.ts';
 import { DISCOVERY_STOP_RULE } from '../../../../supabase/functions/_shared/discovery-prompt.ts';
 import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import { discoveryWalletProblems } from '../req-002/_source-absences.ts';
@@ -16,6 +16,7 @@ import type { DiscoverySut } from './_contract.ts';
 const USAGE = { inputTokens: 900, outputTokens: 400 };
 const MESSAGE = 'Hello';
 const OFF_TOPIC = 'Please translate this letter into French.';
+const OFF_TOPIC_LETTER = 'Please translate this letter into French: "Dear funder, thank you for your support this year. Our report is attached."';
 const STOP = 'Stop here and write it up.';
 const DECLINE_TEXT = 'I can only help you scope this software need. What should the tracker do first?';
 const OPEN_QUESTIONS = ['Who else will use the tool?', 'What reminder channel is required?'];
@@ -40,7 +41,25 @@ atTest('AT-004.12', 'free Discovery declines an unrelated task and redirects to 
     const request = h.vendors.anthropic.requests()[0];
     expect(request.tools.map((tool) => tool.name)).toEqual(['reply']);
   },
-  integration: awaiting(AWAITED.anthropicLive),
+  integration: async ({ open }) => {
+    const { w, sut } = await open();
+    const ngo = await sut.provisionNgo(w.email('ngo-12'), { emailVerified: true });
+    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
+    const onTopic = await sut.sendMessage(ngo.session, {
+      organizationId: ngo.organizationId, projectId, message: GRANT_TRACKER.ngoMessages[0],
+    });
+    expect(onTopic.ok, JSON.stringify(onTopic)).toBe(true);
+    if (!onTopic.ok) return;
+    expect(onTopic.turn.offTopic).toBe(false);
+    const sent = await sut.sendMessage(ngo.session, {
+      organizationId: ngo.organizationId, projectId, message: OFF_TOPIC_LETTER,
+    });
+    expect(sent.ok, JSON.stringify(sent)).toBe(true);
+    if (!sent.ok) return;
+    expect(sent.turn.offTopic).toBe(true);
+    expect(sent.guardrail).toEqual({ offTopicCount: 1, flagged: false, notice: null });
+    expect(sent.reply).not.toMatch(/merci|cher|soutien/i);
+  },
 });
 
 atTest('AT-004.13', 'repeated off-topic requests on free credits flag once and never lock the NGO out', {
@@ -131,7 +150,31 @@ atTest('AT-004.14', 'the NGO can stop at any time and Discovery records what it 
     expect(request.system[0].cached).toBe(true);
     expect(request.system[0].text).toContain(DISCOVERY_STOP_RULE);
   },
-  integration: awaiting(AWAITED.anthropicLive),
+  integration: async ({ open }) => {
+    const { w, sut } = await open();
+    expect(stopRulePinProblems()).toEqual([]);
+    const ngo = await sut.provisionNgo(w.email('ngo-14'), { emailVerified: true });
+    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
+    for (const message of [GRANT_TRACKER.ngoMessages[0], 'Two staff.']) {
+      const answer = await sut.sendMessage(ngo.session, { organizationId: ngo.organizationId, projectId, message });
+      expect(answer.ok, JSON.stringify(answer)).toBe(true);
+    }
+    const sent = await sut.sendMessage(ngo.session, {
+      organizationId: ngo.organizationId, projectId, message: STOP,
+    });
+    expect(sent.ok, JSON.stringify(sent)).toBe(true);
+    if (!sent.ok) return;
+    expect(sent.scopeReady).toBe(false);
+    expect(sent.turn.offTopic).toBe(false);
+    const read = await sut.readConversation(ngo.session, projectId);
+    if (!read.ok || !read.value.brief) throw new Error('The stop turn left no live brief.');
+    const brief = read.value.brief;
+    expect(brief.topics.filter((topic) => topic.state.kind !== 'agreed').length).toBeGreaterThan(0);
+    expect(await sut.briefAction(ngo.session, {
+      organizationId: ngo.organizationId, projectId, action: 'finish', revision: brief.revision,
+      acks: { reviewed: true, openGaps: true, data: true },
+    })).toMatchObject({ ok: true });
+  },
 });
 
 atTest('AT-004.15', 'the selected paid mode carries no free-turn guardrail', {
