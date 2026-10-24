@@ -297,7 +297,7 @@ begin
         'sources', jsonb_build_array(v_source)
       ))
     ));
-    v_keys := v_keys || 'usersToday';
+    v_keys := v_keys || 'usersToday'::text;
   end if;
 
   v_text := btrim(coalesce(p_document#>>'{successMeasure,text}', ''));
@@ -312,7 +312,7 @@ begin
         'sources', jsonb_build_array(v_source)
       ))
     ));
-    v_keys := v_keys || 'successMeasure';
+    v_keys := v_keys || 'successMeasure'::text;
   end if;
 
   v_order := p_document->'topicOrder';
@@ -364,7 +364,7 @@ begin
       'technical', true,
       'statements', '[]'::jsonb
     ));
-    v_keys := v_keys || 'technical-scope';
+    v_keys := v_keys || 'technical-scope'::text;
   end if;
 
   for v_section in select value from jsonb_array_elements(v_sections) as value

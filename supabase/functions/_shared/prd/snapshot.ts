@@ -2,13 +2,13 @@ import type {
   CloseState,
   FundsState,
   Person,
-  PrdSnapshot,
-  PrdUIMessage,
+  PrdWireMessage,
+  PrdWireSnapshot,
   SendAvailability,
   Topic,
   TopicState,
   Viewer,
-} from "../../../../src/lib/prd-stream.ts";
+} from "./wire.ts";
 
 const NOT_YET = "Not available yet.";
 const TOPIC_STATES = ["open", "draft", "ready", "confirmed", "needs-review"] as const;
@@ -111,7 +111,7 @@ function topicOf(section: unknown): Topic {
   };
 }
 
-function messageOf(value: unknown): PrdUIMessage {
+function messageOf(value: unknown): PrdWireMessage {
   if (!isRecord(value) || typeof value.id !== "string" || value.id.length === 0) {
     fail("a message has an id");
   }
@@ -119,10 +119,10 @@ function messageOf(value: unknown): PrdUIMessage {
     fail("a message has a role");
   }
   if (!Array.isArray(value.parts)) fail("a message has parts");
-  const message: PrdUIMessage = {
+  const message: PrdWireMessage = {
     id: value.id,
     role: value.role,
-    parts: value.parts as PrdUIMessage["parts"],
+    parts: value.parts as PrdWireMessage["parts"],
   };
   if (value.metadata !== undefined) {
     if (!isRecord(value.metadata)) fail("a message names its actor");
@@ -140,12 +140,12 @@ function messageOf(value: unknown): PrdUIMessage {
 }
 
 function chatsOf(value: unknown): {
-  chats: Record<string, readonly PrdUIMessage[]>;
+  chats: Record<string, readonly PrdWireMessage[]>;
   canWrite: Record<string, boolean>;
   send: Record<string, SendAvailability>;
 } {
   if (!Array.isArray(value)) fail("the PRD facts list its chats");
-  const chats: Record<string, PrdUIMessage[]> = {};
+  const chats: Record<string, PrdWireMessage[]> = {};
   const canWrite: Record<string, boolean> = {};
   const send: Record<string, SendAvailability> = {};
   for (const chat of value) {
@@ -212,7 +212,7 @@ export function viewerFromRecord(record: unknown): Viewer {
 }
 
 /** Turns the facts record into the screen snapshot. It maps text and drops nothing it was given. */
-export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdSnapshot {
+export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnapshot {
   if (!isRecord(record)) fail("the PRD facts are a record");
   if (!isRecord(record.project)) fail("the PRD facts name the project");
   if (!Array.isArray(record.sections)) fail("the PRD facts list its sections");

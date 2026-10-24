@@ -120,7 +120,8 @@ atTest(
       });
     },
     default: wiringPending("AT-036.01"),
-    integration: async () => {
+    integration: async (ctx) => {
+      await ctx.open();
       await proveRecordOpens();
     },
   },
@@ -187,7 +188,8 @@ atTest(
       );
     },
     default: wiringPending("AT-036.02"),
-    integration: async () => {
+    integration: async (ctx) => {
+      await ctx.open();
       await proveRecordSurvives();
     },
   },
