@@ -13,13 +13,13 @@ export type DiscoveryMessageRequest = { organizationId: string; projectId: strin
 };
 export type DiscoveryMessageOutcome = {
   ok: true; turn: DiscoveryTurnView; reply: string; elicitation: Elicitation | null; allowance: Allowance | null;
-  scopeReady: boolean; guardrail: { offTopicCount: number; flagged: boolean; notice: string | null } | null;
+  scopeReady: boolean;
 } | WriteRefusal;
 export type CauseLabelRow = { label: string; firstProjectId: string | null };
 export type OperatorReserveInput = { accountId: string; organizationId: string; projectId: string; message: string; mode?: 'answer' | 'opening'; userMessageId?: string; expectedCharge?: 'free' | 'paid' };
 export type OperatorReserveOutcome = { ok: true; reservation: Reservation } | WriteRefusal;
 export type OperatorSettleInput = {
-  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage; offTopic?: boolean;
+  accountId: string; turnId: string; outcome: 'completed' | 'failed'; reply?: string; usage?: ModelUsage;
 };
 export type { DiscoveryConversationView };
 export type DiscoverySwitchOutcome = { ok: true; organizationId: string; discoveryEnabled: boolean; changed: boolean; disabledAt: string | null } | WriteRefusal;
@@ -38,7 +38,6 @@ export type DiscoverySut = NeedsSut & {
   turnRows(projectId: string): Promise<DiscoveryTurnView[]>;
   reserveTurnAsOperator(input: OperatorReserveInput): Promise<OperatorReserveOutcome>;
   settleTurnAsOperator(input: OperatorSettleInput): Promise<DiscoveryMessageOutcome>;
-  notificationEvents(event: string): Promise<{ event: string; payload: Record<string, unknown> }[]>;
   backdateOpenTurnAsOperator(turnId: string, openedAt: string): Promise<void>;
   readConversation(session: Session | null, projectId: string): Promise<TenantReadOutcome<{ ok: true; conversation: DiscoveryConversationView; allowance: Allowance | null; brief?: import("../../../../supabase/functions/_shared/discovery-brief.ts").BriefSnapshot | null }>>;
   setProjectFundingAsOperator(projectId: string, funding: { fundedAt: string | null; fuelMicros: number }): Promise<void>;
