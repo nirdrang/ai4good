@@ -56,11 +56,6 @@ else
   lines+=("pstack: marketplace NOT cloned yet - restart this session once")
 fi
 
-# Both login checks read the command's words, not only its exit code, the same way the pstack
-# runner's preflight does (its run.ts, preflightPassed). codex exits 1 when logged out, but grok
-# exits 0 either way: logged out, `grok models` prints "You are not authenticated." and still
-# lists the models, so an exit-code check said "logged in" on every fresh cloud session
-# (observed 2026-09-03). Logged in it prints "You are logged in with grok.com." (grok 1.0.13).
 if command -v codex >/dev/null 2>&1; then
   if out=$(codex login status 2>&1) && grep -qi "logged in" <<<"$out"; then
     lines+=("codex: logged in")
