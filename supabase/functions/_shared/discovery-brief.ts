@@ -491,9 +491,13 @@ function markDependents(document: BriefDocument, topicId: string, skip: Readonly
     const dependent = document.topics[dependentId];
     if (!dependent || !hasAnswer(dependent)) continue;
     dependent.needsReview = true;
+    if (dependent.state.kind === 'agreed') dependent.suggestion = dependent.state.answer;
     const question = document.questions[dependentId];
     const prerequisite = document.topics[topicId];
-    if (question && prerequisite) question.reason = `You changed ${prerequisite.title}. Check that this answer still fits.`;
+    if (!question || !prerequisite) continue;
+    const check = `You changed ${prerequisite.title}. Check that this answer still fits.`;
+    const earlier = question.reason.replace(/^You changed .+?\. Check that this answer still fits\.\s*/, '');
+    question.reason = earlier === '' || earlier === dependent.why ? check : `${check} ${earlier}`;
   }
 }
 
@@ -748,6 +752,15 @@ function applyModelAgreed(
   if (topic.state.kind === 'agreed' && topic.state.answer === item.answer && topic.needsReview !== true) return null;
   clearReview(topic);
   ensureQuestion(document, topic, round);
+  const question = document.questions[topic.id];
+  if (question) {
+    question.options = [{ id: `round-${round}`, label: item.answer, answer: item.answer }];
+    question.suggestedId = `round-${round}`;
+    question.recommendation = `Suggested: ${item.answer.replace(/[.\s]+$/, '')}.`;
+    question.uncertaintyHelp = UNSURE_HELP;
+    question.reason = topic.why;
+  }
+  topic.suggestion = item.answer;
   topic.state = {
     kind: 'agreed',
     answer: item.answer,
@@ -825,10 +838,17 @@ export function applyReplyTurn(current: BriefVersion, input: {
   const document = clone(base.document);
   const before = JSON.stringify(document);
   for (const question of input.update.questions) applyModelQuestion(document, question, input.round);
+  const changedAnswers: string[] = [];
   for (const agreed of input.update.agreed) {
+    const earlier = document.topics[agreed.topicId];
+    const hadAnswer = earlier !== undefined && hasAnswer(earlier);
     const filedTopic = applyModelAgreed(document, agreed, input.round, input.userMessageId, protectedIds);
-    if (filedTopic) filed.push(filedTopic);
+    if (!filedTopic) continue;
+    filed.push(filedTopic);
+    if (hadAnswer) changedAnswers.push(filedTopic.id);
   }
+  const touched = new Set([...protectedIds, ...input.update.agreed.map((item) => item.topicId)]);
+  for (const id of changedAnswers) markDependents(document, id, touched);
   for (const open of input.update.openQuestions) applyModelOpen(document, open, input.round);
   if (input.update.causeLabels !== undefined) {
     document.causeLabels = [...new Set(input.update.causeLabels.map(canonicalLabel))]
@@ -885,7 +905,10 @@ function openTopics(version: BriefVersion): StoredTopic[] {
 }
 
 function gapReason(topic: StoredTopic, question: StoredQuestion | undefined): string {
-  return question && question.reason !== topic.why ? `${topic.why} ${question.reason}` : topic.why;
+  const parts = [topic.why];
+  if (topic.state.kind === 'agreed') parts.push(`Current answer: ${topic.state.answer.replace(/[.\s]+$/, '')}.`);
+  if (question && question.reason !== topic.why) parts.push(question.reason);
+  return parts.join(' ');
 }
 
 export function decideFinish(version: BriefVersion, input: FinishInput): FinishDecision {

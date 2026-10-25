@@ -310,6 +310,55 @@ it('gives a topic the AI records from chat a question, so the brief offers Edit 
   expect(agreed.brief.document.questions.measure).toBeDefined();
 });
 
+it('keeps the guidance and the blocker on the current decision when answers change', () => {
+  const version = openingDocument({ need: NEED });
+  const measured = applyReplyTurn(version, {
+    answers: [], userMessageId: 'm1', round: 1,
+    update: { text: 'Noted.', questions: [], openQuestions: [], agreed: [{ topicId: 'measure', answer: 'At least 95% of shifts staffed' }] },
+  });
+  if (measured.kind !== 'changed') throw new Error('measure not agreed');
+  const measure = measured.brief.document.questions.measure!;
+  expect(measure.options.map((option) => option.answer)).toEqual(['At least 95% of shifts staffed']);
+  expect(measure.recommendation).toBe('Suggested: At least 95% of shifts staffed.');
+  expect(measure.reason).toBe(measured.brief.document.topics.measure!.why);
+
+  const ruled = applyReplyTurn(version, {
+    answers: [], userMessageId: 'm1', round: 1,
+    update: { text: 'Who approves training?', openQuestions: [], questions: [], agreed: [
+      { topicId: 'booking', answer: 'Coordinators book shifts' },
+      { topicId: 'rules', answer: 'Only trained cooks take lead shifts' },
+    ] },
+  });
+  if (ruled.kind !== 'changed') throw new Error('rules not agreed');
+  const blocked = applyReplyTurn(ruled.brief, {
+    answers: [], userMessageId: 'm2', round: 2,
+    update: { text: 'Who approves training?', agreed: [], openQuestions: [], questions: [{
+      topicId: 'rules', suggestion: 'The kitchen manager approves training', suggested: 'The kitchen manager approves training',
+      importance: 'needed', reason: 'Nobody is named to approve lead-cook training.',
+    }] },
+  });
+  if (blocked.kind !== 'changed') throw new Error('rules question not applied');
+  const rebooked = applyReplyTurn(blocked.brief, {
+    answers: [], userMessageId: 'm3', round: 3,
+    update: { text: 'Noted.', questions: [], openQuestions: [], agreed: [{ topicId: 'booking', answer: 'Volunteers book their own shifts' }] },
+  });
+  if (rebooked.kind !== 'changed') throw new Error('booking not changed');
+  const rules = rebooked.brief.document.topics.rules!;
+  expect(rules.needsReview).toBe(true);
+  expect(rules.suggestion).toBe('Only trained cooks take lead shifts');
+  expect(rebooked.brief.document.questions.rules!.reason).toBe(
+    'You changed Who books shifts. Check that this answer still fits. Nobody is named to approve lead-cook training.',
+  );
+  const finished = decideFinish(rebooked.brief, {
+    acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
+    actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
+  });
+  if (!finished.ok) throw new Error('finish refused');
+  const gap = finished.confirmation.acceptedGaps.find((item) => item.topicId === 'rules')!;
+  expect(gap.reason).toContain('Current answer: Only trained cooks take lead shifts.');
+  expect(gap.reason).toContain('Nobody is named to approve lead-cook training.');
+});
+
 it('replaces stale options when the AI recommends a new answer, and keeps the latest reason as the accepted gap', () => {
   const version = openingDocument({ need: NEED });
   const asked = applyReplyTurn(version, {
