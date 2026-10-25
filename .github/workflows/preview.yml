@@ -14,53 +14,71 @@ concurrency:
 
 jobs:
   deploy:
-    if: vars.PREVIEW_SUPABASE_PROJECT_REF != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.PREVIEW_SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.PREVIEW_SUPABASE_DB_PASSWORD }}
-      PROJECT_REF: ${{ vars.PREVIEW_SUPABASE_PROJECT_REF }}
+      PROJECT_REF: ihsysfetxfpjwggbodon
     steps:
-      - uses: actions/checkout@v4
+      - name: Skip until the preview secrets exist
+        id: ready
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PREVIEW_SUPABASE_ACCESS_TOKEN or PREVIEW_SUPABASE_DB_PASSWORD is not set; nothing deployed" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - uses: oven-sh/setup-bun@v2
+      - if: steps.ready.outputs.go == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.ready.outputs.go == 'true'
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - run: bun install --frozen-lockfile
+      - if: steps.ready.outputs.go == 'true'
+        run: bun install --frozen-lockfile
 
       - name: Link the preview project
+        if: steps.ready.outputs.go == 'true'
         run: bunx supabase link --project-ref "$PROJECT_REF"
 
       - name: Apply migrations
+        if: steps.ready.outputs.go == 'true'
         run: bunx supabase db push
 
       - name: Set function secrets
+        if: steps.ready.outputs.go == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.PREVIEW_ANTHROPIC_API_KEY }}
           DISCOVERY_API_KEY: ${{ secrets.PREVIEW_DISCOVERY_API_KEY }}
-          DISCOVERY_PROVIDER: ${{ vars.PREVIEW_DISCOVERY_PROVIDER }}
-          DISCOVERY_MODEL: ${{ vars.PREVIEW_DISCOVERY_MODEL }}
-          DISCOVERY_BASE_URL: ${{ vars.PREVIEW_DISCOVERY_BASE_URL }}
-          DISCOVERY_REASONING_EFFORT: ${{ vars.PREVIEW_DISCOVERY_REASONING_EFFORT }}
+          DISCOVERY_PROVIDER: openai-compatible
+          DISCOVERY_MODEL: deepseek-v4.1-flash
+          DISCOVERY_BASE_URL: https://opencode.ai/zen/go/v1
+          DISCOVERY_REASONING_EFFORT: low
         run: |
           : > "$RUNNER_TEMP/functions.env"
           for name in ANTHROPIC_API_KEY DISCOVERY_API_KEY DISCOVERY_PROVIDER DISCOVERY_MODEL DISCOVERY_BASE_URL DISCOVERY_REASONING_EFFORT; do
             if [ -n "${!name}" ]; then printf '%s=%s\n' "$name" "${!name}" >> "$RUNNER_TEMP/functions.env"; fi
           done
-          if [ -s "$RUNNER_TEMP/functions.env" ]; then bunx supabase secrets set --env-file "$RUNNER_TEMP/functions.env"; fi
+          bunx supabase secrets set --env-file "$RUNNER_TEMP/functions.env"
           rm -f "$RUNNER_TEMP/functions.env"
 
       - name: Deploy edge functions
+        if: steps.ready.outputs.go == 'true'
         run: bunx supabase functions deploy --use-api
 
       - name: Seed the sample NGO and project
-        if: vars.PREVIEW_NGO_EMAIL != ''
+        if: steps.ready.outputs.go == 'true'
         env:
-          SUPABASE_URL: https://${{ vars.PREVIEW_SUPABASE_PROJECT_REF }}.supabase.co
-          SUPABASE_ANON_KEY: ${{ vars.PREVIEW_SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PREVIEW_SUPABASE_SERVICE_ROLE_KEY }}
-          PREVIEW_NGO_EMAIL: ${{ vars.PREVIEW_NGO_EMAIL }}
+          PREVIEW_NGO_EMAIL: preview-ngo@ai4good.example
           PREVIEW_NGO_PASSWORD: ${{ secrets.PREVIEW_NGO_PASSWORD }}
-        run: bun scripts/preview-seed.ts | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          keys=$(bunx supabase projects api-keys --project-ref "$PROJECT_REF" --reveal -o json)
+          export SUPABASE_URL="https://$PROJECT_REF.supabase.co"
+          export SUPABASE_ANON_KEY=$(printf '%s' "$keys" | jq -r '.[] | select(.name == "anon") | .api_key')
+          export SUPABASE_SERVICE_ROLE_KEY=$(printf '%s' "$keys" | jq -r '.[] | select(.name == "service_role") | .api_key')
+          echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
+          bun scripts/preview-seed.ts | tee -a "$GITHUB_STEP_SUMMARY"
