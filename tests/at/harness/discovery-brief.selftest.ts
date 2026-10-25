@@ -287,6 +287,13 @@ it('reopens an agreed topic the AI lists as still open, so Discovery is not read
   expect(reopened.brief.document.topics.owner?.needsReview).toBe(true);
   expect(reopened.brief.document.questions.owner).toBeDefined();
   expect(requiredAgreement(reopened.brief)).toMatchObject({ ready: false, agreed: 5, total: 6 });
+  const accepted = openingDocument({ need: NEED });
+  accepted.document.topics.owner!.state = { kind: 'agreed', answer: 'Our operations lead', source: { kind: 'accepted-suggestion' }, answerMessageId: null };
+  const kept = applyReplyTurn(accepted, {
+    answers: [], userMessageId: 'm2', round: 2,
+    update: { text: 'Noted.', questions: [], agreed: [], openQuestions: [{ topicId: 'owner', importance: 'needed' }] },
+  });
+  expect(kept.kind).toBe('unchanged');
 });
 
 it('replaces stale options when the AI recommends a new answer, and keeps the latest reason as the accepted gap', () => {
@@ -304,6 +311,7 @@ it('replaces stale options when the AI recommends a new answer, and keeps the la
   expect(question.options).toEqual([{ id: 'round-1', label: 'Coordinators approve lead training', answer: 'Coordinators approve lead training' }]);
   expect(question.suggestedId).toBe('round-1');
   expect(question.recommendation).toBe('Suggested: Coordinators approve lead training.');
+  expect(asked.brief.document.topics.rules?.suggestion).toBe('Coordinators approve lead training');
   expect(question.uncertaintyHelp).toBe('To find out: ask the people who do this work.');
   const finished = decideFinish(asked.brief, {
     acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,

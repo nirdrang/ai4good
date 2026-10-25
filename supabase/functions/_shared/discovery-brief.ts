@@ -491,6 +491,9 @@ function markDependents(document: BriefDocument, topicId: string, skip: Readonly
     const dependent = document.topics[dependentId];
     if (!dependent || !hasAnswer(dependent)) continue;
     dependent.needsReview = true;
+    const question = document.questions[dependentId];
+    const prerequisite = document.topics[topicId];
+    if (question && prerequisite) question.reason = `You changed ${prerequisite.title}. Check that this answer still fits.`;
   }
 }
 
@@ -693,31 +696,33 @@ function applyModelQuestion(document: BriefDocument, item: ReplyQuestionUpdate, 
   const topic = document.topics[item.topicId];
   if (!topic) return false;
   let changed = false;
-  if (item.suggestion.trim() !== '' && topic.suggestion !== item.suggestion) {
-    topic.suggestion = item.suggestion;
-    changed = true;
-  }
   if (topic.importance !== item.importance) {
     topic.importance = item.importance;
     changed = true;
   }
   if (ensureQuestion(document, topic, round)) changed = true;
   const question = document.questions[topic.id];
-  if (!question) return changed;
   const offered = item.suggested.trim();
-  if (offered !== '' && matchOption(question.options, offered) === null) {
+  if (question && offered !== '' && matchOption(question.options, offered) === null) {
     question.options = [{ id: `round-${round}`, label: offered, answer: offered }];
     question.uncertaintyHelp = UNSURE_HELP;
     changed = true;
   }
-  const recommendation = item.suggestion.trim() === '' ? null : `Suggested: ${item.suggestion.trim().replace(/[.\s]+$/, '')}.`;
-  if (recommendation !== null && question.recommendation !== recommendation) {
-    question.recommendation = recommendation;
+  const suggestedId = question ? matchOption(question.options, item.suggested) ?? question.suggestedId : null;
+  const option = question?.options.find((candidate) => candidate.id === suggestedId);
+  const suggestion = option?.answer ?? item.suggestion.trim();
+  if (suggestion !== '' && topic.suggestion !== suggestion) {
+    topic.suggestion = suggestion;
     changed = true;
   }
-  const suggestedId = matchOption(question.options, item.suggested) ?? question.suggestedId;
-  if (question.suggestedId !== suggestedId) {
+  if (!question) return changed;
+  if (suggestedId !== null && question.suggestedId !== suggestedId) {
     question.suggestedId = suggestedId;
+    changed = true;
+  }
+  const recommendation = option ? `Suggested: ${option.label.replace(/[.\s]+$/, '')}.` : null;
+  if (recommendation !== null && question.recommendation !== recommendation) {
+    question.recommendation = recommendation;
     changed = true;
   }
   if (question.importance !== item.importance) {
@@ -756,6 +761,7 @@ function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: n
   if (!topic) return false;
   let changed = false;
   if (topicSettled(topic)) {
+    if (topic.state.kind !== 'agreed' || topic.state.source.kind !== 'chat') return false;
     topic.needsReview = true;
     changed = true;
   }
