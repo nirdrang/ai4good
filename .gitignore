@@ -79,3 +79,4 @@ supabase/functions/.env
 /worktrees/
 /plugins/
 /tmp/
+.vercel/

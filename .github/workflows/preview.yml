@@ -1,0 +1,66 @@
+name: Preview deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.PREVIEW_SUPABASE_PROJECT_REF != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.PREVIEW_SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.PREVIEW_SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ vars.PREVIEW_SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - run: bun install --frozen-lockfile
+
+      - name: Link the preview project
+        run: bunx supabase link --project-ref "$PROJECT_REF"
+
+      - name: Apply migrations
+        run: bunx supabase db push
+
+      - name: Set function secrets
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.PREVIEW_ANTHROPIC_API_KEY }}
+          DISCOVERY_API_KEY: ${{ secrets.PREVIEW_DISCOVERY_API_KEY }}
+          DISCOVERY_PROVIDER: ${{ vars.PREVIEW_DISCOVERY_PROVIDER }}
+          DISCOVERY_MODEL: ${{ vars.PREVIEW_DISCOVERY_MODEL }}
+          DISCOVERY_BASE_URL: ${{ vars.PREVIEW_DISCOVERY_BASE_URL }}
+          DISCOVERY_REASONING_EFFORT: ${{ vars.PREVIEW_DISCOVERY_REASONING_EFFORT }}
+        run: |
+          : > "$RUNNER_TEMP/functions.env"
+          for name in ANTHROPIC_API_KEY DISCOVERY_API_KEY DISCOVERY_PROVIDER DISCOVERY_MODEL DISCOVERY_BASE_URL DISCOVERY_REASONING_EFFORT; do
+            if [ -n "${!name}" ]; then printf '%s=%s\n' "$name" "${!name}" >> "$RUNNER_TEMP/functions.env"; fi
+          done
+          if [ -s "$RUNNER_TEMP/functions.env" ]; then bunx supabase secrets set --env-file "$RUNNER_TEMP/functions.env"; fi
+          rm -f "$RUNNER_TEMP/functions.env"
+
+      - name: Deploy edge functions
+        run: bunx supabase functions deploy --use-api
+
+      - name: Seed the sample NGO and project
+        if: vars.PREVIEW_NGO_EMAIL != ''
+        env:
+          SUPABASE_URL: https://${{ vars.PREVIEW_SUPABASE_PROJECT_REF }}.supabase.co
+          SUPABASE_ANON_KEY: ${{ vars.PREVIEW_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PREVIEW_SUPABASE_SERVICE_ROLE_KEY }}
+          PREVIEW_NGO_EMAIL: ${{ vars.PREVIEW_NGO_EMAIL }}
+          PREVIEW_NGO_PASSWORD: ${{ secrets.PREVIEW_NGO_PASSWORD }}
+        run: bun scripts/preview-seed.ts | tee -a "$GITHUB_STEP_SUMMARY"
