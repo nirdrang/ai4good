@@ -105,7 +105,7 @@ export const TEXT = {
   fileStatus: {
     readingPrefix: "Reading…",
     reading: (percent: number) => `Reading… ${percent}%`,
-    ready: (facts: number) => `Ready · ${facts} facts`,
+    ready: (facts: number) => `Ready · ${facts} ${facts === 1 ? "fact" : "facts"}`,
   },
   source: {
     intake: "From your intake",

@@ -343,6 +343,8 @@ function hasAnswer(topic: StoredTopic): boolean {
   return topic.state.kind === 'agreed' || topic.state.kind === 'not-sure';
 }
 
+const UNSURE_HELP = 'To find out: ask the people who do this work.';
+
 function genericDefinition(topic: OpeningTopic): TopicDefinition {
   const suggestion = topic.suggestion ?? 'Something else';
   return definitionOf(
@@ -350,7 +352,7 @@ function genericDefinition(topic: OpeningTopic): TopicDefinition {
     [option('suggested', suggestion), option('other', 'Something else')],
     'suggested',
     `Suggested: ${suggestion}.`,
-    'To find out: ask the people who do this work.',
+    UNSURE_HELP,
   );
 }
 
@@ -705,6 +707,12 @@ function applyModelQuestion(document: BriefDocument, item: ReplyQuestionUpdate, 
   const offered = item.suggested.trim();
   if (offered !== '' && matchOption(question.options, offered) === null) {
     question.options = [{ id: `round-${round}`, label: offered, answer: offered }];
+    question.uncertaintyHelp = UNSURE_HELP;
+    changed = true;
+  }
+  const recommendation = item.suggestion.trim() === '' ? null : `Suggested: ${item.suggestion.trim().replace(/[.\s]+$/, '')}.`;
+  if (recommendation !== null && question.recommendation !== recommendation) {
+    question.recommendation = recommendation;
     changed = true;
   }
   const suggestedId = matchOption(question.options, item.suggested) ?? question.suggestedId;

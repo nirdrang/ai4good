@@ -303,6 +303,8 @@ it('replaces stale options when the AI recommends a new answer, and keeps the la
   const question = asked.brief.document.questions.rules!;
   expect(question.options).toEqual([{ id: 'round-1', label: 'Coordinators approve lead training', answer: 'Coordinators approve lead training' }]);
   expect(question.suggestedId).toBe('round-1');
+  expect(question.recommendation).toBe('Suggested: Coordinators approve lead training.');
+  expect(question.uncertaintyHelp).toBe('To find out: ask the people who do this work.');
   const finished = decideFinish(asked.brief, {
     acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
