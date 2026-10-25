@@ -345,7 +345,8 @@ it('keeps the guidance and the blocker on the current decision when answers chan
   if (rebooked.kind !== 'changed') throw new Error('booking not changed');
   const rules = rebooked.brief.document.topics.rules!;
   expect(rules.needsReview).toBe(true);
-  expect(rules.suggestion).toBe('Only trained cooks take lead shifts');
+  expect(rules.suggestion).toBe('The kitchen manager approves training');
+  expect(rebooked.brief.document.questions.rules!.recommendation).toBe('Suggested: The kitchen manager approves training.');
   expect(rebooked.brief.document.questions.rules!.reason).toBe(
     'You changed Who books shifts. Check that this answer still fits. Nobody is named to approve lead-cook training.',
   );

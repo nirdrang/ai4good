@@ -491,14 +491,29 @@ function markDependents(document: BriefDocument, topicId: string, skip: Readonly
     const dependent = document.topics[dependentId];
     if (!dependent || !hasAnswer(dependent)) continue;
     dependent.needsReview = true;
-    if (dependent.state.kind === 'agreed') dependent.suggestion = dependent.state.answer;
     const question = document.questions[dependentId];
     const prerequisite = document.topics[topicId];
     if (!question || !prerequisite) continue;
     const check = `You changed ${prerequisite.title}. Check that this answer still fits.`;
     const earlier = question.reason.replace(/^You changed .+?\. Check that this answer still fits\.\s*/, '');
+    const blocked = earlier !== '' && earlier !== dependent.why;
+    if (dependent.state.kind === 'agreed' && !blocked) settleGuidance(dependent, question, dependent.state.answer, question.askedInRound);
     question.reason = earlier === '' || earlier === dependent.why ? check : `${check} ${earlier}`;
   }
+}
+
+function settleGuidance(topic: StoredTopic, question: StoredQuestion, answer: string, round: number): void {
+  const id = `round-${round}`;
+  question.options = [{ id, label: answer, answer }];
+  question.suggestedId = id;
+  question.recommendation = `Suggested: ${answer.replace(/[.\s]+$/, '')}.`;
+  question.uncertaintyHelp = UNSURE_HELP;
+  topic.suggestion = answer;
+}
+
+function clearBlocker(document: BriefDocument, topic: StoredTopic): void {
+  const question = document.questions[topic.id];
+  if (question) question.reason = topic.why;
 }
 
 function agreedSameText(topic: StoredTopic, text: string): boolean {
@@ -517,6 +532,7 @@ function editTopic(topic: StoredTopic, text: string, document: BriefDocument): b
     return true;
   }
   topic.state = { kind: 'agreed', answer: text, source: { kind: 'edit', revision: 0 }, answerMessageId: null };
+  clearBlocker(document, topic);
   return true;
 }
 
@@ -564,6 +580,7 @@ function applyAccept(version: BriefVersion, command: Extract<BriefCommand, { kin
     source: { kind: 'accepted-suggestion' },
     answerMessageId: line.id,
   };
+  clearBlocker(document, next);
   markDependents(document, next.id, new Set());
   return changed(document, revision, line, []);
 }
@@ -621,6 +638,7 @@ function applyAnswers(version: BriefVersion, command: Extract<BriefCommand, { ki
         source: { kind: 'chat', round: command.round },
         answerMessageId: command.userMessageId,
       };
+      clearBlocker(document, topic);
       contentChanged.add(topic.id);
       filed.push({ id: topic.id, title: topic.title });
       changedDocument = true;
@@ -753,14 +771,9 @@ function applyModelAgreed(
   clearReview(topic);
   ensureQuestion(document, topic, round);
   const question = document.questions[topic.id];
-  if (question) {
-    question.options = [{ id: `round-${round}`, label: item.answer, answer: item.answer }];
-    question.suggestedId = `round-${round}`;
-    question.recommendation = `Suggested: ${item.answer.replace(/[.\s]+$/, '')}.`;
-    question.uncertaintyHelp = UNSURE_HELP;
-    question.reason = topic.why;
-  }
-  topic.suggestion = item.answer;
+  if (question) settleGuidance(topic, question, item.answer, round);
+  else topic.suggestion = item.answer;
+  clearBlocker(document, topic);
   topic.state = {
     kind: 'agreed',
     answer: item.answer,

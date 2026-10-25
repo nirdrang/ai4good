@@ -547,7 +547,11 @@ export function openForReview(brief: BriefSnapshot): OpenReviewItem[] {
         topicTitle: topic.title,
         questionId,
         importance: question?.importance ?? topic.importance,
-        why: question && question.reason !== topic.why ? `${topic.why} ${question.reason}` : topic.why,
+        why: [
+          topic.why,
+          topic.state.kind === "agreed" ? `Current answer: ${topic.state.answer.replace(/[.\s]+$/, "")}.` : null,
+          question && question.reason !== topic.why ? question.reason : null,
+        ].filter((part): part is string => part !== null).join(" "),
         suggestion: topic.suggestion,
       },
     ];

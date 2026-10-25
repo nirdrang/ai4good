@@ -64,7 +64,9 @@ function SignInForm() {
       password,
     });
     setPending(false);
-    if (signInError) setError(signInError.message);
+    if (signInError) {
+      setError((signInError.status ?? 0) >= 500 ? "Sign-in is not available right now. Try again in a minute." : signInError.message);
+    }
   }
 
   return (

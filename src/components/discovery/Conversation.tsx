@@ -142,8 +142,8 @@ export function Conversation({
                   aria-current={current ? "true" : undefined}
                   className={
                     current
-                      ? "mt-2 rounded-md bg-accent px-2 py-1 outline outline-2 outline-offset-2 outline-ring first:mt-0"
-                      : "mt-2 first:mt-0"
+                      ? "mt-2 whitespace-pre-line rounded-md bg-accent px-2 py-1 outline outline-2 outline-offset-2 outline-ring first:mt-0"
+                      : "mt-2 whitespace-pre-line first:mt-0"
                   }
                 >
                   {paragraph}
