@@ -310,7 +310,7 @@ it('replaces stale options when the AI recommends a new answer, and keeps the la
   expect(finished.ok).toBe(true);
   if (!finished.ok) return;
   expect(finished.confirmation.acceptedGaps.find((gap) => gap.topicId === 'rules')?.reason)
-    .toBe('The tool needs a named role who can mark volunteers as trained.');
+    .toBe('Clear limits keep the rota fair, whoever books the shifts. The tool needs a named role who can mark volunteers as trained.');
 });
 
 const ORG_ID = '22222222-2222-4222-8222-222222222222';

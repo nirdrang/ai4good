@@ -870,6 +870,10 @@ function openTopics(version: BriefVersion): StoredTopic[] {
     .filter((topic): topic is StoredTopic => topic !== undefined && !topicSettled(topic));
 }
 
+function gapReason(topic: StoredTopic, question: StoredQuestion | undefined): string {
+  return question && question.reason !== topic.why ? `${topic.why} ${question.reason}` : topic.why;
+}
+
 export function decideFinish(version: BriefVersion, input: FinishInput): FinishDecision {
   if (input.existing && input.existing.revision === version.revision) {
     return { ok: true, confirmation: clone(input.existing) };
@@ -891,7 +895,7 @@ export function decideFinish(version: BriefVersion, input: FinishInput): FinishD
         topicId: topic.id,
         title: topic.title,
         importance: topic.importance,
-        reason: version.document.questions[topic.id]?.reason ?? topic.why,
+        reason: gapReason(topic, version.document.questions[topic.id]),
       })),
     },
   };

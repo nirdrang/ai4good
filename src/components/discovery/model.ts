@@ -547,7 +547,7 @@ export function openForReview(brief: BriefSnapshot): OpenReviewItem[] {
         topicTitle: topic.title,
         questionId,
         importance: question?.importance ?? topic.importance,
-        why: question?.reason ?? topic.why,
+        why: question && question.reason !== topic.why ? `${topic.why} ${question.reason}` : topic.why,
         suggestion: topic.suggestion,
       },
     ];
