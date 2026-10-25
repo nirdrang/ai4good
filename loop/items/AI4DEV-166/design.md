@@ -64,7 +64,7 @@ await live.ingest(turn, { kind: "model-end", eventId: "evt_1", usage });   // tw
 **The GitHub writer.** `supabase/functions/_shared/github/` is the only GitHub caller. It has two modules:
 - `app.ts` mints an installation token from `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` and the installation id, and caches it until shortly before its one-hour expiry.
 - `repo.ts` exposes these calls:
-  - `createRepo(name)`: private, `auto_init`, with branch protection on `main` that forbids force-pushes and deletion.
+  - `createRepo(name)`: `auto_init`, with branch protection on `main` that forbids force-pushes and deletion. Visibility comes from `PRD_GITHUB_REPO_VISIBILITY` and is private when unset. The GitHub free plan refuses protection on private repositories, so the test organization sets it to public (founder, 2026-10-25).
   - `head(repo)`
   - `writeCommit(repo, parent, files, message)`: creates the blobs, the tree and the commit object, and returns its sha without moving any branch.
   - `advance(repo, sha)`: moves `main` with `force: false`, and returns `advanced`, `rejected`, or `uncertain` when the response is lost or times out.
