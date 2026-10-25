@@ -104,6 +104,6 @@ export async function openWithoutGithub(
   await sql`select public.prd_reconcile(
     ${project}::uuid,
     ${base},
-    ${JSON.stringify(commits)}::jsonb
+    ${JSON.stringify(commits)}::text::jsonb
   )`;
 }

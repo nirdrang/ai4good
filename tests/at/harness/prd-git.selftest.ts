@@ -195,7 +195,7 @@ async function stamp(sql: Sql, project: string): Promise<Stamp> {
 
 async function reconcile(sql: Sql, project: string, head: string | null, commits: unknown[]) {
   const rows = (await sql`select public.prd_reconcile(
-    ${project}::uuid, ${head}, ${JSON.stringify(commits)}::jsonb) as result`) as Array<{
+    ${project}::uuid, ${head}, ${JSON.stringify(commits)}::text::jsonb) as result`) as Array<{
     result: unknown;
   }>;
   const result = jsonValue(rows[0].result);
@@ -391,7 +391,7 @@ describe.skipIf(!live)("PRD git on the local stack", () => {
       author_login: string | null;
       variant: string;
     }>;
-    expect(credited).toEqual([
+    expect([...credited].map((row) => ({ ...row }))).toEqual([
       { author_kind: "repository", author_login: "octocat", variant: "readable" },
     ]);
     const reviewed = section(await facts(sql, dev, project), "booking");
@@ -482,7 +482,7 @@ describe.skipIf(!live)("PRD git on the local stack", () => {
     const unknown = (await sql`select file_path, reason from public.prd_unknown_files
       where project_id = ${project}::uuid and commit_sha = ${unknownSha}
       order by file_path`) as Array<{ file_path: string; reason: string }>;
-    expect(unknown).toEqual([
+    expect([...unknown].map((row) => ({ ...row }))).toEqual([
       { file_path: "prd/booking-copy.md", reason: "the file key belongs to another section" },
       { file_path: "prd/notes.md", reason: "the file key is not a section" },
     ]);

@@ -405,7 +405,7 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
         { sha, force: false },
       );
       if (!response.ok) {
-        if (response.status === 422 && /fast.forward/i.test(response.failure.reason))
+        if (response.status === 422 && /fast.forward|reference cannot be updated/i.test(response.failure.reason))
           return { ok: true, result: "rejected", reason: response.failure.reason };
         return response.failure;
       }
