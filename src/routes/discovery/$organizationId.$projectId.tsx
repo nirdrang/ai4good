@@ -41,7 +41,7 @@ function DiscoveryPage() {
         <DiscoveryScreen port={port} active={!review} returnFocus={returnFocus} draftKey={`discovery-draft:${projectId}`} onOpenReview={() => { location.hash = "review"; }} />
       </div>
       {review ? (
-        <DiscoveryReview port={port} onBackToChat={(questionId) => {
+        <DiscoveryReview port={port} draftKey={`discovery-review-draft:${projectId}`} onBackToChat={(questionId) => {
           setReturnFocus(questionId === null ? null : { questionId, nonce: ++nonce.current });
           location.hash = "";
         }} onFindVolunteer={() => { void navigate({ to: "/" }); }} />

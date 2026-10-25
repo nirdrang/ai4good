@@ -133,18 +133,19 @@ function draftStillMatches(draft: Draft | undefined, answer: DiscoveryAnswer): b
   return draft.kind === "option" && draft.optionId === answer.choice;
 }
 
-type SavedDraft = { drafts: Record<string, Draft>; composerText: string };
+type SavedDraft = { drafts: Record<string, Draft>; composerText: string; reopened: string[] };
 
 function readDraft(key: string | null): SavedDraft {
-  const empty: SavedDraft = { drafts: {}, composerText: "" };
+  const empty: SavedDraft = { drafts: {}, composerText: "", reopened: [] };
   if (!key) return empty;
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
     if (saved === null || typeof saved !== "object") return empty;
-    const { drafts, composerText } = saved as Partial<SavedDraft>;
+    const { drafts, composerText, reopened } = saved as Partial<SavedDraft>;
     return {
       drafts: drafts !== null && typeof drafts === "object" ? drafts : {},
       composerText: typeof composerText === "string" ? composerText : "",
+      reopened: Array.isArray(reopened) ? reopened.filter((id): id is string => typeof id === "string") : [],
     };
   } catch {
     return empty;
@@ -154,8 +155,34 @@ function readDraft(key: string | null): SavedDraft {
 function writeDraft(key: string | null, draft: SavedDraft) {
   if (!key) return;
   try {
-    if (Object.keys(draft.drafts).length === 0 && draft.composerText.length === 0) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(draft));
+    if (Object.keys(draft.drafts).length === 0 && draft.composerText.length === 0 && draft.reopened.length === 0) {
+      localStorage.removeItem(key);
+    } else localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    return;
+  }
+}
+
+type SavedReviewEdit = { editingId: string; draft: string; editBase: number } | null;
+
+function readReviewEdit(key: string | null): SavedReviewEdit {
+  if (!key) return null;
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+    if (saved === null || typeof saved !== "object") return null;
+    const { editingId, draft, editBase } = saved as Record<string, unknown>;
+    if (typeof editingId !== "string" || typeof draft !== "string" || typeof editBase !== "number") return null;
+    return { editingId, draft, editBase };
+  } catch {
+    return null;
+  }
+}
+
+function writeReviewEdit(key: string | null, edit: SavedReviewEdit) {
+  if (!key) return;
+  try {
+    if (edit === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(edit));
   } catch {
     return;
   }
@@ -192,7 +219,7 @@ export function useDiscovery(
   const [composerText, setComposerText] = useState(saved.composerText);
   const [writes, setWrites] = useState(0);
   const [refusal, setRefusal] = useState<{ kind: string; reason: string } | null>(null);
-  const [reopened, setReopened] = useState<string[]>([]);
+  const [reopened, setReopened] = useState<string[]>(saved.reopened);
   const [pinned, setPinned] = useState<string[]>([]);
   const [panel, setPanel] = useState<DiscoveryPanel | null>(null);
   const [fileNotice, setFileNotice] = useState<string | null>(null);
@@ -290,8 +317,8 @@ export function useDiscovery(
   }, [port, setMessages]);
 
   useEffect(() => {
-    writeDraft(draftKey, { drafts, composerText });
-  }, [draftKey, drafts, composerText]);
+    writeDraft(draftKey, { drafts, composerText, reopened });
+  }, [draftKey, drafts, composerText, reopened]);
 
   useEffect(() => {
     if (!highlight) return;
@@ -609,7 +636,12 @@ export type DiscoveryReviewController = {
   finish(): Promise<void>;
 };
 
-export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState): DiscoveryReviewController {
+export function useDiscoveryReview(
+  port: DiscoveryPort,
+  initial: DiscoveryState,
+  draftKey: string | null = null,
+): DiscoveryReviewController {
+  const [saved] = useState(() => readReviewEdit(draftKey));
   const [brief, setBrief] = useState(initial.brief);
   const [files, setFiles] = useState(initial.files);
   const [usage, setUsage] = useState(initial.usage);
@@ -617,9 +649,9 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
   const [reviewedRevision, setReviewedRevision] = useState<number | null>(null);
   const [openGapsCount, setOpenGapsCount] = useState<number | null>(null);
   const [dataAck, setDataAck] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const [editBase, setEditBase] = useState(initial.brief.revision);
+  const [editingId, setEditingId] = useState<string | null>(saved?.editingId ?? null);
+  const [draft, setDraft] = useState(saved?.draft ?? "");
+  const [editBase, setEditBase] = useState(saved?.editBase ?? initial.brief.revision);
   const [editError, setEditError] = useState<string | null>(null);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<Record<string, string>>({});
@@ -639,6 +671,10 @@ export function useDiscoveryReview(port: DiscoveryPort, initial: DiscoveryState)
       if ("confirmation" in change) setConfirmation(change.confirmation ?? null);
     });
   }, [port]);
+
+  useEffect(() => {
+    writeReviewEdit(draftKey, editingId === null ? null : { editingId, draft, editBase });
+  }, [draftKey, editingId, draft, editBase]);
 
   const open = openForReview(brief);
   const sections = reviewSections(brief);

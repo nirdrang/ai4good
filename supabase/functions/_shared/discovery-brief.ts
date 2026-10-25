@@ -747,6 +747,7 @@ function applyModelAgreed(
   if (!topic || answered.has(topic.id)) return null;
   if (topic.state.kind === 'agreed' && topic.state.answer === item.answer && topic.needsReview !== true) return null;
   clearReview(topic);
+  ensureQuestion(document, topic, round);
   topic.state = {
     kind: 'agreed',
     answer: item.answer,
@@ -761,7 +762,6 @@ function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: n
   if (!topic) return false;
   let changed = false;
   if (topicSettled(topic)) {
-    if (topic.state.kind !== 'agreed' || topic.state.source.kind !== 'chat') return false;
     topic.needsReview = true;
     changed = true;
   }

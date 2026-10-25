@@ -16,10 +16,12 @@ export function DiscoveryReview({
   port,
   onBackToChat,
   onFindVolunteer,
+  draftKey = null,
 }: {
   port: DiscoveryPort;
   onBackToChat(questionId: string | null): void;
   onFindVolunteer(): void;
+  draftKey?: string | null;
 }) {
   const [loaded, setLoaded] = useState<DiscoveryState | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function DiscoveryReview({
   }, [port]);
   if (failure) return <Refused />;
   if (!loaded) return <p>Loading Discovery.</p>;
-  return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
+  return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} draftKey={draftKey} />;
 }
 
 function Loaded({
@@ -50,14 +52,16 @@ function Loaded({
   initial,
   onBackToChat,
   onFindVolunteer,
+  draftKey,
 }: {
   port: DiscoveryPort;
   initial: DiscoveryState;
   onBackToChat(questionId: string | null): void;
   onFindVolunteer(): void;
+  draftKey: string | null;
 }) {
   const phone = useIsPhone();
-  const review = useDiscoveryReview(port, initial);
+  const review = useDiscoveryReview(port, initial, draftKey);
   if (confirmationCurrent(review.brief, review.confirmation)) {
     return <Finished review={review} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
   }

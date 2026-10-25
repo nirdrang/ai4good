@@ -287,13 +287,27 @@ it('reopens an agreed topic the AI lists as still open, so Discovery is not read
   expect(reopened.brief.document.topics.owner?.needsReview).toBe(true);
   expect(reopened.brief.document.questions.owner).toBeDefined();
   expect(requiredAgreement(reopened.brief)).toMatchObject({ ready: false, agreed: 5, total: 6 });
-  const accepted = openingDocument({ need: NEED });
-  accepted.document.topics.owner!.state = { kind: 'agreed', answer: 'Our operations lead', source: { kind: 'accepted-suggestion' }, answerMessageId: null };
-  const kept = applyReplyTurn(accepted, {
+  const edited = openingDocument({ need: NEED });
+  edited.document.topics.owner!.state = { kind: 'agreed', answer: 'Our operations lead', source: { kind: 'edit', revision: 1 }, answerMessageId: null };
+  const withdrawn = applyReplyTurn(edited, {
     answers: [], userMessageId: 'm2', round: 2,
-    update: { text: 'Noted.', questions: [], agreed: [], openQuestions: [{ topicId: 'owner', importance: 'needed' }] },
+    update: { text: 'Understood, that stays open.', questions: [], agreed: [], openQuestions: [{ topicId: 'owner', importance: 'needed' }] },
   });
-  expect(kept.kind).toBe('unchanged');
+  expect(withdrawn.kind).toBe('changed');
+  if (withdrawn.kind !== 'changed') return;
+  expect(withdrawn.brief.document.topics.owner).toMatchObject({ needsReview: true, state: { kind: 'agreed', answer: 'Our operations lead' } });
+});
+
+it('gives a topic the AI records from chat a question, so the brief offers Edit for it', () => {
+  const version = openingDocument({ need: NEED });
+  const agreed = applyReplyTurn(version, {
+    answers: [], userMessageId: 'm1', round: 1,
+    update: { text: 'Noted.', questions: [], openQuestions: [], agreed: [{ topicId: 'measure', answer: 'At least 95% of shifts staffed' }] },
+  });
+  expect(agreed.kind).toBe('changed');
+  if (agreed.kind !== 'changed') return;
+  expect(agreed.brief.document.topics.measure?.state.kind).toBe('agreed');
+  expect(agreed.brief.document.questions.measure).toBeDefined();
 });
 
 it('replaces stale options when the AI recommends a new answer, and keeps the latest reason as the accepted gap', () => {
