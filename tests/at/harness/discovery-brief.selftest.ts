@@ -1,9 +1,11 @@
 import { expect, it } from 'vitest';
 import {
+  applyReplyTurn,
   BRIEF_REASONS,
   decideFinish,
   evolveBrief,
   openingDocument,
+  requiredAgreement,
   snapshotOf,
   type BriefVersion,
   type Confirmation,
@@ -226,7 +228,7 @@ it('projects a snapshot the screen can read, and keeps a removed label off it', 
   expect(restored.brief.document.removedCauseLabels).toEqual(['Food']);
 });
 
-it('records a file fact on an optional topic and never agrees a required one', () => {
+it('records file facts without agreeing any topic, and a later file never replaces a filled section', () => {
   const version = openingDocument({ need: NEED });
   version.document.topics.priority!.required = false;
   const applied = evolveBrief(version, {
@@ -237,30 +239,54 @@ it('records a file fact on an optional topic and never agrees a required one', (
       { sectionId: 'need', text: 'replaced intake' },
       { sectionId: 'priority', text: 'Less waiting' },
       { sectionId: 'measure', text: 'Two hours' },
+      { sectionId: 'successMeasure', text: 'Scheduling takes 45 minutes.' },
+      { sectionId: 'successMeasure', text: 'Checked after four weeks.' },
     ],
   });
   expect(applied.kind).toBe('changed');
   if (applied.kind !== 'changed') return;
-  expect(applied.brief.document.need.text).toBe(NEED);
-  expect(applied.brief.document.topics.measure?.state).toEqual({ kind: 'open' });
-  expect(applied.brief.document.topics.priority?.state).toEqual({
-    kind: 'agreed',
-    answer: 'Less waiting',
+  const document = applied.brief.document;
+  expect(document.need.text).toBe(NEED);
+  expect(document.topics.priority?.state).toEqual({ kind: 'open' });
+  expect(document.topics.measure?.state).toEqual({ kind: 'open' });
+  expect(document.fileFacts).toMatchObject([
+    { sectionId: 'priority', text: 'Less waiting', source: { kind: 'file', fileId: 'rota' } },
+    { sectionId: 'measure', text: 'Two hours' },
+    { sectionId: 'successMeasure', text: 'Scheduling takes 45 minutes.' },
+    { sectionId: 'successMeasure', text: 'Checked after four weeks.' },
+  ]);
+  expect(document.successMeasure).toEqual({
+    text: 'Scheduling takes 45 minutes. Checked after four weeks.',
     source: { kind: 'file', fileId: 'rota', fileName: 'volunteer-rota.xlsx' },
-    answerMessageId: null,
   });
   expect(applied.personLine).toBeNull();
-  const requiredOnly = evolveBrief(openingDocument({ need: NEED }), {
+  const later = evolveBrief(applied.brief, {
     kind: 'apply-file-facts',
-    fileId: 'rota',
-    fileName: 'volunteer-rota.xlsx',
-    facts: [{ sectionId: 'measure', text: 'Two hours' }],
+    fileId: 'notice',
+    fileName: 'notice.png',
+    facts: [{ sectionId: 'successMeasure', text: 'Hilltop is closed on Wednesdays.' }],
   });
-  expect(requiredOnly.kind).toBe('changed');
-  if (requiredOnly.kind === 'changed') {
-    expect(requiredOnly.brief.document.topics.measure!.state.kind).toBe('open');
-    expect(requiredOnly.brief.document.fileFacts).toMatchObject([{ sectionId: 'measure', text: 'Two hours', source: { kind: 'file' } }]);
+  expect(later.kind).toBe('changed');
+  if (later.kind !== 'changed') return;
+  expect(later.brief.document.successMeasure).toEqual(document.successMeasure);
+  expect(later.brief.document.fileFacts?.at(-1)).toMatchObject({ text: 'Hilltop is closed on Wednesdays.', source: { fileId: 'notice' } });
+});
+
+it('reopens an agreed topic the AI lists as still open, so Discovery is not ready', () => {
+  const version = openingDocument({ need: NEED });
+  for (const topic of Object.values(version.document.topics)) {
+    topic.state = { kind: 'agreed', answer: 'Agreed', source: { kind: 'chat', round: 1 }, answerMessageId: null };
   }
+  expect(requiredAgreement(version).ready).toBe(true);
+  const reopened = applyReplyTurn(version, {
+    answers: [], userMessageId: 'm2', round: 2,
+    update: { text: 'Who exactly will look after the tool?', questions: [], agreed: [], openQuestions: [{ topicId: 'owner', importance: 'needed' }] },
+  });
+  expect(reopened.kind).toBe('changed');
+  if (reopened.kind !== 'changed') return;
+  expect(reopened.brief.document.topics.owner?.needsReview).toBe(true);
+  expect(reopened.brief.document.questions.owner).toBeDefined();
+  expect(requiredAgreement(reopened.brief)).toMatchObject({ ready: false, agreed: 5, total: 6 });
 });
 
 const ORG_ID = '22222222-2222-4222-8222-222222222222';

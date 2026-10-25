@@ -313,7 +313,7 @@ const DEFAULT_TOPICS: readonly OpeningTopic[] = [
   {
     id: 'rules',
     title: 'Booking rules',
-    why: 'You said volunteers book themselves, so the tool needs limits.',
+    why: 'Clear limits keep the rota fair, whoever books the shifts.',
     suggestion: 'Weekly shift limit',
     plannedQuestion: 'Which booking rules should the tool enforce?',
     definition: definitionOf(
@@ -629,15 +629,10 @@ function applyAnswers(version: BriefVersion, command: Extract<BriefCommand, { ki
   return changed(document, version.revision + 1, null, filed);
 }
 
-function sectionFromFile(current: BriefSection | null, text: string, source: Extract<BriefSource, { kind: 'file' }>): BriefSection | null {
-  if (current?.text === text) return null;
-  return { text, source };
-}
-
 function applyFileFacts(version: BriefVersion, command: Extract<BriefCommand, { kind: 'apply-file-facts' }>): BriefTransition {
   const document = clone(version.document);
   const source: Extract<BriefSource, { kind: 'file' }> = { kind: 'file', fileId: command.fileId, fileName: command.fileName };
-  const filed: FiledTopic[] = [];
+  const sectionTexts: Partial<Record<'usersToday' | 'successMeasure', string[]>> = {};
   let changedDocument = false;
   for (const fact of command.facts) {
     if (fact.sectionId === 'need') continue;
@@ -648,22 +643,17 @@ function applyFileFacts(version: BriefVersion, command: Extract<BriefCommand, { 
       changedDocument = true;
     }
     if (fact.sectionId === 'usersToday' || fact.sectionId === 'successMeasure') {
-      const next = sectionFromFile(document[fact.sectionId], fact.text, source);
-      if (!next) continue;
-      document[fact.sectionId] = next;
-      changedDocument = true;
-      continue;
+      (sectionTexts[fact.sectionId] ??= []).push(fact.text);
     }
-    const topic = document.topics[fact.sectionId];
-    if (!topic || topic.required) continue;
-    if (agreedSameText(topic, fact.text) && topic.needsReview !== true) continue;
-    clearReview(topic);
-    topic.state = { kind: 'agreed', answer: fact.text, source, answerMessageId: null };
-    filed.push({ id: topic.id, title: topic.title });
+  }
+  for (const sectionId of ['usersToday', 'successMeasure'] as const) {
+    const texts = sectionTexts[sectionId];
+    if (!texts || document[sectionId] !== null) continue;
+    document[sectionId] = { text: texts.join(' '), source };
     changedDocument = true;
   }
   if (!changedDocument) return unchanged(version);
-  return changed(document, version.revision + 1, null, filed);
+  return changed(document, version.revision + 1, null, []);
 }
 
 export type ReplyQuestionUpdate = {
@@ -750,8 +740,12 @@ function applyModelAgreed(
 
 function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: number): boolean {
   const topic = document.topics[item.topicId];
-  if (!topic || topicSettled(topic)) return false;
+  if (!topic) return false;
   let changed = false;
+  if (topicSettled(topic)) {
+    topic.needsReview = true;
+    changed = true;
+  }
   if (topic.importance !== item.importance) {
     topic.importance = item.importance;
     changed = true;
