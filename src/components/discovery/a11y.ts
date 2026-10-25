@@ -53,6 +53,7 @@ export const NAME = {
   editSection: (title: string) => `Edit ${title}`,
   reading: (fileName: string) => `Reading ${fileName}`,
   openFile: (fileName: string) => `Open ${fileName}`,
+  removeFile: (fileName: string) => `Remove ${fileName}`,
   useSuggestion: "Use the suggestion",
   answerInChat: "Answer in the chat",
   notSure: "I'm not sure",
@@ -92,6 +93,11 @@ export const TEXT = {
   acceptedTypes: "PDF, images, CSV, TSV, TXT, Word, or Excel.",
   sampleData: "Use sample or redacted data, not real records. ai4good and your volunteer will see it.",
   fileLimit: "Free projects can add 3 files in Discovery.",
+  fileLimitFull: "Free projects can add 3 files in Discovery. Open a file to remove it and free a place.",
+  removeFile: "Remove this file",
+  removeConfirm: "Remove this file from your Discovery files? A place opens for another file.",
+  removeYes: "Remove",
+  removeNo: "Keep the file",
   fileDuplicate: "This file is already in your files.",
   fileStillReading: "A file is still being read. You can finish when it is ready.",
   closeFile: "Close",
@@ -99,7 +105,7 @@ export const TEXT = {
   fileStatus: {
     readingPrefix: "Reading…",
     reading: (percent: number) => `Reading… ${percent}%`,
-    ready: (facts: number) => `Ready · ${facts} facts`,
+    ready: (facts: number) => `Ready · ${facts} ${facts === 1 ? "fact" : "facts"}`,
   },
   source: {
     intake: "From your intake",
@@ -118,6 +124,19 @@ export const TEXT = {
   send: "Send",
   sendPaid: "Send paid reply",
   saveChange: "Save change",
+  cancelChange: "Cancel",
+  stage: { open: "Discovery in progress", finished: "Discovery finished" },
+  saveState: { saving: "Saving…", unsaved: "Changed answer not saved", saved: "All changes saved" },
+  finishBlocked: {
+    edit: "Save or cancel your changed answer first, then select Finish Discovery.",
+    reply: "Wait for the AI reply to finish, then select Finish Discovery.",
+  },
+  refused: {
+    title: "You can't open this Discovery",
+    body: "Discovery is open only to the NGO that owns the project. The link may be wrong, or it may belong to another account.",
+    home: "Go to the home page",
+    signOut: "Sign out",
+  },
   changedAnswer: (title: string, answer: string) => `You changed ${title}: ${answer}`,
   usedSuggestion: (title: string, answer: string) => `You used the suggestion for ${title}: ${answer}`,
   readyReply: "Discovery is ready for review. I have stopped asking questions.",
@@ -130,7 +149,9 @@ export const TEXT = {
     reviewed: (revision: number) =>
       `I have reviewed revision ${revision}. It describes the first version we need.`,
     gaps: (open: number) =>
-      `I understand that ${open === 1 ? "1 question" : `${open} questions`} remain open. I choose to finish Discovery anyway and keep them in the brief.`,
+      open === 1
+        ? "I understand that 1 question remains open. I choose to finish Discovery anyway and keep it in the brief."
+        : `I understand that ${open} questions remain open. I choose to finish Discovery anyway and keep them in the brief.`,
     data: "Our NGO takes responsibility for data access and keeps only the personal information this tool needs.",
     dataSensitive:
       "Our NGO keeps real sensitive data out of the build. The volunteer and the AI work only with fake or anonymized records.",
@@ -146,8 +167,10 @@ export const TEXT = {
     intro:
       "This is your brief as it stands, in your words. Edit any section before you finish. Nothing here is rewritten by the AI.",
     openTitle: (open: number) => (open === 1 ? "1 question is still open" : `${open} questions are still open`),
-    openNote:
-      "You can finish with them open. They stay in this document for the ai4good team and the volunteer.",
+    openNote: (open: number) =>
+      open === 1
+        ? "You can finish with it open. It stays in this document for the ai4good team and the volunteer."
+        : "You can finish with them open. They stay in this document for the ai4good team and the volunteer.",
     suggestedLine: (text: string) => `Suggested: ${text}`,
     saveNote: "Saving makes a new revision. Editing is free.",
     changeNote: (revision: number, changed: string) =>

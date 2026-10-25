@@ -38,10 +38,10 @@ function DiscoveryPage() {
   return (
     <main className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-background p-3 text-foreground md:p-4">
       <div hidden={review} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <DiscoveryScreen port={port} active={!review} returnFocus={returnFocus} onOpenReview={() => { location.hash = "review"; }} />
+        <DiscoveryScreen port={port} active={!review} returnFocus={returnFocus} draftKey={`discovery-draft:${projectId}`} onOpenReview={() => { location.hash = "review"; }} />
       </div>
       {review ? (
-        <DiscoveryReview port={port} onBackToChat={(questionId) => {
+        <DiscoveryReview port={port} draftKey={`discovery-review-draft:${projectId}`} onBackToChat={(questionId) => {
           setReturnFocus(questionId === null ? null : { questionId, nonce: ++nonce.current });
           location.hash = "";
         }} onFindVolunteer={() => { void navigate({ to: "/" }); }} />
@@ -64,7 +64,9 @@ function SignInForm() {
       password,
     });
     setPending(false);
-    if (signInError) setError(signInError.message);
+    if (signInError) {
+      setError((signInError.status ?? 0) >= 500 ? "Sign-in is not available right now. Try again in a minute." : signInError.message);
+    }
   }
 
   return (

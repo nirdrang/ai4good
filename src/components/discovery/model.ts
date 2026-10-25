@@ -159,7 +159,7 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
     })),
     discoveryCount,
     canAdd: funded || discoveryCount < 3,
-    limitText: funded ? null : TEXT.fileLimit,
+    limitText: funded ? null : discoveryCount >= 3 ? TEXT.fileLimitFull : TEXT.fileLimit,
   };
 }
 
@@ -547,7 +547,11 @@ export function openForReview(brief: BriefSnapshot): OpenReviewItem[] {
         topicTitle: topic.title,
         questionId,
         importance: question?.importance ?? topic.importance,
-        why: topic.why,
+        why: [
+          topic.why,
+          topic.state.kind === "agreed" ? `Current answer: ${topic.state.answer.replace(/[.\s]+$/, "")}.` : null,
+          question && question.reason !== topic.why ? question.reason : null,
+        ].filter((part): part is string => part !== null).join(" "),
         suggestion: topic.suggestion,
       },
     ];

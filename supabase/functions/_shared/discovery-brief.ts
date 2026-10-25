@@ -313,7 +313,7 @@ const DEFAULT_TOPICS: readonly OpeningTopic[] = [
   {
     id: 'rules',
     title: 'Booking rules',
-    why: 'You said volunteers book themselves, so the tool needs limits.',
+    why: 'Clear limits keep the rota fair, whoever books the shifts.',
     suggestion: 'Weekly shift limit',
     plannedQuestion: 'Which booking rules should the tool enforce?',
     definition: definitionOf(
@@ -343,6 +343,8 @@ function hasAnswer(topic: StoredTopic): boolean {
   return topic.state.kind === 'agreed' || topic.state.kind === 'not-sure';
 }
 
+const UNSURE_HELP = 'To find out: ask the people who do this work.';
+
 function genericDefinition(topic: OpeningTopic): TopicDefinition {
   const suggestion = topic.suggestion ?? 'Something else';
   return definitionOf(
@@ -350,7 +352,7 @@ function genericDefinition(topic: OpeningTopic): TopicDefinition {
     [option('suggested', suggestion), option('other', 'Something else')],
     'suggested',
     `Suggested: ${suggestion}.`,
-    'To find out: ask the people who do this work.',
+    UNSURE_HELP,
   );
 }
 
@@ -489,7 +491,29 @@ function markDependents(document: BriefDocument, topicId: string, skip: Readonly
     const dependent = document.topics[dependentId];
     if (!dependent || !hasAnswer(dependent)) continue;
     dependent.needsReview = true;
+    const question = document.questions[dependentId];
+    const prerequisite = document.topics[topicId];
+    if (!question || !prerequisite) continue;
+    const check = `You changed ${prerequisite.title}. Check that this answer still fits.`;
+    const earlier = question.reason.replace(/^You changed .+?\. Check that this answer still fits\.\s*/, '');
+    const blocked = earlier !== '' && earlier !== dependent.why;
+    if (dependent.state.kind === 'agreed' && !blocked) settleGuidance(dependent, question, dependent.state.answer, question.askedInRound);
+    question.reason = earlier === '' || earlier === dependent.why ? check : `${check} ${earlier}`;
   }
+}
+
+function settleGuidance(topic: StoredTopic, question: StoredQuestion, answer: string, round: number): void {
+  const id = `round-${round}`;
+  question.options = [{ id, label: answer, answer }];
+  question.suggestedId = id;
+  question.recommendation = `Suggested: ${answer.replace(/[.\s]+$/, '')}.`;
+  question.uncertaintyHelp = UNSURE_HELP;
+  topic.suggestion = answer;
+}
+
+function clearBlocker(document: BriefDocument, topic: StoredTopic): void {
+  const question = document.questions[topic.id];
+  if (question) question.reason = topic.why;
 }
 
 function agreedSameText(topic: StoredTopic, text: string): boolean {
@@ -508,6 +532,7 @@ function editTopic(topic: StoredTopic, text: string, document: BriefDocument): b
     return true;
   }
   topic.state = { kind: 'agreed', answer: text, source: { kind: 'edit', revision: 0 }, answerMessageId: null };
+  clearBlocker(document, topic);
   return true;
 }
 
@@ -555,6 +580,7 @@ function applyAccept(version: BriefVersion, command: Extract<BriefCommand, { kin
     source: { kind: 'accepted-suggestion' },
     answerMessageId: line.id,
   };
+  clearBlocker(document, next);
   markDependents(document, next.id, new Set());
   return changed(document, revision, line, []);
 }
@@ -612,6 +638,7 @@ function applyAnswers(version: BriefVersion, command: Extract<BriefCommand, { ki
         source: { kind: 'chat', round: command.round },
         answerMessageId: command.userMessageId,
       };
+      clearBlocker(document, topic);
       contentChanged.add(topic.id);
       filed.push({ id: topic.id, title: topic.title });
       changedDocument = true;
@@ -629,15 +656,10 @@ function applyAnswers(version: BriefVersion, command: Extract<BriefCommand, { ki
   return changed(document, version.revision + 1, null, filed);
 }
 
-function sectionFromFile(current: BriefSection | null, text: string, source: Extract<BriefSource, { kind: 'file' }>): BriefSection | null {
-  if (current?.text === text) return null;
-  return { text, source };
-}
-
 function applyFileFacts(version: BriefVersion, command: Extract<BriefCommand, { kind: 'apply-file-facts' }>): BriefTransition {
   const document = clone(version.document);
   const source: Extract<BriefSource, { kind: 'file' }> = { kind: 'file', fileId: command.fileId, fileName: command.fileName };
-  const filed: FiledTopic[] = [];
+  const sectionTexts: Partial<Record<'usersToday' | 'successMeasure', string[]>> = {};
   let changedDocument = false;
   for (const fact of command.facts) {
     if (fact.sectionId === 'need') continue;
@@ -648,22 +670,17 @@ function applyFileFacts(version: BriefVersion, command: Extract<BriefCommand, { 
       changedDocument = true;
     }
     if (fact.sectionId === 'usersToday' || fact.sectionId === 'successMeasure') {
-      const next = sectionFromFile(document[fact.sectionId], fact.text, source);
-      if (!next) continue;
-      document[fact.sectionId] = next;
-      changedDocument = true;
-      continue;
+      (sectionTexts[fact.sectionId] ??= []).push(fact.text);
     }
-    const topic = document.topics[fact.sectionId];
-    if (!topic || topic.required) continue;
-    if (agreedSameText(topic, fact.text) && topic.needsReview !== true) continue;
-    clearReview(topic);
-    topic.state = { kind: 'agreed', answer: fact.text, source, answerMessageId: null };
-    filed.push({ id: topic.id, title: topic.title });
+  }
+  for (const sectionId of ['usersToday', 'successMeasure'] as const) {
+    const texts = sectionTexts[sectionId];
+    if (!texts || document[sectionId] !== null) continue;
+    document[sectionId] = { text: texts.join(' '), source };
     changedDocument = true;
   }
   if (!changedDocument) return unchanged(version);
-  return changed(document, version.revision + 1, null, filed);
+  return changed(document, version.revision + 1, null, []);
 }
 
 export type ReplyQuestionUpdate = {
@@ -701,20 +718,33 @@ function applyModelQuestion(document: BriefDocument, item: ReplyQuestionUpdate, 
   const topic = document.topics[item.topicId];
   if (!topic) return false;
   let changed = false;
-  if (item.suggestion.trim() !== '' && topic.suggestion !== item.suggestion) {
-    topic.suggestion = item.suggestion;
-    changed = true;
-  }
   if (topic.importance !== item.importance) {
     topic.importance = item.importance;
     changed = true;
   }
   if (ensureQuestion(document, topic, round)) changed = true;
   const question = document.questions[topic.id];
+  const offered = item.suggested.trim();
+  if (question && offered !== '' && matchOption(question.options, offered) === null) {
+    question.options = [{ id: `round-${round}`, label: offered, answer: offered }];
+    question.uncertaintyHelp = UNSURE_HELP;
+    changed = true;
+  }
+  const suggestedId = question ? matchOption(question.options, item.suggested) ?? question.suggestedId : null;
+  const option = question?.options.find((candidate) => candidate.id === suggestedId);
+  const suggestion = option?.answer ?? item.suggestion.trim();
+  if (suggestion !== '' && topic.suggestion !== suggestion) {
+    topic.suggestion = suggestion;
+    changed = true;
+  }
   if (!question) return changed;
-  const suggestedId = matchOption(question.options, item.suggested) ?? question.suggestedId;
-  if (question.suggestedId !== suggestedId) {
+  if (suggestedId !== null && question.suggestedId !== suggestedId) {
     question.suggestedId = suggestedId;
+    changed = true;
+  }
+  const recommendation = option ? `Suggested: ${option.label.replace(/[.\s]+$/, '')}.` : null;
+  if (recommendation !== null && question.recommendation !== recommendation) {
+    question.recommendation = recommendation;
     changed = true;
   }
   if (question.importance !== item.importance) {
@@ -739,6 +769,11 @@ function applyModelAgreed(
   if (!topic || answered.has(topic.id)) return null;
   if (topic.state.kind === 'agreed' && topic.state.answer === item.answer && topic.needsReview !== true) return null;
   clearReview(topic);
+  ensureQuestion(document, topic, round);
+  const question = document.questions[topic.id];
+  if (question) settleGuidance(topic, question, item.answer, round);
+  else topic.suggestion = item.answer;
+  clearBlocker(document, topic);
   topic.state = {
     kind: 'agreed',
     answer: item.answer,
@@ -750,8 +785,12 @@ function applyModelAgreed(
 
 function applyModelOpen(document: BriefDocument, item: ReplyOpenUpdate, round: number): boolean {
   const topic = document.topics[item.topicId];
-  if (!topic || topicSettled(topic)) return false;
+  if (!topic) return false;
   let changed = false;
+  if (topicSettled(topic)) {
+    topic.needsReview = true;
+    changed = true;
+  }
   if (topic.importance !== item.importance) {
     topic.importance = item.importance;
     changed = true;
@@ -812,10 +851,17 @@ export function applyReplyTurn(current: BriefVersion, input: {
   const document = clone(base.document);
   const before = JSON.stringify(document);
   for (const question of input.update.questions) applyModelQuestion(document, question, input.round);
+  const changedAnswers: string[] = [];
   for (const agreed of input.update.agreed) {
+    const earlier = document.topics[agreed.topicId];
+    const hadAnswer = earlier !== undefined && hasAnswer(earlier);
     const filedTopic = applyModelAgreed(document, agreed, input.round, input.userMessageId, protectedIds);
-    if (filedTopic) filed.push(filedTopic);
+    if (!filedTopic) continue;
+    filed.push(filedTopic);
+    if (hadAnswer) changedAnswers.push(filedTopic.id);
   }
+  const touched = new Set([...protectedIds, ...input.update.agreed.map((item) => item.topicId)]);
+  for (const id of changedAnswers) markDependents(document, id, touched);
   for (const open of input.update.openQuestions) applyModelOpen(document, open, input.round);
   if (input.update.causeLabels !== undefined) {
     document.causeLabels = [...new Set(input.update.causeLabels.map(canonicalLabel))]
@@ -871,6 +917,13 @@ function openTopics(version: BriefVersion): StoredTopic[] {
     .filter((topic): topic is StoredTopic => topic !== undefined && !topicSettled(topic));
 }
 
+function gapReason(topic: StoredTopic, question: StoredQuestion | undefined): string {
+  const parts = [topic.why];
+  if (topic.state.kind === 'agreed') parts.push(`Current answer: ${topic.state.answer.replace(/[.\s]+$/, '')}.`);
+  if (question && question.reason !== topic.why) parts.push(question.reason);
+  return parts.join(' ');
+}
+
 export function decideFinish(version: BriefVersion, input: FinishInput): FinishDecision {
   if (input.existing && input.existing.revision === version.revision) {
     return { ok: true, confirmation: clone(input.existing) };
@@ -892,7 +945,7 @@ export function decideFinish(version: BriefVersion, input: FinishInput): FinishD
         topicId: topic.id,
         title: topic.title,
         importance: topic.importance,
-        reason: topic.why,
+        reason: gapReason(topic, version.document.questions[topic.id]),
       })),
     },
   };

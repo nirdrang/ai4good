@@ -13,6 +13,7 @@ export function QuestionGroup({
   focusNonce,
   onPick,
   onSave,
+  onCancel,
   canSave,
 }: {
   question: BriefQuestion;
@@ -22,6 +23,7 @@ export function QuestionGroup({
   focusNonce: number;
   onPick(questionId: string, draft: Draft | null): void;
   onSave?(): void;
+  onCancel?(): void;
   canSave?: boolean;
 }) {
   const headingId = useId();
@@ -99,9 +101,16 @@ export function QuestionGroup({
         {uncertain ? <p className="text-sm text-muted-foreground">{question.uncertaintyHelp}</p> : null}
       </div>
       {onSave ? (
-        <Button type="button" className="h-auto min-h-11 self-start whitespace-normal" disabled={!canSave} onClick={onSave}>
-          {TEXT.saveChange}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" className="h-auto min-h-11 whitespace-normal" disabled={!canSave} onClick={onSave}>
+            {TEXT.saveChange}
+          </Button>
+          {onCancel ? (
+            <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal" onClick={onCancel}>
+              {TEXT.cancelChange}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

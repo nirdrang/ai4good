@@ -29,6 +29,7 @@ function PanelBody({
   view,
   notice,
   onChoose,
+  onRemove,
   onClose,
 }: {
   phone: boolean;
@@ -36,8 +37,10 @@ function PanelBody({
   view: FileReadView | null;
   notice: string | null;
   onChoose(file: File): void;
+  onRemove?: () => void;
   onClose(): void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const fine = useFinePointer();
   const inputRef = useRef<HTMLInputElement>(null);
   const title = mode === "file" && view ? view.name : SCREEN.chooser.name;
@@ -105,6 +108,23 @@ function PanelBody({
           />
         ) : null}
         {view.factText ? <p className="m-0 text-sm">{view.factText}</p> : null}
+        {onRemove && confirming ? (
+          <div role="group" aria-label={NAME.removeFile(view.name)} className="flex flex-col gap-2 rounded-lg border border-border p-3">
+            <p className="m-0 text-sm">{TEXT.removeConfirm}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="destructive" className="h-auto min-h-11 whitespace-normal" onClick={onRemove}>
+                {TEXT.removeYes}
+              </Button>
+              <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal" onClick={() => setConfirming(false)}>
+                {TEXT.removeNo}
+              </Button>
+            </div>
+          </div>
+        ) : onRemove ? (
+          <Button type="button" variant="outline" className="h-auto min-h-11 self-start whitespace-normal" onClick={() => setConfirming(true)}>
+            {TEXT.removeFile}
+          </Button>
+        ) : null}
         {notice ? <p className="m-0 text-sm text-destructive">{notice}</p> : null}
       </div>
     );
@@ -152,6 +172,7 @@ export function FileOverlay({
   view,
   notice,
   onChoose,
+  onRemove,
   onClose,
 }: {
   phone: boolean;
@@ -159,11 +180,21 @@ export function FileOverlay({
   view: FileReadView | null;
   notice: string | null;
   onChoose(file: File): void;
+  onRemove?: () => void;
   onClose(): void;
 }) {
   const title = mode === "file" && view ? view.name : SCREEN.chooser.name;
   const body = (
-    <PanelBody phone={phone} mode={mode} view={view} notice={notice} onChoose={onChoose} onClose={onClose} />
+    <PanelBody
+      key={mode === "file" ? view?.name : mode}
+      phone={phone}
+      mode={mode}
+      view={view}
+      notice={notice}
+      onChoose={onChoose}
+      onRemove={onRemove}
+      onClose={onClose}
+    />
   );
   if (phone) {
     return (

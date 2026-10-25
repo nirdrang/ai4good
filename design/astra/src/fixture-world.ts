@@ -37,6 +37,7 @@ export type FixtureWorld = {
   buyFuel(amountMicros: number): DiscoveryUsage;
   fileRefusal(file: File): { kind: string; reason: string } | null;
   addFile(file: File): Result<DiscoveryFile>;
+  removeFile(fileId: string): Promise<Result<DiscoveryFile>>;
 };
 
 function storageKey(scenario: ScreenScenario): string {
@@ -440,6 +441,13 @@ function createFixtureWorld(scenario: ScreenScenario, pace: Pace): FixtureWorld 
     },
     fileRefusal,
     addFile,
+    async removeFile(fileId) {
+      if (state.confirmation) return refusal("finished", TEXT.finishedClosed);
+      const file = state.files.find((item) => item.id === fileId);
+      if (!file) return refusal("no-such-file", "The file is not in this project.");
+      commit({ ...state, files: state.files.filter((item) => item.id !== fileId) });
+      return { ok: true, value: structuredClone(file) };
+    },
     buyFuel(amountMicros) {
       if (!Number.isFinite(amountMicros) || amountMicros <= 0) return structuredClone(state.usage);
       const next = structuredClone(state);
