@@ -99,7 +99,6 @@ const FINISH_OPEN = {
   ],
   label: "food security",
   files: [
-    { name: "intake-notes.pdf", took: "three kitchens, 45 volunteers, the Sunday gaps" },
     { name: "volunteer-rota.xlsx", took: "38 volunteers booked at least one shift, and shifts are 4 hours" },
   ],
 } as const;
@@ -129,7 +128,6 @@ const CONFIRMED = {
     },
   ],
   files: [
-    { name: "intake-notes.pdf", took: "three kitchens, 45 volunteers, and the Sunday gaps" },
     { name: "volunteer-rota.xlsx", took: "38 volunteers booked at least one shift, and shifts are 4 hours" },
   ],
 } as const;
@@ -151,13 +149,11 @@ export const GIVEN = {
   "mid-interview-paid": INTERVIEW,
   "three-files-unfunded": {
     start: "chat" as Start,
-    intake: "intake-notes.pdf",
     files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
     funded: false,
   },
   "three-files-funded": {
     start: "chat" as Start,
-    intake: "intake-notes.pdf",
     files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
     funded: true,
   },

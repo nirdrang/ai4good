@@ -13,9 +13,6 @@ describe('raw intake audit snapshots', () => {
     expect(started.ok).toBe(true);
     if (!started.ok) return;
     const request = { organizationId: ngo.organizationId, projectId: started.need.projectId };
-    expect(await sut.attachReferenceFile(ngo.session, {
-      ...request, file: { fileName: 'sample-rota.csv', mediaType: 'text/csv', byteSize: 4096, description: 'Sample rows' },
-    })).toMatchObject({ ok: true, changed: true });
     expect(await sut.intakeSnapshots(request.projectId)).toEqual([]);
     const submitted = await sut.submitNeed(ngo.session, request);
     expect(submitted).toMatchObject({ ok: true, changed: true });
@@ -43,17 +40,11 @@ describe('raw intake audit snapshots', () => {
     expect(started.ok).toBe(true);
     if (!started.ok) return;
     const request = { organizationId: ngo.organizationId, projectId: started.need.projectId };
-    expect(await sut.attachReferenceFile(ngo.session, {
-      ...request, file: { fileName: 'sample-rota.csv', mediaType: 'text/csv', byteSize: 4096 },
-    })).toMatchObject({ ok: true, changed: true });
     expect(await sut.submitNeed(ngo.session, request)).toMatchObject({ ok: true, changed: true });
     const snapshots = await sut.intakeSnapshots(request.projectId);
     expect(snapshots).toHaveLength(1);
     expect(await sut.saveNeed(ngo.session, {
       ...request, patch: { description: 'The rota also needs team contact details.', urgency: 'soon' },
-    })).toMatchObject({ ok: true, changed: true });
-    expect(await sut.attachReferenceFile(ngo.session, {
-      ...request, file: { fileName: 'team-contacts.csv', mediaType: 'text/csv', byteSize: 2048 },
     })).toMatchObject({ ok: true, changed: true });
     const repeated = await sut.submitNeed(ngo.session, request);
     expect(repeated).toMatchObject({ ok: true, changed: false });
@@ -61,8 +52,6 @@ describe('raw intake audit snapshots', () => {
     if (!repeated.ok) return;
     expect(repeated.need.description).not.toBe(snapshots[0].detail.description);
     expect(repeated.need.urgency).not.toBe(snapshots[0].detail.urgency);
-    expect(snapshots[0].detail.reference_files).toHaveLength(1);
-    expect(repeated.need.referenceFiles).toHaveLength(2);
     const second = await sut.startNeed(ngo.session, {
       organizationId: ngo.organizationId, title: 'Grant tracker',
       description: 'We need a shared record of reporting deadlines.', urgency: 'no_deadline',

@@ -35,10 +35,7 @@ Deno.serve(edgeHandler('discovery-conversation', async (request: Request): Promi
   }
   const need = await needIntakeAnswer(reads, projectId);
   if (need.status !== 200) return json(need.body, need.status);
-  const filesView = [
-    ...need.body.need.referenceFiles.map((file) => ({ origin: 'intake', id: file.id, name: file.fileName, sizeBytes: file.byteSize, tookFromIt: null })),
-    ...files.rows.map(screenFile),
-  ];
+  const filesView = files.rows.map(screenFile);
   const transcript: unknown[] = [];
   const lines = [...answer.body.lines];
   for (const turn of answer.body.conversation.turns) {

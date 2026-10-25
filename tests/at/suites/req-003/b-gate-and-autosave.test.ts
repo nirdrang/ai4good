@@ -63,8 +63,5 @@ describe('need submission gate and autosave', () => {
       .toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
     expect(await sut.submitNeed(ngo.session, { ...request, projectId: 'not-a-uuid' }))
       .toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
-    expect(await sut.attachReferenceFile(ngo.session, {
-      ...request, projectId: 'not-a-uuid', file: { fileName: 'sample-rota.csv', mediaType: 'text/csv', byteSize: 4096 },
-    })).toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
   });
 });

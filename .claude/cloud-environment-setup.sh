@@ -5,9 +5,6 @@
 # contents into: claude.ai/code -> environment settings -> Setup script. It is tracked so
 # the shape is reviewable and has one history, rather than living only in a web form.
 #
-# THE KEY IS A PLACEHOLDER AND MUST STAY ONE. Fill it in the web form after pasting, never
-# here. A real key committed to this file is a key published to everyone with repository
-# access, which is a far wider audience than the environment's own readers.
 # Runs ONCE per environment, before Claude Code launches. Anthropic then snapshots the
 # filesystem; every later session starts from that snapshot and SKIPS this script.
 #
@@ -20,27 +17,20 @@
 # exports die with it, because the snapshot keeps the filesystem and not the environment.
 # So each surface carries exactly what reads it, and nothing else:
 #
-#   THIS SCRIPT defines, below:  the OpenCode Go key (nothing else needs to be here)
+#   THIS SCRIPT defines:         no values (nothing needs to be here)
 #   THE VARIABLES BOX carries:   CLAUDE_CODE_PROMPT_CACHE_TTL=1h (founder 2026-09-05), so the
 #                                lead runs on the one-hour prompt cache. Subagents keep the
 #                                five-minute default: the one-hour write price costs them
 #                                more than the rare long pause saves (measured 2026-09-05).
 #
-# THE KEY BELONGS HERE ONLY. Do not put it in the variables box: opencode does not read
-# any such variable (it recognises only the AWS pair and GITHUB_TOKEN), it reads the
-# auth.json this script writes. A copy in the variables box would be exposure that buys
-# nothing. The name below is this script's own plumbing, not an opencode convention.
-#
 # Neither surface is a secrets store - the documentation is explicit that both "live in
 # the environment configuration, where anyone who uses the environment can read them".
-# Treat the key as disclosed, and rotate it when it matters.
 #
 # ---------------------------------------------------------------------------------------
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
-#   - the codex, opencode and grok CLIs, and PowerShell
+#   - the codex CLI, and PowerShell
 #   - the pstack plugin and its marketplace clone, in the home folder
-#   - opencode's OpenCode Go credential
 #   - the docker ulimit shim at /usr/local/bin/docker
 #   - all 12 Supabase images, about 8.4 GB
 #
@@ -51,10 +41,6 @@
 #   - the codex ChatGPT login. That is OAuth, it can rotate, and the snapshot is readable
 #     by anyone using this environment. Run `codex login --device-auth` per fresh VM; the
 #     SessionStart banner says when it is needed.
-#   - the grok.com login, for the same reason. Run `grok login --device-auth` per fresh VM;
-#     the banner says when it is needed. Grok tokens expire after 7 days, so a long-lived
-#     session logs in again. No API key: the founder wants the grok subscription billed,
-#     not per-token API use (2026-09-03).
 #   - anything derived from the REPOSITORY - node_modules. Cloud sessions start from a
 #     fresh clone, so project setup belongs to the SessionStart hook, which runs inside
 #     the session with the tree present. The hook already installs node_modules when they
@@ -62,32 +48,8 @@
 
 set -euo pipefail
 
-# Not read from the environment - see the note above; a setup script cannot see the
-# environment's variables. No database value exists on either surface: the variables box
-# carries nothing, and the session starts the one stack itself with `bun run db:start`.
-OPENCODE_GO_API_KEY='PASTE_YOUR_OPENCODE_GO_KEY_HERE'
-
-# Guard commented out (founder 2026-09-03: "comment out the opencode guard"). With the
-# placeholder left in place the script still runs; step 3 then writes a credential file
-# holding the placeholder, and opencode is not usable until a real key replaces it.
-# case "$OPENCODE_GO_API_KEY" in
-#   PASTE_YOUR_*)
-#     echo "edit the setup script: OPENCODE_GO_API_KEY is still the placeholder" >&2
-#     exit 1
-#     ;;
-# esac
-
-# --- 1. the three agent CLIs -------------------------------------------------------
-npm install -g @openai/codex opencode-ai
-
-# The Grok CLI is the pstack grok lane: the feature and refactoring writer, the how explorer,
-# the swarm worker, and one panel lane. The pstack runner never falls back, so without this
-# binary every grok lane drops out. The installer writes ~/.grok/bin/grok; the symlink puts
-# it on the PATH of every session without touching shell profiles. If the installer ever
-# moves the binary, the test fails loudly here instead of every grok lane failing later.
-curl -fsSL https://x.ai/cli/install.sh | bash
-test -x "$HOME/.grok/bin/grok"
-ln -sf "$HOME/.grok/bin/grok" /usr/local/bin/grok
+# --- 1. the agent CLIs -------------------------------------------------------------
+npm install -g @openai/codex
 
 # The pstack plugin, from the open-pstack marketplace the tracked .claude/settings.json
 # names. Claude Code is meant to install it at session start from that source. On
@@ -101,34 +63,15 @@ claude plugin install pstack@open-pstack
 claude plugin list | grep -q pstack@open-pstack
 
 # --- 2. PowerShell -----------------------------------------------------------------
-# The way-of-work scripts under loop/work are PowerShell, and PowerShell 7 runs them on
-# Linux: work-lib.ps1 and guard-branch-switch.ps1 were each measured working in a cloud VM
-# (so was the attribution stamp hook, which is parked under loop/parked/v1/ and no longer
-# runs anywhere). Without this, a cloud session has no branch guard. Delete this block if
-# you decide cloud sessions do not need it.
+# The /controller, /doc-sync and /ui-design skills run PowerShell scripts under loop/, and
+# PowerShell 7 runs them on Linux. The binary here is `pwsh`, not `powershell`.
 curl -sS -o /tmp/packages-microsoft-prod.deb \
   https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
 dpkg -i /tmp/packages-microsoft-prod.deb
 apt-get update -qq
 apt-get install -y -qq powershell
 
-# --- 3. OpenCode Go credential -----------------------------------------------------
-# opencode has no non-interactive login flag - its CLI path is an interactive picker.
-# The credential is a small JSON file and the key is stable, so write the file directly.
-# This is byte-for-byte the file `opencode auth login` produces; verified against a real
-# login in a cloud VM.
-mkdir -p ~/.local/share/opencode
-cat > ~/.local/share/opencode/auth.json <<JSON
-{
-  "opencode-go": {
-    "type": "api",
-    "key": "${OPENCODE_GO_API_KEY}"
-  }
-}
-JSON
-chmod 600 ~/.local/share/opencode/auth.json
-
-# --- 4. the docker ulimit shim -----------------------------------------------------
+# --- 3. the docker ulimit shim -----------------------------------------------------
 # `supabase start` launches edge-runtime with an explicit --ulimit nofile=65536:65536.
 # This VM's nofile hard limit is 20000 and CAP_SYS_RESOURCE is masked, so runc refuses:
 # "error setting rlimit type 7: operation not permitted". No daemon setting overrides an
@@ -157,7 +100,7 @@ exec /usr/bin/docker "${args[@]}"
 SHIM
 chmod +x /usr/local/bin/docker
 
-# --- 5. the docker daemon ----------------------------------------------------------
+# --- 4. the docker daemon ----------------------------------------------------------
 # setsid, nohup and disown are all required: dockerd does not daemonize itself in this
 # image, so a plain background job dies with the shell that started it. That was
 # measured - the daemon answered for a few seconds, then went away with its parent.
@@ -165,7 +108,7 @@ setsid nohup sudo -n dockerd >/var/log/dockerd-setup.log 2>&1 </dev/null &
 disown
 until docker info >/dev/null 2>&1; do sleep 1; done
 
-# --- 6. the dependency cache, and the project's EXACT Supabase CLI -----------------
+# --- 5. the dependency cache, and the project's EXACT Supabase CLI -----------------
 # THE LOCKFILE IS THE SINGLE SOURCE OF TRUTH, AND IT IS FETCHED, NOT COPIED.
 #
 # An earlier draft hardcoded twelve image tags here. That was a second source of truth
@@ -199,7 +142,7 @@ curl -fsS -O "$REPO_RAW/bun.lock"
 
 bun install --frozen-lockfile
 
-# --- 7. the Supabase images, chosen by that exact CLI ------------------------------
+# --- 6. the Supabase images, chosen by that exact CLI ------------------------------
 # `supabase init` writes a throwaway default project; the CLI then pulls its own images.
 # Which images those are is the CLI's business, not ours - that is the entire point.
 #
@@ -210,7 +153,7 @@ bunx supabase init --force
 bunx supabase start || true
 bunx supabase stop --no-backup || true
 
-# --- 8. leave the snapshot with images and no containers ---------------------------
+# --- 7. leave the snapshot with images and no containers ---------------------------
 # Containers do not survive the snapshot, but their DEFINITIONS do, and every Supabase
 # container carries `restart: unless-stopped`. Left in place they turn each session's
 # first `docker info` into a stampede: 34 containers across three stacks were measured

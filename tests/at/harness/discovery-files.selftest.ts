@@ -21,11 +21,11 @@ it('merges all part digests in order, removing only exact repeats', () => {
 });
 
 it('counts only live Discovery files on unfunded projects', () => {
-  const files = [{ origin: 'intake' }, ...Array.from({ length: 3 }, () => ({ origin: 'discovery' }))];
+  const files = Array.from({ length: 3 }, () => ({}));
   expect(fileLimitReached(false, files)).toBe(true);
-  expect(fileLimitReached(false, files.slice(0, 3))).toBe(false);
-  expect(fileLimitReached(false, [...files.slice(0, 3), { origin: 'discovery', removedAt: '2026-10-03' }])).toBe(false);
-  expect(fileLimitReached(true, Array.from({ length: 100 }, () => ({ origin: 'discovery' })))).toBe(false);
+  expect(fileLimitReached(false, files.slice(0, 2))).toBe(false);
+  expect(fileLimitReached(false, [...files.slice(0, 2), { removedAt: '2026-10-03' }])).toBe(false);
+  expect(fileLimitReached(true, Array.from({ length: 100 }, () => ({})))).toBe(false);
 });
 
 it('accepts facts only for known sections and retains questions as digest data', () => {

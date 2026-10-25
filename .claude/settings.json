@@ -8,7 +8,8 @@
       "PowerShell(gh pr merge:*)",
       "Bash(git push origin --delete:*)",
       "PowerShell(git push origin --delete:*)",
-      "Edit(supabase/functions/.env)"
+      "Edit(supabase/functions/.env)",
+      "Bash(printf 'DISCOVERY_API_KEY=%s\\n' \"$DISCOVERY_API_KEY\" >> supabase/functions/.env)"
     ]
   },
   "model": "fable",

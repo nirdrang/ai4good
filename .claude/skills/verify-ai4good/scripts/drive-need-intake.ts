@@ -4,8 +4,8 @@
  *   bun .claude/skills/verify-ai4good/scripts/drive-need-intake.ts [outDir]
  *
  * Drives the REAL user path on the local stack, past NGO signup: starting a project need,
- * reading it back, the submission gate, autosave (save, no-op save, re-read), attaching a
- * reference file, the Tier-2 disclosure upgrade and its monotonic guard, submit and its audit
+ * reading it back, the submission gate, autosave (save, no-op save, re-read), the Tier-2
+ * classification and its monotonic guard, submit and its audit
  * snapshot, a re-submit no-op, a post-submit edit that leaves the snapshot untouched, and four
  * refusals (no-such-need, invalid-request, unauthenticated, missing-description gate). Writes a
  * REDACTED transcript to `outDir` (default `loop/verify-evidence/<timestamp>/`) and exits 0
@@ -38,8 +38,6 @@ import {
 
 // The shipped attestation, imported so the drive affirms the exact statement the server accepts.
 import { ACKNOWLEDGMENT_IDENTITY_COPY } from '../../../../supabase/functions/_shared/acknowledgment-copy.ts';
-// The shipped Tier-2 copy, imported so the drive checks the exact disclosure the server sends.
-import { REFERENCE_FILE_DISCLOSURE } from '../../../../supabase/functions/_shared/need-intake-copy.ts';
 
 /* ----------------------------------------------------------------------------- reporting */
 
@@ -225,7 +223,6 @@ let projectId = '';
   );
   recordHttp('project-need-start', 'POST', r.url, r.status, r.json);
   const need = r.json.need as Record<string, unknown> | undefined;
-  const upload = need?.upload as { disclosure?: { level?: string } } | undefined;
   const ok =
     r.status === 200 &&
     r.json.ok === true &&
@@ -234,8 +231,9 @@ let projectId = '';
     need?.description === null &&
     Array.isArray(need?.causeLabels) &&
     (need!.causeLabels as unknown[]).length === 0 &&
-    upload?.disclosure?.level === 'base';
-  record('n1', 'project-need start answers a fresh draft with a base disclosure', ok, `status ${r.status}: ${JSON.stringify(redactValue(r.json)).slice(0, 300)}`);
+    !('referenceFiles' in need!) &&
+    !('upload' in need!);
+  record('n1', 'project-need start answers a fresh draft with no file fields', ok, `status ${r.status}: ${JSON.stringify(redactValue(r.json)).slice(0, 300)}`);
   projectId = String(need?.projectId ?? '');
   if (!projectId) fatal('project-need start named no project id');
 
@@ -304,21 +302,17 @@ let firstSaveUpdatedAt = '';
   record('n6', 'the same save answers changed:false with the same updatedAt', r.status === 200 && r.json.changed === false && need?.updatedAt === firstSaveUpdatedAt, `status ${r.status}: ${JSON.stringify(redactValue(r.json))}`);
 }
 
-/* ---------------------------------------------------------------- step n7: attach */
+/* ---------------------------------------------------------- step n7: attach is refused */
 
 {
   const r = await functionPost(
     stack,
     'project-need',
-    { organizationId, action: 'attach', projectId, file: { fileName: 'grants-tracker.csv', mediaType: 'text/csv', byteSize: 4096, description: 'Sample rows' } },
+    { organizationId, action: 'attach', projectId, file: { fileName: 'grants-tracker.csv', mediaType: 'text/csv', byteSize: 4096 } },
     ngoAccessToken,
   );
-  recordHttp('project-need-attach', 'POST', r.url, r.status, r.json);
-  const need = r.json.need as Record<string, unknown> | undefined;
-  const files = (need?.referenceFiles as Record<string, unknown>[] | undefined) ?? [];
-  const upload = need?.upload as { disclosure?: { level?: string } } | undefined;
-  const ok = r.status === 200 && files.length === 1 && files[0]?.addedByAccountId === ngoAccountId && upload?.disclosure?.level === 'base';
-  record('n7', 'project-need attach adds one reference file at base disclosure', ok, `status ${r.status}: ${JSON.stringify(redactValue(r.json)).slice(0, 300)}`);
+  recordHttp('project-need-attach-refused', 'POST', r.url, r.status, r.json);
+  record('n7', 'project-need refuses an attach action: intake takes no files', r.status === 400 && r.json.kind === 'invalid-request', `status ${r.status}: ${JSON.stringify(redactValue(r.json))}`);
 }
 
 /* -------------------------------------------------------- step n8: Tier-2 classification */
@@ -327,17 +321,6 @@ let firstSaveUpdatedAt = '';
   await sql`update public.need_intakes set tier2_classified_at = now() where project_id = ${projectId}::uuid`;
   const rows = await readRows(sql, 'need_intakes (tier2 classified)', sql`select project_id, tier2_classified_at from public.need_intakes where project_id = ${projectId}::uuid`);
   record('n8-classify', 'the operator classifies the project Tier 2', rows[0]?.tier2_classified_at !== null, JSON.stringify(redactValue(rows[0] ?? null)));
-
-  const r = await functionPost(stack, 'need-intake', { projectId }, ngoAccessToken);
-  recordHttp('need-intake-read-2-tier2', 'POST', r.url, r.status, r.json);
-  const need = r.json.need as Record<string, unknown> | undefined;
-  const upload = need?.upload as { disclosure?: { level?: string; acknowledgmentRequired?: boolean; acknowledgment?: string } } | undefined;
-  const ok =
-    r.status === 200 &&
-    upload?.disclosure?.level === 'tier2-hardened' &&
-    upload?.disclosure?.acknowledgmentRequired === true &&
-    upload?.disclosure?.acknowledgment === REFERENCE_FILE_DISCLOSURE.tier2Hardened.acknowledgment;
-  record('n8', 'need-intake reports the Tier-2 hardened disclosure and acknowledgment', ok, `status ${r.status}: ${JSON.stringify(redactValue(r.json)).slice(0, 400)}`);
 }
 
 /* --------------------------------------------------------- step n9: the monotonic guard */
@@ -376,9 +359,8 @@ let submittedAt = '';
     sql`select id, detail from public.audit_events where event_kind = 'need_intake_submitted' and detail->>'project_id' = ${projectId}`,
   );
   const detail = audits[0]?.detail as Record<string, unknown> | undefined;
-  const refFiles = (detail?.reference_files as unknown[] | undefined) ?? [];
-  const auditOk = audits.length === 1 && detail?.description === description && refFiles.length === 1;
-  record('n10-audit', 'exactly one audit_events row carries the description and one reference file', auditOk, JSON.stringify(redactValue({ count: audits.length, description: detail?.description, referenceFileCount: refFiles.length })));
+  const auditOk = audits.length === 1 && detail?.description === description && !('reference_files' in detail!);
+  record('n10-audit', 'exactly one audit_events row carries the description and no file list', auditOk, JSON.stringify(redactValue({ count: audits.length, description: detail?.description })));
 }
 
 /* -------------------------------------------------------------- step n11: re-submit no-op */

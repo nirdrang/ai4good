@@ -1,32 +1,27 @@
-# Project need intake (start, autosave, attach, submit, snapshot)
+# Project need intake (start, autosave, submit, snapshot)
 
-An NGO admin describes a project's need: a title, a problem description, an urgency, and
-optional reference files. The need starts as a draft, autosaves as the admin types, and moves to
+An NGO admin describes a project's need: a title, a problem description and an urgency. Intake
+takes no files (decision d101); reference files are added in Discovery. The need starts as a draft, autosaves as the admin types, and moves to
 Discovery only when a description is present. Once submitted, a permanent audit snapshot of the
-submitted text and files is kept, even as the admin keeps editing afterward.
+submitted text is kept, even as the admin keeps editing afterward.
 
 ## Sub-features
 
 - NGO admin caller, `start`: a new project and its need row are created together, in the
-  `draft` stage, with no description and the base file-disclosure notice. `start` needs the
+  `draft` stage, with no description. `start` needs the
   account's platform terms acknowledgment (written by `complete-signup`); without it, 409
-  `platform-acknowledgment-missing`. `save`, `attach` and `submit` do not check it.
+  `platform-acknowledgment-missing`. `save` and `submit` do not check it.
 - NGO admin caller, `save`: a partial patch (title, description, urgency) is applied. An
   identical save is a no-op (`changed: false`, the same `updatedAt`). Whitespace-only text
   collapses to `null`.
-- NGO admin caller, `attach`: one reference-file entry (name, media type, byte size,
-  description) is appended, stamped with the adding account's id.
 - NGO admin caller, `submit`: refused as `missing-description` while the description is empty.
   Once a description is present, submit moves the need to `discovery_in_progress` and stamps
   `submittedAt`. It also writes one `audit_events` row (`event_kind = 'need_intake_submitted'`).
-  That row holds a snapshot of the title, description, urgency and reference files at that
+  That row holds a snapshot of the title, description and urgency at that
   moment. A second submit is a no-op and the audit table still holds exactly one row for the
   project. Edits made after submission change the live need but never the audit snapshot.
-- File-disclosure level: `base` until the operator classifies the project Tier 2
-  (`need_intakes.tier2_classified_at`), then `tier2-hardened`. The disclosure text and the
-  required acknowledgment text both come from `REFERENCE_FILE_DISCLOSURE` in
-  `supabase/functions/_shared/need-intake-copy.ts`. The classification is monotonic: clearing or
-  rewriting `tier2_classified_at` is refused by a database trigger (SQLSTATE `42501`).
+- Tier-2 classification (`need_intakes.tier2_classified_at`) is monotonic: clearing or
+  rewriting it is refused by a database trigger (SQLSTATE `42501`).
 - Read-only caller, `need-intake`: an organisation member or a platform administrator reads the
   need back by project id. Row-level security decides; the read checks no account type. Any
   other caller, and an unknown project, gets the tenant 404 `{ok: false, reason: "no such thing
@@ -38,29 +33,27 @@ submitted text and files is kept, even as the admin keeps editing afterward.
 - Write refusals on `project-need`, after the common write gate (403 `not-an-ngo-account` among
   them): 403 `not-a-member` or `not-an-admin` for the target organisation. 400 `invalid-name` for
   an empty or whitespace title on `start` or `save`. 400 `invalid-request` for a non-uuid project
-  id, an unknown body, `patch` or `file` key, an urgency other than `soon`, `this_quarter` or
-  `no_deadline`, or a `byteSize` that is not a positive integer. 409 `no-such-need` for a caller
+  id, an unknown body or `patch` key, an `attach` or other unknown action, or an urgency other
+  than `soon`, `this_quarter` or `no_deadline`. 409 `no-such-need` for a caller
   with no matching need in its own organisation (a different NGO's project, or a stale project
   id). The read side never answers `no-such-need`; see the read bullet above.
 
 ## How to get to it (user POV)
 
 A signed-in, completed NGO admin starts a need for one of their organisation's projects. The
-admin types into the description as Discovery reads it back, attaches sample files, and submits
-when ready. The API is two edge functions: `project-need` (the four actions above) and
+admin types into the description as Discovery reads it back, and submits when ready. The API
+is two edge functions: `project-need` (the three actions above) and
 `need-intake` (the read).
 
 ## Driving it with the HTTP harness
 
 `POST {API}/functions/v1/project-need`, headers `Authorization: Bearer <access_token>` and
-`apikey: <ANON_KEY>`, body `{"organizationId", "action": "start"|"save"|"attach"|"submit", ...}`:
+`apikey: <ANON_KEY>`, body `{"organizationId", "action": "start"|"save"|"submit", ...}`:
 
 - `start`: `{organizationId, action: "start", title, description?, urgency?}` → 200, a new
   `need` in `draft`.
 - `save`: `{organizationId, action: "save", projectId, patch: {title?, description?, urgency?}}`
   → 200, `changed` true or false.
-- `attach`: `{organizationId, action: "attach", projectId, file: {fileName, mediaType,
-  byteSize, description?}}` → 200, one more entry in `need.referenceFiles`.
 - `submit`: `{organizationId, action: "submit", projectId}` → 200 once a description exists, or
   409 `missing-description` before that.
 
@@ -77,8 +70,8 @@ submission snapshot.
 ## What proves it
 
 The response pair for each action, and the `need_intakes` row after each write. For
-submission, the single `audit_events` row whose `detail` matches the description and reference
-files at the moment of submit. That row is unchanged by any later edit.
+submission, the single `audit_events` row whose `detail` matches the description at the moment
+of submit. That row is unchanged by any later edit.
 
 ## Gotchas
 

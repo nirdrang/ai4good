@@ -276,22 +276,11 @@ function openingText(discoveryCount: number): string {
   return paragraphs.join("\n\n");
 }
 
-function intakeFile(): DiscoveryFile {
-  return {
-    origin: "intake",
-    id: "intake-notes",
-    name: "intake-notes.pdf",
-    sizeBytes: 120 * 1024,
-    tookFromIt: null,
-  };
-}
-
 function discoveryFiles(): DiscoveryFile[] {
   return GIVEN["first-reply-three-files"].files.map((name) => {
     const script = FILE_SCRIPTS.find((item) => item.name === name);
     if (!script) throw new Error(`missing file script ${name}`);
     return {
-      origin: "discovery",
       id: script.id,
       name: script.name,
       sizeBytes: kilobytes(script.size),
@@ -602,19 +591,15 @@ function midState(paid: boolean): DiscoveryState {
       ),
     ],
     brief: snapshot,
-    files: [intakeFile()],
+    files: [],
     usage: midUsage(paid),
     confirmation: null,
   };
 }
 
-function tookFile(name: string, took: string, origin: "intake" | "discovery"): DiscoveryFile {
-  if (origin === "intake") {
-    return { origin, id: "intake-notes", name, sizeBytes: 120 * 1024, tookFromIt: took };
-  }
+function tookFile(name: string, took: string): DiscoveryFile {
   const script = scriptForName(name);
   return {
-    origin,
     id: script.id,
     name,
     sizeBytes: kilobytes(script.size),
@@ -774,7 +759,7 @@ function finishOpenState(tier: 0 | 1 | 2): DiscoveryState {
       fit: null,
       causeLabels: [given.label],
     },
-    files: [tookFile(given.files[0].name, given.files[0].took, "intake"), tookFile(given.files[1].name, given.files[1].took, "discovery")],
+    files: given.files.map((file) => tookFile(file.name, file.took)),
     usage: midUsage(false),
     confirmation: null,
   };
@@ -847,7 +832,7 @@ function confirmedState(scenario: "confirmed-tier-2" | "confirmed-tier-1"): Disc
       fit: { verdict: "fits", reason: "A staff member can keep this tool going by chat." },
       causeLabels: [...given.labels],
     },
-    files: [tookFile(given.files[0].name, given.files[0].took, "intake"), tookFile(given.files[1].name, given.files[1].took, "discovery")],
+    files: given.files.map((file) => tookFile(file.name, file.took)),
     usage: midUsage(false),
     confirmation: {
       revision: given.revision,
@@ -890,8 +875,8 @@ export function seedState(scenario: ScreenScenario): DiscoveryState {
     scenario === "first-reply-three-files" ||
     scenario === "three-files-unfunded" ||
     scenario === "three-files-funded";
-  const files = three ? [intakeFile(), ...discoveryFiles()] : [intakeFile()];
-  const discoveryCount = files.filter((file) => file.origin === "discovery").length;
+  const files = three ? discoveryFiles() : [];
+  const discoveryCount = files.length;
   const opening: DiscoveryUIMessage = {
     id: "opening",
     role: "assistant",

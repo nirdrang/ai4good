@@ -371,7 +371,7 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
     },
     need: (projectId) =>
       restJson(
-        `${base}/need_intakes?project_id=eq.${encodeURIComponent(projectId)}&select=project_id,description,urgency,stage,cause_labels,reference_files,tier2_classified_at,submitted_at,updated_at`,
+        `${base}/need_intakes?project_id=eq.${encodeURIComponent(projectId)}&select=project_id,description,urgency,stage,cause_labels,tier2_classified_at,submitted_at,updated_at`,
         { headers },
       ),
     organization: (organizationId) =>

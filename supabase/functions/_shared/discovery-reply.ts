@@ -3,6 +3,7 @@ import {
   canonicalLabel, SCOPE_CAUSE_LABELS_MAX, SCOPE_CAUSE_LABEL_MAX_CHARS,
   DATA_KINDS,
   DATA_TOPIC_ID,
+  dataReportMissing,
   DECLINE_CAUSES,
   openingDocument,
   requiredAgreement,
@@ -91,7 +92,7 @@ function isDataKind(value: unknown): value is DataKind {
   return typeof value === 'string' && (DATA_KINDS as readonly string[]).includes(value);
 }
 
-function parseDataReport(value: unknown): ReplyDataReport | null {
+export function parseDataReport(value: unknown): ReplyDataReport | null {
   if (!isRecord(value) || !exactKeys(value, ['kinds', 'reason'])) return null;
   if (!Array.isArray(value.kinds) || value.kinds.length === 0 || !value.kinds.every(isDataKind)) return null;
   if (typeof value.reason !== 'string' || value.reason.trim() === '') return null;
@@ -118,6 +119,24 @@ const DECLINE_TEXT: Record<DeclineCause, string> = {
   'developer-maintenance': DECLINE_COPY.developerMaintenance,
   'confidential-codebase': DECLINE_COPY.confidentialCodebase,
 };
+
+const DATA_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    kinds: { type: 'array', minItems: 1, items: { type: 'string', enum: [...DATA_KINDS] } },
+    reason: { type: 'string' },
+  },
+  required: ['kinds', 'reason'],
+} as const;
+
+export const DATA_REPORT_TOOL = {
+  name: 'data_report',
+  description: `The data the tool will handle, from the NGO's answer to the ${DATA_TOPIC_ID} topic.`,
+  input_schema: DATA_SCHEMA,
+};
+
+export const DATA_REPORT_REQUEST = `The NGO has answered the ${DATA_TOPIC_ID} topic, what data the tool will handle, and your reply did not report data. Report it now from that answer.`;
 
 export function replyTool(topicIds: readonly string[]): ReplyTool {
   const topicId = { type: 'string', enum: [...topicIds] };
@@ -162,15 +181,7 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
             required: ['topicId', 'importance'],
           },
         },
-        data: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            kinds: { type: 'array', minItems: 1, items: { type: 'string', enum: [...DATA_KINDS] } },
-            reason: { type: 'string' },
-          },
-          required: ['kinds', 'reason'],
-        },
+        data: DATA_SCHEMA,
         fit: {
           type: 'object',
           additionalProperties: false,
@@ -276,6 +287,7 @@ export type ReplyTurnPlan =
       changed: boolean;
       ready: { agreed: number; total: number };
       decline: DeclinedFit | null;
+      dataReportMissing: boolean;
     }
   | { ok: false; release: true };
 
@@ -323,6 +335,7 @@ export function planReplyTurn(input: {
     changed: input.current === null ? true : changed,
     ready: { agreed: agreement.agreed, total: agreement.total },
     decline,
+    dataReportMissing: dataReportMissing(brief.document, update.data, input.round),
   };
 }
 
