@@ -1,4 +1,5 @@
-import { expect } from 'vitest';
+import { afterAll, expect } from 'vitest';
+import { cleanupReposNamed } from '../../harness/github.ts';
 import { atTest } from './_bind.ts';
 import { scopeMoneySourceProblems } from '../req-004/_source-absences.ts';
 import { TIER } from '../../harness/registry.ts';
@@ -7,7 +8,11 @@ import { buildScopeRequest, renderScopeMarkdown, scopeMoneyProblems, type Scope,
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
 import { SCOPE_TIER_FIXTURES, GRANT_TRACKER_SCOPE, scopeContractProblems, scopeDocumentProblems } from '../req-004/fixtures/scope-tiers.ts';
 import { parseTechnicalScope } from '../../../../supabase/functions/_shared/prd/technical-scope.ts';
-import { proveScopeSection } from './_record.ts';
+import { createdRepoNames, proveScopeSection } from './_record.ts';
+
+afterAll(async () => {
+  await cleanupReposNamed(createdRepoNames());
+});
 
 function confirmed(scope: Scope): ConfirmedDiscovery {
   const brief = openingDocument({ need: scope.summary });

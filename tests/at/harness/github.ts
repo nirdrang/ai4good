@@ -124,3 +124,28 @@ export async function cleanupRepos(prefix: string): Promise<void> {
   if (truncated)
     throw new Error("the repository list did not end, so cleanup may have missed a repository");
 }
+
+export async function cleanupReposNamed(names: readonly string[]): Promise<void> {
+  if (names.length === 0) return;
+  for (const name of names) {
+    if (!/^[a-z0-9][a-z0-9-]{0,99}$/i.test(name)) {
+      throw new Error(`cleanupReposNamed refuses ${JSON.stringify(name)}`);
+    }
+  }
+  const loaded = open();
+  if (!loaded.ok) throw new Error(loaded.reason);
+  const token = await loaded.app.installationToken(fetch);
+  if (!token.ok) throw new Error(token.reason);
+  const org = encodeURIComponent(loaded.config.org);
+  for (const name of names) {
+    const response = await githubHttp(
+      fetch,
+      token.token,
+      "DELETE",
+      `/repos/${org}/${encodeURIComponent(name)}`,
+    );
+    if (!response.ok && response.status !== 404) {
+      throw new Error(`deleting ${name} failed: ${response.failure.reason}`);
+    }
+  }
+}

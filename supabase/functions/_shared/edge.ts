@@ -301,15 +301,15 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
       return new Response(body, { headers: { ...CORS_HEADERS, ...discoveryStream.DISCOVERY_STREAM_HEADERS } });
     }
     if (spec.settle) {
-      const acted = await spec.settle.act(outcome.value, decision.args);
+      const acted = await spec.settle.act(outcome.value, decision.args, callDatabaseFunction);
       if (acted.skipSettle) {
         const reserved = isRecord(outcome.value) ? { ...outcome.value, allowance: outcome.value.allowance ?? null } : {};
         return json({ ok: true, ...(spec.render ? spec.render(reserved) : {}) }, 200);
       }
-      if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', 502);
+      if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', acted.status ?? 502);
       outcome = await callDatabaseFunction(spec.settle.rpc, acted.args);
       if (!outcome.ok) return rpcRefusal(outcome);
-      if (acted.failure !== null) return refusal(acted.failure, 502);
+      if (acted.failure !== null) return refusal(acted.failure, acted.status ?? 502);
     }
     return json({ ok: true, ...(spec.render ? spec.render(outcome.value) : {}) }, 200);
   });

@@ -117,17 +117,24 @@ function topicOf(section: unknown): Topic {
     fail("a section names its state");
   }
   if (typeof section.required !== "boolean") fail("a section says whether it is required");
-  if (!isRecord(section.document)) fail("a section carries its document");
-  const content = statementsOf(section.document);
-  const scope = scopeOf(section.document);
+  const unreadable = section.variant === "unreadable" || section.variant === "missing";
+  if (!unreadable && !isRecord(section.document)) fail("a section carries its document");
+  const document = isRecord(section.document) ? section.document : {};
+  const content = unreadable ? { statements: [], sources: [] } : statementsOf(document);
+  const scope = unreadable ? null : scopeOf(document);
   const changed = section.changedSinceConfirmed;
+  const problem = typeof section.problem === "string" ? section.problem : null;
   return {
     id: text(section.key, "section key") as Topic["id"],
     title: text(section.title, "section title"),
     required: section.required,
     state: state as TopicState,
     statusText: statusText(state as TopicState),
-    blocker: typeof section.blocker === "string" ? section.blocker : null,
+    blocker: unreadable
+      ? (problem ?? "the section could not be read")
+      : typeof section.blocker === "string"
+        ? section.blocker
+        : null,
     statements: content.statements,
     sources: content.sources,
     stories: storiesOf(scope),

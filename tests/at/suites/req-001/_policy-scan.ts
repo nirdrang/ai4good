@@ -46,6 +46,8 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   prd_answer_uses: 'unreachable-by-client-roles',
   prd_turns: 'unreachable-by-client-roles',
   prd_actions: 'unreachable-by-client-roles',
+  prd_git_ops: 'unreachable-by-client-roles',
+  prd_unknown_files: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
@@ -62,6 +64,16 @@ export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
   prd_turn_finish:
     'the relay closes a turn that prd_turn_reserve or prd_action already admitted behind the account gate; ' +
     'no account acts in this call',
+  prd_git_bind_repo:
+    'the edge binds the repository after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_git_op_written:
+    'the edge records the commit sha after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_git_op_published:
+    'the edge records that main moved after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_reconcile:
+    'sync applies repository history after an admitted open; no account acts in this call',
+  prd_mark_diverged:
+    'sync records that the repository left the fast-forward line; no account acts in this call',
 };
 
 function matchDollarTag(sql: string, i: number): string | null {

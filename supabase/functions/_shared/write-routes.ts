@@ -82,7 +82,7 @@ export const WRITE_ROUTES = {
     standing: { kind: 'account-required', admits: ['platform_admin'] },
   },
   'prd-open': {
-    surface: { kind: 'edge', rpc: 'prd_open' },
+    surface: { kind: 'edge', rpc: 'prd_open_begin' },
     standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
   },
   'prd-draft': {
@@ -274,10 +274,16 @@ export type WriteRouteDecision<Args> =
 export type SettleActResult = {
   readonly args: Record<string, unknown> | null;
   readonly failure: string | null;
+  readonly status?: number;
   readonly skipSettle?: boolean;
   readonly suffix?: string;
   readonly tail?: readonly Record<string, unknown>[];
 };
+
+export type SettleDatabase = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<{ ok: true; value: unknown } | { ok: false; message: string }>;
 export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
   readonly readBody?: (request: Request) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string; kind?: WriteRefusalKind; status?: number }>;
@@ -289,7 +295,7 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   readonly prepare?: (caller: Caller, args: Args, reads: CallerReads) => Promise<WriteRouteDecision<Args>>;
   readonly settle?: {
     readonly rpc: string;
-    readonly act: (reserved: unknown, args: Args) => Promise<SettleActResult>;
+    readonly act: (reserved: unknown, args: Args, database?: SettleDatabase) => Promise<SettleActResult>;
     readonly stream?: (value: unknown, args: Args, onDelta: (text: string) => void, signal: AbortSignal) => Promise<SettleActResult>;
     readonly streamHead?: (value: unknown, args: Args) => {
       messageId: string;

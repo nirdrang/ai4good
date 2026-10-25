@@ -1,9 +1,19 @@
 create table public.prd_records (
   project_id uuid primary key references public.projects (id) on delete cascade,
   discovery_revision bigint not null check (discovery_revision >= 1),
-  current_revision bigint not null check (current_revision >= 1),
-  snapshot_sequence bigint not null check (snapshot_sequence >= 1),
+  state text not null default 'pending' check (state in ('pending', 'open', 'closed', 'diverged')),
+  current_revision bigint not null check (current_revision >= 0),
+  snapshot_sequence bigint not null check (snapshot_sequence >= 0),
   closed_revision bigint check (closed_revision is null or closed_revision >= 1),
+  repo_name text not null,
+  repo_id bigint,
+  repo_url text,
+  head_commit text check (head_commit is null or head_commit ~ '^[0-9a-f]{40}$'),
+  synced_at timestamptz,
+  constraint prd_records_revision_ready check (
+    (state = 'pending' and current_revision = 0)
+    or (state <> 'pending' and current_revision >= 1)
+  ),
   foreign key (project_id, discovery_revision)
     references public.brief_revisions (project_id, revision) on delete cascade
 );
@@ -13,6 +23,7 @@ create table public.prd_revisions (
   revision bigint not null check (revision >= 1),
   discovery_revision bigint not null check (discovery_revision >= 1),
   manifest jsonb not null check (jsonb_typeof(manifest) = 'object'),
+  commit_sha text not null check (commit_sha ~ '^[0-9a-f]{40}$'),
   created_at timestamptz not null default clock_timestamp(),
   primary key (project_id, revision)
 );
@@ -28,17 +39,44 @@ create table public.prd_sections (
   state text not null check (state in ('open', 'draft', 'ready', 'confirmed', 'needs-review')),
   confirmed_version uuid,
   changed_since_confirmed text,
+  file_path text not null,
   unique (project_id, id),
   unique (project_id, stable_key),
-  unique (project_id, ordinal)
+  unique (project_id, ordinal),
+  unique (project_id, file_path)
 );
 
 create table public.prd_section_versions (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null,
   section_id uuid not null,
-  document jsonb not null check (jsonb_typeof(document) = 'object'),
+  commit_sha text not null check (commit_sha ~ '^[0-9a-f]{40}$'),
+  blob_sha text check (blob_sha is null or blob_sha ~ '^[0-9a-f]{40}$'),
+  author_kind text not null check (author_kind in ('open', 'ai', 'repository')),
+  author_login text,
+  variant text not null check (variant in ('readable', 'unreadable', 'missing')),
+  document jsonb,
+  raw_text text,
+  parse_error text,
   created_at timestamptz not null default clock_timestamp(),
+  constraint prd_section_versions_variant check (
+    (variant = 'readable'
+      and document is not null
+      and jsonb_typeof(document) = 'object'
+      and blob_sha is not null
+      and raw_text is null
+      and parse_error is null)
+    or (variant = 'unreadable'
+      and document is null
+      and blob_sha is not null
+      and raw_text is not null
+      and parse_error is not null)
+    or (variant = 'missing'
+      and document is null
+      and blob_sha is null
+      and raw_text is null
+      and parse_error is null)
+  ),
   foreign key (project_id, section_id)
     references public.prd_sections (project_id, id) on delete cascade
 );
@@ -92,6 +130,33 @@ create table public.prd_drafts (
   primary key (project_id, actor_id, key)
 );
 
+create table public.prd_git_ops (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.prd_records (project_id) on delete cascade,
+  kind text not null check (kind in ('open', 'turn', 'close-tag')),
+  base_commit text check (base_commit is null or base_commit ~ '^[0-9a-f]{40}$'),
+  sections jsonb,
+  commit_sha text check (commit_sha is null or commit_sha ~ '^[0-9a-f]{40}$'),
+  status text not null check (status in ('prepared', 'written', 'published', 'finalized', 'failed')),
+  created_at timestamptz not null default clock_timestamp(),
+  updated_at timestamptz not null default clock_timestamp()
+);
+
+create unique index prd_git_ops_one_unfinished_open_idx
+  on public.prd_git_ops (project_id)
+  where kind = 'open' and status not in ('finalized', 'failed');
+
+create table public.prd_unknown_files (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.prd_records (project_id) on delete cascade,
+  commit_sha text not null check (commit_sha ~ '^[0-9a-f]{40}$'),
+  file_path text not null check (length(btrim(file_path)) > 0),
+  blob_sha text not null check (blob_sha ~ '^[0-9a-f]{40}$'),
+  reason text not null check (length(btrim(reason)) > 0),
+  created_at timestamptz not null default clock_timestamp(),
+  unique (project_id, commit_sha, file_path)
+);
+
 revoke all on table public.prd_records from public, anon, authenticated, service_role;
 revoke all on table public.prd_revisions from public, anon, authenticated, service_role;
 revoke all on table public.prd_sections from public, anon, authenticated, service_role;
@@ -99,6 +164,8 @@ revoke all on table public.prd_section_versions from public, anon, authenticated
 revoke all on table public.prd_chats from public, anon, authenticated, service_role;
 revoke all on table public.prd_messages from public, anon, authenticated, service_role;
 revoke all on table public.prd_drafts from public, anon, authenticated, service_role;
+revoke all on table public.prd_git_ops from public, anon, authenticated, service_role;
+revoke all on table public.prd_unknown_files from public, anon, authenticated, service_role;
 
 alter table public.prd_records enable row level security;
 alter table public.prd_revisions enable row level security;
@@ -107,6 +174,8 @@ alter table public.prd_section_versions enable row level security;
 alter table public.prd_chats enable row level security;
 alter table public.prd_messages enable row level security;
 alter table public.prd_drafts enable row level security;
+alter table public.prd_git_ops enable row level security;
+alter table public.prd_unknown_files enable row level security;
 
 create function public.prd_row_immutable()
 returns trigger
@@ -147,6 +216,12 @@ begin
   if old.closed_revision is not null
      and (new.closed_revision is null or new.closed_revision < old.closed_revision) then
     raise exception 'a closed PRD revision only moves forward' using errcode = '42501';
+  end if;
+  if old.repo_id is not null and new.repo_id is distinct from old.repo_id then
+    raise exception 'a PRD repository id never changes' using errcode = '42501';
+  end if;
+  if old.state is distinct from 'pending' and new.state = 'pending' then
+    raise exception 'a PRD does not return to pending' using errcode = '42501';
   end if;
   return new;
 end;
@@ -417,12 +492,11 @@ begin
     end if;
     v_document := jsonb_build_object(
       'statements', v_statements,
-      'decisions', '[]'::jsonb,
-      'technicalScope', case
-        when v_technical then '{}'::jsonb
-        else null
-      end
+      'decisions', '[]'::jsonb
     );
+    if v_technical then
+      v_document := v_document || jsonb_build_object('technicalScope', '{}'::jsonb);
+    end if;
     v_ready := v_ready || jsonb_build_array(jsonb_build_object(
       'key', v_section->>'key',
       'title', v_section->>'title',
@@ -433,6 +507,60 @@ begin
   end loop;
 
   return v_ready;
+end;
+$$;
+
+create function public.prd_file_path(p_key text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when btrim(lower(regexp_replace(coalesce(p_key, ''), '[^a-zA-Z0-9]+', '-', 'g')), '-') = '' then null
+    else 'prd/' || btrim(lower(regexp_replace(coalesce(p_key, ''), '[^a-zA-Z0-9]+', '-', 'g')), '-') || '.md'
+  end;
+$$;
+
+create function public.prd_repo_name(p_name text, p_project uuid)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select
+    coalesce(
+      nullif(
+        btrim(
+          left(
+            btrim(lower(regexp_replace(coalesce(p_name, ''), '[^a-zA-Z0-9]+', '-', 'g')), '-'),
+            60
+          ),
+          '-'
+        ),
+        ''
+      ),
+      'project'
+    )
+    || '-'
+    || left(replace(lower(p_project::text), '-', ''), 12);
+$$;
+
+create function public.prd_refuse_unready(p_state text)
+returns void
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if p_state = 'pending' then
+    raise exception 'the PRD is still being set up'
+      using errcode = '22023', detail = 'not-yet';
+  end if;
+  if p_state = 'diverged' then
+    raise exception 'the repository diverged and an operator has to repair it'
+      using errcode = '22023', detail = 'not-yet';
+  end if;
 end;
 $$;
 
@@ -465,6 +593,7 @@ begin
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_record.state);
 
   select p.name, p.assigned_volunteer_id, o.name
     into v_title, v_dev_id, v_org_name
@@ -512,7 +641,16 @@ begin
       'state', s.state,
       'dependencies', to_jsonb(s.dependencies),
       'changedSinceConfirmed', s.changed_since_confirmed,
-      'document', v.document
+      'document', case
+        when v.variant = 'readable' then v.document
+        else jsonb_build_object('statements', '[]'::jsonb, 'decisions', '[]'::jsonb)
+      end,
+      'variant', v.variant,
+      'problem', case
+        when v.variant = 'missing' then 'the file was removed from the repository'
+        when v.variant = 'unreadable' then v.parse_error
+        else null
+      end
     )
     order by s.ordinal
   ), '[]'::jsonb)
@@ -596,7 +734,80 @@ begin
 end;
 $$;
 
-create function public.prd_open(p_actor uuid, p_organization uuid, p_project uuid)
+create function public.prd_open_publish(p_project uuid)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'kind', 'publish',
+    'op', jsonb_build_object(
+      'projectId', r.project_id,
+      'id', o.id,
+      'repoName', r.repo_name,
+      'repoId', r.repo_id,
+      'baseCommit', o.base_commit,
+      'commitSha', o.commit_sha,
+      'status', o.status,
+      'sections', o.sections
+    )
+  )
+    from public.prd_records r
+    join public.prd_git_ops o on o.project_id = r.project_id
+   where r.project_id = p_project
+     and o.kind = 'open'
+     and o.status not in ('finalized', 'failed')
+   order by o.created_at
+   limit 1;
+$$;
+
+create function public.prd_commit_known(
+  p_project uuid,
+  p_sha text,
+  p_head text,
+  p_commits jsonb
+)
+returns boolean
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_cursor text;
+  v_parent text;
+  v_guard integer := 0;
+begin
+  if exists (
+    select 1 from public.prd_revisions where project_id = p_project and commit_sha = p_sha
+  ) or exists (
+    select 1 from public.prd_section_versions where project_id = p_project and commit_sha = p_sha
+  ) or exists (
+    select 1 from public.prd_unknown_files where project_id = p_project and commit_sha = p_sha
+  ) or p_sha is not distinct from p_head then
+    return true;
+  end if;
+
+  v_cursor := p_head;
+  while v_cursor is not null and v_guard < 1000 loop
+    v_guard := v_guard + 1;
+    select lower(c->'parents'->>0) into v_parent
+      from jsonb_array_elements(p_commits) c
+     where lower(c->>'sha') = v_cursor
+     limit 1;
+    if v_parent is null or v_parent = v_cursor then
+      return false;
+    end if;
+    if v_parent = p_sha then
+      return true;
+    end if;
+    v_cursor := v_parent;
+  end loop;
+  return false;
+end;
+$$;
+
+create function public.prd_open_begin(p_actor uuid, p_organization uuid, p_project uuid)
 returns jsonb
 language plpgsql
 volatile
@@ -605,20 +816,25 @@ set search_path = ''
 as $$
 declare
   v_org uuid;
+  v_name text;
   v_role text;
-  v_exists boolean;
+  v_record public.prd_records%rowtype;
   v_revision bigint;
   v_document jsonb;
   v_sections jsonb;
   v_section jsonb;
   v_section_id uuid;
-  v_version_id uuid;
   v_ordinal integer := 0;
-  v_manifest jsonb := '{}'::jsonb;
   v_dependencies text[];
+  v_path text;
+  v_base text;
+  v_candidate text;
+  v_suffix integer;
+  v_publish jsonb := '[]'::jsonb;
+  v_result jsonb;
 begin
   perform public.assert_account_active(p_actor);
-  select org_id into v_org
+  select org_id, name into v_org, v_name
     from public.projects
    where id = p_project
      for update;
@@ -635,9 +851,21 @@ begin
       using errcode = '42501', detail = 'forbidden';
   end if;
 
-  select exists(select 1 from public.prd_records where project_id = p_project) into v_exists;
-  if v_exists then
-    return public.prd_facts(p_actor, p_project);
+  select * into v_record from public.prd_records where project_id = p_project;
+  if found then
+    if v_record.state is distinct from 'pending' then
+      return jsonb_build_object('kind', 'facts', 'facts', public.prd_facts(p_actor, p_project));
+    end if;
+    if v_role is distinct from 'dev' then
+      raise exception 'only the developer opens the PRD'
+        using errcode = '42501', detail = 'forbidden';
+    end if;
+    v_result := public.prd_open_publish(p_project);
+    if v_result is null then
+      raise exception 'the opening operation is missing'
+        using errcode = 'P0002', detail = 'invalid-request';
+    end if;
+    return v_result;
   end if;
   if v_role is distinct from 'dev' then
     raise exception 'only the developer opens the PRD'
@@ -659,8 +887,11 @@ begin
   end if;
 
   v_sections := public.prd_opening_sections(v_document, v_revision);
-  insert into public.prd_records (project_id, discovery_revision, current_revision, snapshot_sequence)
-  values (p_project, v_revision, 1, 1);
+  insert into public.prd_records (
+    project_id, discovery_revision, state, current_revision, snapshot_sequence, repo_name
+  ) values (
+    p_project, v_revision, 'pending', 0, 0, public.prd_repo_name(v_name, p_project)
+  );
 
   for v_section in select value from jsonb_array_elements(v_sections) as value
   loop
@@ -668,8 +899,23 @@ begin
     select coalesce(array_agg(dep), '{}'::text[])
       into v_dependencies
       from jsonb_array_elements_text(v_section->'dependencies') as dep;
+    v_path := public.prd_file_path(v_section->>'key');
+    if v_path is null then
+      raise exception 'the section key has no file name'
+        using errcode = '22023', detail = 'invalid-request';
+    end if;
+    v_base := regexp_replace(v_path, '\.md$', '');
+    v_candidate := v_path;
+    v_suffix := 2;
+    while exists (
+      select 1 from public.prd_sections
+       where project_id = p_project and file_path = v_candidate
+    ) loop
+      v_candidate := v_base || '-' || v_suffix::text || '.md';
+      v_suffix := v_suffix + 1;
+    end loop;
     insert into public.prd_sections (
-      project_id, stable_key, title, ordinal, required, dependencies, state
+      project_id, stable_key, title, ordinal, required, dependencies, state, file_path
     ) values (
       p_project,
       v_section->>'key',
@@ -677,24 +923,594 @@ begin
       v_ordinal,
       (v_section->>'required')::boolean,
       coalesce(v_dependencies, '{}'::text[]),
-      case when jsonb_array_length(v_section->'document'->'statements') > 0 then 'draft' else 'open' end
+      case when jsonb_array_length(v_section->'document'->'statements') > 0 then 'draft' else 'open' end,
+      v_candidate
     )
     returning id into v_section_id;
-
-    insert into public.prd_section_versions (project_id, section_id, document)
-    values (p_project, v_section_id, v_section->'document')
-    returning id into v_version_id;
-
-    v_manifest := v_manifest || jsonb_build_object(v_section->>'key', v_version_id);
+    v_publish := v_publish || jsonb_build_array(jsonb_build_object(
+      'key', v_section->>'key',
+      'title', v_section->>'title',
+      'path', v_candidate,
+      'document', v_section->'document'
+    ));
     insert into public.prd_chats (project_id, kind, section_id)
     values (p_project, 'section', v_section_id);
   end loop;
 
   insert into public.prd_chats (project_id, kind) values (p_project, 'main');
-  insert into public.prd_revisions (project_id, revision, discovery_revision, manifest)
-  values (p_project, 1, v_revision, v_manifest);
+  insert into public.prd_git_ops (project_id, kind, sections, status)
+  values (p_project, 'open', v_publish, 'prepared');
 
-  return public.prd_facts(p_actor, p_project);
+  v_result := public.prd_open_publish(p_project);
+  if v_result is null then
+    raise exception 'the opening operation is missing'
+      using errcode = 'P0002', detail = 'invalid-request';
+  end if;
+  return v_result;
+end;
+$$;
+
+create function public.prd_git_bind_repo(p_project uuid, p_repo_id bigint, p_repo_url text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_record public.prd_records%rowtype;
+begin
+  if p_repo_id is null or btrim(coalesce(p_repo_url, '')) = '' then
+    raise exception 'a repository binding names its id and url'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+  select * into v_record
+    from public.prd_records
+   where project_id = p_project
+     for update;
+  if not found then
+    raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_record.repo_id is not null then
+    if v_record.repo_id = p_repo_id then
+      return;
+    end if;
+    raise exception 'a PRD repository id never changes'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+  update public.prd_records
+     set repo_id = p_repo_id,
+         repo_url = p_repo_url
+   where project_id = p_project;
+end;
+$$;
+
+create function public.prd_git_op_written(p_op uuid, p_base text, p_sha text)
+returns text
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_project uuid;
+  v_record public.prd_records%rowtype;
+  v_op public.prd_git_ops%rowtype;
+  v_base text := lower(p_base);
+  v_sha text := lower(p_sha);
+begin
+  if v_base is null or v_base !~ '^[0-9a-f]{40}$' or v_sha is null or v_sha !~ '^[0-9a-f]{40}$' then
+    raise exception 'a commit names its sha' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  select project_id into v_project from public.prd_git_ops where id = p_op;
+  if not found then
+    raise exception 'the git operation does not exist' using errcode = 'P0002', detail = 'invalid-request';
+  end if;
+  select * into v_record
+    from public.prd_records
+   where project_id = v_project
+     for update;
+  if not found then
+    raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  select * into v_op from public.prd_git_ops where id = p_op for update;
+
+  if v_op.commit_sha is not null then
+    if not (
+      v_op.status = 'written'
+      and v_record.head_commit is distinct from v_op.base_commit
+      and v_base is not distinct from v_record.head_commit
+      and v_sha is distinct from v_op.commit_sha
+    ) then
+      return v_op.commit_sha;
+    end if;
+  end if;
+
+  update public.prd_git_ops
+     set commit_sha = v_sha,
+         base_commit = v_base,
+         status = 'written',
+         updated_at = clock_timestamp()
+   where id = p_op;
+  if v_record.head_commit is null then
+    update public.prd_records
+       set head_commit = v_base
+     where project_id = v_project;
+  end if;
+  return v_sha;
+end;
+$$;
+
+create function public.prd_git_op_published(p_op uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_op public.prd_git_ops%rowtype;
+  v_project uuid;
+begin
+  select project_id into v_project from public.prd_git_ops where id = p_op;
+  if not found then
+    raise exception 'the git operation does not exist' using errcode = 'P0002', detail = 'invalid-request';
+  end if;
+  perform 1 from public.prd_records where project_id = v_project for update;
+  select * into v_op from public.prd_git_ops where id = p_op for update;
+  if v_op.status in ('published', 'finalized') then
+    return;
+  end if;
+  if v_op.status is distinct from 'written' or v_op.commit_sha is null then
+    raise exception 'the opening commit is not written yet'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+  update public.prd_git_ops
+     set status = 'published',
+         updated_at = clock_timestamp()
+   where id = p_op;
+end;
+$$;
+
+create function public.prd_git_sync_state(p_project uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'state', r.state,
+    'repoName', r.repo_name,
+    'repoId', r.repo_id,
+    'repoUrl', r.repo_url,
+    'headCommit', r.head_commit,
+    'opId', o.id,
+    'baseCommit', o.base_commit,
+    'commitSha', o.commit_sha,
+    'status', o.status,
+    'sections', o.sections
+  )
+    from public.prd_records r
+    left join public.prd_git_ops o
+      on o.project_id = r.project_id
+     and o.kind = 'open'
+     and o.status not in ('finalized', 'failed')
+   where r.project_id = p_project;
+$$;
+
+create function public.prd_mark_diverged(p_project uuid, p_reason text)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_record public.prd_records%rowtype;
+begin
+  select * into v_record
+    from public.prd_records
+   where project_id = p_project
+     for update;
+  if not found then
+    raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_record.state = 'diverged' then
+    return;
+  end if;
+  if v_record.state = 'pending' or v_record.current_revision < 1 then
+    raise exception 'the PRD has no revision to mark diverged'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
+  update public.prd_records
+     set state = 'diverged'
+   where project_id = p_project;
+  if p_reason is null then
+    return;
+  end if;
+end;
+$$;
+
+create function public.prd_reconcile(p_project uuid, p_expected_head text, p_commits jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_record public.prd_records%rowtype;
+  v_op public.prd_git_ops%rowtype;
+  v_section public.prd_sections%rowtype;
+  v_commit jsonb;
+  v_change jsonb;
+  v_added jsonb;
+  v_applied integer := 0;
+  v_visible boolean := false;
+  v_state text;
+  v_revision bigint;
+  v_sequence bigint;
+  v_tip text;
+  v_sha text;
+  v_login text;
+  v_changes jsonb;
+  v_manifest jsonb := '{}'::jsonb;
+  v_document jsonb;
+  v_seen text[] := '{}';
+  v_used_removed text[] := '{}';
+  v_used_added text[] := '{}';
+  v_rename_section uuid[] := '{}';
+  v_rename_dest text[] := '{}';
+  v_dest text;
+  v_path text;
+  v_kind text;
+  v_index integer;
+  v_owned boolean;
+  v_write boolean;
+  v_variant text;
+  v_blob text;
+  v_raw text;
+  v_error text;
+  v_version_id uuid;
+  v_old_blob text;
+  v_note text;
+  v_changed boolean;
+  v_reason text;
+  v_key text;
+begin
+  if p_commits is null or jsonb_typeof(p_commits) is distinct from 'array' then
+    raise exception 'a reconcile lists commits' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if p_expected_head is not null and lower(p_expected_head) !~ '^[0-9a-f]{40}$' then
+    raise exception 'a reconcile names the expected head' using errcode = '22023', detail = 'invalid-request';
+  end if;
+
+  select * into v_record
+    from public.prd_records
+   where project_id = p_project
+     for update;
+  if not found then
+    raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_record.head_commit is distinct from lower(p_expected_head) then
+    return jsonb_build_object('stale', true);
+  end if;
+
+  v_state := v_record.state;
+  v_revision := v_record.current_revision;
+  if v_revision >= 1 then
+    select manifest into v_manifest
+      from public.prd_revisions
+     where project_id = p_project
+       and revision = v_revision;
+  end if;
+
+  for v_commit in select value from jsonb_array_elements(p_commits) as value
+  loop
+    if jsonb_typeof(v_commit) is distinct from 'object' then
+      raise exception 'a commit is a record' using errcode = '22023', detail = 'invalid-request';
+    end if;
+    v_sha := lower(v_commit->>'sha');
+    if v_sha is null or v_sha !~ '^[0-9a-f]{40}$' then
+      raise exception 'a commit names its sha' using errcode = '22023', detail = 'invalid-request';
+    end if;
+    if jsonb_typeof(v_commit->'parents') is distinct from 'array' then
+      raise exception 'a commit names its parents' using errcode = '22023', detail = 'invalid-request';
+    end if;
+    if v_commit ? 'login' and jsonb_typeof(v_commit->'login') not in ('string', 'null') then
+      raise exception 'a commit names its author' using errcode = '22023', detail = 'invalid-request';
+    end if;
+    v_tip := v_sha;
+    if v_sha = any (v_seen) or public.prd_commit_known(p_project, v_sha, v_record.head_commit, p_commits) then
+      continue;
+    end if;
+    v_seen := v_seen || v_sha;
+    v_login := nullif(v_commit->>'login', '');
+    v_changes := v_commit->'changes';
+
+    select * into v_op
+      from public.prd_git_ops
+     where project_id = p_project
+       and kind = 'open'
+       and commit_sha = v_sha
+       and status in ('written', 'published');
+    if found then
+      if v_state is distinct from 'pending' then
+        raise exception 'the opening commit does not match the record'
+          using errcode = '22023', detail = 'invalid-request';
+      end if;
+      if jsonb_typeof(v_changes) is distinct from 'array' then
+        raise exception 'a commit lists its changes' using errcode = '22023', detail = 'invalid-request';
+      end if;
+      v_manifest := '{}'::jsonb;
+      for v_section in
+        select * from public.prd_sections where project_id = p_project order by ordinal
+      loop
+        select value into v_change
+          from jsonb_array_elements(v_changes) as value
+         where value->>'path' = v_section.file_path
+           and value->>'change' in ('added', 'modified')
+         limit 1;
+        if v_change is null then
+          raise exception 'the opening commit is missing a section file'
+            using errcode = '22023', detail = 'invalid-request';
+        end if;
+        v_blob := lower(v_change->>'blobSha');
+        if v_blob is null or v_blob !~ '^[0-9a-f]{40}$' then
+          raise exception 'the opening commit is missing a blob sha'
+            using errcode = '22023', detail = 'invalid-request';
+        end if;
+        select value->'document' into v_document
+          from jsonb_array_elements(coalesce(v_op.sections, '[]'::jsonb)) as value
+         where value->>'key' = v_section.stable_key
+         limit 1;
+        if v_document is null or jsonb_typeof(v_document) is distinct from 'object' then
+          raise exception 'the opening operation is missing a section document'
+            using errcode = '22023', detail = 'invalid-request';
+        end if;
+        insert into public.prd_section_versions (
+          project_id, section_id, commit_sha, blob_sha, author_kind, variant, document
+        ) values (
+          p_project, v_section.id, v_sha, v_blob, 'open', 'readable', v_document
+        )
+        returning id into v_version_id;
+        v_manifest := v_manifest || jsonb_build_object(v_section.stable_key, v_version_id);
+      end loop;
+      insert into public.prd_revisions (
+        project_id, revision, discovery_revision, manifest, commit_sha
+      ) values (
+        p_project, 1, v_record.discovery_revision, v_manifest, v_sha
+      );
+      update public.prd_git_ops
+         set status = 'finalized',
+             updated_at = clock_timestamp()
+       where id = v_op.id;
+      v_state := 'open';
+      v_revision := 1;
+      v_visible := true;
+      v_applied := v_applied + 1;
+      continue;
+    end if;
+
+    if v_state = 'pending' then
+      v_applied := v_applied + 1;
+      continue;
+    end if;
+
+    if jsonb_typeof(v_changes) is distinct from 'array' then
+      raise exception 'a commit lists its changes' using errcode = '22023', detail = 'invalid-request';
+    end if;
+    v_used_removed := '{}';
+    v_used_added := '{}';
+    v_rename_section := '{}';
+    v_rename_dest := '{}';
+    v_changed := false;
+    for v_section in
+      select s.*
+        from public.prd_sections s
+        join jsonb_array_elements(v_changes) c on c->>'path' = s.file_path and c->>'change' = 'removed'
+       where s.project_id = p_project
+       order by s.ordinal
+    loop
+      v_dest := null;
+      for v_added in select value from jsonb_array_elements(v_changes) as value
+      loop
+        if v_added->>'change' is distinct from 'added' then
+          continue;
+        end if;
+        if v_added->'file'->>'variant' is distinct from 'readable' then
+          continue;
+        end if;
+        if v_added->'file'->>'key' is distinct from v_section.stable_key then
+          continue;
+        end if;
+        if v_added->>'path' = any (v_used_added) then
+          continue;
+        end if;
+        if exists (
+          select 1 from public.prd_sections other
+           where other.project_id = p_project
+             and other.file_path = v_added->>'path'
+             and other.id is distinct from v_section.id
+        ) then
+          continue;
+        end if;
+        v_dest := v_added->>'path';
+        exit;
+      end loop;
+      if v_dest is not null then
+        v_used_removed := v_used_removed || v_section.file_path;
+        v_used_added := v_used_added || v_dest;
+        v_rename_section := v_rename_section || v_section.id;
+        v_rename_dest := v_rename_dest || v_dest;
+      end if;
+    end loop;
+
+    for v_change in select value from jsonb_array_elements(v_changes) as value
+    loop
+      v_path := v_change->>'path';
+      v_kind := v_change->>'change';
+      if v_path is null or btrim(v_path) = '' or v_kind not in ('added', 'modified', 'removed') then
+        raise exception 'a change names its path' using errcode = '22023', detail = 'invalid-request';
+      end if;
+      if v_path = any (v_used_removed) then
+        continue;
+      end if;
+      v_write := false;
+      v_index := array_position(v_used_added, v_path);
+      if v_index is not null then
+        select * into v_section from public.prd_sections where id = v_rename_section[v_index];
+        update public.prd_sections set file_path = v_path where id = v_section.id;
+        v_section.file_path := v_path;
+        v_owned := true;
+      else
+        select * into v_section
+          from public.prd_sections
+         where project_id = p_project
+           and file_path = v_path;
+        v_owned := found;
+      end if;
+
+      if v_index is not null or (v_owned and v_kind in ('added', 'modified') and v_change->'file'->>'variant' = 'readable' and v_change->'file'->>'key' = v_section.stable_key) then
+        if jsonb_typeof(v_change->'file') is distinct from 'object' then
+          raise exception 'a change carries its file' using errcode = '22023', detail = 'invalid-request';
+        end if;
+        v_blob := lower(v_change->>'blobSha');
+        v_document := v_change->'file'->'document';
+        if v_blob is null or v_blob !~ '^[0-9a-f]{40}$' or jsonb_typeof(v_document) is distinct from 'object' then
+          raise exception 'a readable file names its blob and document'
+            using errcode = '22023', detail = 'invalid-request';
+        end if;
+        v_variant := 'readable';
+        v_raw := null;
+        v_error := null;
+        v_write := true;
+      elsif v_kind = 'removed' then
+        if not v_owned then
+          continue;
+        end if;
+        v_variant := 'missing';
+        v_blob := null;
+        v_document := null;
+        v_raw := null;
+        v_error := null;
+        v_write := true;
+      elsif v_kind in ('added', 'modified') and v_change->'file'->>'variant' = 'unreadable' then
+        if jsonb_typeof(v_change->'file') is distinct from 'object' then
+          raise exception 'a change carries its file' using errcode = '22023', detail = 'invalid-request';
+        end if;
+        v_blob := lower(v_change->>'blobSha');
+        v_raw := v_change->'file'->>'raw';
+        v_error := v_change->'file'->>'error';
+        if v_blob is null or v_blob !~ '^[0-9a-f]{40}$' or v_raw is null or v_error is null or btrim(v_error) = '' then
+          raise exception 'an unreadable file names its blob, text, and error'
+            using errcode = '22023', detail = 'invalid-request';
+        end if;
+        if not v_owned then
+          insert into public.prd_unknown_files (project_id, commit_sha, file_path, blob_sha, reason)
+          values (p_project, v_sha, v_path, v_blob, 'the file could not be read');
+          continue;
+        end if;
+        v_variant := 'unreadable';
+        v_document := null;
+        v_write := true;
+      elsif v_kind in ('added', 'modified') then
+        if jsonb_typeof(v_change->'file') is distinct from 'object' then
+          raise exception 'a change carries its file' using errcode = '22023', detail = 'invalid-request';
+        end if;
+        if v_change->'file'->>'variant' is distinct from 'readable' then
+          raise exception 'a change names its variant' using errcode = '22023', detail = 'invalid-request';
+        end if;
+        v_key := v_change->'file'->>'key';
+        v_blob := lower(v_change->>'blobSha');
+        if v_key is null or btrim(v_key) = '' or v_blob is null or v_blob !~ '^[0-9a-f]{40}$' then
+          raise exception 'a readable file names its key and blob'
+            using errcode = '22023', detail = 'invalid-request';
+        end if;
+        if exists (
+          select 1 from public.prd_sections
+           where project_id = p_project and stable_key = v_key
+        ) then
+          v_reason := 'the file key belongs to another section';
+        else
+          v_reason := 'the file key is not a section';
+        end if;
+        insert into public.prd_unknown_files (project_id, commit_sha, file_path, blob_sha, reason)
+        values (p_project, v_sha, v_path, v_blob, v_reason);
+        continue;
+      else
+        raise exception 'a change names its path' using errcode = '22023', detail = 'invalid-request';
+      end if;
+
+      if v_write then
+        insert into public.prd_section_versions (
+          project_id, section_id, commit_sha, blob_sha, author_kind, author_login,
+          variant, document, raw_text, parse_error
+        ) values (
+          p_project, v_section.id, v_sha, v_blob, 'repository', v_login,
+          v_variant, v_document, v_raw, v_error
+        )
+        returning id into v_version_id;
+        if v_section.state = 'confirmed' then
+          select blob_sha into v_old_blob
+            from public.prd_section_versions
+           where id = nullif(v_manifest->>v_section.stable_key, '')::uuid;
+          if v_variant is distinct from 'readable' or v_blob is distinct from v_old_blob then
+            v_note := case
+              when v_variant = 'missing' then 'the file was removed from the repository'
+              when v_variant = 'unreadable' then 'the file in the repository could not be read'
+              else 'the file changed in the repository'
+            end;
+            update public.prd_sections
+               set state = 'needs-review',
+                   changed_since_confirmed = v_note
+             where id = v_section.id;
+            v_visible := true;
+          end if;
+        end if;
+        v_manifest := v_manifest || jsonb_build_object(v_section.stable_key, v_version_id);
+        v_changed := true;
+      end if;
+    end loop;
+
+    if v_changed then
+      v_revision := v_revision + 1;
+      insert into public.prd_revisions (
+        project_id, revision, discovery_revision, manifest, commit_sha
+      ) values (
+        p_project, v_revision, v_record.discovery_revision, v_manifest, v_sha
+      );
+      v_visible := true;
+    end if;
+    v_applied := v_applied + 1;
+  end loop;
+
+  if v_applied = 0 then
+    return jsonb_build_object(
+      'stale', false,
+      'applied', 0,
+      'head', v_record.head_commit,
+      'sequence', v_record.snapshot_sequence,
+      'revision', v_record.current_revision
+    );
+  end if;
+
+  update public.prd_records
+     set head_commit = v_tip,
+         synced_at = clock_timestamp(),
+         state = v_state,
+         current_revision = v_revision,
+         snapshot_sequence = snapshot_sequence + case when v_visible then 1 else 0 end
+   where project_id = p_project
+   returning snapshot_sequence, current_revision into v_sequence, v_revision;
+  return jsonb_build_object(
+    'stale', false,
+    'applied', v_applied,
+    'head', v_tip,
+    'sequence', v_sequence,
+    'revision', v_revision
+  );
 end;
 $$;
 
@@ -708,6 +1524,7 @@ as $$
 declare
   v_role text;
   v_sequence bigint;
+  v_state text;
 begin
   perform public.assert_account_active(p_actor);
   v_role := public.prd_role(p_project, p_actor);
@@ -716,13 +1533,14 @@ begin
       using errcode = '42501', detail = 'forbidden';
   end if;
 
-  select snapshot_sequence into v_sequence
+  select snapshot_sequence, state into v_sequence, v_state
     from public.prd_records
    where project_id = p_project
      for share;
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_state);
   if p_since_sequence is not null and v_sequence <= p_since_sequence then
     return null;
   end if;
@@ -739,6 +1557,7 @@ set search_path = ''
 as $$
 declare
   v_role text;
+  v_state text;
 begin
   perform public.assert_account_active(p_actor);
   v_role := public.prd_role(p_project, p_actor);
@@ -746,9 +1565,11 @@ begin
     raise exception 'this account has no role on the PRD'
       using errcode = '42501', detail = 'forbidden';
   end if;
-  if not exists (select 1 from public.prd_records where project_id = p_project) then
+  select state into v_state from public.prd_records where project_id = p_project;
+  if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_state);
   if p_key is null or btrim(p_key) = '' then
     raise exception 'a draft names its key' using errcode = '22023', detail = 'invalid-request';
   end if;
@@ -782,19 +1603,21 @@ set search_path = ''
 as $$
 declare
   v_sequence bigint;
+  v_state text;
   v_chat_id uuid;
   v_question uuid;
   v_ordinal bigint;
   v_message_id uuid;
 begin
   perform public.assert_account_active(p_actor_id);
-  select snapshot_sequence into v_sequence
+  select snapshot_sequence, state into v_sequence, v_state
     from public.prd_records
    where project_id = p_project
      for update;
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_state);
   if p_actor_kind not in ('ai', 'dev', 'ngo', 'system') then
     raise exception 'a message names its actor' using errcode = '22023', detail = 'invalid-request';
   end if;
@@ -879,13 +1702,36 @@ revoke execute on function public.prd_chat_keeps_shape() from public, anon, auth
 revoke execute on function public.prd_refuse_discovery_revision() from public, anon, authenticated, service_role;
 revoke execute on function public.prd_person_name(uuid, text) from public, anon, authenticated, service_role;
 revoke execute on function public.prd_opening_sections(jsonb, bigint) from public, anon, authenticated, service_role;
+revoke execute on function public.prd_file_path(text) from public, anon, authenticated, service_role;
+revoke execute on function public.prd_repo_name(text, uuid) from public, anon, authenticated, service_role;
+revoke execute on function public.prd_refuse_unready(text) from public, anon, authenticated, service_role;
+revoke execute on function public.prd_open_publish(uuid) from public, anon, authenticated, service_role;
+revoke execute on function public.prd_commit_known(uuid, text, text, jsonb) from public, anon, authenticated, service_role;
 revoke execute on function public.prd_facts(uuid, uuid) from public, anon, authenticated, service_role;
 
 revoke execute on function public.prd_role(uuid, uuid) from public, anon, authenticated, service_role;
 grant execute on function public.prd_role(uuid, uuid) to service_role;
 
-revoke execute on function public.prd_open(uuid, uuid, uuid) from public, anon, authenticated, service_role;
-grant execute on function public.prd_open(uuid, uuid, uuid) to service_role;
+revoke execute on function public.prd_open_begin(uuid, uuid, uuid) from public, anon, authenticated, service_role;
+grant execute on function public.prd_open_begin(uuid, uuid, uuid) to service_role;
+
+revoke execute on function public.prd_git_bind_repo(uuid, bigint, text) from public, anon, authenticated, service_role;
+grant execute on function public.prd_git_bind_repo(uuid, bigint, text) to service_role;
+
+revoke execute on function public.prd_git_op_written(uuid, text, text) from public, anon, authenticated, service_role;
+grant execute on function public.prd_git_op_written(uuid, text, text) to service_role;
+
+revoke execute on function public.prd_git_op_published(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.prd_git_op_published(uuid) to service_role;
+
+revoke execute on function public.prd_git_sync_state(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.prd_git_sync_state(uuid) to service_role;
+
+revoke execute on function public.prd_mark_diverged(uuid, text) from public, anon, authenticated, service_role;
+grant execute on function public.prd_mark_diverged(uuid, text) to service_role;
+
+revoke execute on function public.prd_reconcile(uuid, text, jsonb) from public, anon, authenticated, service_role;
+grant execute on function public.prd_reconcile(uuid, text, jsonb) to service_role;
 
 revoke execute on function public.prd_snapshot(uuid, uuid, bigint) from public, anon, authenticated, service_role;
 grant execute on function public.prd_snapshot(uuid, uuid, bigint) to service_role;

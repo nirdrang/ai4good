@@ -368,6 +368,7 @@ begin
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_record.state);
 
   select * into v_existing
     from public.prd_turns
@@ -623,6 +624,7 @@ as $$
 declare
   v_project uuid;
   v_state text;
+  v_record_state text;
   v_sequence bigint;
 begin
   if p_state not in ('answered', 'rejected', 'uncertain') then
@@ -635,10 +637,14 @@ begin
   if not found then
     raise exception 'that turn is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
-  perform 1
+  select state into v_record_state
     from public.prd_records
    where project_id = v_project
      for update;
+  if not found then
+    raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  perform public.prd_refuse_unready(v_record_state);
   select state into v_state
     from public.prd_turns
    where id = p_turn
@@ -724,6 +730,7 @@ begin
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_record.state);
 
   v_role := public.prd_role(p_project, p_actor);
   if v_role is null then
@@ -857,19 +864,21 @@ set search_path = ''
 as $$
 declare
   v_sequence bigint;
+  v_record_state text;
   v_chat_id uuid;
   v_question uuid;
   v_status text;
   v_message_id uuid;
 begin
   perform public.assert_account_active(p_actor_id);
-  select snapshot_sequence into v_sequence
+  select snapshot_sequence, state into v_sequence, v_record_state
     from public.prd_records
    where project_id = p_project
      for update;
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_record_state);
   if p_actor_kind not in ('ai', 'dev', 'ngo', 'system') then
     raise exception 'a message names its actor' using errcode = '22023', detail = 'invalid-request';
   end if;
@@ -1112,6 +1121,7 @@ revoke execute on function public.prd_question_facts(uuid, text)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_facts(uuid, uuid)
   from public, anon, authenticated, service_role;
+grant execute on function public.prd_facts(uuid, uuid) to service_role;
 
 revoke execute on function public.prd_turn_reserve(uuid, uuid, text, text, bigint, jsonb, text)
   from public, anon, authenticated, service_role;

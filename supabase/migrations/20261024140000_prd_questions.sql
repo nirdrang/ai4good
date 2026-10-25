@@ -290,6 +290,7 @@ set search_path = ''
 as $$
 declare
   v_closed bigint;
+  v_state text;
   v_chat public.prd_chats%rowtype;
   v_kind text;
   v_message uuid;
@@ -300,13 +301,14 @@ declare
   v_version integer;
   v_sequence bigint;
 begin
-  select closed_revision into v_closed
+  select closed_revision, state into v_closed, v_state
     from public.prd_records
    where project_id = p_project
      for update;
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_state);
   if v_closed is not null then
     raise exception 'the PRD is closed' using errcode = '42501', detail = 'closed';
   end if;
@@ -463,6 +465,7 @@ as $$
 declare
   v_role text;
   v_closed bigint;
+  v_state text;
 begin
   perform public.assert_account_active(p_actor);
   v_role := public.prd_role(p_project, p_actor);
@@ -472,13 +475,14 @@ begin
   if v_role <> 'dev' then
     raise exception 'only the developer does this' using errcode = '42501', detail = 'forbidden';
   end if;
-  select closed_revision into v_closed
+  select closed_revision, state into v_closed, v_state
     from public.prd_records
    where project_id = p_project
      for update;
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  perform public.prd_refuse_unready(v_state);
   if v_closed is not null then
     raise exception 'the PRD is closed' using errcode = '42501', detail = 'closed';
   end if;

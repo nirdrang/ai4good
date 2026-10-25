@@ -1,4 +1,5 @@
-import { expect } from "vitest";
+import { afterAll, expect } from "vitest";
+import { cleanupReposNamed } from "../../harness/github.ts";
 import { eventually } from "../../harness/screen.ts";
 import { PRD_GIVEN } from "../../../../design/astra/src/prd-givens.ts";
 import { scopeKey } from "../../../../src/lib/prd-stream.ts";
@@ -8,6 +9,7 @@ import {
   proveRecordOpens,
   proveRecordSurvives,
   proveRolesAndPermissions,
+  createdRepoNames,
 } from "./_record.ts";
 import {
   closeFlow,
@@ -81,6 +83,10 @@ import {
 
 const withPrd = prdScreens();
 
+afterAll(async () => {
+  await cleanupReposNamed(createdRepoNames());
+});
+
 async function showChat(prd: PrdPage): Promise<void> {
   await prd.phone.tab("chat");
   if ((await prd.topics.listVisible()) && (await prd.topic.pageCount()) === 0) {
@@ -91,7 +97,7 @@ async function showChat(prd: PrdPage): Promise<void> {
 atTest(
   "AT-036.01",
   "Kickoff shows the Discovery topics once, and entry again does not duplicate them",
-  { surface: "ui", timeoutMs: { loop: 60_000, integration: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 60_000, integration: 300_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "first-entry", viewport: "desktop" }, async (prd) => {

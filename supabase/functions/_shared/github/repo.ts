@@ -36,6 +36,8 @@ export type ProtectionResult =
 
 export type HeadResult = { ok: true; sha: string } | { ok: true; missing: true } | GithubFailure;
 
+export type ReadCommitResult = { ok: true; sha: string; parents: string[] } | GithubFailure;
+
 export type WriteCommitResult = { ok: true; sha: string } | GithubFailure;
 
 export type AdvanceResult =
@@ -61,6 +63,7 @@ export type GithubRepo = {
   createRepo(name: string): Promise<CreateRepoResult>;
   protection(repo: string): Promise<ProtectionResult>;
   head(repo: string): Promise<HeadResult>;
+  readCommit(repo: string, sha: string): Promise<ReadCommitResult>;
   writeCommit(
     repo: string,
     parent: string,
@@ -137,6 +140,18 @@ function enabledFlag(value: unknown): boolean | null {
 
 function loginOf(user: unknown): string | null {
   return isRecord(user) && typeof user.login === "string" && user.login !== "" ? user.login : null;
+}
+
+function gitCommitParents(value: unknown): { sha: string; parents: string[] } | null {
+  const sha = shaOf(value);
+  if (sha === null || !isRecord(value) || !Array.isArray(value.parents)) return null;
+  const parents: string[] = [];
+  for (const parent of value.parents) {
+    const parentSha = shaOf(parent);
+    if (parentSha === null) return null;
+    parents.push(parentSha);
+  }
+  return { sha, parents };
 }
 
 function readCommit(value: unknown): GithubCommit | null {
@@ -294,6 +309,21 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
       const sha = refSha(response.value);
       if (sha === null) return uncertain("GitHub did not return the sha of main");
       return { ok: true, sha };
+    },
+
+    async readCommit(repo, sha) {
+      const auth = await bearer();
+      if (!auth.ok) return auth;
+      const response = await githubHttp(
+        fetchImpl,
+        auth.token,
+        "GET",
+        `/repos/${org}/${encodeURIComponent(repo)}/git/commits/${encodeURIComponent(sha)}`,
+      );
+      if (!response.ok) return response.failure;
+      const commit = gitCommitParents(response.value);
+      if (commit === null) return invalid("GitHub returned a commit the client could not read");
+      return { ok: true, sha: commit.sha, parents: commit.parents };
     },
 
     async writeCommit(repo, parent, files, message) {

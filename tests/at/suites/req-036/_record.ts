@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { AtPending } from "../../harness/registry.ts";
+import { loadGithubTest } from "../../harness/github.ts";
 import {
   authPost,
   functionPost,
@@ -9,6 +10,13 @@ import {
   type Stack,
 } from "../../harness/live-stack.ts";
 import { parsePrdSnapshot, type PrdSnapshot } from "../../../../src/lib/prd-stream.ts";
+import type { GithubRepo } from "../../../../supabase/functions/_shared/github/repo.ts";
+import { parseSection } from "../../../../supabase/functions/_shared/prd/file.ts";
+import {
+  OPEN_STEPS,
+  parseOpenOperation,
+  publishOpen,
+} from "../../../../supabase/functions/_shared/prd/git.ts";
 import { renderPrdFacts } from "../../../../supabase/functions/_shared/prd/routes.ts";
 import type { Scope } from "../../../../supabase/functions/_shared/scope.ts";
 
@@ -26,7 +34,16 @@ const AI_SHARED = "The AI shared the main chat";
 const BOOKING_LINE = "Dev shared the booking chat";
 const NGO_SIDE = "Maya shared the side chat";
 const DEV_PRIVATE = "Dev private line the NGO must not see";
+const SCOPE_COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const SCOPE_BLOB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const SCOPE_REVISION = "cccccccccccccccccccccccccccccccccccccccc";
 const DEV_DRAFT = "Dev draft the NGO must not see";
+
+const createdRepos: string[] = [];
+
+export function createdRepoNames(): readonly string[] {
+  return createdRepos;
+}
 const DEV_TOPIC_DRAFT = "Dev topic draft the NGO must not see";
 const NGO_DRAFT = "NGO draft the developer must not see";
 
@@ -258,13 +275,181 @@ async function counts(
   };
 }
 
+function jsonValue(value: unknown): unknown {
+  return typeof value === "string" ? JSON.parse(value) : value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asNumber(value: unknown): number {
+  if (typeof value === "bigint") return Number(value);
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  throw new Error(`expected a number, got ${JSON.stringify(value)}`);
+}
+
+async function rememberProjectRepo(seeded: Seed): Promise<void> {
+  const rows = (await seeded.sql`select repo_name from public.prd_records
+    where project_id = ${seeded.projectId}::uuid`) as Array<{ repo_name: string }>;
+  const name = rows[0]?.repo_name;
+  if (typeof name === "string" && name !== "" && !createdRepos.includes(name)) {
+    createdRepos.push(name);
+  }
+}
+
+function serviceRpc(stack: Stack) {
+  return async (name: string, args: Record<string, unknown>) => {
+    const response = await fetch(`${stack.apiUrl}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: {
+        apikey: stack.serviceRoleKey,
+        Authorization: `Bearer ${stack.serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(args),
+    });
+    const text = await response.text();
+    if (response.status >= 400) {
+      let message = text;
+      try {
+        const body = JSON.parse(text) as { message?: unknown };
+        if (typeof body.message === "string" && body.message !== "") message = body.message;
+      } catch {
+        message = text;
+      }
+      return { ok: false as const, message };
+    }
+    return { ok: true as const, value: text === "" ? null : JSON.parse(text) };
+  };
+}
+
 async function open(seeded: Seed, person: Person) {
-  return functionPost(
-    seeded.stack,
-    "prd-open",
-    { organizationId: seeded.organizationId, projectId: seeded.projectId },
-    person.token,
+  try {
+    return await functionPost(
+      seeded.stack,
+      "prd-open",
+      { organizationId: seeded.organizationId, projectId: seeded.projectId },
+      person.token,
+    );
+  } finally {
+    await rememberProjectRepo(seeded);
+  }
+}
+
+async function expectOneOpening(
+  client: GithubRepo,
+  repoName: string,
+  recordHead: string,
+  snapshot: PrdSnapshot,
+): Promise<void> {
+  const head = await client.head(repoName);
+  if (!head.ok) throw new Error(head.reason);
+  if ("missing" in head) throw new Error("main is not a branch");
+  expect(head.sha.toLowerCase()).toBe(recordHead.toLowerCase());
+  const tip = await client.readCommit(repoName, head.sha);
+  if (!tip.ok) throw new Error(tip.reason);
+  expect(tip.parents).toHaveLength(1);
+  const root = await client.readCommit(repoName, tip.parents[0]);
+  if (!root.ok) throw new Error(root.reason);
+  expect(root.parents).toHaveLength(0);
+  const range = await client.commitsSince(repoName, tip.parents[0], head.sha);
+  if (!range.ok) throw new Error(range.reason);
+  if (range.result !== "commits") throw new Error("main left the opening line");
+  expect(range.commits).toHaveLength(1);
+  expect(range.commits[0]?.sha).toBe(head.sha);
+  expect(range.commits[0]?.message.split("\n")[0]).toBe("Open the PRD");
+  const tree = await client.prdTree(repoName, head.sha);
+  if (!tree.ok) throw new Error(tree.reason);
+  expect(tree.files).toHaveLength(snapshot.topics.length);
+  const blobs = await client.readBlobs(
+    repoName,
+    tree.files.map((file) => file.sha),
   );
+  if (!blobs.ok) throw new Error(blobs.reason);
+  const textOf = new Map(blobs.blobs.map((blob) => [blob.sha, blob.text]));
+  const seen: string[] = [];
+  for (const file of tree.files) {
+    const raw = textOf.get(file.sha);
+    if (raw === undefined) throw new Error(`${file.path} had no blob text`);
+    const parsed = parseSection(raw);
+    if (!parsed.ok) throw new Error(`${file.path}: ${parsed.reason}`);
+    const topic = snapshot.topics.find((item) => item.id === parsed.file.key);
+    if (topic === undefined) throw new Error(`${parsed.file.key} is not an opening topic`);
+    expect(parsed.file.document.statements.map((statement) => statement.text)).toEqual(
+      topic.statements,
+    );
+    seen.push(parsed.file.key);
+  }
+  expect(seen.sort()).toEqual(snapshot.topics.map((topic) => topic.id).sort());
+}
+
+async function proveOpenedRepository(seeded: Seed, snapshot: PrdSnapshot): Promise<void> {
+  const loaded = loadGithubTest();
+  if (!loaded.ok) throw new Error(loaded.reason);
+  const rows = (await seeded.sql`select repo_name, repo_id, repo_url, head_commit
+    from public.prd_records
+    where project_id = ${seeded.projectId}::uuid`) as Array<{
+    repo_name: string;
+    repo_id: unknown;
+    repo_url: string;
+    head_commit: string;
+  }>;
+  const row = rows[0];
+  if (!createdRepos.includes(row.repo_name)) createdRepos.push(row.repo_name);
+  const found = await loaded.client.createRepo(row.repo_name);
+  if (!found.ok) throw new Error(found.reason);
+  if (found.result !== "exists") {
+    throw new Error(`the repository was ${found.result} on the second look`);
+  }
+  expect(found.visibility).toBe(loaded.config.visibility);
+  expect(found.id).toBe(asNumber(row.repo_id));
+  expect(found.url).toBe(row.repo_url);
+  const protection = await loaded.client.protection(row.repo_name);
+  if (!protection.ok) throw new Error(protection.reason);
+  expect(protection.forbidsForcePushes).toBe(true);
+  expect(protection.forbidsDeletion).toBe(true);
+  const ops = (await seeded.sql`select status from public.prd_git_ops
+    where project_id = ${seeded.projectId}::uuid and kind = 'open'
+    order by created_at`) as Array<{ status: string }>;
+  expect(ops.map((op) => op.status)).toEqual(["finalized"]);
+  await expectOneOpening(loaded.client, row.repo_name, row.head_commit, snapshot);
+}
+
+async function proveCrashResume(baseline: PrdSnapshot): Promise<void> {
+  const loaded = loadGithubTest();
+  if (!loaded.ok) throw new Error(loaded.reason);
+  for (const step of OPEN_STEPS) {
+    const seeded = await seed();
+    try {
+      const rows = (await seeded.sql`select public.prd_open_begin(
+        ${seeded.dev.accountId}::uuid,
+        ${seeded.organizationId}::uuid,
+        ${seeded.projectId}::uuid) as begun`) as Array<{ begun: unknown }>;
+      const begun = jsonValue(rows[0].begun);
+      if (!isRecord(begun) || begun.kind !== "publish") {
+        throw new Error("prd_open_begin did not return the opening operation");
+      }
+      const op = parseOpenOperation(jsonValue(begun.op));
+      if (op === null) throw new Error(`${step}: the opening operation could not be read`);
+      await rememberProjectRepo(seeded);
+      const partial = await publishOpen(
+        op,
+        { github: loaded.client, rpc: serviceRpc(seeded.stack) },
+        step,
+      );
+      if (!partial.ok) throw new Error(`${step}: ${partial.reason}`);
+      const finished = await open(seeded, seeded.dev);
+      expect(finished.status, `${step}: ${JSON.stringify(finished.json)}`).toBe(200);
+      const snapshot = snapshotOf(finished.json);
+      expect(snapshot).toEqual(baseline);
+      await proveOpenedRepository(seeded, snapshot);
+    } finally {
+      await rememberProjectRepo(seeded);
+      await seeded.sql.close();
+    }
+  }
 }
 
 function snapshotOf(body: Record<string, unknown>): PrdSnapshot {
@@ -439,7 +624,7 @@ export async function proveRecordOpens(): Promise<void> {
     }>;
     const bookingDocument = documentOf(bookingDoc[0].document);
     expect(bookingDocument.decisions).toEqual([]);
-    expect(bookingDocument.technicalScope).toBeNull();
+    expect(bookingDocument.technicalScope ?? null).toBeNull();
 
     let tally = await counts(
       seeded.sql,
@@ -522,12 +707,18 @@ export async function proveRecordOpens(): Promise<void> {
     expect(tally.notifications).toBe(0);
     expect(tally.otherTables).toBe(0);
 
+    await proveOpenedRepository(seeded, opened);
+    await proveCrashResume(opened);
+
     throw new AtPending(
       "AT-036.01",
       "sut-missing",
-      "The PM scope requirements and the Author the project PRD bootstrap are not in this tree, so this case cannot prove them.",
+      "The PM scope requirements and the Author the project PRD bootstrap are not in this tree, " +
+        "so this case cannot prove them. The test organization is on GitHub's free plan, " +
+        'so repositories there are public and the test cannot prove "private".',
     );
   } finally {
+    await rememberProjectRepo(seeded);
     await seeded.sql.close();
   }
 }
@@ -549,13 +740,23 @@ export async function proveScopeSection(written: Scope): Promise<void> {
       id: string;
     }>;
     const document = { statements: [], decisions: [], technicalScope: written };
-    const versions = (await seeded.sql`insert into public.prd_section_versions
-      (project_id, section_id, document)
-      values (${seeded.projectId}::uuid, ${sections[0].id}::uuid, ${JSON.stringify(document)}::text::jsonb)
-      returning id`) as Array<{ id: string }>;
-    await seeded.sql`insert into public.prd_revisions (project_id, revision, discovery_revision, manifest)
+    const versions = (await seeded.sql`insert into public.prd_section_versions (
+        project_id, section_id, commit_sha, blob_sha, author_kind, variant, document
+      ) values (
+        ${seeded.projectId}::uuid,
+        ${sections[0].id}::uuid,
+        ${SCOPE_COMMIT},
+        ${SCOPE_BLOB},
+        'repository',
+        'readable',
+        ${JSON.stringify(document)}::text::jsonb
+      ) returning id`) as Array<{ id: string }>;
+    await seeded.sql`insert into public.prd_revisions (
+        project_id, revision, discovery_revision, manifest, commit_sha
+      )
       select project_id, 2, discovery_revision,
-             manifest || jsonb_build_object('technical-scope', ${versions[0].id}::text)
+             manifest || jsonb_build_object('technical-scope', ${versions[0].id}::text),
+             ${SCOPE_REVISION}
         from public.prd_revisions
        where project_id = ${seeded.projectId}::uuid and revision = 1`;
     await seeded.sql`update public.prd_sections set state = 'draft' where id = ${sections[0].id}::uuid`;

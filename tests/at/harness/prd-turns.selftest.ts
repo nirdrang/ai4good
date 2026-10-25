@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { openWithoutGithub } from "./prd-git.ts";
 import { STACK_ENV, sqlClient, stackFromEnv, type Stack } from "./live-stack.ts";
 import {
   snapshotFromRecord,
@@ -248,7 +249,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     await sql`insert into public.discovery_confirmations
       (project_id, revision, actor_id, actor_name, confirmed_at, accepted_gaps)
       values (${project}::uuid, 1, ${ngo}::uuid, 'Maya Levi', clock_timestamp(), '[]'::jsonb)`;
-    await sql`select public.prd_open(${dev}::uuid, ${org}::uuid, ${project}::uuid)`;
+    await openWithoutGithub(sql, dev, org, project);
     const chats = (await sql`select id from public.prd_chats
       where project_id = ${project}::uuid and kind = 'main'`) as Array<{ id: string }>;
     main = String(chats[0].id);
