@@ -135,6 +135,10 @@ function enabledFlag(value: unknown): boolean | null {
   return null;
 }
 
+function loginOf(user: unknown): string | null {
+  return isRecord(user) && typeof user.login === "string" && user.login !== "" ? user.login : null;
+}
+
 function readCommit(value: unknown): GithubCommit | null {
   if (!isRecord(value) || typeof value.sha !== "string") return null;
   if (!isRecord(value.commit) || typeof value.commit.message !== "string") return null;
@@ -144,12 +148,7 @@ function readCommit(value: unknown): GithubCommit | null {
     if (!isRecord(parent) || typeof parent.sha !== "string") return null;
     parents.push(parent.sha);
   }
-  let committerLogin: string | null = null;
-  if (value.committer !== null && value.committer !== undefined) {
-    if (!isRecord(value.committer)) return null;
-    if (typeof value.committer.login === "string") committerLogin = value.committer.login;
-    else if (value.committer.login !== undefined && value.committer.login !== null) return null;
-  }
+  const committerLogin = loginOf(value.author) ?? loginOf(value.committer);
   return { sha: value.sha, parents, committerLogin, message: value.commit.message };
 }
 
@@ -241,6 +240,8 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
           const repo = readRepo(existing.value);
           if (repo === null)
             return invalid("GitHub returned an existing repository the client could not read");
+          const protectedExisting = await protectMain(auth.token, name);
+          if (!protectedExisting.ok) return protectedExisting;
           return { ok: true, result: "exists", ...repo };
         }
         return created.failure;
@@ -374,7 +375,7 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
         { sha, force: false },
       );
       if (!response.ok) {
-        if (response.status === 422)
+        if (response.status === 422 && /fast.forward/i.test(response.failure.reason))
           return { ok: true, result: "rejected", reason: response.failure.reason };
         return response.failure;
       }
