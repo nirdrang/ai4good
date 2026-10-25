@@ -1,5 +1,7 @@
 # GitHub setup for the PRD in git (founder steps)
 
+Done on 2026-10-25 for this worktree: organization `ai4good-prd`, App `ai4good-prd-test-app`. Step 7 (the cloud environment) is still open.
+
 Decision d101 puts each project's PRD in a GitHub repository that the platform creates. The tests run against a real GitHub test organization. These steps create that organization and the platform's GitHub App for it. They need your GitHub account, so the lead cannot do them. They take about fifteen minutes.
 
 Do not paste any key or secret into the chat. Put them only in the file named in step 6.
