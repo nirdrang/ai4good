@@ -8,6 +8,7 @@ import { IMPORTANCE, NAME, SCREEN, TEXT } from "./a11y";
 import { DiscoveryDocument } from "./DiscoveryDocument";
 import { confirmationCurrent, dataTierOf, fileTookLine, type OpenReviewItem, type ReviewSection } from "./model";
 import type { DiscoveryPort } from "./port";
+import { Refused } from "./Refused";
 import { useIsPhone } from "./use-is-phone";
 import { useDiscoveryReview, type DiscoveryReviewController } from "./use-discovery";
 
@@ -39,7 +40,7 @@ export function DiscoveryReview({
       live = false;
     };
   }, [port]);
-  if (failure) return <p role="alert">{failure}</p>;
+  if (failure) return <Refused />;
   if (!loaded) return <p>Loading Discovery.</p>;
   return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
 }

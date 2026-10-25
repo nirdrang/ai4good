@@ -59,14 +59,18 @@ export type DiscoveryController = {
   oneAtATime: boolean;
   questionIndex: number;
   assistantCount: number;
+  replying: boolean;
+  saving: boolean;
   pick(questionId: string, draft: Draft | null): void;
   setComposerText(text: string): void;
   send(): Promise<void>;
   saveChange(questionId: string): Promise<void>;
+  cancelChange(questionId: string): void;
   openPanel(panel: "brief" | "questions"): void;
   closePanel(): void;
   openChooser(): void;
   chooseFile(file: File): Promise<void>;
+  removeFile(fileId: string): Promise<void>;
   openFile(fileId: string): void;
   reopen(questionId: string): void;
   focusQuestion(questionId: string): void;
@@ -129,6 +133,34 @@ function draftStillMatches(draft: Draft | undefined, answer: DiscoveryAnswer): b
   return draft.kind === "option" && draft.optionId === answer.choice;
 }
 
+type SavedDraft = { drafts: Record<string, Draft>; composerText: string };
+
+function readDraft(key: string | null): SavedDraft {
+  const empty: SavedDraft = { drafts: {}, composerText: "" };
+  if (!key) return empty;
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "null");
+    if (saved === null || typeof saved !== "object") return empty;
+    const { drafts, composerText } = saved as Partial<SavedDraft>;
+    return {
+      drafts: drafts !== null && typeof drafts === "object" ? drafts : {},
+      composerText: typeof composerText === "string" ? composerText : "",
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function writeDraft(key: string | null, draft: SavedDraft) {
+  if (!key) return;
+  try {
+    if (Object.keys(draft.drafts).length === 0 && draft.composerText.length === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    return;
+  }
+}
+
 function answerTarget(
   brief: BriefSnapshot,
   messages: readonly DiscoveryUIMessage[],
@@ -149,13 +181,16 @@ export function useDiscovery(
   initial: DiscoveryState,
   active = true,
   returnFocus: { questionId: string; nonce: number } | null = null,
+  draftKey: string | null = null,
 ): DiscoveryController {
+  const [saved] = useState(() => readDraft(draftKey));
   const [brief, setBrief] = useState(initial.brief);
   const [files, setFiles] = useState(initial.files);
   const [usage, setUsage] = useState(initial.usage);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(initial.confirmation);
-  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [composerText, setComposerText] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, Draft>>(saved.drafts);
+  const [composerText, setComposerText] = useState(saved.composerText);
+  const [writes, setWrites] = useState(0);
   const [refusal, setRefusal] = useState<{ kind: string; reason: string } | null>(null);
   const [reopened, setReopened] = useState<string[]>([]);
   const [pinned, setPinned] = useState<string[]>([]);
@@ -255,6 +290,10 @@ export function useDiscovery(
   }, [port, setMessages]);
 
   useEffect(() => {
+    writeDraft(draftKey, { drafts, composerText });
+  }, [draftKey, drafts, composerText]);
+
+  useEffect(() => {
     if (!highlight) return;
     const timer = window.setTimeout(() => setHighlight(null), 2000);
     return () => window.clearTimeout(timer);
@@ -298,12 +337,21 @@ export function useDiscovery(
     setFocus({ id: questionId, nonce: Date.now() });
   }
 
+  async function tracked<T>(write: Promise<T>): Promise<T> {
+    setWrites((count) => count + 1);
+    try {
+      return await write;
+    } finally {
+      setWrites((count) => count - 1);
+    }
+  }
+
   async function chooseFile(file: File) {
     if (adding.current) return;
     adding.current = true;
     setFileNotice(null);
     try {
-      const result = await port.addFile(file);
+      const result = await tracked(port.addFile(file));
       if (!result.ok) {
         setFileNotice(result.refusal.reason);
         return;
@@ -311,6 +359,23 @@ export function useDiscovery(
       setPanel(null);
       const opener = openerRef.current;
       if (opener) setRestore({ nonce: Date.now(), opener });
+    } finally {
+      adding.current = false;
+    }
+  }
+
+  async function removeFile(fileId: string) {
+    if (adding.current) return;
+    adding.current = true;
+    setFileNotice(null);
+    try {
+      const result = await tracked(port.removeFile(fileId));
+      if (!result.ok) {
+        setFileNotice(result.refusal.reason);
+        return;
+      }
+      setPanel(null);
+      setRestore({ nonce: Date.now(), opener: "add" });
     } finally {
       adding.current = false;
     }
@@ -420,6 +485,8 @@ export function useDiscovery(
     oneAtATime,
     questionIndex: index,
     assistantCount,
+    replying: busy,
+    saving: busy || writes > 0,
     pick,
     setComposerText,
     send,
@@ -432,11 +499,11 @@ export function useDiscovery(
       if (!text) return;
       savingChange.current = true;
       try {
-        const result = await port.saveBriefEdit({
+        const result = await tracked(port.saveBriefEdit({
           sectionId: question.topicId,
           text,
           baseRevision: briefNow.revision,
-        });
+        }));
         if (!result.ok) {
           setRefusal(result.refusal);
           return;
@@ -453,6 +520,11 @@ export function useDiscovery(
       } finally {
         savingChange.current = false;
       }
+    },
+    cancelChange(questionId) {
+      pick(questionId, null);
+      setReopened((current) => current.filter((id) => id !== questionId));
+      setPinned((current) => current.filter((id) => id !== questionId));
     },
     openPanel(next) {
       remember(next);
@@ -473,6 +545,7 @@ export function useDiscovery(
       setPanel({ kind: "chooser" });
     },
     chooseFile,
+    removeFile,
     openFile,
     reopen(questionId) {
       shownGeneration.current += 1;

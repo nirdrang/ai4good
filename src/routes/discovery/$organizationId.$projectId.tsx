@@ -38,7 +38,7 @@ function DiscoveryPage() {
   return (
     <main className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-background p-3 text-foreground md:p-4">
       <div hidden={review} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <DiscoveryScreen port={port} active={!review} returnFocus={returnFocus} onOpenReview={() => { location.hash = "review"; }} />
+        <DiscoveryScreen port={port} active={!review} returnFocus={returnFocus} draftKey={`discovery-draft:${projectId}`} onOpenReview={() => { location.hash = "review"; }} />
       </div>
       {review ? (
         <DiscoveryReview port={port} onBackToChat={(questionId) => {

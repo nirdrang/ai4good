@@ -132,6 +132,7 @@ export function discoveryPort(scope: { organizationId: string; projectId: string
       form.set("file", file);
       return write("discovery-file", form, "file");
     },
+    removeFile: (fileId) => write("discovery-file", { action: "remove", fileId }, "file"),
     subscribe(listener) {
       listeners.add(listener);
       schedule();

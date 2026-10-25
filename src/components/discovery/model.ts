@@ -159,7 +159,7 @@ export function fileRows(files: readonly DiscoveryFile[], funded: boolean): {
     })),
     discoveryCount,
     canAdd: funded || discoveryCount < 3,
-    limitText: funded ? null : TEXT.fileLimit,
+    limitText: funded ? null : discoveryCount >= 3 ? TEXT.fileLimitFull : TEXT.fileLimit,
   };
 }
 
