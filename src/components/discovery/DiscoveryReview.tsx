@@ -225,7 +225,7 @@ function OpenList({
   return (
     <section aria-label={SCREEN.reviewOpen.name} className="flex min-w-0 flex-col gap-2 rounded-xl border border-usage-warn bg-usage-warn/10 p-3">
       <h2 className="text-base font-semibold">{TEXT.review.openTitle(review.open.length)}</h2>
-      <p className="text-sm text-muted-foreground">{TEXT.review.openNote}</p>
+      <p className="text-sm text-muted-foreground">{TEXT.review.openNote(review.open.length)}</p>
       <ul className="flex flex-col">
         {review.open.map((item) => (
           <OpenItem key={item.topicId} item={item} phone={phone} review={review} onBackToChat={onBackToChat} />

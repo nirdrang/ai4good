@@ -289,6 +289,30 @@ it('reopens an agreed topic the AI lists as still open, so Discovery is not read
   expect(requiredAgreement(reopened.brief)).toMatchObject({ ready: false, agreed: 5, total: 6 });
 });
 
+it('replaces stale options when the AI recommends a new answer, and keeps the latest reason as the accepted gap', () => {
+  const version = openingDocument({ need: NEED });
+  const asked = applyReplyTurn(version, {
+    answers: [], userMessageId: 'm1', round: 1,
+    update: { text: 'Who approves lead training?', agreed: [], openQuestions: [], questions: [{
+      topicId: 'rules', suggestion: 'Coordinators approve lead training', suggested: 'Coordinators approve lead training',
+      importance: 'needed', reason: 'The tool needs a named role who can mark volunteers as trained.',
+    }] },
+  });
+  expect(asked.kind).toBe('changed');
+  if (asked.kind !== 'changed') return;
+  const question = asked.brief.document.questions.rules!;
+  expect(question.options).toEqual([{ id: 'round-1', label: 'Coordinators approve lead training', answer: 'Coordinators approve lead training' }]);
+  expect(question.suggestedId).toBe('round-1');
+  const finished = decideFinish(asked.brief, {
+    acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
+    actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
+  });
+  expect(finished.ok).toBe(true);
+  if (!finished.ok) return;
+  expect(finished.confirmation.acceptedGaps.find((gap) => gap.topicId === 'rules')?.reason)
+    .toBe('The tool needs a named role who can mark volunteers as trained.');
+});
+
 const ORG_ID = '22222222-2222-4222-8222-222222222222';
 const PROJECT_ID = '11111111-1111-4111-8111-111111111111';
 const CALLER: Caller = { id: 'account-1', githubHandle: null, emailVerified: true };

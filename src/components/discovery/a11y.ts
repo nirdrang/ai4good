@@ -149,7 +149,9 @@ export const TEXT = {
     reviewed: (revision: number) =>
       `I have reviewed revision ${revision}. It describes the first version we need.`,
     gaps: (open: number) =>
-      `I understand that ${open === 1 ? "1 question" : `${open} questions`} remain open. I choose to finish Discovery anyway and keep them in the brief.`,
+      open === 1
+        ? "I understand that 1 question remains open. I choose to finish Discovery anyway and keep it in the brief."
+        : `I understand that ${open} questions remain open. I choose to finish Discovery anyway and keep them in the brief.`,
     data: "Our NGO takes responsibility for data access and keeps only the personal information this tool needs.",
     dataSensitive:
       "Our NGO keeps real sensitive data out of the build. The volunteer and the AI work only with fake or anonymized records.",
@@ -165,8 +167,10 @@ export const TEXT = {
     intro:
       "This is your brief as it stands, in your words. Edit any section before you finish. Nothing here is rewritten by the AI.",
     openTitle: (open: number) => (open === 1 ? "1 question is still open" : `${open} questions are still open`),
-    openNote:
-      "You can finish with them open. They stay in this document for the ai4good team and the volunteer.",
+    openNote: (open: number) =>
+      open === 1
+        ? "You can finish with it open. It stays in this document for the ai4good team and the volunteer."
+        : "You can finish with them open. They stay in this document for the ai4good team and the volunteer.",
     suggestedLine: (text: string) => `Suggested: ${text}`,
     saveNote: "Saving makes a new revision. Editing is free.",
     changeNote: (revision: number, changed: string) =>

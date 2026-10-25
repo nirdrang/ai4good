@@ -702,6 +702,11 @@ function applyModelQuestion(document: BriefDocument, item: ReplyQuestionUpdate, 
   if (ensureQuestion(document, topic, round)) changed = true;
   const question = document.questions[topic.id];
   if (!question) return changed;
+  const offered = item.suggested.trim();
+  if (offered !== '' && matchOption(question.options, offered) === null) {
+    question.options = [{ id: `round-${round}`, label: offered, answer: offered }];
+    changed = true;
+  }
   const suggestedId = matchOption(question.options, item.suggested) ?? question.suggestedId;
   if (question.suggestedId !== suggestedId) {
     question.suggestedId = suggestedId;
@@ -886,7 +891,7 @@ export function decideFinish(version: BriefVersion, input: FinishInput): FinishD
         topicId: topic.id,
         title: topic.title,
         importance: topic.importance,
-        reason: topic.why,
+        reason: version.document.questions[topic.id]?.reason ?? topic.why,
       })),
     },
   };
