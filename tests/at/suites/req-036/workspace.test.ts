@@ -11,6 +11,7 @@ import {
   proveRolesAndPermissions,
   createdRepoNames,
 } from "./_record.ts";
+import { proveTopicTools } from "./_tools.ts";
 import {
   closeFlow,
   closePassedFlow,
@@ -546,7 +547,7 @@ atTest(
 atTest(
   "AT-036.08",
   "Topic states, confirmation, and a changed answer",
-  { surface: "ui", timeoutMs: { loop: 120_000 } },
+  { surface: "ui", timeoutMs: { loop: 120_000, integration: 300_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
@@ -631,6 +632,10 @@ atTest(
       });
     },
     default: wiringPending("AT-036.08"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveTopicTools();
+    },
   },
 );
 

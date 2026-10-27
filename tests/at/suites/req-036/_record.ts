@@ -177,7 +177,7 @@ function brief(booking: string, users: string): Record<string, unknown> {
   };
 }
 
-async function seed(): Promise<Seed> {
+export async function seed(): Promise<Seed> {
   const stack = stackFromEnv();
   const sql = sqlClient(stack);
   const stamp = crypto.randomUUID();
@@ -304,7 +304,7 @@ async function rememberProjectRepo(seeded: Seed): Promise<void> {
   }
 }
 
-function serviceRpc(stack: Stack) {
+export function serviceRpc(stack: Stack) {
   return async (name: string, args: Record<string, unknown>) => {
     const response = await fetch(`${stack.apiUrl}/rest/v1/rpc/${name}`, {
       method: "POST",
@@ -330,7 +330,7 @@ function serviceRpc(stack: Stack) {
   };
 }
 
-async function open(seeded: Seed, person: Person) {
+export async function open(seeded: Seed, person: Person) {
   try {
     return await functionPost(
       seeded.stack,
@@ -1086,7 +1086,7 @@ function postQuestion(seeded: Seed, actorId: string, questionId: string, revisio
   )`;
 }
 
-async function readSnapshot(seeded: Seed, person: Person): Promise<PrdSnapshot> {
+export async function readSnapshot(seeded: Seed, person: Person): Promise<PrdSnapshot> {
   const response = await functionPost(
     seeded.stack,
     "prd-snapshot",
@@ -1430,11 +1430,11 @@ async function sideChatId(seeded: Seed, questionId: string): Promise<string> {
   return id;
 }
 
-async function finishTurn(seeded: Seed, turnId: string): Promise<void> {
+export async function finishTurn(seeded: Seed, turnId: string): Promise<void> {
   await seeded.sql`select public.prd_turn_finish(${turnId}::uuid, 'answered')`;
 }
 
-async function send(
+export async function send(
   seeded: Seed,
   person: Person,
   scope: SendScope,
@@ -1456,7 +1456,7 @@ async function send(
   );
 }
 
-async function act(
+export async function act(
   seeded: Seed,
   person: Person,
   kind: string,
@@ -1808,7 +1808,7 @@ const MONTH_AHEAD = "Volunteers book themselves a month ahead.";
 const RENAMED_BOOKING = "prd/who-books.md";
 const UNKNOWN_PATH = "prd/notes.md";
 
-function webhookSecret(): string {
+export function webhookSecret(): string {
   const path = join(
     dirname(fileURLToPath(import.meta.url)),
     "..",
@@ -1838,7 +1838,7 @@ function webhookSecret(): string {
   throw new Error("GITHUB_WEBHOOK_SECRET is missing from supabase/functions/.env");
 }
 
-function signDelivery(secret: string, body: string): string {
+export function signDelivery(secret: string, body: string): string {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 }
 
@@ -1905,7 +1905,7 @@ async function nextSequence(heard: readonly number[], held: number): Promise<num
   }
 }
 
-async function ngoSnapshot(seeded: Seed): Promise<PrdSnapshot> {
+export async function ngoSnapshot(seeded: Seed): Promise<PrdSnapshot> {
   const read = await functionPost(
     seeded.stack,
     "prd-snapshot",
@@ -1916,20 +1916,20 @@ async function ngoSnapshot(seeded: Seed): Promise<PrdSnapshot> {
   return parsePrdSnapshot(read.json);
 }
 
-function topicById(snapshot: PrdSnapshot, id: string) {
+export function topicById(snapshot: PrdSnapshot, id: string) {
   const topic = snapshot.topics.find((item) => item.id === id);
   if (topic === undefined) throw new Error(`missing topic ${id}`);
   return topic;
 }
 
-async function mainSha(client: GithubRepo, repo: string): Promise<string> {
+export async function mainSha(client: GithubRepo, repo: string): Promise<string> {
   const head = await client.head(repo);
   if (!head.ok) throw new Error(head.reason);
   if ("missing" in head) throw new Error("main is not a branch");
   return head.sha;
 }
 
-async function sectionFile(client: GithubRepo, repo: string, sha: string, path: string) {
+export async function sectionFile(client: GithubRepo, repo: string, sha: string, path: string) {
   const tree = await client.prdTree(repo, sha);
   if (!tree.ok) throw new Error(tree.reason);
   const file = tree.files.find((item) => item.path === path);
@@ -1943,7 +1943,7 @@ async function sectionFile(client: GithubRepo, repo: string, sha: string, path: 
   return parsed.file;
 }
 
-async function commitOnMain(
+export async function commitOnMain(
   client: GithubRepo,
   repo: string,
   files: { path: string; content: string | null }[],
@@ -1963,7 +1963,7 @@ async function commitOnMain(
   return { sha: written.sha, login };
 }
 
-async function deliver(
+export async function deliver(
   stack: Stack,
   body: string,
   signature: string,
