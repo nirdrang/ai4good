@@ -40,6 +40,7 @@ import {
   send,
   serviceRpc,
   signDelivery,
+  signInAgain,
   topicById,
   webhookSecret,
 } from "./_record.ts";
@@ -300,8 +301,30 @@ function withText(document: SectionDocument, text: string): SectionDocument {
   return { ...document, statements: [{ text, sources: ["Discovery revision 2"] }] };
 }
 
-function devView(world: ToolsWorld): Promise<PrdSnapshot> {
+const TOKEN_REFRESH_MS = 60_000;
+const signedAt = new WeakMap<object, number>();
+
+async function fresh(world: ToolsWorld): Promise<void> {
+  for (const person of [world.seeded.dev, world.seeded.ngo]) {
+    if (Date.now() - (signedAt.get(person) ?? 0) < TOKEN_REFRESH_MS) continue;
+    await signInAgain(world.seeded.stack, person);
+    signedAt.set(person, Date.now());
+  }
+}
+
+async function actAs(world: ToolsWorld, ...args: Parameters<typeof act>) {
+  await fresh(world);
+  return act(...args);
+}
+
+async function devView(world: ToolsWorld): Promise<PrdSnapshot> {
+  await fresh(world);
   return readSnapshot(world.seeded, world.seeded.dev);
+}
+
+async function ngoView(world: ToolsWorld): Promise<PrdSnapshot> {
+  await fresh(world);
+  return ngoSnapshot(world.seeded);
 }
 
 function texts(snapshot: PrdSnapshot, id: string): string[] {
@@ -505,6 +528,7 @@ async function loadWorld(seeded: Seeded): Promise<ToolsWorld> {
 
 async function beginTurn(world: ToolsWorld, scope: ChatScope, label: string): Promise<Turn> {
   const view = await devView(world);
+  await fresh(world);
   const response = await send(
     world.seeded,
     world.seeded.dev,
@@ -705,7 +729,7 @@ async function proveGrantToken(world: ToolsWorld, token: string): Promise<void> 
 
 async function proveLandTogether(world: ToolsWorld, turn: Turn): Promise<void> {
   const beforeDev = await devView(world);
-  const beforeNgo = await ngoSnapshot(world.seeded);
+  const beforeNgo = await ngoView(world);
   const beforeHead = await head(world);
   const booking = await readKey(world, turn.token, "booking");
   const rules = await readKey(world, turn.token, "rules");
@@ -725,7 +749,7 @@ async function proveLandTogether(world: ToolsWorld, turn: Turn): Promise<void> {
   );
   await proposeKey(world, turn.token, "booking");
   const heldDev = await devView(world);
-  const heldNgo = await ngoSnapshot(world.seeded);
+  const heldNgo = await ngoView(world);
   expect(texts(heldDev, "booking"), "staged booking is invisible to the developer").toEqual(
     texts(beforeDev, "booking"),
   );
@@ -749,7 +773,7 @@ async function proveLandTogether(world: ToolsWorld, turn: Turn): Promise<void> {
     filePath(world, "rules"),
   ], "the shared commit");
   const afterDev = await devView(world);
-  const afterNgo = await ngoSnapshot(world.seeded);
+  const afterNgo = await ngoView(world);
   expect(texts(afterDev, "booking"), "the developer sees the staged booking text").toEqual([
     LAND_BOOKING,
   ]);
@@ -1094,7 +1118,7 @@ async function proveForgedTrailer(world: ToolsWorld): Promise<void> {
   expect(topic.statements, "the forged trailer does not apply the staged text").toEqual([FORGED_OUTSIDE]);
   expect(topic.statements, "the staged text is absent").not.toContain(FORGED_STAGED);
   expect(topic.author, "the imported edit names the pusher").toBe(pushed.login);
-  expect(topicById(await ngoSnapshot(world.seeded), "rules").author, "the NGO sees the pusher").toBe(
+  expect(topicById(await ngoView(world), "rules").author, "the NGO sees the pusher").toBe(
     pushed.login,
   );
   const version = await currentVersion(world, "rules");
@@ -1119,7 +1143,7 @@ function confirmToken(snapshot: PrdSnapshot, id: string): string {
 }
 
 async function confirmSection(world: ToolsWorld, token: string, label: string): Promise<void> {
-  const response = await act(
+  const response = await actAs(world,
     world.seeded,
     world.seeded.dev,
     "confirm-topic",
@@ -1168,7 +1192,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   });
   expect(topicById(offered, "usersToday").required, "the users topic is not in the total").toBe(false);
   const bookingToken = confirmToken(offered, "booking");
-  const ngoFirst = await act(
+  const ngoFirst = await actAs(world,
     world.seeded,
     world.seeded.ngo,
     "confirm-topic",
@@ -1189,7 +1213,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
     confirmed: 1,
     total: 3,
   });
-  const ngoAgain = await act(
+  const ngoAgain = await actAs(world,
     world.seeded,
     world.seeded.ngo,
     "confirm-topic",
@@ -1202,7 +1226,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   expect(ngoAgain.json.kind, "the NGO is refused after confirmation").toBe("forbidden");
   const reopen = topicById(confirmedOnce, "booking").reopen;
   if (reopen.kind !== "available") throw new Error("reopen is not offered");
-  const reopened = await act(
+  const reopened = await actAs(world,
     world.seeded,
     world.seeded.dev,
     "reopen-topic",
@@ -1211,7 +1235,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   );
   expect(reopened.status, `reopen: ${JSON.stringify(reopened.json)}`).toBe(200);
   const afterReopen = await devView(world);
-  const ngoReopen = await ngoSnapshot(world.seeded);
+  const ngoReopen = await ngoView(world);
   expect(topicById(afterReopen, "booking").state, "reopen shows Needs review").toBe("needs-review");
   expect(topicById(afterReopen, "booking").statusText, "reopen says Needs review").toBe(
     "Needs review.",
@@ -1320,7 +1344,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   expect(statePicture(imported), "the snapshot state is the database column").toEqual(
     await columnStates(world),
   );
-  expect(statePicture(await ngoSnapshot(world.seeded)), "the NGO reads the same states").toEqual(
+  expect(statePicture(await ngoView(world)), "the NGO reads the same states").toEqual(
     statePicture(imported),
   );
 }

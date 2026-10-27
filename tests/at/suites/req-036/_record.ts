@@ -53,7 +53,7 @@ const DEV_TOPIC_DRAFT = "Dev topic draft the NGO must not see";
 const NGO_DRAFT = "NGO draft the developer must not see";
 
 type Sql = ReturnType<typeof sqlClient>;
-type Person = { accountId: string; token: string };
+type Person = { accountId: string; token: string; email: string };
 
 type Seed = {
   stack: Stack;
@@ -126,6 +126,10 @@ async function user(
   await sql`insert into public.acknowledgments
     (account_id, kind, text_version, signer_name, signer_title, authority_attestation)
     values (${accountId}::uuid, 'platform_tos_and_promise', 'tos-1', ${name}, 'Coordinator', 'I am allowed to act for this project')`;
+  return { accountId, token: await signIn(stack, email), email };
+}
+
+async function signIn(stack: Stack, email: string): Promise<string> {
   const signedIn = await authPost(stack, "/auth/v1/token?grant_type=password", {
     email,
     password: PASSWORD,
@@ -133,7 +137,11 @@ async function user(
   if (signedIn.status !== 200) throw new Error(`sign-in for ${email} answered ${signedIn.status}`);
   const token = String(signedIn.json.access_token ?? "");
   if (!token) throw new Error(`sign-in for ${email} named no access token`);
-  return { accountId, token };
+  return token;
+}
+
+export async function signInAgain(stack: Stack, person: Person): Promise<void> {
+  person.token = await signIn(stack, person.email);
 }
 
 function brief(booking: string, users: string): Record<string, unknown> {
