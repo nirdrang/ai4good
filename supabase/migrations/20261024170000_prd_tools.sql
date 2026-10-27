@@ -1175,14 +1175,20 @@ begin
        where project_id = p_project
          and stable_key = v_effect->>'section'
          and id <> all (coalesce(p_written, '{}'::uuid[]));
-    elsif v_effect->>'kind' = 'suggest-ngo' then
-      if v_message is null then
-        raise exception 'a suggested question needs the turn message'
-          using errcode = '22023', detail = 'invalid-request';
-      end if;
-      perform public.prd_question_insert(p_project, 'ngo', v_effect->'payload', v_message);
+    elsif v_effect->>'kind' = 'suggest-ngo' and v_message is not null then
+      begin
+        perform public.prd_question_insert(p_project, 'ngo', v_effect->'payload', v_message);
+      exception
+        when sqlstate '22023' then
+          null;
+      end;
     elsif v_effect->>'kind' = 'outcome' then
-      perform public.prd_question_outcome_write(p_project, v_chat, v_effect->'payload');
+      begin
+        perform public.prd_question_outcome_write(p_project, v_chat, v_effect->'payload');
+      exception
+        when sqlstate '22023' or sqlstate '42501' then
+          null;
+      end;
     end if;
   end loop;
 

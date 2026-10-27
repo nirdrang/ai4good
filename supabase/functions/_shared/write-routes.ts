@@ -165,6 +165,7 @@ export const WRITE_REFUSAL_KINDS = [
   'not-yet',
   'follow-up-open',
   'not-ready',
+  'not-confirmed',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];

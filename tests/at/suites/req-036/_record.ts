@@ -1341,6 +1341,11 @@ type SendScope =
   | { kind: "side"; questionId: string };
 
 const ROLE_ACTIONS = ["confirm-topic", "reopen-topic", "close"] as const;
+const DEVELOPER_REFUSAL = {
+  "confirm-topic": "not-ready",
+  "reopen-topic": "not-confirmed",
+  close: "not-yet",
+} as const;
 const EVERY_ACTION = [
   "post-question",
   "complete-answer",
@@ -1395,7 +1400,7 @@ function actionToken(kind: string, questionId: string): string {
     kind === "post-question" || kind === "complete-answer"
       ? `question:${questionId}`
       : kind === "confirm-topic" || kind === "reopen-topic"
-        ? "booking"
+        ? "topic:booking"
         : "prd";
   return `${kind}|${target}|1|1`;
 }
@@ -1779,7 +1784,7 @@ export async function proveRolesAndPermissions(): Promise<void> {
       );
       expectRefusal(
         await act(seeded, seeded.dev, kind, token, crypto.randomUUID()),
-        "not-yet",
+        DEVELOPER_REFUSAL[kind],
         `the developer is refused ${kind}`,
       );
     }
@@ -1791,7 +1796,7 @@ export async function proveRolesAndPermissions(): Promise<void> {
     throw new AtPending(
       "AT-036.09",
       "sut-missing",
-      "Confirm, reopen and close are role-checked but have no effect until section states and closing the PRD are built, so they still answer not-yet for the developer. Changing the threshold or overriding scoring has no endpoint yet; the completion check is not in this tree yet.",
+      "Confirm and reopen work only on a section in the right state, and closing the PRD is not built, so it still answers not-yet for the developer. Changing the threshold or overriding scoring has no endpoint yet; the completion check is not in this tree yet.",
     );
   } finally {
     await seeded.sql.close();

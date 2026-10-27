@@ -1362,5 +1362,36 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect(bodies.map((row) => row.body)).toEqual(["Shifts are kept for 12 months."]);
     expect(await toolCommits(sql, answerTurn)).toBe(1);
     expect(await toolCommits(sql, reply.turnId)).toBe(1);
+
+    const replay = await reserve(sql, project, opened.dev, "main", "replay", "Replay the answer");
+    const replayGrant = await grantOf(issue(sql, replay.turnId, "reply"));
+    await objectOf(
+      sql`select public.suggest_ngo_question(${replayGrant}::uuid,
+        ${JSON.stringify(ngoQuestion("Who approves a shift swap?"))}::text::jsonb) as r`,
+    );
+    const replayPrepared = await objectOf(prepare(sql, replayGrant));
+    await sql`update public.prd_git_ops
+      set effects = effects || ${JSON.stringify([
+        {
+          kind: "outcome",
+          section: null,
+          payload: { kind: "follow-up-resolved", message: String(appended.id) },
+        },
+      ])}::text::jsonb
+      where id = ${String(replayPrepared.op)}::uuid`;
+    await finish(sql, answerTurn);
+    await sql`update public.prd_turns set chat_id = (
+        select id from public.prd_chats where project_id = ${project}::uuid and question_id = ${questionId}::uuid
+      ) where id = ${replay.turnId}::uuid`;
+    const replaySha = madeSha(`${project}:replay`);
+    await sql`select public.prd_git_op_written(
+      ${String(replayPrepared.op)}::uuid, ${String(replayPrepared.base)}, ${replaySha})`;
+    const replayed = await reconcile(sql, project, String(replayPrepared.base), [
+      { sha: replaySha, parents: [String(replayPrepared.base)], login: null, message: "PRD tools", changes: [] },
+    ]);
+    expect(String(replayed.head)).toBe(replaySha);
+    expect(await answerCount(sql, project)).toBe(1);
+    expect(await questionCount(sql, project)).toBe(2);
+    expect(await toolCommits(sql, replay.turnId)).toBe(1);
   });
 });
