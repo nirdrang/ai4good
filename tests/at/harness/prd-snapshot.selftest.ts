@@ -239,3 +239,71 @@ it("offers complete-answer when the facts allow it, and keeps the existing refus
     },
   });
 });
+
+function topic(key: string, state: string, confirm: unknown, reopen: unknown) {
+  return {
+    key,
+    title: key,
+    required: true,
+    state,
+    document: { statements: [{ text: "One line.", sources: ["Discovery revision 1"] }], decisions: [] },
+    confirm,
+    reopen,
+  };
+}
+
+it("offers confirm and reopen from the facts, and withholds both from the NGO", () => {
+  const confirmToken = "confirm-topic|topic:booking|1|0";
+  const reopenToken = "reopen-topic|topic:rules|1|0";
+  const sections = [
+    topic("booking", "ready", { allowed: true, reason: null, token: confirmToken }, {
+      allowed: false,
+      reason: "not-confirmed",
+      token: null,
+    }),
+    topic("rules", "confirmed", { allowed: false, reason: "not-ready", token: null }, {
+      allowed: true,
+      reason: null,
+      token: reopenToken,
+    }),
+  ];
+  const dev = snapshotFromRecord({ ...record([]), sections }, DEV);
+  expect(dev.topics[0]).toMatchObject({
+    id: "booking",
+    state: "ready",
+    confirm: { kind: "available", action: { kind: "confirm-topic", token: confirmToken } },
+    reopen: { kind: "unavailable", reason: "This section is not confirmed." },
+  });
+  expect(dev.topics[1]).toMatchObject({
+    id: "rules",
+    state: "confirmed",
+    confirm: { kind: "unavailable", reason: "This section is not ready to confirm." },
+    reopen: { kind: "available", action: { kind: "reopen-topic", token: reopenToken } },
+  });
+  const ngo = snapshotFromRecord(
+    {
+      ...record([]),
+      sections: [
+        topic("booking", "ready", { allowed: false, reason: "forbidden", token: null }, {
+          allowed: false,
+          reason: "forbidden",
+          token: null,
+        }),
+        topic("rules", "confirmed", { allowed: false, reason: "forbidden", token: null }, {
+          allowed: false,
+          reason: "closed",
+          token: null,
+        }),
+      ],
+    },
+    NGO,
+  );
+  expect(ngo.topics[0]).toMatchObject({
+    confirm: { kind: "unavailable", reason: "Only Priya confirms sections." },
+    reopen: { kind: "unavailable", reason: "Only Priya reopens sections." },
+  });
+  expect(ngo.topics[1]).toMatchObject({
+    confirm: { kind: "unavailable", reason: "Only Priya confirms sections." },
+    reopen: { kind: "unavailable", reason: "The PRD is closed." },
+  });
+});

@@ -1,5 +1,7 @@
 import type {
+  Action,
   ActionToken,
+  Availability,
   CloseState,
   DevQuestion,
   FundsState,
@@ -110,7 +112,39 @@ function statementsOf(document: Record<string, unknown>): {
   return { statements, sources };
 }
 
-function topicOf(section: unknown): Topic {
+function topicReason(
+  code: unknown,
+  kind: "confirm-topic" | "reopen-topic",
+  names: Names,
+): string {
+  if (code === "forbidden") {
+    return kind === "confirm-topic"
+      ? `Only ${names.dev} confirms sections.`
+      : `Only ${names.dev} reopens sections.`;
+  }
+  if (code === "closed") return CLOSED_REASON;
+  if (code === "not-ready") return "This section is not ready to confirm.";
+  if (code === "not-confirmed") return "This section is not confirmed.";
+  return NOT_YET;
+}
+
+function topicAvailability<K extends "confirm-topic" | "reopen-topic">(
+  value: unknown,
+  label: string,
+  kind: K,
+  names: Names,
+): Availability<Action<K>> {
+  const action = fact(value, label);
+  if (action.allowed) {
+    return {
+      kind: "available",
+      action: { kind, token: text(action.token, `${label} token`) as ActionToken },
+    };
+  }
+  return { kind: "unavailable", reason: topicReason(action.reason, kind, names) };
+}
+
+function topicOf(section: unknown, names: Names): Topic {
   if (!isRecord(section)) fail("a section is a record");
   const state = section.state;
   if (typeof state !== "string" || !TOPIC_STATES.includes(state as TopicState)) {
@@ -141,8 +175,8 @@ function topicOf(section: unknown): Topic {
     scope,
     changeSummary: typeof changed === "string" ? changed : null,
     author: typeof section.author === "string" ? section.author : null,
-    confirm: unavailable(),
-    reopen: unavailable(),
+    confirm: topicAvailability(section.confirm, "confirm", "confirm-topic", names),
+    reopen: topicAvailability(section.reopen, "reopen", "reopen-topic", names),
   };
 }
 
@@ -453,7 +487,7 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
       organizationName: text(record.project.organizationName, "organisation name"),
     },
     discoveryRevision: wholeNumber(record.discoveryRevision, "discovery revision"),
-    topics: record.sections.map(topicOf),
+    topics: record.sections.map((section) => topicOf(section, names)),
     devQuestions: record.devQuestions.map(devQuestionOf),
     questions: record.questions.map((question) => ngoQuestionOf(question, names)),
     chats: presented.chats,

@@ -308,6 +308,30 @@ begin
 end;
 $$;
 
+create function public.prd_grant_claims(p_grant uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_grant public.prd_grants%rowtype;
+begin
+  select * into v_grant from public.prd_grants where id = p_grant;
+  if not found then
+    raise exception 'that grant does not exist' using errcode = '22023', detail = 'unknown-grant';
+  end if;
+  return jsonb_build_object(
+    'grant', v_grant.id,
+    'project', v_grant.project_id,
+    'chat', v_grant.chat_id,
+    'turn', v_grant.turn_id,
+    'expiresAt', v_grant.expires_at
+  );
+end;
+$$;
+
 create function public.prd_section_read(p_project uuid, p_section uuid)
 returns jsonb
 language plpgsql
@@ -720,8 +744,11 @@ set search_path = ''
 as $$
 declare
   v_grant public.prd_grants%rowtype;
-  v_status text;
+  v_existing public.prd_git_ops%rowtype;
+  v_repo text;
   v_head text;
+  v_sha text;
+  v_hint text;
   v_revision bigint;
   v_manifest jsonb;
   v_row record;
@@ -733,6 +760,9 @@ declare
   v_op uuid;
 begin
   v_grant := public.prd_grant_check(p_grant, 'commit_prepare');
+  select repo_name into v_repo
+    from public.prd_records
+   where project_id = v_grant.project_id;
   if exists (
     select 1
       from public.prd_git_ops
@@ -742,23 +772,57 @@ begin
   ) or exists (
     select 1 from public.prd_tool_commits where turn_id = v_grant.turn_id
   ) then
-    raise exception 'this turn already committed' using errcode = '22023', detail = 'turn-committed';
+    select commit_sha into v_sha
+      from public.prd_git_ops
+     where turn_id = v_grant.turn_id
+       and kind = 'turn'
+       and status = 'finalized'
+     order by attempt desc
+     limit 1;
+    if v_sha is null then
+      select commit_sha into v_sha
+        from public.prd_tool_commits
+       where turn_id = v_grant.turn_id
+       limit 1;
+    end if;
+    raise exception 'this turn already committed'
+      using errcode = '22023',
+            detail = 'turn-committed',
+            hint = jsonb_build_object(
+              'turn', v_grant.turn_id,
+              'repo', v_repo,
+              'sha', v_sha,
+              'status', 'finalized'
+            )::text;
   end if;
-  select status into v_status
+  select * into v_existing
     from public.prd_git_ops
    where turn_id = v_grant.turn_id
      and kind = 'turn'
      and status not in ('finalized', 'failed')
      for update;
   if found then
-    if v_status = 'prepared' then
-      raise exception 'a commit is already prepared' using errcode = '22023', detail = 'attempt-prepared';
-    elsif v_status = 'written' then
-      raise exception 'a commit is already written' using errcode = '22023', detail = 'attempt-written';
-    elsif v_status = 'published' then
-      raise exception 'a commit is already published' using errcode = '22023', detail = 'attempt-published';
+    v_hint := jsonb_build_object(
+      'op', v_existing.id,
+      'status', v_existing.status,
+      'base', v_existing.base_commit,
+      'sha', v_existing.commit_sha,
+      'turn', v_grant.turn_id,
+      'repo', v_repo,
+      'attempt', v_existing.attempt
+    )::text;
+    if v_existing.status = 'prepared' then
+      raise exception 'a commit is already prepared'
+        using errcode = '22023', detail = 'attempt-prepared', hint = v_hint;
+    elsif v_existing.status = 'written' then
+      raise exception 'a commit is already written'
+        using errcode = '22023', detail = 'attempt-written', hint = v_hint;
+    elsif v_existing.status = 'published' then
+      raise exception 'a commit is already published'
+        using errcode = '22023', detail = 'attempt-published', hint = v_hint;
     else
-      raise exception 'a commit is already in progress' using errcode = '22023', detail = 'invalid-request';
+      raise exception 'a commit is already in progress'
+        using errcode = '22023', detail = 'invalid-request', hint = v_hint;
     end if;
   end if;
 
@@ -836,9 +900,64 @@ begin
     'op', v_op,
     'attempt', v_attempt,
     'base', v_head,
+    'turn', v_grant.turn_id,
+    'repo', v_repo,
     'sections', v_files,
     'effects', v_effects
   );
+end;
+$$;
+
+create function public.prd_git_op_fail(p_op uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_project uuid;
+  v_record public.prd_records%rowtype;
+  v_op public.prd_git_ops%rowtype;
+begin
+  select project_id into v_project from public.prd_git_ops where id = p_op;
+  if not found then
+    raise exception 'the git operation does not exist' using errcode = 'P0002', detail = 'invalid-request';
+  end if;
+  select * into v_record
+    from public.prd_records
+   where project_id = v_project
+     for update;
+  if not found then
+    raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  select * into v_op from public.prd_git_ops where id = p_op for update;
+  if v_op.kind is distinct from 'turn' then
+    raise exception 'only a turn attempt can be failed' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_op.status = 'failed' then
+    return;
+  end if;
+  if v_op.status in ('published', 'finalized') then
+    raise exception 'that commit can no longer be failed' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_op.status = 'prepared' then
+    update public.prd_git_ops
+       set status = 'failed',
+           updated_at = clock_timestamp()
+     where id = p_op;
+    return;
+  end if;
+  if v_op.status is distinct from 'written' or v_op.commit_sha is null then
+    raise exception 'that attempt cannot be failed' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if public.prd_commit_known(v_project, v_op.commit_sha, v_record.head_commit, '[]'::jsonb) then
+    raise exception 'that commit is already in the read copy' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  update public.prd_git_ops
+     set status = 'failed',
+         updated_at = clock_timestamp()
+   where id = p_op;
 end;
 $$;
 
@@ -1832,6 +1951,9 @@ grant execute on function public.prd_grant_check(uuid, text) to service_role;
 revoke execute on function public.prd_grant_tools(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_grant_tools(uuid) to service_role;
+revoke execute on function public.prd_grant_claims(uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function public.prd_grant_claims(uuid) to service_role;
 revoke execute on function public.read_section(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.read_section(uuid, text) to service_role;
@@ -1850,6 +1972,9 @@ grant execute on function public.record_outcome(uuid, jsonb) to service_role;
 revoke execute on function public.commit_prepare(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.commit_prepare(uuid) to service_role;
+revoke execute on function public.prd_git_op_fail(uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function public.prd_git_op_fail(uuid) to service_role;
 
 revoke execute on function public.prd_question_outcome(uuid, uuid, jsonb)
   from public, anon, authenticated, service_role;

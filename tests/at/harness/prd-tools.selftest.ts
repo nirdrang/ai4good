@@ -137,6 +137,21 @@ async function refusal(run: Promise<unknown>): Promise<string> {
   throw new Error("expected a refusal");
 }
 
+async function refused(run: Promise<unknown>): Promise<{ detail: string; hint: Record<string, unknown> | null }> {
+  try {
+    await run;
+  } catch (error) {
+    const err = error as { detail?: unknown; hint?: unknown };
+    let hint: Record<string, unknown> | null = null;
+    if (typeof err.hint === "string" && err.hint !== "") {
+      const parsed = JSON.parse(err.hint) as unknown;
+      if (isRecord(parsed)) hint = parsed;
+    }
+    return { detail: String(err.detail), hint };
+  }
+  throw new Error("expected a refusal");
+}
+
 async function objectOf(query: Promise<unknown>): Promise<Record<string, unknown>> {
   const rows = (await query) as Array<{ r: unknown }>;
   return record(rows[0].r);
@@ -1393,5 +1408,108 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect(await answerCount(sql, project)).toBe(1);
     expect(await questionCount(sql, project)).toBe(2);
     expect(await toolCommits(sql, replay.turnId)).toBe(1);
+  });
+
+  it("fails a prepared attempt and prepares the turn again", async () => {
+    const opened = await world(stack, sql);
+    const project = opened.project;
+    const rows = await sections(sql, project);
+    const turn = await reserve(sql, project, opened.dev, "main", "fail-prepared", "Try again");
+    const grant = await grantOf(issue(sql, turn.turnId, "reply"));
+    const claims = await objectOf(sql`select public.prd_grant_claims(${grant}::uuid) as r`);
+    const chats = (await sql`select chat_id from public.prd_turns where id = ${turn.turnId}::uuid`) as Array<{
+      chat_id: string;
+    }>;
+    const repos = (await sql`select repo_name from public.prd_records where project_id = ${project}::uuid`) as Array<{
+      repo_name: string;
+    }>;
+    expect(String(claims.grant)).toBe(grant);
+    expect(String(claims.project)).toBe(project);
+    expect(String(claims.chat)).toBe(String(chats[0].chat_id));
+    expect(String(claims.turn)).toBe(turn.turnId);
+    expect(Number.isFinite(Date.parse(String(claims.expiresAt)))).toBe(true);
+    const readBooking = await objectOf(read(sql, grant, "booking"));
+    await objectOf(stage(sql, grant, String(readBooking.receipt), drafted("Prepared, then dropped.")));
+    const prepared = await objectOf(prepare(sql, grant));
+    expect(prepared.turn).toBe(turn.turnId);
+    expect(prepared.repo).toBe(repos[0].repo_name);
+    const blocked = await refused(prepare(sql, grant));
+    expect(blocked.detail).toBe("attempt-prepared");
+    expect(blocked.hint).toMatchObject({
+      op: prepared.op,
+      status: "prepared",
+      turn: turn.turnId,
+      repo: repos[0].repo_name,
+      sha: null,
+    });
+    await sql`select public.prd_git_op_fail(${String(prepared.op)}::uuid)`;
+    expect(await opStatus(sql, String(prepared.op))).toBe("failed");
+    const again = await objectOf(prepare(sql, grant));
+    expect(again.ok).toBe(true);
+    expect(whole(again.attempt)).toBe(2);
+    expect(again.op).not.toBe(prepared.op);
+    expect(again.turn).toBe(turn.turnId);
+    expect((await sections(sql, project)).booking.state).toBe(rows.booking.state);
+  });
+
+  it("fails a written attempt and imports that sha as a repository edit", async () => {
+    const opened = await world(stack, sql);
+    const project = opened.project;
+    const rows = await sections(sql, project);
+    const turn = await reserve(sql, project, opened.dev, "main", "fail-written", "Write then lose it");
+    const grant = await grantOf(issue(sql, turn.turnId, "reply"));
+    const readBooking = await objectOf(read(sql, grant, "booking"));
+    const staged = rendered(rows.booking, drafted("Staged, then abandoned."), `${project}:fail-written`);
+    await objectOf(stage(sql, grant, String(readBooking.receipt), staged.file.document));
+    await objectOf(sql`select public.propose_ready(${grant}::uuid, 'booking') as r`);
+    const prepared = await objectOf(prepare(sql, grant));
+    expect(asArray(prepared.effects).map(record)).toEqual([
+      expect.objectContaining({ kind: "ready", section: "booking" }),
+    ]);
+    const sha = madeSha(`${project}:fail-written-sha`);
+    await sql`select public.prd_git_op_written(${String(prepared.op)}::uuid, ${String(prepared.base)}, ${sha})`;
+    const blocked = await refused(prepare(sql, grant));
+    expect(blocked.detail).toBe("attempt-written");
+    expect(blocked.hint).toMatchObject({ op: prepared.op, status: "written", sha, turn: turn.turnId });
+    await sql`select public.prd_git_op_fail(${String(prepared.op)}::uuid)`;
+    expect(await opStatus(sql, String(prepared.op))).toBe("failed");
+    const imported = await reconcile(sql, project, String(prepared.base), [
+      { sha, parents: [String(prepared.base)], login: "octocat", message: `PRD-Turn: ${turn.turnId}`, changes: [staged] },
+    ]);
+    expect(imported.head).toBe(sha);
+    expect((await sections(sql, project)).booking.state).toBe("draft");
+    expect(statementText((await factSection(sql, opened.dev, project, "booking")).document)).toEqual([
+      "Staged, then abandoned.",
+    ]);
+    const authors = (await sql`select author_kind from public.prd_section_versions
+      where project_id = ${project}::uuid and commit_sha = ${sha}`) as Array<{ author_kind: string }>;
+    expect(authors).toEqual([{ author_kind: "repository" }]);
+    expect(await toolCommits(sql, turn.turnId)).toBe(0);
+    expect(await opStatus(sql, String(prepared.op))).toBe("failed");
+  });
+
+  it("refuses to fail a finalized attempt", async () => {
+    const opened = await world(stack, sql);
+    const project = opened.project;
+    const rows = await sections(sql, project);
+    const turn = await reserve(sql, project, opened.dev, "main", "fail-final", "Land it");
+    const grant = await grantOf(issue(sql, turn.turnId, "reply"));
+    const readBooking = await objectOf(read(sql, grant, "booking"));
+    const staged = rendered(rows.booking, drafted("Landed booking."), `${project}:fail-final`);
+    await objectOf(stage(sql, grant, String(readBooking.receipt), staged.file.document));
+    await objectOf(sql`select public.propose_ready(${grant}::uuid, 'booking') as r`);
+    const prepared = await objectOf(prepare(sql, grant));
+    const sha = madeSha(`${project}:fail-final-sha`);
+    await sql`select public.prd_git_op_written(${String(prepared.op)}::uuid, ${String(prepared.base)}, ${sha})`;
+    await reconcile(sql, project, String(prepared.base), [
+      { sha, parents: [String(prepared.base)], login: null, message: "PRD tools", changes: [staged] },
+    ]);
+    expect(await opStatus(sql, String(prepared.op))).toBe("finalized");
+    expect((await sections(sql, project)).booking.state).toBe("ready");
+    expect(await refusal(sql`select public.prd_git_op_fail(${String(prepared.op)}::uuid)`)).toBe("invalid-request");
+    expect(await opStatus(sql, String(prepared.op))).toBe("finalized");
+    const blocked = await refused(prepare(sql, grant));
+    expect(blocked.detail).toBe("turn-committed");
+    expect(blocked.hint).toMatchObject({ sha, turn: turn.turnId, status: "finalized" });
   });
 });

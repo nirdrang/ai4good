@@ -594,3 +594,280 @@ export function openAct(env: Record<string, string | undefined>, fetchImpl: Gith
     return { args: settle, failure: null };
   };
 }
+
+const COMMIT_ROUNDS = 3;
+
+export type CommitTurnResult =
+  | { ok: true; result: "committed"; sha: string }
+  | { ok: true; result: "stale"; sections: unknown }
+  | { ok: true; result: "busy" }
+  | { ok: false; reason: string };
+
+type PreparedCommit = {
+  op: string;
+  attempt: number;
+  base: string;
+  turn: string;
+  repo: string;
+  sections: OpenSection[];
+};
+
+type WrittenAttempt = {
+  op: string;
+  status: "prepared" | "written" | "published";
+  base: string;
+  sha: string | null;
+  turn: string;
+  repo: string;
+};
+
+type PrepareRead =
+  | { kind: "prepared"; prepared: PreparedCommit }
+  | { kind: "inflight"; attempt: WrittenAttempt }
+  | { kind: "done"; result: CommitTurnResult };
+
+type Flow = { kind: "done"; result: CommitTurnResult } | { kind: "again" };
+
+function done(result: CommitTurnResult): Flow {
+  return { kind: "done", result };
+}
+
+function again(): Flow {
+  return { kind: "again" };
+}
+
+function commitFailed(): CommitTurnResult {
+  return { ok: false, reason: "commit-failed" };
+}
+
+function sameSha(left: string, right: string): boolean {
+  return left.toLowerCase() === right.toLowerCase();
+}
+
+function commitMessage(turn: string): string {
+  return `Update the PRD\n\nPRD-Turn: ${turn}\n`;
+}
+
+function hintRecord(value: string | null | undefined): Record<string, unknown> | null {
+  if (typeof value !== "string" || value === "") return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function whole(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
+
+function preparedOf(value: Record<string, unknown>): PreparedCommit | null {
+  const op = text(value.op);
+  const turn = text(value.turn);
+  const repo = text(value.repo);
+  const base = shaOf(value.base);
+  const attempt = whole(value.attempt);
+  if (
+    op === null ||
+    !UUID.test(op) ||
+    turn === null ||
+    !UUID.test(turn) ||
+    repo === null ||
+    base === null ||
+    attempt === null
+  ) {
+    return null;
+  }
+  const sections = sectionsOf(value.sections);
+  if (sections === null) return null;
+  return { op, attempt, base, turn, repo, sections };
+}
+
+function attemptOf(
+  hint: Record<string, unknown> | null,
+  detail: "attempt-prepared" | "attempt-written" | "attempt-published",
+): WrittenAttempt | null {
+  if (hint === null) return null;
+  const op = text(hint.op);
+  const turn = text(hint.turn);
+  const repo = text(hint.repo);
+  if (op === null || !UUID.test(op) || turn === null || !UUID.test(turn) || repo === null || whole(hint.attempt) === null) {
+    return null;
+  }
+  const status =
+    detail === "attempt-prepared" ? "prepared" : detail === "attempt-written" ? "written" : "published";
+  const base = hint.base === null || hint.base === undefined ? null : shaOf(hint.base);
+  if ((hint.base !== null && hint.base !== undefined && base === null) || base === null) return null;
+  const sha = hint.sha === null || hint.sha === undefined ? null : shaOf(hint.sha);
+  if (hint.sha !== null && hint.sha !== undefined && sha === null) return null;
+  if (status !== "prepared" && sha === null) return null;
+  return { op, status, base, sha, turn, repo };
+}
+
+async function asked(deps: GitDeps, name: string, args: Record<string, unknown>) {
+  const call = deps.rpc;
+  return call(name, args);
+}
+
+async function readPrepare(deps: GitDeps, grant: string): Promise<PrepareRead> {
+  const result = await asked(deps, "commit_prepare", { p_grant: grant });
+  if (result.ok) {
+    if (!isRecord(result.value)) return { kind: "done", result: commitFailed() };
+    if (result.value.ok === false && result.value.reason === "stale") {
+      return { kind: "done", result: { ok: true, result: "stale", sections: result.value.sections ?? [] } };
+    }
+    if (result.value.ok !== true) return { kind: "done", result: commitFailed() };
+    const prepared = preparedOf(result.value);
+    if (prepared === null) return { kind: "done", result: commitFailed() };
+    return { kind: "prepared", prepared };
+  }
+  const detail = result.details ?? "";
+  const hint = hintRecord(result.hint);
+  if (detail === "turn-committed") {
+    const sha = hint === null ? null : shaOf(hint.sha);
+    if (sha === null) return { kind: "done", result: commitFailed() };
+    return { kind: "done", result: { ok: true, result: "committed", sha } };
+  }
+  if (detail === "attempt-prepared" || detail === "attempt-written" || detail === "attempt-published") {
+    const attempt = attemptOf(hint, detail);
+    if (attempt === null) return { kind: "done", result: commitFailed() };
+    return { kind: "inflight", attempt };
+  }
+  if (detail !== "") return { kind: "done", result: { ok: false, reason: detail } };
+  return { kind: "done", result: commitFailed() };
+}
+
+async function failOp(deps: GitDeps, op: string): Promise<boolean> {
+  const failed = await asked(deps, "prd_git_op_fail", { p_op: op });
+  return failed.ok;
+}
+
+async function synced(project: string, deps: GitDeps, known?: string): Promise<boolean> {
+  const result = known === undefined ? await syncRepo(project, deps) : await syncRepo(project, deps, known);
+  return result.ok;
+}
+
+async function mainSha(github: GithubRepo, repo: string): Promise<string | null> {
+  const head = await github.head(repo);
+  if (!head.ok || "missing" in head) return null;
+  return head.sha;
+}
+
+async function dropAttempt(
+  project: string,
+  deps: GitDeps,
+  attempt: WrittenAttempt,
+  syncAfter: boolean,
+): Promise<Flow> {
+  if (attempt.status === "published") return done(commitFailed());
+  if (!(await failOp(deps, attempt.op))) return done(commitFailed());
+  if (syncAfter && !(await synced(project, deps))) return done(commitFailed());
+  return again();
+}
+
+async function resume(
+  project: string,
+  grant: string,
+  deps: GitDeps,
+  attempt: WrittenAttempt,
+  allowRetry: boolean,
+): Promise<Flow> {
+  if (attempt.sha === null) return done(commitFailed());
+  if (!(await synced(project, deps))) return done(commitFailed());
+  const probe = await readPrepare(deps, grant);
+  if (probe.kind === "done") return probe;
+  if (probe.kind === "prepared") {
+    await failOp(deps, probe.prepared.op);
+    return done(commitFailed());
+  }
+  const head = await mainSha(deps.github, attempt.repo);
+  if (head === null) return done(commitFailed());
+  if (sameSha(head, attempt.sha)) {
+    if (!(await synced(project, deps))) return done(commitFailed());
+    const seen = await readPrepare(deps, grant);
+    if (seen.kind === "done" && seen.result.ok && seen.result.result === "committed") return seen;
+    return done(commitFailed());
+  }
+  if (sameSha(head, attempt.base)) {
+    if (!allowRetry) return done({ ok: true, result: "busy" });
+    const moved = await deps.github.advance(attempt.repo, attempt.sha);
+    if (!moved.ok && moved.kind === "uncertain") return resume(project, grant, deps, attempt, false);
+    return settleAdvance(project, grant, deps, attempt, moved);
+  }
+  return dropAttempt(project, deps, attempt, false);
+}
+
+async function settleAdvance(
+  project: string,
+  grant: string,
+  deps: GitDeps,
+  attempt: WrittenAttempt,
+  moved: Awaited<ReturnType<GithubRepo["advance"]>>,
+): Promise<Flow> {
+  if (attempt.sha === null) return done(commitFailed());
+  if (!moved.ok) {
+    if (moved.kind !== "uncertain") return done(commitFailed());
+    return resume(project, grant, deps, attempt, true);
+  }
+  if (moved.result === "rejected") return dropAttempt(project, deps, attempt, true);
+  if (!(await synced(project, deps, attempt.sha))) return done(commitFailed());
+  return done({ ok: true, result: "committed", sha: attempt.sha });
+}
+
+async function publishPrepared(
+  project: string,
+  grant: string,
+  deps: GitDeps,
+  prepared: PreparedCommit,
+): Promise<Flow> {
+  const files = rendered(prepared.sections);
+  if (!files.ok) return done(commitFailed());
+  const written = await deps.github.writeCommit(
+    prepared.repo,
+    prepared.base,
+    files.files,
+    commitMessage(prepared.turn),
+  );
+  if (!written.ok) return done(commitFailed());
+  const registered = await asked(deps, "prd_git_op_written", {
+    p_op: prepared.op,
+    p_base: prepared.base,
+    p_sha: written.sha,
+  });
+  if (!registered.ok) return done(commitFailed());
+  const sha = shaOf(registered.value) ?? written.sha;
+  const attempt: WrittenAttempt = {
+    op: prepared.op,
+    status: "written",
+    base: prepared.base,
+    sha,
+    turn: prepared.turn,
+    repo: prepared.repo,
+  };
+  return settleAdvance(project, grant, deps, attempt, await deps.github.advance(prepared.repo, sha));
+}
+
+/** Commits one turn. The trailer is only a hint; SQL decides what the commit did. */
+export async function commitTurn(
+  project: string,
+  grant: string,
+  deps: GitDeps,
+): Promise<CommitTurnResult> {
+  for (let round = 0; round < COMMIT_ROUNDS; round += 1) {
+    const read = await readPrepare(deps, grant);
+    if (read.kind === "done") return read.result;
+    if (read.kind === "inflight") {
+      if (read.attempt.status === "prepared") {
+        if (!(await failOp(deps, read.attempt.op))) return commitFailed();
+        continue;
+      }
+      const resumed = await resume(project, grant, deps, read.attempt, true);
+      if (resumed.kind === "done") return resumed.result;
+      continue;
+    }
+    const published = await publishPrepared(project, grant, deps, read.prepared);
+    if (published.kind === "done") return published.result;
+  }
+  return { ok: true, result: "busy" };
+}

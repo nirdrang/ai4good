@@ -10,6 +10,7 @@ import {
   rpcRefusalStatus,
   writePipeline,
   WRITE_ROUTES,
+  type SettleDatabase,
   type WriteRouteInput,
   type WriteRouteSpec,
   type WriteStanding,
@@ -142,6 +143,22 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+export function prdServiceRpc(): SettleDatabase {
+  return async (name, args) => {
+    const outcome = await callDatabaseFunction(name, args);
+    if (!outcome.ok) {
+      return {
+        ok: false,
+        message: outcome.message,
+        details: outcome.details,
+        hint: outcome.hint,
+        code: outcome.code,
+      };
+    }
+    return { ok: true, value: outcome.value };
+  };
 }
 
 /** The PRD tables are closed to the browser, so the snapshot read is this service-role call. */

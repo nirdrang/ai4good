@@ -285,7 +285,10 @@ export type SettleActResult = {
 export type SettleDatabase = (
   name: string,
   args: Record<string, unknown>,
-) => Promise<{ ok: true; value: unknown } | { ok: false; message: string }>;
+) => Promise<
+  | { ok: true; value: unknown }
+  | { ok: false; message: string; details?: string | null; hint?: string | null; code?: string | null }
+>;
 export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
   readonly readBody?: (request: Request) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string; kind?: WriteRefusalKind; status?: number }>;

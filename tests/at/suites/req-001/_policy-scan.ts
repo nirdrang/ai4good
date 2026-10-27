@@ -75,6 +75,8 @@ export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
     'the edge records the commit sha after prd_open_begin already admitted the developer; no account acts in this call',
   prd_git_op_published:
     'the edge records that main moved after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_git_op_fail:
+    'the edge ends a turn attempt that did not land, after a turn that was already admitted; no account acts in this call',
   prd_reconcile:
     'sync applies repository history after an admitted open; no account acts in this call',
   prd_mark_diverged:
