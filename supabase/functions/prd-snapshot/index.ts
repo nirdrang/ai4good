@@ -2,6 +2,7 @@ import {
   edgeHandler,
   empty,
   json,
+  prdRelay,
   readJsonBody,
   readPrdSnapshot,
   refusal,
@@ -9,6 +10,7 @@ import {
   resolveCaller,
   syncPrdFromGithub,
 } from "../_shared/edge.ts";
+import { catchUpOverdue } from "../_shared/prd/relay.ts";
 import { snapshotFromRecord, viewerFromRecord } from "../_shared/prd/snapshot.ts";
 import {
   integerField,
@@ -19,6 +21,7 @@ import {
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const ANON_KEY = requireEnv("SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY");
+const RELAY = prdRelay();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -46,6 +49,12 @@ Deno.serve(
       const kind = status === 409 ? parseWriteRefusalKind(outcome.details) : "refused";
       return json({ ok: false, kind, reason: outcome.message }, status);
     }
+    EdgeRuntime.waitUntil(
+      catchUpOverdue(RELAY, projectId).catch((error: unknown) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        console.error(`prd-snapshot catch-up: ${detail}`);
+      }),
+    );
     if (outcome.value === null) return empty(204);
     const snapshot = snapshotFromRecord(outcome.value, viewerFromRecord(outcome.value));
     if (isRecord(outcome.value) && outcome.value.syncStale === true) {

@@ -21,6 +21,7 @@ import { requireEnv } from './env.ts';
 import { githubConfig } from './github/app.ts';
 import { githubRepo } from './github/repo.ts';
 import { syncRepo } from './prd/git.ts';
+import { prdRelayDeps, type PrdRelayDeps } from './prd/relay.ts';
 export { requireEnv } from './env.ts';
 
 const CORS_HEADERS: Record<string, string> = {
@@ -161,6 +162,20 @@ export function prdServiceRpc(): SettleDatabase {
   };
 }
 
+export function prdRelay(): PrdRelayDeps {
+  return prdRelayDeps({
+    rpc: prdServiceRpc(),
+    fetch,
+    env: {
+      ANTHROPIC_API_KEY: Deno.env.get('ANTHROPIC_API_KEY'),
+      PRD_MANAGED_AGENT_ID: Deno.env.get('PRD_MANAGED_AGENT_ID'),
+      PRD_MANAGED_ENVIRONMENT_ID: Deno.env.get('PRD_MANAGED_ENVIRONMENT_ID'),
+      PRD_TOOLS_PUBLIC_URL: Deno.env.get('PRD_TOOLS_PUBLIC_URL'),
+      PRD_GRANT_SIGNING_KEY: Deno.env.get('PRD_GRANT_SIGNING_KEY'),
+    },
+  });
+}
+
 /** The PRD tables are closed to the browser, so the snapshot read is this service-role call. */
 export function readPrdSnapshot(
   actorId: string,
@@ -284,7 +299,12 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     const standing = await loadWriteStanding(caller.id, target, subject);
     let decision = writePipeline(spec, { caller, standing, body: body.value, target, subject, ip: callerIp(request) });
     if (decision.ok && spec.prepare) {
-      decision = await spec.prepare(caller, decision.args, callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!));
+      decision = await spec.prepare(
+        caller,
+        decision.args,
+        callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!),
+        discoveryStream.wantsEventStream(request.headers.get('Accept')),
+      );
     }
     if (!decision.ok) {
       return json({ ok: false, kind: decision.kind, reason: decision.reason }, decision.status);

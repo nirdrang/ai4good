@@ -721,6 +721,135 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     ).toBe("invalid-request");
   });
 
+  async function scalar(query: Promise<unknown>): Promise<unknown> {
+    const rows = (await query) as Array<{ r: unknown }>;
+    return rows[0].r;
+  }
+
+  function sessionRead(w: World, key: string) {
+    return one(sql`select public.prd_session_read(${w.project}::uuid, ${key}) as r`);
+  }
+
+  it("keeps one session per chat, and moves its credential and cursor only from what was read", async () => {
+    const w = await world(stack, sql);
+    await credit(w.project, 1_000_000n);
+    const turn = await reserveIn(w, w.dev, "main", "Who books shifts?");
+
+    const fresh = await sessionRead(w, "main");
+    expect(fresh.session).toBeNull();
+    expect(record(fresh.turn)).toMatchObject({
+      id: turn,
+      kind: "reply",
+      state: "admitted",
+      dispatched: false,
+      parts: [{ type: "text", text: "Who books shifts?" }],
+      modelRequests: 0,
+    });
+    expect(Number(record(fresh.turn).ageSeconds)).toBeGreaterThanOrEqual(0);
+    expect(await refusal(sessionRead(w, "topic:nope"))).toBe("invalid-request");
+
+    expect(await scalar(sql`select public.prd_turn_dispatch(${turn}::uuid) as r`)).toBe(true);
+    expect(await scalar(sql`select public.prd_turn_dispatch(${turn}::uuid) as r`)).toBe(false);
+    expect(record((await sessionRead(w, "main")).turn).dispatched).toBe(true);
+
+    const opened = await one(
+      sql`select public.prd_session_open(${turn}::uuid, 'sesn_a', 'vlt_a', 'vcrd_a') as r`,
+    );
+    expect(opened).toEqual({
+      sessionId: "sesn_a",
+      vaultId: "vlt_a",
+      credentialId: "vcrd_a",
+      generation: 1,
+      cursor: null,
+    });
+    expect(
+      await one(
+        sql`select public.prd_session_open(${turn}::uuid, 'sesn_a', 'vlt_a', 'vcrd_a') as r`,
+      ),
+    ).toEqual(opened);
+    expect(
+      await refusal(
+        sql`select public.prd_session_open(${turn}::uuid, 'sesn_b', 'vlt_b', 'vcrd_b') as r`,
+      ),
+    ).toBe("invalid-request");
+    expect(
+      await refusal(
+        sql`select public.prd_session_open(${turn}::uuid, 'sesn_a', '', 'vcrd_a') as r`,
+      ),
+    ).toBe("invalid-request");
+
+    const usage = { input: 100, output: 10, cacheRead: 0, cacheWrite: 0 };
+    expect(await ingest(turn, modelEnd("sesn_a", "sevt_e1", usage))).toMatchObject({
+      state: "settled",
+    });
+    expect(await refusal(ingest(turn, modelEnd("sesn_b", "sevt_e2", usage)))).toBe(
+      "invalid-request",
+    );
+    expect(record((await sessionRead(w, "main")).turn).modelRequests).toBe(1);
+
+    expect(await scalar(sql`select public.prd_session_rotate(${turn}::uuid, 1) as r`)).toBe(2);
+    expect(await refusal(sql`select public.prd_session_rotate(${turn}::uuid, 1) as r`)).toBe(
+      "stale",
+    );
+
+    expect(
+      await scalar(sql`select public.prd_session_advance(${turn}::uuid, null, 'sevt_1') as r`),
+    ).toBe(true);
+    expect(
+      await scalar(sql`select public.prd_session_advance(${turn}::uuid, null, 'sevt_2') as r`),
+    ).toBe(false);
+    expect(
+      await scalar(sql`select public.prd_session_advance(${turn}::uuid, 'sevt_1', 'sevt_2') as r`),
+    ).toBe(true);
+    expect(
+      await refusal(sql`select public.prd_session_advance(${turn}::uuid, 'sevt_2', ' ') as r`),
+    ).toBe("invalid-request");
+    expect((await sessionRead(w, "main")).session).toEqual({
+      sessionId: "sesn_a",
+      vaultId: "vlt_a",
+      credentialId: "vcrd_a",
+      generation: 2,
+      cursor: "sevt_2",
+    });
+
+    await ingest(turn, { kind: "end", outcome: "answered" });
+    for (const finished of [
+      sql`select public.prd_turn_dispatch(${turn}::uuid) as r`,
+      sql`select public.prd_session_rotate(${turn}::uuid, 2) as r`,
+      sql`select public.prd_session_advance(${turn}::uuid, 'sevt_2', 'sevt_3') as r`,
+    ]) {
+      expect(await refusal(finished)).toBe("stale");
+    }
+    const after = await sessionRead(w, "main");
+    expect(after.turn).toBeNull();
+    expect(record(after.session).sessionId).toBe("sesn_a");
+
+    const next = await reserveIn(w, w.dev, "main", "And who cancels?");
+    expect(record((await sessionRead(w, "main")).turn)).toMatchObject({
+      id: next,
+      dispatched: false,
+    });
+    expect((await sessionRead(w, "topic:booking")).session).toBeNull();
+  });
+
+  it("lists the chats whose turn is uncertain or past its deadline", async () => {
+    const w = await world(stack, sql);
+    await credit(w.project, 1_000_000n);
+    const main = await reserveIn(w, w.dev, "main");
+    const topic = await reserveIn(w, w.dev, "topic:booking");
+    const overdue = (seconds: number) =>
+      scalar(sql`select public.prd_turns_overdue(${w.project}::uuid, ${seconds}) as r`).then(
+        jsonValue,
+      );
+    expect(await overdue(600)).toEqual([]);
+    expect(await overdue(0)).toEqual(["main", "topic:booking"]);
+    await ingest(topic, { kind: "end", outcome: "uncertain" });
+    expect(await overdue(600)).toEqual(["topic:booking"]);
+    await ingest(main, { kind: "end", outcome: "answered" });
+    await ingest(topic, { kind: "end", outcome: "answered" });
+    expect(await overdue(0)).toEqual([]);
+  });
+
   it("writes no ledger entry for reading, drafting, or opening questions", async () => {
     const w = await world(stack, sql);
     await credit(w.project, 1_000_000n);

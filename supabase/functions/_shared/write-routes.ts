@@ -298,7 +298,7 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   readonly subject?: (body: Record<string, unknown>) => string | null;
   readonly from?: (body: Record<string, unknown>) => string | null;
   readonly decide: (input: Input) => WriteRouteDecision<Args>;
-  readonly prepare?: (caller: Caller, args: Args, reads: CallerReads) => Promise<WriteRouteDecision<Args>>;
+  readonly prepare?: (caller: Caller, args: Args, reads: CallerReads, stream: boolean) => Promise<WriteRouteDecision<Args>>;
   readonly settle?: {
     readonly rpc: string;
     readonly act: (reserved: unknown, args: Args, database?: SettleDatabase) => Promise<SettleActResult>;

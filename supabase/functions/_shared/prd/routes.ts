@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import type { Caller } from "../caller.ts";
+import type { CallerReads } from "../tenant-reads.ts";
+import { catchUpChat, PRD_MODEL_UNAVAILABLE, runPrdTurn, type PrdRelayDeps } from "./relay.ts";
 import { snapshotFromRecord, viewerFromRecord } from "./snapshot.ts";
 import type { ActionKind, ChatScope, PrdIntent, QuestionId, TopicId } from "./wire.ts";
 import {
@@ -8,6 +11,7 @@ import {
   stringField,
   uuidField,
   type AccountWriteRouteInput,
+  type SettleActResult,
   type WriteRouteDecision,
 } from "../write-routes.ts";
 
@@ -231,6 +235,37 @@ export function decidePrdAction(input: AccountWriteRouteInput): WriteRouteDecisi
       p_kind: kind,
       p_token: token,
       p_request_id: requestId,
+    },
+  };
+}
+
+export function prdMessagePrepare(deps: PrdRelayDeps) {
+  return async (
+    _caller: Caller,
+    args: PrdMessageArgs,
+    _reads: CallerReads,
+    stream: boolean,
+  ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
+    if (deps.managed === null) {
+      return stream ? refuseWrite("refused", 503, PRD_MODEL_UNAVAILABLE) : { ok: true, args };
+    }
+    await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
+    return { ok: true, args };
+  };
+}
+
+export function prdMessageSettle(deps: PrdRelayDeps) {
+  return {
+    rpc: "prd_turn_ingest",
+    act: async (): Promise<SettleActResult> => ({ args: null, failure: null, skipSettle: true }),
+    stream: async (
+      reserved: unknown,
+      args: PrdMessageArgs,
+      onDelta: (text: string) => void,
+    ): Promise<SettleActResult> => {
+      const turnId = isRecord(reserved) ? uuidField(reserved.turnId) : null;
+      if (turnId === null) return { args: null, failure: "The turn could not be read." };
+      return runPrdTurn(deps, args.p_project, args.p_chat_key, turnId, onDelta);
     },
   };
 }
