@@ -7,6 +7,7 @@ import {
   refusal,
   requireEnv,
   resolveCaller,
+  syncPrdFromGithub,
 } from "../_shared/edge.ts";
 import { snapshotFromRecord, viewerFromRecord } from "../_shared/prd/snapshot.ts";
 import {
@@ -18,6 +19,10 @@ import {
 
 const SUPABASE_URL = requireEnv("SUPABASE_URL");
 const ANON_KEY = requireEnv("SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY");
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 Deno.serve(
   edgeHandler("prd-snapshot", async (request: Request): Promise<Response> => {
@@ -42,6 +47,19 @@ Deno.serve(
       return json({ ok: false, kind, reason: outcome.message }, status);
     }
     if (outcome.value === null) return empty(204);
-    return json(snapshotFromRecord(outcome.value, viewerFromRecord(outcome.value)), 200);
+    const snapshot = snapshotFromRecord(outcome.value, viewerFromRecord(outcome.value));
+    if (isRecord(outcome.value) && outcome.value.syncStale === true) {
+      const pending = syncPrdFromGithub(projectId).then(
+        (result) => {
+          if (!result.ok) console.error(`prd-snapshot sync: ${result.reason}`);
+        },
+        (error: unknown) => {
+          const detail = error instanceof Error ? error.message : String(error);
+          console.error(`prd-snapshot sync: ${detail}`);
+        },
+      );
+      EdgeRuntime.waitUntil(pending);
+    }
+    return json(snapshot, 200);
   }),
 );

@@ -650,7 +650,8 @@ begin
         when v.variant = 'missing' then 'the file was removed from the repository'
         when v.variant = 'unreadable' then v.parse_error
         else null
-      end
+      end,
+      'author', v.author_login
     )
     order by s.ordinal
   ), '[]'::jsonb)
@@ -729,7 +730,14 @@ begin
     'project', jsonb_build_object('title', v_title, 'organizationName', v_org_name),
     'sections', v_sections,
     'chats', v_chats,
-    'drafts', v_drafts
+    'drafts', v_drafts,
+    'syncStale', (
+      v_record.repo_id is not null
+      and (
+        v_record.synced_at is null
+        or v_record.synced_at < clock_timestamp() - interval '60 seconds'
+      )
+    )
   );
 end;
 $$;

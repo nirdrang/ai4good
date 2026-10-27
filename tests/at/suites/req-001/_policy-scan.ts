@@ -568,12 +568,21 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
     }
     if (fn.definer && !fn.viewer) {
       for (const role of fn.executeRoles) {
-        if (CLIENT_EXECUTE_ROLES.has(role)) {
-          problems.push({
-            code: 'definer-client-execute',
-            detail: `${name} grants execute to ${role}; non-viewer definers stay service_role only`,
-          });
+        if (!CLIENT_EXECUTE_ROLES.has(role)) continue;
+        // Realtime evaluates this as the signed-in caller. It is the only such definer.
+        if (
+          name === 'public.prd_can_listen' &&
+          role === 'authenticated' &&
+          fn.searchPath &&
+          fn.revokedPublic &&
+          fn.executeRoles.size === 1
+        ) {
+          continue;
         }
+        problems.push({
+          code: 'definer-client-execute',
+          detail: `${name} grants execute to ${role}; non-viewer definers stay service_role only`,
+        });
       }
     }
   }

@@ -613,3 +613,6 @@ verify_jwt = true
 
 [functions.prd-action]
 verify_jwt = true
+
+[functions.prd-github-hook]
+verify_jwt = false

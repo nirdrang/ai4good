@@ -140,6 +140,7 @@ function topicOf(section: unknown): Topic {
     stories: storiesOf(scope),
     scope,
     changeSummary: typeof changed === "string" ? changed : null,
+    author: typeof section.author === "string" ? section.author : null,
     confirm: unavailable(),
     reopen: unavailable(),
   };

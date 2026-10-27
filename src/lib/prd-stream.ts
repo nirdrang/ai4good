@@ -183,6 +183,7 @@ const topicSchema = z.object({
   stories: z.array(z.string()).nullable(),
   scope: topicScopeSchema.nullable(),
   changeSummary: z.string().nullable(),
+  author: z.string().nullable(),
   confirm: availabilitySchema(actionSchema("confirm-topic")),
   reopen: availabilitySchema(actionSchema("reopen-topic")),
 });

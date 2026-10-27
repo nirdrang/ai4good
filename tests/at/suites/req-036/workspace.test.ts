@@ -141,7 +141,7 @@ atTest(
 atTest(
   "AT-036.02",
   "Drafts, history, and chats survive reload, with no turn to restore",
-  { surface: "ui", timeoutMs: { loop: 90_000, integration: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000, integration: 300_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {

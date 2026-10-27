@@ -55,6 +55,7 @@ export type Topic = Readonly<{
   stories: readonly string[] | null;
   scope: TopicScope | null;
   changeSummary: string | null;
+  author: string | null;
   confirm: Availability<Action<"confirm-topic">>;
   reopen: Availability<Action<"reopen-topic">>;
 }>;

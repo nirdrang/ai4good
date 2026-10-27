@@ -1,3 +1,8 @@
+import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
 import { expect } from "vitest";
 import { AtPending } from "../../harness/registry.ts";
 import { loadGithubTest } from "../../harness/github.ts";
@@ -11,7 +16,7 @@ import {
 } from "../../harness/live-stack.ts";
 import { parsePrdSnapshot, type PrdSnapshot } from "../../../../src/lib/prd-stream.ts";
 import type { GithubRepo } from "../../../../supabase/functions/_shared/github/repo.ts";
-import { parseSection } from "../../../../supabase/functions/_shared/prd/file.ts";
+import { parseSection, renderSection, sectionPath } from "../../../../supabase/functions/_shared/prd/file.ts";
 import {
   OPEN_STEPS,
   parseOpenOperation,
@@ -978,6 +983,7 @@ export async function proveRecordSurvives(): Promise<void> {
     );
     expect(stranger.status).toBe(409);
     expect(stranger.json.kind).toBe("forbidden");
+    await proveOutsideReaches(seeded, devSnapshot.sequence, devSnapshot.revision);
   } finally {
     await seeded.sql.close();
   }
@@ -1789,5 +1795,383 @@ export async function proveRolesAndPermissions(): Promise<void> {
     );
   } finally {
     await seeded.sql.close();
+  }
+}
+
+const WEEK_AHEAD = "Volunteers book themselves a week ahead.";
+const MONTH_AHEAD = "Volunteers book themselves a month ahead.";
+const RENAMED_BOOKING = "prd/who-books.md";
+const UNKNOWN_PATH = "prd/notes.md";
+
+function webhookSecret(): string {
+  const path = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "..",
+    "..",
+    "supabase",
+    "functions",
+    ".env",
+  );
+  const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "");
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("GITHUB_WEBHOOK_SECRET=")) continue;
+    let value = trimmed.slice("GITHUB_WEBHOOK_SECRET=".length).trim();
+    const first = value[0];
+    const last = value[value.length - 1];
+    if (
+      value.length >= 2 &&
+      ((first === '"' && last === '"') || (first === "'" && last === "'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (value === "") throw new Error("GITHUB_WEBHOOK_SECRET is empty");
+    return value;
+  }
+  throw new Error("GITHUB_WEBHOOK_SECRET is missing from supabase/functions/.env");
+}
+
+function signDelivery(secret: string, body: string): string {
+  return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
+}
+
+async function postDelivery(
+  stack: Stack,
+  event: string,
+  body: string,
+  signature: string,
+): Promise<{ status: number; text: string }> {
+  const response = await fetch(`${stack.apiUrl.replace(/\/$/, "")}/functions/v1/prd-github-hook`, {
+    method: "POST",
+    headers: {
+      apikey: stack.anonKey,
+      Authorization: `Bearer ${stack.anonKey}`,
+      "content-type": "application/json",
+      "x-github-event": event,
+      "x-hub-signature-256": signature,
+    },
+    body,
+  });
+  return { status: response.status, text: await response.text() };
+}
+
+function realtimeClient(stack: Stack) {
+  return createClient(stack.apiUrl, stack.anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
+
+function channelStatus(channel: RealtimeChannel, timeoutMs: number): Promise<string> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve("TIMED_OUT"), timeoutMs);
+    channel.subscribe((status) => {
+      if (
+        status === "SUBSCRIBED" ||
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        clearTimeout(timer);
+        resolve(status);
+      }
+    });
+  });
+}
+
+function sequenceOf(value: unknown): number | null {
+  if (typeof value === "number" && Number.isSafeInteger(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return Number(value);
+  return null;
+}
+
+async function nextSequence(heard: readonly number[], held: number): Promise<number> {
+  const start = Date.now();
+  for (;;) {
+    const found = heard.find((sequence) => sequence > held);
+    if (found !== undefined) return found;
+    if (Date.now() - start >= 30_000) {
+      throw new Error(
+        `the channel did not hear a sequence above ${held}; heard ${JSON.stringify(heard)}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+async function ngoSnapshot(seeded: Seed): Promise<PrdSnapshot> {
+  const read = await functionPost(
+    seeded.stack,
+    "prd-snapshot",
+    { projectId: seeded.projectId },
+    seeded.ngo.token,
+  );
+  expect(read.status, JSON.stringify(read.json)).toBe(200);
+  return parsePrdSnapshot(read.json);
+}
+
+function topicById(snapshot: PrdSnapshot, id: string) {
+  const topic = snapshot.topics.find((item) => item.id === id);
+  if (topic === undefined) throw new Error(`missing topic ${id}`);
+  return topic;
+}
+
+async function mainSha(client: GithubRepo, repo: string): Promise<string> {
+  const head = await client.head(repo);
+  if (!head.ok) throw new Error(head.reason);
+  if ("missing" in head) throw new Error("main is not a branch");
+  return head.sha;
+}
+
+async function sectionFile(client: GithubRepo, repo: string, sha: string, path: string) {
+  const tree = await client.prdTree(repo, sha);
+  if (!tree.ok) throw new Error(tree.reason);
+  const file = tree.files.find((item) => item.path === path);
+  if (file === undefined) throw new Error(`${path} is not in the tree`);
+  const blobs = await client.readBlobs(repo, [file.sha]);
+  if (!blobs.ok) throw new Error(blobs.reason);
+  const text = blobs.blobs[0]?.text;
+  if (text === undefined) throw new Error(`${path} had no blob text`);
+  const parsed = parseSection(text);
+  if (!parsed.ok) throw new Error(`${path}: ${parsed.reason}`);
+  return parsed.file;
+}
+
+async function commitOnMain(
+  client: GithubRepo,
+  repo: string,
+  files: { path: string; content: string | null }[],
+  message: string,
+): Promise<{ sha: string; login: string }> {
+  const parent = await mainSha(client, repo);
+  const written = await client.writeCommit(repo, parent, files, message);
+  if (!written.ok) throw new Error(written.reason);
+  const moved = await client.advance(repo, written.sha);
+  if (!moved.ok) throw new Error(moved.reason);
+  if (moved.result !== "advanced") throw new Error(`main did not advance: ${moved.result}`);
+  const since = await client.commitsSince(repo, parent, written.sha);
+  if (!since.ok) throw new Error(since.reason);
+  if (since.result !== "commits") throw new Error("the outside commit is not on the line");
+  const login = since.commits[since.commits.length - 1]?.committerLogin;
+  if (typeof login !== "string" || login === "") throw new Error("the outside commit names no committer");
+  return { sha: written.sha, login };
+}
+
+async function deliver(
+  stack: Stack,
+  body: string,
+  signature: string,
+): Promise<{ status: number; text: string }> {
+  return postDelivery(stack, "push", body, signature);
+}
+
+async function filePath(seeded: Seed, key: string): Promise<string> {
+  const rows = (await seeded.sql`select file_path from public.prd_sections
+    where project_id = ${seeded.projectId}::uuid and stable_key = ${key}`) as Array<{
+    file_path: string;
+  }>;
+  const path = rows[0]?.file_path;
+  if (typeof path !== "string" || path === "") throw new Error(`${key} has no file path`);
+  return path;
+}
+
+async function proveOutsideReaches(
+  seeded: Seed,
+  heldSequence: number,
+  heldRevision: number,
+): Promise<void> {
+  const loaded = loadGithubTest();
+  if (!loaded.ok) throw new Error(loaded.reason);
+  const secret = webhookSecret();
+  const rows = (await seeded.sql`select repo_name, repo_id from public.prd_records
+    where project_id = ${seeded.projectId}::uuid`) as Array<{
+    repo_name: string;
+    repo_id: unknown;
+  }>;
+  const repoName = String(rows[0]?.repo_name ?? "");
+  const repoId = asNumber(rows[0]?.repo_id);
+  const body = JSON.stringify({ repository: { id: repoId }, commits: [{ message: "ignored" }] });
+  const signature = signDelivery(secret, body);
+  const client = loaded.client;
+
+  const outsider = await user(
+    seeded.stack,
+    `outsider-${crypto.randomUUID()}@example.com`,
+    "ngo",
+    "Other Org",
+    seeded.sql,
+  );
+  const orgs = (await seeded.sql`insert into public.organizations (name)
+    values ('Other Kitchen') returning id`) as Array<{ id: string }>;
+  await seeded.sql`insert into public.org_memberships (org_id, account_id, role)
+    values (${String(orgs[0].id)}::uuid, ${outsider.accountId}::uuid, 'admin')`;
+
+  const ngoClient = realtimeClient(seeded.stack);
+  const otherClient = realtimeClient(seeded.stack);
+  await ngoClient.realtime.setAuth(seeded.ngo.token);
+  await otherClient.realtime.setAuth(outsider.token);
+  const heard: number[] = [];
+  const topic = `prd:${seeded.projectId}`;
+  const ngoChannel = ngoClient.channel(topic, { config: { private: true } });
+  ngoChannel.on("broadcast", { event: "sequence" }, (message: { payload?: { sequence?: unknown } }) => {
+    const sequence = sequenceOf(message.payload?.sequence);
+    if (sequence !== null) heard.push(sequence);
+  });
+  const otherChannel = otherClient.channel(topic, { config: { private: true } });
+  try {
+    const [ngoStatus, otherStatus] = await Promise.all([
+      channelStatus(ngoChannel, 15_000),
+      channelStatus(otherChannel, 15_000),
+    ]);
+    expect(ngoStatus, "the NGO subscribes to the project channel").toBe("SUBSCRIBED");
+    expect(otherStatus, "another organisation is refused the project channel").toBe("CHANNEL_ERROR");
+
+    const bookingPath = sectionPath("booking");
+    const bookingFile = await sectionFile(client, repoName, await mainSha(client, repoName), bookingPath);
+    const edited = {
+      ...bookingFile.document,
+      statements: bookingFile.document.statements.map((statement, index) =>
+        index === 0 ? { text: WEEK_AHEAD, sources: statement.sources } : statement,
+      ),
+    };
+    const pushed = await commitOnMain(
+      client,
+      repoName,
+      [{ path: bookingPath, content: renderSection({ key: bookingFile.key, title: bookingFile.title, document: edited }) }],
+      "Edit who books shifts",
+    );
+    const delivered = await deliver(seeded.stack, body, signature);
+    expect(delivered.status, delivered.text).toBe(200);
+    const sequence = await nextSequence(heard, heldSequence);
+    expect(sequence).toBeGreaterThan(heldSequence);
+    const afterPush = await ngoSnapshot(seeded);
+    const booking = topicById(afterPush, "booking");
+    expect(booking.statements).toContain(WEEK_AHEAD);
+    expect(afterPush.revision).toBeGreaterThan(heldRevision);
+    expect(booking.author).toBe(pushed.login);
+
+    const forged = await deliver(seeded.stack, body, `sha256=${"0".repeat(64)}`);
+    expect(forged.status).toBe(401);
+    const afterForgery = await ngoSnapshot(seeded);
+    expect(afterForgery.sequence).toBe(afterPush.sequence);
+    expect(topicById(afterForgery, "booking").statements).toEqual(booking.statements);
+
+    const replay = await deliver(seeded.stack, body, signature);
+    expect(replay.status, replay.text).toBe(200);
+    const afterReplay = await ngoSnapshot(seeded);
+    expect(afterReplay.sequence).toBe(afterPush.sequence);
+    expect(afterReplay.revision).toBe(afterPush.revision);
+    expect(topicById(afterReplay, "booking").statements).toEqual(booking.statements);
+
+    const current = await sectionFile(client, repoName, await mainSha(client, repoName), bookingPath);
+    const later = {
+      ...current.document,
+      statements: current.document.statements.map((statement, index) =>
+        index === 0 ? { text: MONTH_AHEAD, sources: statement.sources } : statement,
+      ),
+    };
+    await commitOnMain(
+      client,
+      repoName,
+      [{ path: bookingPath, content: renderSection({ key: current.key, title: current.title, document: later }) }],
+      "Edit booking again",
+    );
+    // Test-only write. The product never rewinds synced_at; this makes the next load look stale.
+    await seeded.sql`update public.prd_records
+      set synced_at = clock_timestamp() - interval '2 minutes'
+      where project_id = ${seeded.projectId}::uuid`;
+    const stale = await ngoSnapshot(seeded);
+    expect(topicById(stale, "booking").statements).toContain(WEEK_AHEAD);
+    expect(topicById(stale, "booking").statements).not.toContain(MONTH_AHEAD);
+    const started = Date.now();
+    let caught = stale;
+    for (;;) {
+      caught = await ngoSnapshot(seeded);
+      if (topicById(caught, "booking").statements.includes(MONTH_AHEAD)) break;
+      if (Date.now() - started >= 60_000) {
+        throw new Error("the stale load did not pick up the outside edit within 60s");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    expect(topicById(caught, "booking").statements).toContain(MONTH_AHEAD);
+
+    await commitOnMain(
+      client,
+      repoName,
+      [{ path: sectionPath("rules"), content: null }],
+      "Remove the rules file",
+    );
+    const removedDelivery = await deliver(seeded.stack, body, signature);
+    expect(removedDelivery.status, removedDelivery.text).toBe(200);
+    const removed = await ngoSnapshot(seeded);
+    const rules = topicById(removed, "rules");
+    expect(rules.blocker).toBe("the file was removed from the repository");
+    expect(rules.statements).toEqual([]);
+
+    const beforeRename = await ngoSnapshot(seeded);
+    const liveBooking = await sectionFile(
+      client,
+      repoName,
+      await mainSha(client, repoName),
+      bookingPath,
+    );
+    await commitOnMain(
+      client,
+      repoName,
+      [
+        { path: bookingPath, content: null },
+        { path: RENAMED_BOOKING, content: renderSection(liveBooking) },
+      ],
+      "Rename the booking file",
+    );
+    const renamedDelivery = await deliver(seeded.stack, body, signature);
+    expect(renamedDelivery.status, renamedDelivery.text).toBe(200);
+    const renamed = await ngoSnapshot(seeded);
+    expect(renamed.topics.map((item) => item.id)).toContain("booking");
+    expect(topicById(renamed, "booking").statements).toEqual(topicById(beforeRename, "booking").statements);
+    expect(await filePath(seeded, "booking")).toBe(RENAMED_BOOKING);
+
+    const raw = "not a section";
+    const unreadable = parseSection(raw);
+    if (unreadable.ok) throw new Error("expected the replacement file to fail parsing");
+    await commitOnMain(client, repoName, [{ path: RENAMED_BOOKING, content: raw }], "Break the booking file");
+    const brokenDelivery = await deliver(seeded.stack, body, signature);
+    expect(brokenDelivery.status, brokenDelivery.text).toBe(200);
+    const broken = topicById(await ngoSnapshot(seeded), "booking");
+    expect(broken.blocker).toBe(unreadable.reason);
+
+    const beforeUnknown = await ngoSnapshot(seeded);
+    const note = renderSection({
+      key: "mystery",
+      title: "Notes",
+      document: { statements: [{ text: "This key is not a topic.", sources: [] }], decisions: [] },
+    });
+    const unknown = await commitOnMain(
+      client,
+      repoName,
+      [{ path: UNKNOWN_PATH, content: note }],
+      "Add a file with an unknown key",
+    );
+    const unknownDelivery = await deliver(seeded.stack, body, signature);
+    expect(unknownDelivery.status, unknownDelivery.text).toBe(200);
+    const afterUnknown = await ngoSnapshot(seeded);
+    expect(afterUnknown.topics.map((item) => item.id)).toEqual(beforeUnknown.topics.map((item) => item.id));
+    expect(afterUnknown.topics.some((item) => item.id === "mystery")).toBe(false);
+    for (const item of beforeUnknown.topics) {
+      expect(topicById(afterUnknown, item.id).statements).toEqual([...item.statements]);
+    }
+    expect(afterUnknown.sequence).toBe(beforeUnknown.sequence);
+    const unknownRows = (await seeded.sql`select reason from public.prd_unknown_files
+      where project_id = ${seeded.projectId}::uuid and file_path = ${UNKNOWN_PATH}`) as Array<{
+      reason: string;
+    }>;
+    expect(unknownRows.map((row) => row.reason)).toContain("the file key is not a section");
+    const head = (await seeded.sql`select head_commit from public.prd_records
+      where project_id = ${seeded.projectId}::uuid`) as Array<{ head_commit: string }>;
+    expect(String(head[0]?.head_commit).toLowerCase()).toBe(unknown.sha.toLowerCase());
+  } finally {
+    await ngoClient.removeChannel(ngoChannel);
+    await otherClient.removeChannel(otherChannel);
   }
 }

@@ -780,6 +780,7 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
     stories: topic.stories === null ? null : [...topic.stories],
     scope: null,
     changeSummary: changeSummary(record, topic, role),
+    author: null,
     confirm,
     reopen,
   };

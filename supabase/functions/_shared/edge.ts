@@ -16,6 +16,9 @@ import {
 } from './write-routes.ts';
 
 import { requireEnv } from './env.ts';
+import { githubConfig } from './github/app.ts';
+import { githubRepo } from './github/repo.ts';
+import { syncRepo } from './prd/git.ts';
 export { requireEnv } from './env.ts';
 
 const CORS_HEADERS: Record<string, string> = {
@@ -151,6 +154,35 @@ export function readPrdSnapshot(
     p_project: projectId,
     p_since_sequence: sinceSequence,
   });
+}
+
+const PROJECT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The repository id is GitHub's. The bound project, if any, is a service-role lookup. */
+export async function prdProjectForRepo(repoId: number): Promise<string | null> {
+  const outcome = await callDatabaseFunction('prd_project_for_repo', { p_repo_id: repoId });
+  if (!outcome.ok) throw new Error(outcome.message);
+  if (typeof outcome.value !== 'string' || !PROJECT_UUID.test(outcome.value)) return null;
+  return outcome.value;
+}
+
+/** Reads the bound repository and folds it into the record. A failure is the caller's to log. */
+export async function syncPrdFromGithub(
+  projectId: string,
+): Promise<{ ok: true } | { ok: false; reason: string; status: number }> {
+  const configured = githubConfig({
+    PRD_GITHUB_ORG: Deno.env.get('PRD_GITHUB_ORG'),
+    GITHUB_APP_ID: Deno.env.get('GITHUB_APP_ID'),
+    GITHUB_APP_PRIVATE_KEY: Deno.env.get('GITHUB_APP_PRIVATE_KEY'),
+    PRD_GITHUB_REPO_VISIBILITY: Deno.env.get('PRD_GITHUB_REPO_VISIBILITY'),
+  });
+  if (!configured.ok) return { ok: false, reason: configured.reason, status: 503 };
+  const synced = await syncRepo(projectId, {
+    github: githubRepo(configured.config, fetch),
+    rpc: callDatabaseFunction,
+  });
+  if (!synced.ok) return { ok: false, reason: synced.reason, status: 502 };
+  return { ok: true };
 }
 
 function settledRefusal(value: unknown): string | null {
