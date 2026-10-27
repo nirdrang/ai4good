@@ -305,7 +305,7 @@ function devView(world: ToolsWorld): Promise<PrdSnapshot> {
 }
 
 function texts(snapshot: PrdSnapshot, id: string): string[] {
-  return topicById(snapshot, id).statements;
+  return [...topicById(snapshot, id).statements];
 }
 
 function progress(snapshot: PrdSnapshot): { confirmed: number; total: number } {
@@ -687,7 +687,7 @@ async function proveGrantToken(world: ToolsWorld, token: string): Promise<void> 
     if (!isRecord(tool) || typeof tool.name !== "string" || !isRecord(tool.inputSchema)) {
       throw new Error("tools/list returned a tool without a name and a schema");
     }
-    return tool;
+    return { name: tool.name, inputSchema: tool.inputSchema };
   });
   expect(
     tools.map((tool) => tool.name),
@@ -1296,8 +1296,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   expect(
     afterChange.confirmed,
     "the changed section and its dependent leave the confirmed count",
-  ).toBe(allConfirmed ? 1 : 1);
-  expect(afterChange.confirmed, "the confirmed count drops by two").toBe(progress(allConfirmed).confirmed - 2);
+  ).toBe(progress(allConfirmed).confirmed - 2);
   expect(afterChange.total, "the required total stays the same").toBe(progress(allConfirmed).total);
 
   const columns = await columnStates(world);

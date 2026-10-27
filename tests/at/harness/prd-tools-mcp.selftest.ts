@@ -31,9 +31,27 @@ function deps(rpc: SettleDatabase): PrdToolsDeps {
   };
 }
 
-function recording(reply: (name: string, args: Record<string, unknown>) => Awaited<ReturnType<SettleDatabase>>) {
+function storedGrant(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true as const,
+    value: {
+      grant: CLAIMS.grantId,
+      project: CLAIMS.projectId,
+      chat: CLAIMS.chatId,
+      turn: "77777777-7777-4777-8777-777777777777",
+      expiresAt: CLAIMS.expiresAt,
+      ...overrides,
+    },
+  };
+}
+
+function recording(
+  reply: (name: string, args: Record<string, unknown>) => Awaited<ReturnType<SettleDatabase>>,
+  stored = storedGrant(),
+) {
   const calls: { name: string; args: Record<string, unknown> }[] = [];
   const rpc: SettleDatabase = async (name, args) => {
+    if (name === "prd_grant_claims") return stored;
     calls.push({ name, args });
     return reply(name, args);
   };
@@ -88,6 +106,28 @@ it("answers 401 for a missing bearer, a bad bearer, and a grant SQL refuses", as
   );
   expect(called).toMatchObject({ status: 401, text: "" });
   expect(called.text).not.toContain(SECRET);
+});
+
+it("answers 401 when the signed claims differ from the stored grant", async () => {
+  const token = await signGrant(CLAIMS, KEY);
+  const cases = [
+    storedGrant({ project: "88888888-8888-4888-8888-888888888888" }),
+    storedGrant({ chat: "99999999-9999-4999-8999-999999999999" }),
+    storedGrant({ expiresAt: "2026-07-01T00:00:00.000Z" }),
+    { ok: false as const, message: SECRET, details: "unknown-grant" },
+  ];
+  for (const stored of cases) {
+    const silent = recording(() => {
+      throw new Error("sql");
+    }, stored as ReturnType<typeof storedGrant>);
+    const response = await post(
+      { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "read_section", arguments: { key: "booking" } } },
+      silent.rpc,
+      token,
+    );
+    expect(response).toMatchObject({ status: 401, text: "" });
+    expect(silent.calls).toHaveLength(0);
+  }
 });
 
 it("serves nothing when the signing key is missing or short", async () => {

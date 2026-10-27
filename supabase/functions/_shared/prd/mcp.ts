@@ -308,6 +308,19 @@ async function callTool(
   return toolResult(id, [JSON.stringify(called.value)], false);
 }
 
+async function storedClaims(signed: GrantClaims, deps: PrdToolsDeps): Promise<GrantClaims | null> {
+  const stored = await database(deps, "prd_grant_claims", { p_grant: signed.grantId });
+  if (!stored.ok || !isRecord(stored.value)) return null;
+  const { project, chat, expiresAt } = stored.value;
+  if (typeof project !== "string" || typeof chat !== "string" || typeof expiresAt !== "string") {
+    return null;
+  }
+  if (project.toLowerCase() !== signed.projectId.toLowerCase()) return null;
+  if (chat.toLowerCase() !== signed.chatId.toLowerCase()) return null;
+  if (Date.parse(expiresAt) !== Date.parse(signed.expiresAt)) return null;
+  return { grantId: signed.grantId, projectId: project, chatId: chat, expiresAt };
+}
+
 /** One stateless MCP response. The bearer is the grant token; SQL still checks the grant. */
 export async function handlePrdTools(request: Request, deps: PrdToolsDeps): Promise<Response> {
   if (request.method !== "POST") return empty(405);
@@ -316,6 +329,8 @@ export async function handlePrdTools(request: Request, deps: PrdToolsDeps): Prom
   if (token === null) return empty(401);
   const verified = await verifyGrant(token, deps.key, deps.now());
   if (!verified.ok) return empty(401);
+  const claims = await storedClaims(verified.claims, deps);
+  if (claims === null) return empty(401);
   let body: unknown;
   try {
     body = JSON.parse(await request.text());
@@ -335,7 +350,7 @@ export async function handlePrdTools(request: Request, deps: PrdToolsDeps): Prom
     });
   }
   if (body.method === "ping") return rpcResult(id, {});
-  if (body.method === "tools/list") return listTools(id, verified.claims, deps);
-  if (body.method === "tools/call") return callTool(id, body.params, verified.claims, deps);
+  if (body.method === "tools/list") return listTools(id, claims, deps);
+  if (body.method === "tools/call") return callTool(id, body.params, claims, deps);
   return rpcError(id, -32601, "Method not found");
 }
