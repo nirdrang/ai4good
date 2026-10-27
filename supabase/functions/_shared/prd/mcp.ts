@@ -2,7 +2,7 @@ import { githubConfig, type GithubFailure, type GithubFetch } from "../github/ap
 import { githubRepo, type GithubRepo } from "../github/repo.ts";
 import type { SettleDatabase } from "../write-routes.ts";
 import { commitTurn } from "./git.ts";
-import { verifyGrant, type GrantClaims } from "./grant.ts";
+import { usableGrantKey, verifyGrant, type GrantClaims } from "./grant.ts";
 
 const LATEST_PROTOCOL = "2025-11-25";
 const SUPPORTED_PROTOCOLS = ["2024-11-05", "2025-03-26", "2025-06-18", LATEST_PROTOCOL];
@@ -311,6 +311,7 @@ async function callTool(
 /** One stateless MCP response. The bearer is the grant token; SQL still checks the grant. */
 export async function handlePrdTools(request: Request, deps: PrdToolsDeps): Promise<Response> {
   if (request.method !== "POST") return empty(405);
+  if (!usableGrantKey(deps.key)) return empty(503);
   const token = bearer(request);
   if (token === null) return empty(401);
   const verified = await verifyGrant(token, deps.key, deps.now());

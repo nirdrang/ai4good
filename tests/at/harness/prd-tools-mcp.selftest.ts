@@ -3,7 +3,7 @@ import { signGrant, type GrantClaims } from "../../../supabase/functions/_shared
 import { handlePrdTools, type PrdToolsDeps } from "../../../supabase/functions/_shared/prd/mcp.ts";
 import type { SettleDatabase } from "../../../supabase/functions/_shared/write-routes.ts";
 
-const KEY = "prd-tools-signing-key";
+const KEY = "prd-tools-signing-key-for-the-offline-tests";
 const NOW = Date.parse("2026-01-01T00:00:00.000Z");
 const CLAIMS: GrantClaims = {
   grantId: "44444444-4444-4444-8444-444444444444",
@@ -88,6 +88,25 @@ it("answers 401 for a missing bearer, a bad bearer, and a grant SQL refuses", as
   );
   expect(called).toMatchObject({ status: 401, text: "" });
   expect(called.text).not.toContain(SECRET);
+});
+
+it("serves nothing when the signing key is missing or short", async () => {
+  const token = await signGrant(CLAIMS, KEY);
+  const silent = recording(() => {
+    throw new Error("sql");
+  });
+  for (const key of ["", "short-key"]) {
+    const response = await handlePrdTools(
+      new Request("http://localhost/prd-tools", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      }),
+      { ...deps(silent.rpc), key },
+    );
+    expect(response.status).toBe(503);
+  }
+  expect(silent.calls).toHaveLength(0);
 });
 
 it("answers initialize, ping, and notifications", async () => {

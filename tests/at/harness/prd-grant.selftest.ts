@@ -2,8 +2,8 @@ import { expect, it } from "vitest";
 import { issueGrantToken, signGrant, verifyGrant, type GrantClaims } from "../../../supabase/functions/_shared/prd/grant.ts";
 import type { SettleDatabase } from "../../../supabase/functions/_shared/write-routes.ts";
 
-const KEY = "prd-grant-signing-key";
-const OTHER_KEY = "another-signing-key";
+const KEY = "prd-grant-signing-key-for-the-offline-tests";
+const OTHER_KEY = "another-signing-key-for-the-offline-tests";
 const NOW = Date.parse("2026-01-01T00:00:00.000Z");
 const CLAIMS: GrantClaims = {
   grantId: "44444444-4444-4444-8444-444444444444",
@@ -47,6 +47,19 @@ it("refuses an expired token and malformed input as their own results", async ()
   for (const input of malformed) {
     expect(await verifyGrant(input, KEY, NOW)).toEqual({ ok: false, reason: "malformed" });
   }
+});
+
+it("refuses to sign, verify or issue with a missing or short key", async () => {
+  const token = await signGrant(CLAIMS, KEY);
+  await expect(signGrant(CLAIMS, "")).rejects.toThrow();
+  expect(await verifyGrant(token, "", NOW)).toEqual({ ok: false, reason: "bad-signature" });
+  const rpc: SettleDatabase = async () => {
+    throw new Error("sql");
+  };
+  expect(await issueGrantToken(rpc, "short-key", CLAIMS.grantId, "reply", 60)).toEqual({
+    ok: false,
+    reason: "unavailable",
+  });
 });
 
 it("signs the grant row issue stored", async () => {

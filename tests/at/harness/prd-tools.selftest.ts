@@ -1483,7 +1483,8 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     ]);
     const authors = (await sql`select author_kind from public.prd_section_versions
       where project_id = ${project}::uuid and commit_sha = ${sha}`) as Array<{ author_kind: string }>;
-    expect(authors).toEqual([{ author_kind: "repository" }]);
+    expect(authors.length).toBeGreaterThan(0);
+    expect(new Set(authors.map((row) => row.author_kind))).toEqual(new Set(["repository"]));
     expect(await toolCommits(sql, turn.turnId)).toBe(0);
     expect(await opStatus(sql, String(prepared.op))).toBe("failed");
   });

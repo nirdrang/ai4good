@@ -13,6 +13,11 @@ export type GrantVerify =
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const encoder = new TextEncoder();
+const MIN_KEY_LENGTH = 32;
+
+export function usableGrantKey(key: string): boolean {
+  return key.length >= MIN_KEY_LENGTH;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -61,6 +66,7 @@ async function hmacKey(secret: string, use: "sign" | "verify"): Promise<CryptoKe
 
 /** Signs the grant, project, chat, and expiry. The SQL grant check stays the authority. */
 export async function signGrant(claims: GrantClaims, key: string): Promise<string> {
+  if (!usableGrantKey(key)) throw new Error("the grant signing key is missing or too short");
   const payload = encode(
     encoder.encode(
       JSON.stringify({
@@ -77,6 +83,7 @@ export async function signGrant(claims: GrantClaims, key: string): Promise<strin
 
 /** Verifies the HMAC in constant time. A bad token is a result, never a throw. */
 export async function verifyGrant(token: string, key: string, now: number): Promise<GrantVerify> {
+  if (!usableGrantKey(key)) return { ok: false, reason: "bad-signature" };
   if (typeof token !== "string" || token.length === 0 || token.length > 8192) {
     return { ok: false, reason: "malformed" };
   }
@@ -130,6 +137,7 @@ export async function issueGrantToken(
   mode: string,
   ttlSeconds: number,
 ): Promise<{ ok: true; token: string } | { ok: false; reason: string }> {
+  if (!usableGrantKey(key)) return { ok: false, reason: "unavailable" };
   const issued = await rpc("prd_grant_issue", {
     p_turn: turn,
     p_mode: mode,
