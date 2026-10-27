@@ -513,7 +513,7 @@ function resting(snapshot: PrdSnapshot, holdMicros: number): void {
     pendingMicros: 0,
     replyHoldMicros: holdMicros,
     availableMicros: 0,
-    band: "yellow",
+    band: "red",
     replyFunded: false,
   });
   expect(snapshot.close).toEqual({
@@ -1880,6 +1880,7 @@ export async function proveFundsGauge(): Promise<void> {
     expect(empty.funds, "no free Discovery counter funds the PRD").toMatchObject({
       allocationMicros: 0,
       replyHoldMicros: hold,
+      band: "red",
       replyFunded: false,
     });
     expect(empty.send.main).toEqual({

@@ -272,6 +272,7 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
       pendingMicros: 0,
       replyHoldMicros: Number(hold),
       availableMicros: 0,
+      band: "red",
       replyFunded: false,
     });
     expect(await mainSend(w)).toEqual({ allowed: false, block: "funds", reason: "funds" });

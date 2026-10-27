@@ -295,6 +295,7 @@ begin
     'availableMicros', public.prd_micros(v_available),
     'overrunMicros', public.prd_micros(v_overrun),
     'band', case
+      when v_credited = 0 then 'red'
       when v_settled * 100 < v_credited * 80 then 'green'
       when v_settled * 100 <= v_credited * 95 then 'yellow'
       else 'red'
