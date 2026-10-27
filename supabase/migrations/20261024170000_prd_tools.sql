@@ -255,7 +255,7 @@ begin
     if v_turn.kind is distinct from 'reply' or v_chat.kind not in ('main', 'section') then
       raise exception 'that mode does not match the turn' using errcode = '22023', detail = 'invalid-request';
     end if;
-  elsif v_turn.kind is distinct from 'answer-write' or v_chat.kind is distinct from 'side' then
+  elsif v_turn.kind not in ('reply', 'answer-write') or v_chat.kind is distinct from 'side' then
     raise exception 'that mode does not match the turn' using errcode = '22023', detail = 'invalid-request';
   end if;
   update public.prd_grants

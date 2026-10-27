@@ -176,7 +176,7 @@ export async function runPrdTurn(
     database,
     deps.grantKey,
     turnId,
-    turn.kind,
+    chatKey.startsWith("side:") ? "answer-write" : turn.kind,
     GRANT_TTL_SECONDS,
   );
   if (!grant.ok) return { args: endArgs(turnId, "rejected"), failure: REJECTED };

@@ -1306,6 +1306,10 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
       "ngo-answer",
       "We keep them for 12 months.",
     );
+    expect(await refusal(issue(sql, side.turnId, "reply"))).toBe("invalid-request");
+    expect(await toolList(sql, await grantOf(issue(sql, side.turnId, "answer-write")))).toEqual(
+      ANSWER_TOOLS,
+    );
     await finish(sql, side.turnId);
     const answering = await questionRows(sql, opened.ngo, project);
     expect(answering[0].status).toBe("answering");

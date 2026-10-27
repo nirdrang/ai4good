@@ -330,10 +330,11 @@ describe("the relay inside prd-message", () => {
     });
   });
 
-  it("issues the grant in the mode of the turn", async () => {
-    for (const [kind, chatKey] of [
-      ["reply", "topic:booking"],
-      ["answer-write", `side:${QUESTION}`],
+  it("issues the grant in the mode of the turn, and side chats get the outcome tools", async () => {
+    for (const [kind, chatKey, mode] of [
+      ["reply", "topic:booking", "reply"],
+      ["reply", `side:${QUESTION}`, "answer-write"],
+      ["answer-write", `side:${QUESTION}`, "answer-write"],
     ] as const) {
       const db = database({ session: SESSION, turn: freshTurn({ kind, parts: [] }) });
       const provider = anthropic({ stream: REPLY });
@@ -344,7 +345,7 @@ describe("the relay inside prd-message", () => {
       );
       expect(db.named("prd_grant_issue")[0].args).toEqual({
         p_turn: TURN,
-        p_mode: kind,
+        p_mode: mode,
         p_ttl_seconds: 900,
       });
       expect(db.named("prd_turn_dispatch")).toHaveLength(1);
