@@ -249,6 +249,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     await sql`insert into public.discovery_confirmations
       (project_id, revision, actor_id, actor_name, confirmed_at, accepted_gaps)
       values (${project}::uuid, 1, ${ngo}::uuid, 'Maya Levi', clock_timestamp(), '[]'::jsonb)`;
+    await sql`select public.prd_fund_credit(${project}::uuid, ${"1000"}::numeric, 'selftest funds')`;
     await openWithoutGithub(sql, dev, org, project);
     const chats = (await sql`select id from public.prd_chats
       where project_id = ${project}::uuid and kind = 'main'`) as Array<{ id: string }>;

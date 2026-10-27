@@ -18,6 +18,17 @@ const QUESTION = {
   use: { allowed: false, reason: "forbidden" },
 };
 
+const FUNDS = {
+  allocationMicros: 20_000_000,
+  settledMicros: 11_150_000,
+  pendingMicros: 50_000,
+  replyHoldMicros: 50_000,
+  availableMicros: 8_800_000,
+  overrunMicros: 0,
+  band: "green",
+  replyFunded: true,
+};
+
 function record(questions: unknown[]) {
   return {
     sequence: 3,
@@ -32,6 +43,7 @@ function record(questions: unknown[]) {
     sections: [],
     chats: [],
     drafts: {},
+    funds: FUNDS,
     devQuestions: [
       {
         id: "d1",
@@ -238,6 +250,64 @@ it("offers complete-answer when the facts allow it, and keeps the existing refus
       reason: "The PRD changed since this was offered. Use the current version.",
     },
   });
+});
+
+it("maps the funds the facts give, and says why a reply is not funded", () => {
+  const funded = snapshotFromRecord(record([]), DEV);
+  expect(funded.funds).toEqual({
+    allocationMicros: 20_000_000,
+    settledMicros: 11_150_000,
+    pendingMicros: 50_000,
+    replyHoldMicros: 50_000,
+    availableMicros: 8_800_000,
+    band: "green",
+    replyFunded: true,
+  });
+  const out = snapshotFromRecord(
+    {
+      ...record([
+        {
+          ...QUESTION,
+          status: "answering",
+          complete: { allowed: false, reason: "funds", token: null },
+        },
+      ]),
+      funds: {
+        ...FUNDS,
+        settledMicros: 20_030_000,
+        availableMicros: -80_000,
+        overrunMicros: 30_000,
+        band: "red",
+        replyFunded: false,
+      },
+      chats: [
+        {
+          key: "main",
+          messages: [],
+          canWrite: true,
+          send: { allowed: false, block: "funds", reason: "funds" },
+        },
+      ],
+    },
+    NGO,
+  );
+  expect(out.funds).toMatchObject({ availableMicros: 0, band: "red", replyFunded: false });
+  expect(out.canWrite.main).toBe(true);
+  expect(out.send.main).toEqual({
+    kind: "unavailable",
+    block: "funds",
+    reason: "Not enough left for another AI reply. The kitchen adds funds to continue.",
+  });
+  expect(out.questions[0]).toMatchObject({
+    kind: "answering",
+    complete: {
+      kind: "unavailable",
+      reason: "Not enough left for another AI reply. The kitchen adds funds to continue.",
+    },
+  });
+  for (const funds of [undefined, { ...FUNDS, band: "blue" }, { ...FUNDS, settledMicros: 1.5 }]) {
+    expect(() => snapshotFromRecord({ ...record([]), funds }, DEV)).toThrow();
+  }
 });
 
 function topic(key: string, state: string, confirm: unknown, reopen: unknown) {

@@ -27,6 +27,7 @@ const STALE_REASON = "The PRD changed since this was offered. Use the current ve
 const WRITE_FIRST = "Write your answer first.";
 const STILL_ANSWERING = "The AI is still answering.";
 const BUSY_REASON = "The AI is still answering in this chat.";
+const FUNDS_REASON = "Not enough left for another AI reply. The kitchen adds funds to continue.";
 const TOPIC_STATES = ["open", "draft", "ready", "confirmed", "needs-review"] as const;
 const QUESTION_STATES = ["suggested", "posted", "answering", "complete", "used"] as const;
 
@@ -220,6 +221,8 @@ function sendReason(code: unknown, names: Names): string {
       return CLOSED_REASON;
     case "busy":
       return BUSY_REASON;
+    case "funds":
+      return FUNDS_REASON;
     default:
       return NOT_YET;
   }
@@ -238,7 +241,7 @@ function chatAccess(
   }
   if (chat.send.allowed) return { canWrite: chat.canWrite, send: { kind: "available" } };
   const block = chat.send.block;
-  if (block !== "role" && block !== "closed" && block !== "busy") {
+  if (block !== "role" && block !== "closed" && block !== "busy" && block !== "funds") {
     fail("a chat names why sending is off");
   }
   return {
@@ -353,6 +356,8 @@ function completeReason(code: unknown, names: Names): string {
       return WRITE_FIRST;
     case "stale":
       return STALE_REASON;
+    case "funds":
+      return FUNDS_REASON;
     default:
       return NOT_YET;
   }
@@ -440,15 +445,19 @@ function ngoQuestionOf(value: unknown, names: Names): NgoQuestion {
   }
 }
 
-function restingFunds(): FundsState {
+function fundsOf(value: unknown): FundsState {
+  if (!isRecord(value)) fail("the PRD facts carry the funds");
+  const band = value.band;
+  if (band !== "green" && band !== "yellow" && band !== "red") fail("the funds name their band");
+  if (typeof value.replyFunded !== "boolean") fail("the funds say whether a reply is funded");
   return {
-    allocationMicros: 0,
-    settledMicros: 0,
-    pendingMicros: 0,
-    replyHoldMicros: 0,
-    availableMicros: 0,
-    band: "green",
-    replyFunded: false,
+    allocationMicros: wholeNumber(value.allocationMicros, "allocation"),
+    settledMicros: wholeNumber(value.settledMicros, "settled spend"),
+    pendingMicros: wholeNumber(value.pendingMicros, "pending spend"),
+    replyHoldMicros: wholeNumber(value.replyHoldMicros, "reply hold"),
+    availableMicros: Math.max(0, wholeNumber(value.availableMicros, "available funds")),
+    band,
+    replyFunded: value.replyFunded,
   };
 }
 
@@ -493,7 +502,7 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
     chats: presented.chats,
     canWrite: presented.canWrite,
     send: presented.send,
-    funds: restingFunds(),
+    funds: fundsOf(record.funds),
     check: null,
     close: restingClose(),
     drafts: draftsOf(record.drafts),

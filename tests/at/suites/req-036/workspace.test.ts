@@ -5,6 +5,7 @@ import { PRD_GIVEN } from "../../../../design/astra/src/prd-givens.ts";
 import { scopeKey } from "../../../../src/lib/prd-stream.ts";
 import { atTest } from "./_bind.ts";
 import {
+  proveFundsGauge,
   proveQuestionOrder,
   proveRecordOpens,
   proveRecordSurvives,
@@ -450,7 +451,7 @@ atTest(
 atTest(
   "AT-036.07",
   "The gauge shows funds and the exact color boundaries, and reading spends nothing",
-  { surface: "ui", timeoutMs: { loop: 180_000 } },
+  { surface: "ui", timeoutMs: { loop: 180_000, integration: 300_000 } },
   {
     loop: async (ctx) => {
       const bands = [
@@ -541,6 +542,10 @@ atTest(
       });
     },
     default: wiringPending("AT-036.07"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveFundsGauge();
+    },
   },
 );
 

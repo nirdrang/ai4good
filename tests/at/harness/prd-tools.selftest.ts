@@ -202,6 +202,7 @@ async function world(stack: Stack, sql: Sql): Promise<World> {
   await sql`insert into public.discovery_confirmations
     (project_id, revision, actor_id, actor_name, confirmed_at, accepted_gaps)
     values (${project}::uuid, 1, ${ngo}::uuid, 'Maya Levi', clock_timestamp(), '[]'::jsonb)`;
+  await sql`select public.prd_fund_credit(${project}::uuid, ${"1000"}::numeric, 'selftest funds')`;
   await openWithoutGithub(sql, dev, org, project);
   return { dev, ngo, stranger, org, project };
 }

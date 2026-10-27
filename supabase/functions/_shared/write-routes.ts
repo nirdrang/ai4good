@@ -166,6 +166,7 @@ export const WRITE_REFUSAL_KINDS = [
   'follow-up-open',
   'not-ready',
   'not-confirmed',
+  'funds',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];

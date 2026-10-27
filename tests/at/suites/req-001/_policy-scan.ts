@@ -53,6 +53,14 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   prd_staged_sections: 'unreachable-by-client-roles',
   prd_staged_effects: 'unreachable-by-client-roles',
   prd_tool_commits: 'unreachable-by-client-roles',
+  prd_money_config: 'unreachable-by-client-roles',
+  prd_rate_versions: 'unreachable-by-client-roles',
+  prd_fund_credits: 'unreachable-by-client-roles',
+  prd_sessions: 'unreachable-by-client-roles',
+  prd_reservations: 'unreachable-by-client-roles',
+  prd_provider_events: 'unreachable-by-client-roles',
+  prd_ledger_entries: 'unreachable-by-client-roles',
+  prd_turn_settings: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
@@ -99,6 +107,14 @@ export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
     'the PRD tools stage a side-chat outcome for a turn that prd_action already admitted; the grant is the gate and no account acts in this call',
   commit_prepare:
     'the PRD tools register one commit for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  prd_fund_credit:
+    'an operator credits a project with funds; it changes no account, and no account acts in this call',
+  prd_turn_ingest:
+    'the relay records what the provider reported for a turn that prd_turn_reserve or prd_action already admitted; ' +
+    'no account acts in this call',
+  prd_turn_settings_record:
+    'the relay records the provider settings of a turn that prd_turn_reserve or prd_action already admitted; ' +
+    'no account acts in this call',
 };
 
 function matchDollarTag(sql: string, i: number): string | null {

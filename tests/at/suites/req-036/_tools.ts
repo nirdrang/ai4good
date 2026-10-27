@@ -29,6 +29,7 @@ import type { SettleDatabase } from "../../../../supabase/functions/_shared/writ
 import {
   act,
   commitOnMain,
+  credit,
   deliver,
   finishTurn,
   mainSha,
@@ -1352,6 +1353,7 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
 export async function proveTopicTools(): Promise<void> {
   const seeded = await seed();
   try {
+    await credit(seeded, "20.000000");
     const opened = await open(seeded, seeded.dev);
     expect(opened.status, JSON.stringify(opened.json)).toBe(200);
     const world = await loadWorld(seeded);

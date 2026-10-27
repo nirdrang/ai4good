@@ -482,7 +482,28 @@ function sameAsFacts(http: PrdSnapshot, facts: unknown): void {
   expect(http).toEqual(parsePrdSnapshot(rendered));
 }
 
-function resting(snapshot: PrdSnapshot): void {
+export async function replyHoldMicros(sql: Sql): Promise<number> {
+  const rows = (await sql`select (value * 1000000)::bigint as micros from public.prd_money_config
+    where key = 'turn-reservation-usd'`) as Array<{ micros: unknown }>;
+  return whole(rows[0]?.micros);
+}
+
+export async function feeBasisPoints(sql: Sql): Promise<number> {
+  const rows = (await sql`select value::bigint as bps from public.prd_money_config
+    where key = 'fee-basis-points'`) as Array<{ bps: unknown }>;
+  return whole(rows[0]?.bps);
+}
+
+export async function credit(seeded: Seed, amount: string): Promise<void> {
+  const answer = await serviceRpc(seeded.stack)("prd_fund_credit", {
+    p_project: seeded.projectId,
+    p_amount: amount,
+    p_note: "integration funds",
+  });
+  if (!answer.ok) throw new Error(`the credit was refused: ${answer.message}`);
+}
+
+function resting(snapshot: PrdSnapshot, holdMicros: number): void {
   expect(snapshot.devQuestions).toEqual([]);
   expect(snapshot.questions).toEqual([]);
   expect(snapshot.check).toBeNull();
@@ -490,9 +511,9 @@ function resting(snapshot: PrdSnapshot): void {
     allocationMicros: 0,
     settledMicros: 0,
     pendingMicros: 0,
-    replyHoldMicros: 0,
+    replyHoldMicros: holdMicros,
     availableMicros: 0,
-    band: "green",
+    band: "yellow",
     replyFunded: false,
   });
   expect(snapshot.close).toEqual({
@@ -502,7 +523,11 @@ function resting(snapshot: PrdSnapshot): void {
     close: { kind: "unavailable", reason: "Not available yet." },
   });
   expect(snapshot.canWrite.main).toBe(true);
-  expect(snapshot.send.main).toEqual({ kind: "available" });
+  expect(snapshot.send.main).toEqual({
+    kind: "unavailable",
+    block: "funds",
+    reason: "Not enough left for another AI reply. The kitchen adds funds to continue.",
+  });
 }
 
 async function append(
@@ -614,7 +639,7 @@ export async function proveRecordOpens(): Promise<void> {
     expect(scope.state).toBe("open");
     expect(scope.stories).toEqual([]);
     expect(opened.drafts).toEqual({});
-    resting(opened);
+    resting(opened, await replyHoldMicros(seeded.sql));
     sameAsFacts(opened, await readFacts(seeded.sql, seeded.dev.accountId, seeded.projectId));
 
     const shaped =
@@ -1482,6 +1507,7 @@ export async function act(
 export async function proveRolesAndPermissions(): Promise<void> {
   const seeded = await seed();
   try {
+    await credit(seeded, "20.000000");
     const opened = await open(seeded, seeded.dev);
     expect(opened.status, JSON.stringify(opened.json)).toBe(200);
 
@@ -1807,6 +1833,256 @@ export async function proveRolesAndPermissions(): Promise<void> {
       "Confirm and reopen work only on a section in the right state, and closing the PRD is not built, so it still answers not-yet for the developer. Changing the threshold or overriding scoring has no endpoint yet; the completion check is not in this tree yet.",
     );
   } finally {
+    await seeded.sql.close();
+  }
+}
+
+const FUNDS_SENTENCE = "Not enough left for another AI reply. The kitchen adds funds to continue.";
+const GAUGE_SESSION = "sesn_gauge_main";
+
+async function ingestOver(seeded: Seed, turnId: string, event: Record<string, unknown>) {
+  const answer = await serviceRpc(seeded.stack)("prd_turn_ingest", {
+    p_turn: turnId,
+    p_event: event,
+  });
+  if (!answer.ok) throw new Error(`ingest was refused: ${answer.message}`);
+  return answer.value as Record<string, unknown>;
+}
+
+async function runtimeRate(sql: Sql): Promise<number> {
+  const rows = (await sql`select (usd * 1000000)::bigint as micros from public.prd_rate_versions
+    where model = 'claude-haiku-5-5' and rate_card = 'runtime'
+    order by version desc limit 1`) as Array<{ micros: unknown }>;
+  return whole(rows[0]?.micros);
+}
+
+async function ledgerRows(sql: Sql, projectId: string): Promise<number> {
+  const rows = (await sql`select count(*) as n from public.prd_ledger_entries
+    where project_id = ${projectId}::uuid`) as Array<{ n: unknown }>;
+  return whole(rows[0].n);
+}
+
+function sentTurn(response: HttpAnswer, label: string): string {
+  expect(response.status, `${label}: ${JSON.stringify(response.json)}`).toBe(200);
+  const turnId = response.json.turnId;
+  if (typeof turnId !== "string") throw new Error(`${label} named no turn`);
+  return turnId;
+}
+
+export async function proveFundsGauge(): Promise<void> {
+  const seeded = await seed();
+  try {
+    const opened = await open(seeded, seeded.dev);
+    expect(opened.status, JSON.stringify(opened.json)).toBe(200);
+    const hold = await replyHoldMicros(seeded.sql);
+    const rate = await runtimeRate(seeded.sql);
+    const empty = await readSnapshot(seeded, seeded.dev);
+    expect(empty.funds, "no free Discovery counter funds the PRD").toMatchObject({
+      allocationMicros: 0,
+      replyHoldMicros: hold,
+      replyFunded: false,
+    });
+    expect(empty.send.main).toEqual({
+      kind: "unavailable",
+      block: "funds",
+      reason: FUNDS_SENTENCE,
+    });
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "text", text: "Unfunded." },
+        empty.revision,
+        crypto.randomUUID(),
+      ),
+      "funds",
+      "an unfunded reply is refused",
+    );
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.ngo,
+        { kind: "main" },
+        { kind: "text", text: "Maya in main." },
+        empty.revision,
+        crypto.randomUUID(),
+      ),
+      "forbidden",
+      "the role refusal outranks funds",
+    );
+
+    const unit = 100_000;
+    const allocation = Math.ceil((21 * hold) / unit) * unit;
+    await credit(seeded, (allocation / 1_000_000).toFixed(6));
+    const steps = [
+      { thousandths: 79_999, band: "green" },
+      { thousandths: 80_000, band: "yellow" },
+      { thousandths: 95_000, band: "yellow" },
+      { thousandths: 95_001, band: "red" },
+    ] as const;
+    let activeMicros = 0;
+    for (const step of steps) {
+      const target = (allocation * step.thousandths) / 100_000;
+      expect(Number.isInteger(target)).toBe(true);
+      const secondsMicros = (target * 3600 * 1_000_000) / rate;
+      expect(Number.isInteger(secondsMicros), "the runtime rate divides the target").toBe(true);
+      activeMicros = secondsMicros;
+      const before = await readSnapshot(seeded, seeded.dev);
+      const turnId = sentTurn(
+        await send(
+          seeded,
+          seeded.dev,
+          { kind: "main" },
+          { kind: "text", text: `Step ${step.thousandths}.` },
+          before.revision,
+          crypto.randomUUID(),
+        ),
+        `the funded reply at ${step.thousandths}`,
+      );
+      await ingestOver(seeded, turnId, {
+        kind: "runtime",
+        sessionId: GAUGE_SESSION,
+        activeSeconds: activeMicros / 1_000_000,
+      });
+      await ingestOver(seeded, turnId, { kind: "end", outcome: "answered" });
+      const settled = await readSnapshot(seeded, seeded.dev);
+      expect(settled.funds, `${step.thousandths} thousandths of a percent settled`).toEqual({
+        allocationMicros: allocation,
+        settledMicros: target,
+        pendingMicros: 0,
+        replyHoldMicros: hold,
+        availableMicros: allocation - target,
+        band: step.band,
+        replyFunded: true,
+      });
+      expect((await readSnapshot(seeded, seeded.ngo)).funds).toEqual(settled.funds);
+
+      const held = sentTurn(
+        await send(
+          seeded,
+          seeded.dev,
+          { kind: "topic", topicId: "booking" },
+          { kind: "text", text: `Hold ${step.thousandths}.` },
+          settled.revision,
+          crypto.randomUUID(),
+        ),
+        `the held reply at ${step.thousandths}`,
+      );
+      const waiting = await readSnapshot(seeded, seeded.dev);
+      expect(waiting.funds, "available is after the pending reservation").toMatchObject({
+        settledMicros: target,
+        pendingMicros: hold,
+        availableMicros: allocation - target - hold,
+      });
+      expect(waiting.funds.band, "pending spend never changes the band").toBe(step.band);
+      await ingestOver(seeded, held, { kind: "end", outcome: "rejected" });
+      expect((await readSnapshot(seeded, seeded.dev)).funds.pendingMicros).toBe(0);
+    }
+
+    const red = await readSnapshot(seeded, seeded.dev);
+    expect(red.funds.band).toBe("red");
+    expect(red.send.main, "red alone allows a funded reply").toEqual({ kind: "available" });
+    const last = sentTurn(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "text", text: "A funded red reply." },
+        red.revision,
+        crypto.randomUUID(),
+      ),
+      "the funded red reply",
+    );
+    const spendDown = (allocation - (allocation * 95_001) / 100_000) * 2;
+    const extraMicros = Math.ceil((spendDown * 3600 * 1_000_000) / rate / 1_000_000) * 1_000_000;
+    await ingestOver(seeded, last, {
+      kind: "runtime",
+      sessionId: GAUGE_SESSION,
+      activeSeconds: (activeMicros + extraMicros) / 1_000_000,
+    });
+    await ingestOver(seeded, last, { kind: "end", outcome: "answered" });
+    const out = await readSnapshot(seeded, seeded.dev);
+    expect(out.funds).toMatchObject({ band: "red", replyFunded: false, availableMicros: 0 });
+    expect(out.send.main).toEqual({ kind: "unavailable", block: "funds", reason: FUNDS_SENTENCE });
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "text", text: "Out of funds." },
+        out.revision,
+        crypto.randomUUID(),
+      ),
+      "funds",
+      "Send is refused when the reply cannot be covered",
+    );
+
+    await credit(seeded, (allocation / 1_000_000).toFixed(6));
+    const topped = await readSnapshot(seeded, seeded.dev);
+    expect(topped.funds.replyFunded).toBe(true);
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.ngo,
+        { kind: "main" },
+        { kind: "text", text: "Maya after a top-up." },
+        topped.revision,
+        crypto.randomUUID(),
+      ),
+      "forbidden",
+      "a top-up does not clear a role refusal",
+    );
+    const busyTurn = sentTurn(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "text", text: "After the top-up." },
+        topped.revision,
+        crypto.randomUUID(),
+      ),
+      "a reply after the top-up",
+    );
+    await credit(seeded, "1.000000");
+    expectRefusal(
+      await send(
+        seeded,
+        seeded.dev,
+        { kind: "main" },
+        { kind: "text", text: "While busy." },
+        topped.revision,
+        crypto.randomUUID(),
+      ),
+      "busy",
+      "a top-up does not clear a running reply",
+    );
+    await ingestOver(seeded, busyTurn, { kind: "end", outcome: "answered" });
+
+    const rowsBefore = await ledgerRows(seeded.sql, seeded.projectId);
+    const fundsBefore = (await readSnapshot(seeded, seeded.dev)).funds;
+    const drafted = await functionPost(
+      seeded.stack,
+      "prd-draft",
+      { projectId: seeded.projectId, key: "main", text: "typed but not sent" },
+      seeded.dev.token,
+    );
+    expect(drafted.status, JSON.stringify(drafted.json)).toBe(200);
+    await readSnapshot(seeded, seeded.ngo);
+    await readSnapshot(seeded, seeded.dev);
+    expect(await ledgerRows(seeded.sql, seeded.projectId), "typing and reading write no cost").toBe(
+      rowsBefore,
+    );
+    expect((await readSnapshot(seeded, seeded.dev)).funds).toEqual(fundsBefore);
+
+    throw new AtPending(
+      "AT-036.07",
+      "sut-missing",
+      "The gauge's test ids, its text and the hatched pending bar belong to the screen wiring unit, " +
+        "so this case proves only what the backend owns: the funds numbers, the band, and when Send is refused.",
+    );
+  } finally {
+    await rememberProjectRepo(seeded);
     await seeded.sql.close();
   }
 }
