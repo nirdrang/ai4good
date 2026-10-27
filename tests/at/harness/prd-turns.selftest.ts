@@ -674,7 +674,17 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     expect(await refusal(action(dev, "dance", "dance|topic:booking|1|1", "dance"))).toBe(
       "invalid-request",
     );
-    for (const kind of ["confirm-topic", "reopen-topic", "close", "close-anyway", "keep-working"]) {
+    expect(
+      await refusal(
+        action(dev, "confirm-topic", `confirm-topic|topic:booking|${rev}|1`, "later-confirm-topic"),
+      ),
+    ).toBe("not-ready");
+    expect(
+      await refusal(
+        action(dev, "reopen-topic", `reopen-topic|topic:booking|${rev}|1`, "later-reopen-topic"),
+      ),
+    ).toBe("not-confirmed");
+    for (const kind of ["close", "close-anyway", "keep-working"]) {
       expect(
         await refusal(action(dev, kind, `${kind}|topic:booking|${rev}|1`, `later-${kind}`)),
       ).toBe("not-yet");

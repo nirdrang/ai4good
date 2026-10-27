@@ -48,6 +48,11 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   prd_actions: 'unreachable-by-client-roles',
   prd_git_ops: 'unreachable-by-client-roles',
   prd_unknown_files: 'unreachable-by-client-roles',
+  prd_grants: 'unreachable-by-client-roles',
+  prd_tool_reads: 'unreachable-by-client-roles',
+  prd_staged_sections: 'unreachable-by-client-roles',
+  prd_staged_effects: 'unreachable-by-client-roles',
+  prd_tool_commits: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
@@ -74,6 +79,24 @@ export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
     'sync applies repository history after an admitted open; no account acts in this call',
   prd_mark_diverged:
     'sync records that the repository left the fast-forward line; no account acts in this call',
+  prd_grant_issue:
+    'the edge issues a grant for a turn that prd_turn_reserve or prd_action already admitted; no account acts in this call',
+  prd_grant_check:
+    'every PRD tool checks a grant for a turn that was already admitted; no account acts in this call',
+  prd_grant_tools:
+    'the edge lists the tools a grant allows for a turn that was already admitted; no account acts in this call',
+  read_section:
+    'the PRD tools read one section for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  stage_section:
+    'the PRD tools stage one section for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  propose_ready:
+    'the PRD tools stage Ready to confirm for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  suggest_ngo_question:
+    'the PRD tools stage a question for the NGO for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  record_outcome:
+    'the PRD tools stage a side-chat outcome for a turn that prd_action already admitted; the grant is the gate and no account acts in this call',
+  commit_prepare:
+    'the PRD tools register one commit for a turn that was already admitted; the grant is the gate and no account acts in this call',
 };
 
 function matchDollarTag(sql: string, i: number): string | null {
