@@ -1,620 +1,661 @@
+import { readUIMessageStream, streamText, type UIMessageChunk } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import type { Caller } from "../../../supabase/functions/_shared/caller.ts";
-import { MANAGED_API, type ManagedFetch } from "../../../supabase/functions/_shared/prd/managed.ts";
 import {
   catchUpChat,
   catchUpOverdue,
   PRD_MODEL_UNAVAILABLE,
   PRD_TURN_DEADLINE_SECONDS,
   prdRelayDeps,
-  type PrdRelayDeps,
+  runPrdTurn,
 } from "../../../supabase/functions/_shared/prd/relay.ts";
 import {
+  prdActionPrepare,
   prdMessagePrepare,
   prdMessageSettle,
+  type PrdActionArgs,
   type PrdMessageArgs,
 } from "../../../supabase/functions/_shared/prd/routes.ts";
+import {
+  ingestModelStep,
+  OPENCODE_GO_URL,
+  prdModel,
+  usageOf,
+  type PrdFetch,
+  type PrdUsage,
+} from "../../../supabase/functions/_shared/prd/turn.ts";
 import type { CallerReads } from "../../../supabase/functions/_shared/tenant-reads.ts";
 import type { SettleDatabase } from "../../../supabase/functions/_shared/write-routes.ts";
+import { parsePrdSnapshot } from "../../../src/lib/prd-stream.ts";
 
-const KEY = "prd-grant-signing-key-for-the-offline-tests";
 const PROJECT = "55555555-5555-4555-8555-555555555555";
 const CHAT = "66666666-6666-4666-8666-666666666666";
 const TURN = "33333333-3333-4333-8333-333333333333";
 const GRANT = "44444444-4444-4444-8444-444444444444";
 const QUESTION = "77777777-7777-4777-8777-777777777777";
-const CONFIG = {
-  apiKey: "test-key-never-sent-anywhere",
-  agentId: "agent_prd",
-  environmentId: "env_prd",
-  toolsUrl: "https://tools.example.test/functions/v1/prd-tools",
+const RECEIPT = "88888888-8888-4888-8888-888888888888";
+const ACTOR = "11111111-1111-4111-8111-111111111111";
+const SETTINGS = {
+  PRD_MODEL_BASE_URL: "https://example.test/v1",
+  PRD_MODEL: "selftest-model",
+  PRD_MODEL_API_KEY: "test-key-never-sent",
 };
+const REPLY_TOOLS = [
+  "read_section",
+  "stage_section",
+  "propose_ready",
+  "suggest_ngo_question",
+  "commit_prepare",
+];
+const ANSWER_TOOLS = ["record_outcome", "commit_prepare"];
 
+type Call = { name: string; args: Record<string, unknown> };
 type TurnJson = {
   id: string;
   kind: "reply" | "answer-write";
   state: "admitted" | "uncertain";
-  dispatched: boolean;
   ageSeconds: number;
   parts: unknown[];
   modelRequests: number;
+  reservationMicros: number;
+  spentMicros: number;
+  messageId: string | null;
+  chatId: string;
 };
 
-type SessionJson = {
-  sessionId: string;
-  vaultId: string;
-  credentialId: string;
-  generation: number;
-  cursor: string | null;
-};
-
-const SESSION: SessionJson = {
-  sessionId: "sesn_old",
-  vaultId: "vlt_old",
-  credentialId: "vcrd_old",
-  generation: 2,
-  cursor: "sevt_prev",
-};
+const CALLER: Caller = { id: ACTOR, githubHandle: null, emailVerified: true };
+const READS = {} as CallerReads;
 
 function freshTurn(overrides: Partial<TurnJson> = {}): TurnJson {
   return {
     id: TURN,
     kind: "reply",
     state: "admitted",
-    dispatched: false,
     ageSeconds: 1,
     parts: [{ type: "text", text: "Who books shifts?" }],
     modelRequests: 0,
+    reservationMicros: 50_000,
+    spentMicros: 0,
+    messageId: "99999999-9999-4999-8999-999999999999",
+    chatId: CHAT,
     ...overrides,
   };
 }
 
-function database(state: {
-  session: SessionJson | null;
-  turn: TurnJson | null;
-  dispatch?: boolean;
-  overdue?: string[];
-}) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  const rpc: SettleDatabase = async (name, args) => {
-    calls.push({ name, args });
-    switch (name) {
-      case "prd_session_read":
-        return {
-          ok: true,
-          value: {
-            chatId: CHAT,
-            chatKey: args.p_chat_key,
-            session: state.session,
-            turn: state.turn,
-          },
-        };
-      case "prd_turn_dispatch":
-        return { ok: true, value: state.dispatch ?? true };
-      case "prd_grant_issue":
-        return { ok: true, value: GRANT };
-      case "prd_grant_claims":
-        return {
-          ok: true,
-          value: {
-            grant: GRANT,
-            project: PROJECT,
-            chat: CHAT,
-            turn: TURN,
-            expiresAt: "2099-01-01T00:00:00.000Z",
-          },
-        };
-      case "prd_session_budget":
-        return { ok: true, value: 5 };
-      case "prd_session_rotate":
-        return { ok: true, value: (args.p_generation as number) + 1 };
-      case "prd_session_advance":
-        return { ok: true, value: true };
-      case "prd_append_message":
-        return { ok: true, value: { id: "88888888-8888-4888-8888-888888888888", sequence: 9 } };
-      case "prd_turns_overdue":
-        return { ok: true, value: state.overdue ?? [] };
-      default:
-        return { ok: true, value: {} };
-    }
-  };
-  const named = (name: string) => calls.filter((call) => call.name === name);
-  return { rpc, calls, named };
-}
-
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-function sse(events: readonly unknown[]): ReadableStream<Uint8Array> {
-  const bytes = new TextEncoder().encode(
-    events
-      .map(
-        (event) => `event: ${(event as { type: string }).type}\ndata: ${JSON.stringify(event)}\n\n`,
-      )
-      .join(""),
-  );
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-}
-
-function anthropic(script: {
-  stream?: unknown[];
-  send?: number;
-  history?: unknown[];
-  activeSeconds?: number;
-}) {
-  const calls: Array<{ method: string; path: string; body: unknown }> = [];
-  const fetch: ManagedFetch = async (url, init) => {
-    const path = url.slice(MANAGED_API.length);
-    const method = init.method ?? "GET";
-    calls.push({
-      method,
-      path,
-      body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
-    });
-    if (method === "POST" && path === "/v1/vaults") return json({ id: "vlt_new" });
-    if (method === "POST" && /\/credentials$/.test(path)) return json({ id: "vcrd_new" });
-    if (method === "POST" && /\/credentials\/[^/]+$/.test(path)) return json({ id: "vcrd_old" });
-    if (method === "POST" && path === "/v1/sessions") return json({ id: "sesn_new" });
-    if (method === "GET" && path.includes("/events/stream"))
-      return new Response(sse(script.stream ?? []));
-    if (method === "POST" && path.endsWith("/events")) {
-      return script.send === undefined ? json({ data: [] }) : json({ type: "error" }, script.send);
-    }
-    if (method === "GET" && path.includes("/events?"))
-      return json({ data: script.history ?? [], next_page: null });
-    if (method === "POST" && /^\/v1\/sessions\/[^/]+$/.test(path)) return json({});
-    if (method === "GET" && /^\/v1\/sessions\/[^/]+$/.test(path)) {
-      return json({ usage: { active_seconds: script.activeSeconds ?? 20 } });
-    }
-    throw new Error(`unexpected ${method} ${path}`);
-  };
-  return { fetch, calls };
-}
-
-function relay(rpc: SettleDatabase, fetch: ManagedFetch): PrdRelayDeps {
-  return { rpc, grantKey: KEY, managed: { fetch, config: CONFIG } };
-}
-
-function args(chatKey = "main"): PrdMessageArgs {
+function messageArgs(chatKey = "main"): PrdMessageArgs {
   return {
-    p_actor: "99999999-9999-4999-8999-999999999999",
+    p_actor: ACTOR,
     p_project: PROJECT,
     p_chat_key: chatKey,
     p_request_id: "request-1",
     p_base_revision: 1,
     p_intent: { kind: "text", text: "Who books shifts?" },
-    p_body_hash: "hash",
+    p_body_hash: "hash-1",
   };
 }
 
-const usage = {
-  input_tokens: 900,
-  output_tokens: 120,
-  cache_read_input_tokens: 0,
-  cache_creation_input_tokens: 0,
+function tokens(input: number, output: number, cacheRead = 0, cacheWrite = 0) {
+  return {
+    inputTokens: { total: input, noCache: input - cacheRead - cacheWrite, cacheRead, cacheWrite },
+    outputTokens: { total: output, text: output, reasoning: 0 },
+  };
+}
+
+const NO_USAGE = {
+  inputTokens: { total: undefined, noCache: undefined, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: undefined, text: undefined, reasoning: undefined },
 };
-const userMessage = (id: string) => ({ type: "user.message", id, content: [] });
-const modelStart = (id: string) => ({ type: "span.model_request_start", id });
-const modelEnd = (id: string) => ({ type: "span.model_request_end", id, model_usage: usage });
-const message = (id: string, text: string) => ({
-  type: "agent.message",
-  id,
-  content: [{ type: "text", text }],
-});
-const preview = (eventId: string, text: string) => ({
-  type: "event_delta",
-  event_id: eventId,
-  delta: { type: "content_delta", index: 0, content: { type: "text", text } },
-});
-const idle = (id: string, reason = "end_turn") => ({
-  type: "session.status_idle",
-  id,
-  stop_reason: { type: reason },
-});
 
-const REPLY = [
-  userMessage("sevt_u"),
-  modelStart("sevt_s1"),
-  preview("sevt_m1", "Volunteers "),
-  preview("sevt_m1", "book"),
-  message("sevt_m1", "Volunteers book themselves."),
-  modelEnd("sevt_e1"),
-  modelStart("sevt_s2"),
-  message("sevt_m2", "I staged the section."),
-  modelEnd("sevt_e2"),
-  { type: "session.usage", id: "sevt_usage", active_seconds: 33 },
-  idle("sevt_i"),
-];
+function textStream(text: string, usage: ReturnType<typeof tokens> | typeof NO_USAGE = tokens(12, 4)) {
+  return {
+    stream: new ReadableStream({
+      start(controller) {
+        controller.enqueue({ type: "stream-start", warnings: [] });
+        controller.enqueue({ type: "text-start", id: "text" });
+        controller.enqueue({ type: "text-delta", id: "text", delta: text });
+        controller.enqueue({ type: "text-end", id: "text" });
+        controller.enqueue({ type: "finish", usage, finishReason: { unified: "stop", raw: undefined } });
+        controller.close();
+      },
+    }),
+  };
+}
 
-function ingested(calls: Array<{ name: string; args: Record<string, unknown> }>) {
+function toolStream(name: string, input: unknown, usage: ReturnType<typeof tokens> = tokens(8, 2)) {
+  return {
+    stream: new ReadableStream({
+      start(controller) {
+        controller.enqueue({ type: "stream-start", warnings: [] });
+        controller.enqueue({
+          type: "tool-call",
+          toolCallId: `call_${name}`,
+          toolName: name,
+          input: JSON.stringify(input),
+        });
+        controller.enqueue({
+          type: "finish",
+          usage,
+          finishReason: { unified: "tool-calls", raw: undefined },
+        });
+        controller.close();
+      },
+    }),
+  };
+}
+
+function database(state: {
+  turn: TurnJson | null;
+  priced?: boolean;
+  providerMicros?: number;
+  feeMicros?: number;
+  overdue?: string[];
+  readDetail?: string;
+}) {
+  const calls: Call[] = [];
+  const rpc: SettleDatabase = async (name, args) => {
+    calls.push({ name, args });
+    switch (name) {
+      case "prd_turn_open":
+        return { ok: true, value: { chatId: state.turn?.chatId ?? CHAT, turn: state.turn } };
+      case "prd_grant_issue":
+        return { ok: true, value: GRANT };
+      case "prd_grant_tools":
+        return {
+          ok: true,
+          value: args && state.turn?.kind === "answer-write" ? ANSWER_TOOLS : REPLY_TOOLS,
+        };
+      case "prd_turn_settings_record":
+        return { ok: true, value: { turnId: state.turn?.id ?? TURN } };
+      case "prd_chat_transcript":
+        return { ok: true, value: [] };
+      case "prd_turn_ingest":
+        return {
+          ok: true,
+          value: { providerMicros: state.providerMicros ?? 100, feeMicros: state.feeMicros ?? 10 },
+        };
+      case "prd_append_message":
+        return { ok: true, value: { id: "appended" } };
+      case "prd_model_priced":
+        return { ok: true, value: state.priced !== false };
+      case "prd_turns_overdue":
+        return { ok: true, value: state.overdue ?? [] };
+      case "read_section":
+        return { ok: false, message: "refused", details: state.readDetail ?? "tool-denied" };
+      case "stage_section":
+        return { ok: true, value: { staged: "booking" } };
+      case "commit_prepare":
+        return { ok: false, message: "nothing is staged", details: "nothing-staged" };
+      default:
+        return { ok: true, value: {} };
+    }
+  };
+  return { calls, rpc };
+}
+
+function modelOf(streams: "throw" | Array<(prompt: unknown) => ReturnType<typeof textStream>>) {
+  let count = 0;
+  const prompts: unknown[] = [];
+  const model = new MockLanguageModelV4({
+    doStream: async (options) => {
+      prompts.push(options.prompt);
+      const index = count;
+      count += 1;
+      if (streams === "throw") throw new Error("provider rejected the turn");
+      const next = streams[index];
+      if (next === undefined) throw new Error(`the model was called again at step ${index}`);
+      return next(options.prompt);
+    },
+  });
+  return { model, prompts, calls: () => count };
+}
+
+async function run(input: {
+  streams: "throw" | Array<(prompt: unknown) => ReturnType<typeof textStream>>;
+  turn?: Partial<TurnJson> | null;
+  chatKey?: string;
+  turnId?: string | null;
+  closed?: boolean;
+  priced?: boolean;
+  env?: Record<string, string | undefined>;
+  providerMicros?: number;
+  feeMicros?: number;
+  readDetail?: string;
+}) {
+  const turn = input.turn === null ? null : freshTurn(input.turn);
+  const db = database({
+    turn,
+    priced: input.priced,
+    providerMicros: input.providerMicros,
+    feeMicros: input.feeMicros,
+    readDetail: input.readDetail,
+  });
+  const language = modelOf(input.streams);
+  const chunks: unknown[] = [];
+  const deps = prdRelayDeps({
+    rpc: db.rpc,
+    fetch: async () => new Response("offline", { status: 500 }),
+    env: input.env ?? SETTINGS,
+    model: language.model,
+  });
+  const result = await runPrdTurn(
+    deps,
+    PROJECT,
+    input.chatKey ?? "main",
+    input.turnId === undefined ? TURN : input.turnId,
+    {
+      emit: (chunk) => chunks.push(chunk),
+      closed: () => input.closed === true,
+    },
+  );
+  return { result, calls: db.calls, chunks, prompts: language.prompts, streamCalls: language.calls() };
+}
+
+function ingests(calls: Call[]): Array<Record<string, unknown>> {
   return calls
     .filter((call) => call.name === "prd_turn_ingest")
     .map((call) => call.args.p_event as Record<string, unknown>);
 }
 
-describe("the relay inside prd-message", () => {
-  it("streams the reply's text in order and hands back the end event for the edge to settle last", async () => {
-    const db = database({ session: SESSION, turn: freshTurn() });
-    const provider = anthropic({ stream: REPLY });
-    const settle = prdMessageSettle(relay(db.rpc, provider.fetch));
-    const deltas: string[] = [];
-    const result = await settle.stream(
-      { turnId: TURN, messageId: "m", sequence: 4 },
-      args(),
-      (delta) => deltas.push(delta),
-    );
+function named(calls: Call[], name: string): Call[] {
+  return calls.filter((call) => call.name === name);
+}
 
-    expect(settle.rpc).toBe("prd_turn_ingest");
-    expect(deltas).toEqual([
-      "Volunteers ",
-      "book",
-      " themselves.",
-      "\n\n",
-      "I staged the section.",
-    ]);
-    expect(result).toEqual({
-      args: { p_turn: TURN, p_event: { kind: "end", outcome: "answered" } },
-      failure: null,
+describe("PRD turn on a mock model", () => {
+  it("settles one model request, appends the reply once, and ends last", async () => {
+    const ran = await run({ streams: [() => textStream("Volunteers book themselves.")] });
+    const events = ingests(ran.calls);
+    expect(events.map((event) => event.kind)).toEqual(["model-end", "end"]);
+    expect(events[0]).toMatchObject({
+      eventId: `${TURN}:0`,
+      usage: { input: 12, output: 4, cacheRead: 0, cacheWrite: 0 },
     });
-  });
-
-  it("ingests every model request and then the runtime, appends the reply once, and leaves the end to the edge", async () => {
-    const db = database({ session: SESSION, turn: freshTurn() });
-    const provider = anthropic({ stream: REPLY });
-    await prdMessageSettle(relay(db.rpc, provider.fetch)).stream(
-      { turnId: TURN },
-      args(),
-      () => undefined,
-    );
-
-    expect(ingested(db.calls)).toEqual([
-      {
-        kind: "model-end",
-        sessionId: "sesn_old",
-        eventId: "sevt_e1",
-        usage: { input: 900, output: 120, cacheRead: 0, cacheWrite: 0 },
-      },
-      {
-        kind: "model-end",
-        sessionId: "sesn_old",
-        eventId: "sevt_e2",
-        usage: { input: 900, output: 120, cacheRead: 0, cacheWrite: 0 },
-      },
-      { kind: "runtime", sessionId: "sesn_old", activeSeconds: 33 },
+    expect(events[1]).toMatchObject({ outcome: "answered" });
+    expect(named(ran.calls, "prd_grant_issue")).toEqual([
+      { name: "prd_grant_issue", args: { p_turn: TURN, p_mode: "reply", p_ttl_seconds: 900 } },
     ]);
-    const order = db.calls.map((call) => call.name);
-    const lastIngest = order.lastIndexOf("prd_turn_ingest");
-    expect(order.indexOf("prd_session_advance")).toBeGreaterThan(lastIngest);
-    expect(order.indexOf("prd_append_message")).toBeGreaterThan(
-      order.indexOf("prd_session_advance"),
-    );
-    expect(db.named("prd_session_advance")[0].args).toEqual({
+    expect(named(ran.calls, "prd_turn_settings_record")[0]?.args).toMatchObject({
       p_turn: TURN,
-      p_from: "sevt_prev",
-      p_to: "sevt_i",
+      p_model: "selftest-model",
+      p_settings: { baseURL: "https://example.test/v1", model: "selftest-model" },
     });
-    expect(db.named("prd_append_message")).toEqual([
-      {
-        name: "prd_append_message",
-        args: {
-          p_project: PROJECT,
-          p_chat_key: "main",
-          p_actor_kind: "ai",
-          p_actor_name: "ai4good AI",
-          p_parts: [{ type: "text", text: "Volunteers book themselves.\n\nI staged the section." }],
-          p_for_role: null,
-          p_actor_id: null,
-        },
-      },
+    const appended = named(ran.calls, "prd_append_message");
+    expect(appended).toHaveLength(1);
+    expect(appended[0]?.args).toMatchObject({
+      p_actor_kind: "ai",
+      p_actor_name: "ai4good AI",
+      p_parts: [{ type: "text", text: "Volunteers book themselves." }],
+    });
+    expect(ran.result).toMatchObject({ failure: null, skipSettle: true });
+    expect(ran.streamCalls).toBe(1);
+  });
+
+  it("runs several model steps and tool calls, and keeps every model-end before the end", async () => {
+    const ran = await run({
+      streams: [
+        () => toolStream("read_section", { key: "booking" }),
+        () => textStream("The section is unchanged."),
+      ],
+    });
+    const events = ingests(ran.calls);
+    expect(events.map((event) => event.eventId ?? event.kind)).toEqual([`${TURN}:0`, `${TURN}:1`, "end"]);
+    expect(events[0]?.usage).toEqual({ input: 8, output: 2, cacheRead: 0, cacheWrite: 0 });
+    expect(named(ran.calls, "read_section")).toHaveLength(1);
+    expect(named(ran.calls, "prd_append_message")).toHaveLength(1);
+    expect(named(ran.calls, "prd_append_message")[0]?.args.p_parts).toEqual([
+      { type: "text", text: "The section is unchanged." },
     ]);
-    const sent = provider.calls.filter(
-      (call) => call.method === "POST" && call.path.endsWith("/events"),
-    );
-    expect(sent).toHaveLength(1);
-    expect(sent[0].body).toEqual({
-      events: [
-        {
-          type: "user.message",
-          content: [{ type: "text", text: "This message is in the main chat.\nWho books shifts?" }],
-        },
+    expect(ran.streamCalls).toBe(2);
+  });
+
+  it("ingests a step with no usage as pending and still ends the turn", async () => {
+    const ran = await run({ streams: [() => textStream("No usage arrived.", NO_USAGE)] });
+    const events = ingests(ran.calls);
+    expect(events[0]).toMatchObject({ kind: "model-end", eventId: `${TURN}:0`, usage: null });
+    expect(events[1]).toMatchObject({ kind: "end", outcome: "answered" });
+  });
+
+  it("keeps settling after the client drops the stream", async () => {
+    const ran = await run({
+      streams: [() => textStream("Still settled.")],
+      closed: true,
+    });
+    expect(ran.chunks).toEqual([]);
+    expect(ingests(ran.calls).map((event) => event.kind)).toEqual(["model-end", "end"]);
+    expect(named(ran.calls, "prd_append_message")[0]?.args.p_parts).toEqual([
+      { type: "text", text: "Still settled." },
+    ]);
+  });
+
+  it("stops calling the model once settled spend reaches the reservation", async () => {
+    const ran = await run({
+      streams: [
+        () => toolStream("read_section", { key: "booking" }, tokens(20, 5)),
+        () => textStream("This step must not run."),
       ],
+      providerMicros: 40_000,
+      feeMicros: 10_000,
     });
+    expect(ran.streamCalls).toBe(1);
+    expect(ingests(ran.calls).map((event) => event.kind)).toEqual(["model-end", "end"]);
+    expect(named(ran.calls, "prd_append_message")).toEqual([]);
   });
 
-  it("issues the grant in the mode of the turn, and side chats get the outcome tools", async () => {
-    for (const [kind, chatKey, mode] of [
-      ["reply", "topic:booking", "reply"],
-      ["reply", `side:${QUESTION}`, "answer-write"],
-      ["answer-write", `side:${QUESTION}`, "answer-write"],
-    ] as const) {
-      const db = database({ session: SESSION, turn: freshTurn({ kind, parts: [] }) });
-      const provider = anthropic({ stream: REPLY });
-      await prdMessageSettle(relay(db.rpc, provider.fetch)).stream(
-        { turnId: TURN },
-        args(chatKey),
-        () => undefined,
-      );
-      expect(db.named("prd_grant_issue")[0].args).toEqual({
-        p_turn: TURN,
-        p_mode: mode,
-        p_ttl_seconds: 900,
-      });
-      expect(db.named("prd_turn_dispatch")).toHaveLength(1);
-    }
+  it("releases a provider rejection that lands before any model request", async () => {
+    const ran = await run({ streams: "throw" });
+    expect(ingests(ran.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
+    expect(ran.result.failure).toBe("The AI could not take this message. Nothing was charged for it.");
+    expect(named(ran.calls, "prd_append_message")).toEqual([]);
+    expect(ran.streamCalls).toBe(1);
   });
 
-  it("ends a turn the provider refused as rejected, with nothing appended", async () => {
-    const db = database({ session: SESSION, turn: freshTurn() });
-    const provider = anthropic({ stream: REPLY, send: 400 });
-    const result = await prdMessageSettle(relay(db.rpc, provider.fetch)).stream(
-      { turnId: TURN },
-      args(),
-      () => undefined,
-    );
-    expect(result.args).toEqual({ p_turn: TURN, p_event: { kind: "end", outcome: "rejected" } });
-    expect(result.failure).not.toBeNull();
-    expect(ingested(db.calls)).toEqual([]);
-    expect(db.named("prd_append_message")).toEqual([]);
-  });
-
-  it("ends a turn whose stream broke as uncertain, keeping what landed and charging no runtime yet", async () => {
-    const db = database({ session: SESSION, turn: freshTurn() });
-    const provider = anthropic({ stream: REPLY.slice(0, 6) });
-    const result = await prdMessageSettle(relay(db.rpc, provider.fetch)).stream(
-      { turnId: TURN },
-      args(),
-      () => undefined,
-    );
-    expect(result.args).toEqual({ p_turn: TURN, p_event: { kind: "end", outcome: "uncertain" } });
-    expect(ingested(db.calls).map((event) => event.kind)).toEqual(["model-end"]);
-    expect(db.named("prd_session_advance")).toEqual([]);
-    expect(db.named("prd_append_message")).toEqual([]);
-  });
-
-  it("answers a turn at its spending cap with a short refusal part", async () => {
-    const db = database({ session: SESSION, turn: freshTurn() });
-    const provider = anthropic({
-      stream: [
-        userMessage("sevt_u"),
-        modelStart("sevt_s"),
-        message("sevt_m", "Part"),
-        modelEnd("sevt_e"),
-        idle("sevt_i", "budget_reached"),
-      ],
-    });
-    const result = await prdMessageSettle(relay(db.rpc, provider.fetch)).stream(
-      { turnId: TURN },
-      args(),
-      () => undefined,
-    );
-    expect(result).toEqual({
-      args: { p_turn: TURN, p_event: { kind: "end", outcome: "answered" } },
-      failure: "This reply reached its spending cap.",
-    });
-  });
-
-  it("never sends a replayed request to the provider again", async () => {
-    for (const db of [
-      database({ session: SESSION, turn: freshTurn({ dispatched: true }), dispatch: false }),
-      database({ session: SESSION, turn: null }),
-    ]) {
-      const provider = anthropic({ stream: REPLY });
-      const result = await prdMessageSettle(relay(db.rpc, provider.fetch)).stream(
-        { turnId: TURN },
-        args(),
-        () => undefined,
-      );
-      expect(result).toEqual({ args: null, failure: "This message was already sent." });
-      expect(provider.calls).toEqual([]);
-    }
-  });
-
-  it("keeps the JSON answer when the request does not ask for a stream", async () => {
-    const db = database({ session: SESSION, turn: freshTurn() });
-    const settle = prdMessageSettle(relay(db.rpc, anthropic({}).fetch));
-    expect(await settle.act()).toEqual({ args: null, failure: null, skipSettle: true });
-    expect(db.calls).toEqual([]);
-  });
-});
-
-describe("the relay without its settings", () => {
-  const caller = { id: "99999999-9999-4999-8999-999999999999" } as Caller;
-  const reads = {} as CallerReads;
-
-  it("refuses a model turn with a fixed reason before any money is held", async () => {
-    const db = database({ session: null, turn: null });
-    const deps = prdRelayDeps({
-      rpc: db.rpc,
-      fetch: anthropic({}).fetch,
-      env: { ANTHROPIC_API_KEY: "k", PRD_GRANT_SIGNING_KEY: KEY },
-    });
-    expect(deps.managed).toBeNull();
-    expect(await prdMessagePrepare(deps)(caller, args(), reads, true)).toEqual({
-      ok: false,
-      kind: "refused",
-      status: 503,
-      reason: PRD_MODEL_UNAVAILABLE,
-    });
-    expect(db.calls).toEqual([]);
-    expect(await prdMessageSettle(deps).stream({ turnId: TURN }, args(), () => undefined)).toEqual({
-      args: null,
-      failure: PRD_MODEL_UNAVAILABLE,
-    });
-    expect(db.calls).toEqual([]);
-  });
-
-  it("still reserves a JSON send, which runs no model", async () => {
-    const db = database({ session: null, turn: null });
-    const deps = prdRelayDeps({ rpc: db.rpc, fetch: anthropic({}).fetch, env: {} });
-    expect(await prdMessagePrepare(deps)(caller, args(), reads, false)).toEqual({
-      ok: true,
-      args: args(),
-    });
-    expect(db.calls).toEqual([]);
-  });
-
-  it("needs a usable grant key as well as the Managed Agents settings", () => {
-    const env = {
-      ANTHROPIC_API_KEY: "k",
-      PRD_MANAGED_AGENT_ID: "agent_prd",
-      PRD_MANAGED_ENVIRONMENT_ID: "env_prd",
-      PRD_TOOLS_PUBLIC_URL: CONFIG.toolsUrl,
+  it("ingests a repeated step id once", async () => {
+    const calls: Call[] = [];
+    const rpc: SettleDatabase = async (name, args) => {
+      calls.push({ name, args });
+      return { ok: true, value: { providerMicros: 5, feeMicros: 1 } };
     };
-    const rpc = database({ session: null, turn: null }).rpc;
-    const fetch = anthropic({}).fetch;
-    expect(
-      prdRelayDeps({ rpc, fetch, env: { ...env, PRD_GRANT_SIGNING_KEY: "short" } }).managed,
-    ).toBeNull();
-    expect(
-      prdRelayDeps({ rpc, fetch, env: { ...env, PRD_GRANT_SIGNING_KEY: KEY } }).managed,
-    ).not.toBeNull();
+    const seen = new Set<string>();
+    const usage: PrdUsage = { input: 3, output: 1, cacheRead: 2, cacheWrite: 1 };
+    expect(await ingestModelStep(rpc, TURN, 0, usage, seen)).toEqual({ providerMicros: 5, feeMicros: 1 });
+    expect(await ingestModelStep(rpc, TURN, 0, null, seen)).toBe("duplicate");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args.p_event).toEqual({ kind: "model-end", eventId: `${TURN}:0`, usage });
   });
-});
 
-describe("catch-up", () => {
-  const history = [
-    userMessage("sevt_u0"),
-    modelEnd("sevt_old"),
-    idle("sevt_prev"),
-    userMessage("sevt_u"),
-    modelStart("sevt_s1"),
-    message("sevt_m1", "Volunteers book themselves."),
-    modelEnd("sevt_e1"),
-    modelStart("sevt_s2"),
-    modelEnd("sevt_e2"),
-    idle("sevt_i"),
-  ];
-
-  it("ingests what landed after an uncertain turn, moves the cursor after the ingests, then appends and ends", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ state: "uncertain", dispatched: true, modelRequests: 1 }),
+  it("issues a reply grant, an answer-write grant, and a side-chat grant", async () => {
+    const reply = await run({ streams: [() => textStream("Reply.")] });
+    const answer = await run({
+      streams: [() => textStream("Recorded.")],
+      turn: { kind: "answer-write" },
     });
-    const provider = anthropic({ history, activeSeconds: 44 });
-    await catchUpChat(relay(db.rpc, provider.fetch), PROJECT, "main");
+    const side = await run({
+      streams: [() => textStream("Side reply.")],
+      chatKey: `side:${QUESTION}`,
+    });
+    expect(named(reply.calls, "prd_grant_issue")[0]?.args.p_mode).toBe("reply");
+    expect(named(answer.calls, "prd_grant_issue")[0]?.args.p_mode).toBe("answer-write");
+    expect(named(answer.calls, "prd_grant_tools")[0]?.args).toBeDefined();
+    expect(named(side.calls, "prd_grant_issue")[0]?.args.p_mode).toBe("answer-write");
+  });
 
-    expect(ingested(db.calls)).toEqual([
-      {
-        kind: "model-end",
-        sessionId: "sesn_old",
-        eventId: "sevt_e1",
-        usage: { input: 900, output: 120, cacheRead: 0, cacheWrite: 0 },
+  it("gives a tool refusal back to the model as the tool result", async () => {
+    let prompt = "";
+    const ran = await run({
+      streams: [
+        () => toolStream("read_section", { key: "booking" }),
+        (value) => {
+          prompt = JSON.stringify(value);
+          return textStream("I could not read it.");
+        },
+      ],
+    });
+    expect(prompt).toContain("That tool is not available in this turn.");
+    expect(ran.result.failure).toBeNull();
+    expect(named(ran.calls, "read_section")).toHaveLength(1);
+  });
+
+  it("commits staged topics the model left uncommitted", async () => {
+    const ran = await run({
+      streams: [
+        () =>
+          toolStream("stage_section", {
+            receipt: RECEIPT,
+            document: { statements: [{ text: "Volunteers book themselves.", sources: ["Discovery"] }], decisions: [] },
+          }),
+        () => textStream("Staged, not committed."),
+      ],
+    });
+    const names = ran.calls.map((call) => call.name);
+    expect(names).toContain("stage_section");
+    expect(names).toContain("commit_prepare");
+    expect(names.indexOf("commit_prepare")).toBeGreaterThan(names.indexOf("stage_section"));
+    expect(names.filter((name) => name === "commit_turn")).toEqual([]);
+    const endAt = names.lastIndexOf("prd_turn_ingest");
+    expect(names.indexOf("commit_prepare")).toBeLessThan(endAt);
+  });
+
+  it("refuses a streaming turn before reserving when settings or a rate are missing", async () => {
+    const missingDb = database({ turn: freshTurn() });
+    const missing = prdRelayDeps({
+      rpc: missingDb.rpc,
+      fetch: async () => new Response("offline", { status: 500 }),
+      env: {},
+    });
+    const refused = await prdMessagePrepare(missing)(CALLER, messageArgs(), READS, true);
+    expect(refused).toEqual({ ok: false, kind: "refused", status: 503, reason: PRD_MODEL_UNAVAILABLE });
+    expect(missingDb.calls.map((call) => call.name)).toEqual(["prd_turn_open"]);
+
+    const unpricedDb = database({ turn: freshTurn(), priced: false });
+    const unpriced = prdRelayDeps({
+      rpc: unpricedDb.rpc,
+      fetch: async () => new Response("offline", { status: 500 }),
+      env: SETTINGS,
+    });
+    const noRate = await prdMessagePrepare(unpriced)(CALLER, messageArgs(), READS, true);
+    expect(noRate).toEqual({ ok: false, kind: "refused", status: 503, reason: PRD_MODEL_UNAVAILABLE });
+    expect(unpricedDb.calls.map((call) => call.name)).toEqual(["prd_turn_open", "prd_model_priced"]);
+
+    const jsonDb = database({ turn: freshTurn() });
+    const json = prdRelayDeps({
+      rpc: jsonDb.rpc,
+      fetch: async () => new Response("offline", { status: 500 }),
+      env: {},
+    });
+    const quiet = await prdMessagePrepare(json)(CALLER, messageArgs(), READS, false);
+    expect(quiet).toEqual({ ok: true, args: messageArgs() });
+
+    const readyDb = database({ turn: freshTurn(), priced: true });
+    const ready = prdRelayDeps({
+      rpc: readyDb.rpc,
+      fetch: async () => new Response("offline", { status: 500 }),
+      env: SETTINGS,
+    });
+    const priced = await prdMessagePrepare(ready)(CALLER, messageArgs(), READS, true);
+    expect(priced).toEqual({ ok: true, args: { ...messageArgs(), p_model: "selftest-model" } });
+
+    const actionArgs: PrdActionArgs = {
+      p_actor: ACTOR,
+      p_project: PROJECT,
+      p_kind: "complete-answer",
+      p_token: "complete-answer|question|1|1",
+      p_request_id: "request-2",
+    };
+    const action = await prdActionPrepare(missing)(CALLER, actionArgs, READS, true);
+    expect(action).toEqual({ ok: true, args: actionArgs });
+
+    const settle = prdMessageSettle(ready);
+    expect(await settle.act()).toEqual({ args: null, failure: null, skipSettle: true });
+  });
+
+  it("sends x-opencode-session only for opencode go", async () => {
+    const seen: Array<{ url: string; session: string | null }> = [];
+    const fetchImpl: PrdFetch = async (url, init) => {
+      const request = typeof url === "string" ? null : (url as Request);
+      const headers = new Headers(init?.headers ?? request?.headers);
+      seen.push({
+        url: typeof url === "string" ? url : request?.url ?? String(url),
+        session: headers.get("x-opencode-session"),
+      });
+      return new Response("offline", { status: 400 });
+    };
+    const go = prdModel(CHAT, { baseURL: `${OPENCODE_GO_URL}/`, modelId: "go-model", apiKey: "k" }, fetchImpl);
+    const openai = prdModel(
+      CHAT,
+      { baseURL: "https://api.openai.com/v1", modelId: "gpt-test", apiKey: "k" },
+      fetchImpl,
+    );
+    await streamText({ model: go, prompt: "Hello", maxRetries: 0 }).text.catch(() => undefined);
+    await streamText({ model: openai, prompt: "Hello", maxRetries: 0 }).text.catch(() => undefined);
+    const goCalls = seen.filter((item) => item.url.includes("opencode.ai"));
+    const openaiCalls = seen.filter((item) => item.url.includes("api.openai.com"));
+    expect(goCalls.length).toBeGreaterThan(0);
+    expect(goCalls.every((item) => item.session === CHAT)).toBe(true);
+    expect(openaiCalls.length).toBeGreaterThan(0);
+    expect(openaiCalls.every((item) => item.session === null)).toBe(true);
+  });
+
+  it("parses the streamed reply with the screen snapshot parser", async () => {
+    const text = "Volunteers book themselves.";
+    const ran = await run({ streams: [() => textStream(text)] });
+    expect(ran.chunks.some((chunk) => isChunk(chunk) && chunk.type === "text-delta" && chunk.delta === text)).toBe(
+      true,
+    );
+    const stream = new ReadableStream<UIMessageChunk>({
+      start(controller) {
+        for (const chunk of ran.chunks) controller.enqueue(chunk as UIMessageChunk);
+        controller.close();
       },
-      {
-        kind: "model-end",
-        sessionId: "sesn_old",
-        eventId: "sevt_e2",
-        usage: { input: 900, output: 120, cacheRead: 0, cacheWrite: 0 },
-      },
-      { kind: "runtime", sessionId: "sesn_old", activeSeconds: 44 },
-      { kind: "end", outcome: "answered" },
-    ]);
-    const order = db.calls.map((call) => call.name);
-    const advanceAt = order.indexOf("prd_session_advance");
-    const ingestAts = order.flatMap((name, index) => (name === "prd_turn_ingest" ? [index] : []));
-    expect(advanceAt).toBeGreaterThan(ingestAts[2]);
-    expect(advanceAt).toBeLessThan(ingestAts[3]);
-    expect(db.named("prd_session_advance")[0].args).toEqual({
-      p_turn: TURN,
-      p_from: "sevt_prev",
-      p_to: "sevt_i",
     });
-    expect(db.named("prd_append_message")).toHaveLength(1);
-    expect(order.indexOf("prd_append_message")).toBeLessThan(ingestAts[3]);
+    const messages = [];
+    for await (const message of readUIMessageStream({ stream })) messages.push(message);
+    const last = messages.at(-1);
+    const streamed = last?.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("") ?? "";
+    expect(streamed).toBe(text);
+    const snapshot = parsePrdSnapshot(snapshotWith(text));
+    expect(snapshot.chats.main[0]?.parts).toEqual([{ type: "text", text }]);
   });
 
-  it("never sends a message or calls the model", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ state: "uncertain", dispatched: true }),
+  it("ends an overdue turn without calling the model, and leaves a young turn alone", async () => {
+    const young = database({ turn: freshTurn({ ageSeconds: 5 }) });
+    const youngDeps = prdRelayDeps({
+      rpc: young.rpc,
+      fetch: async () => new Response("offline", { status: 500 }),
+      env: SETTINGS,
+      model: new MockLanguageModelV4({ doStream: async () => textStream("no") }),
     });
-    const provider = anthropic({ history });
-    await catchUpChat(relay(db.rpc, provider.fetch), PROJECT, "main");
-    expect(provider.calls.length).toBeGreaterThan(0);
-    expect(provider.calls.every((call) => call.method === "GET")).toBe(true);
-    expect(db.named("prd_turn_dispatch")).toEqual([]);
-    expect(db.named("prd_grant_issue")).toEqual([]);
-  });
+    await catchUpChat(youngDeps, PROJECT, "main");
+    expect(young.calls.map((call) => call.name)).toEqual(["prd_turn_open"]);
 
-  it("leaves a turn that is still being answered alone", async () => {
-    const db = database({ session: SESSION, turn: freshTurn({ dispatched: true, ageSeconds: 5 }) });
-    const provider = anthropic({ history });
-    await catchUpChat(relay(db.rpc, provider.fetch), PROJECT, "main");
-    expect(provider.calls).toEqual([]);
-    expect(db.calls.map((call) => call.name)).toEqual(["prd_session_read"]);
-  });
+    const old = database({ turn: freshTurn({ ageSeconds: PRD_TURN_DEADLINE_SECONDS + 1, modelRequests: 0 }) });
+    await catchUpChat(
+      prdRelayDeps({
+        rpc: old.rpc,
+        fetch: async () => new Response("offline", { status: 500 }),
+        env: SETTINGS,
+      }),
+      PROJECT,
+      "main",
+    );
+    expect(ingests(old.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
 
-  it("rejects an overdue turn that was never sent, without asking the provider", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ ageSeconds: PRD_TURN_DEADLINE_SECONDS + 1 }),
+    const uncertain = database({
+      turn: freshTurn({ state: "uncertain", ageSeconds: 1, modelRequests: 2 }),
     });
-    const provider = anthropic({ history });
-    await catchUpChat(relay(db.rpc, provider.fetch), PROJECT, "main");
-    expect(provider.calls).toEqual([]);
-    expect(ingested(db.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
-  });
+    await catchUpChat(
+      prdRelayDeps({
+        rpc: uncertain.rpc,
+        fetch: async () => new Response("offline", { status: 500 }),
+        env: SETTINGS,
+      }),
+      PROJECT,
+      "main",
+    );
+    expect(ingests(uncertain.calls)).toEqual([{ kind: "end", outcome: "answered" }]);
 
-  it("rejects a turn whose message never reached the session and whose events show no model request", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ state: "uncertain", dispatched: true }),
+    const listed = database({
+      turn: freshTurn({ ageSeconds: PRD_TURN_DEADLINE_SECONDS + 5 }),
+      overdue: ["main"],
     });
-    const provider = anthropic({ history: history.slice(0, 3) });
-    await catchUpChat(relay(db.rpc, provider.fetch), PROJECT, "main");
-    expect(ingested(db.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
-    expect(db.named("prd_append_message")).toEqual([]);
-  });
-
-  it("marks an overdue turn that has not ended uncertain and keeps the cursor", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ dispatched: true, ageSeconds: PRD_TURN_DEADLINE_SECONDS + 1 }),
-    });
-    const provider = anthropic({ history: history.slice(0, 7) });
-    await catchUpChat(relay(db.rpc, provider.fetch), PROJECT, "main");
-    expect(ingested(db.calls).map((event) => event.kind)).toEqual(["model-end", "end"]);
-    expect(ingested(db.calls)[1]).toEqual({ kind: "end", outcome: "uncertain" });
-    expect(db.named("prd_session_advance")).toEqual([]);
-  });
-
-  it("stops before the cursor moves when an ingest is refused", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ state: "uncertain", dispatched: true }),
-    });
-    const refusing: SettleDatabase = async (name, callArgs) =>
-      name === "prd_turn_ingest"
-        ? { ok: false, message: "no", details: "invalid-request" }
-        : db.rpc(name, callArgs);
-    await catchUpChat(relay(refusing, anthropic({ history }).fetch), PROJECT, "main");
-    expect(db.named("prd_session_advance")).toEqual([]);
-    expect(db.named("prd_append_message")).toEqual([]);
-  });
-
-  it("catches up every overdue chat a snapshot load finds", async () => {
-    const db = database({
-      session: SESSION,
-      turn: freshTurn({ ageSeconds: PRD_TURN_DEADLINE_SECONDS + 1 }),
-      overdue: ["main", "topic:booking"],
-    });
-    await catchUpOverdue(relay(db.rpc, anthropic({}).fetch), PROJECT);
-    expect(db.named("prd_turns_overdue")[0].args).toEqual({
+    await catchUpOverdue(
+      prdRelayDeps({
+        rpc: listed.rpc,
+        fetch: async () => new Response("offline", { status: 500 }),
+        env: SETTINGS,
+      }),
+      PROJECT,
+    );
+    expect(named(listed.calls, "prd_turns_overdue")[0]?.args).toEqual({
       p_project: PROJECT,
       p_seconds: PRD_TURN_DEADLINE_SECONDS,
     });
-    expect(db.named("prd_session_read").map((call) => call.args.p_chat_key)).toEqual([
-      "main",
-      "topic:booking",
-    ]);
+    expect(ingests(listed.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
+  });
+
+  it("does not end a turn whose open row is a different turn", async () => {
+    const ran = await run({ streams: [() => textStream("no")], turnId: "22222222-2222-4222-8222-222222222222" });
+    expect(ran.result).toMatchObject({ failure: "This message was already sent.", status: 409, skipSettle: true });
+    expect(ingests(ran.calls)).toEqual([]);
+    expect(ran.streamCalls).toBe(0);
+  });
+
+  it("reads normalized usage, including a missing report", () => {
+    expect(
+      usageOf({
+        inputTokens: undefined,
+        outputTokens: undefined,
+        inputTokenDetails: { noCacheTokens: undefined, cacheReadTokens: undefined, cacheWriteTokens: undefined },
+        outputTokenDetails: { textTokens: undefined, reasoningTokens: undefined },
+        totalTokens: undefined,
+      }),
+    ).toBeNull();
+    expect(
+      usageOf({
+        inputTokens: 9,
+        outputTokens: 3,
+        inputTokenDetails: { noCacheTokens: 4, cacheReadTokens: 3, cacheWriteTokens: 2 },
+        outputTokenDetails: { textTokens: 3, reasoningTokens: 0 },
+        totalTokens: 12,
+      }),
+    ).toEqual({ input: 9, output: 3, cacheRead: 3, cacheWrite: 2 });
   });
 });
+
+function isChunk(value: unknown): value is { type: string; delta?: string } {
+  return typeof value === "object" && value !== null && "type" in value;
+}
+
+function snapshotWith(text: string) {
+  const unavailable = { kind: "unavailable" as const, reason: "Not now." };
+  return {
+    sequence: 1,
+    revision: 1,
+    viewer: { role: "dev" as const, name: "Priya Shah" },
+    people: [{ role: "ai" as const, name: "ai4good AI", label: "AI" }],
+    project: { title: "Scheduling", organizationName: "Harbor" },
+    discoveryRevision: 1,
+    topics: [
+      {
+        id: "booking",
+        title: "Booking",
+        required: true,
+        state: "draft" as const,
+        statusText: "Draft.",
+        blocker: null,
+        statements: [] as string[],
+        sources: [] as string[],
+        stories: null,
+        scope: null,
+        changeSummary: null,
+        author: null,
+        confirm: unavailable,
+        reopen: unavailable,
+      },
+    ],
+    devQuestions: [],
+    questions: [],
+    chats: {
+      main: [
+        {
+          id: "assistant-1",
+          role: "assistant" as const,
+          parts: [{ type: "text" as const, text }],
+        },
+      ],
+    },
+    canWrite: { main: true },
+    send: { main: { kind: "available" as const } },
+    funds: {
+      allocationMicros: 0,
+      settledMicros: 0,
+      pendingMicros: 0,
+      replyHoldMicros: 0,
+      availableMicros: 0,
+      band: "green" as const,
+      replyFunded: true,
+    },
+    check: null,
+    close: { kind: "closed" as const, revision: 1, openPoints: 0 },
+    drafts: {},
+  };
+}

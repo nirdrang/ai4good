@@ -1421,18 +1421,26 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     const rows = await sections(sql, project);
     const turn = await reserve(sql, project, opened.dev, "main", "fail-prepared", "Try again");
     const grant = await grantOf(issue(sql, turn.turnId, "reply"));
-    const claims = await objectOf(sql`select public.prd_grant_claims(${grant}::uuid) as r`);
     const chats = (await sql`select chat_id from public.prd_turns where id = ${turn.turnId}::uuid`) as Array<{
       chat_id: string;
     }>;
     const repos = (await sql`select repo_name from public.prd_records where project_id = ${project}::uuid`) as Array<{
       repo_name: string;
     }>;
-    expect(String(claims.grant)).toBe(grant);
-    expect(String(claims.project)).toBe(project);
-    expect(String(claims.chat)).toBe(String(chats[0].chat_id));
-    expect(String(claims.turn)).toBe(turn.turnId);
-    expect(Number.isFinite(Date.parse(String(claims.expiresAt)))).toBe(true);
+    const grants = (await sql`select id, project_id, chat_id, turn_id, expires_at
+      from public.prd_grants where id = ${grant}::uuid`) as Array<{
+      id: string;
+      project_id: string;
+      chat_id: string;
+      turn_id: string;
+      expires_at: string;
+    }>;
+    const claims = grants[0];
+    expect(claims.id).toBe(grant);
+    expect(claims.project_id).toBe(project);
+    expect(claims.chat_id).toBe(String(chats[0].chat_id));
+    expect(claims.turn_id).toBe(turn.turnId);
+    expect(Number.isFinite(Date.parse(claims.expires_at))).toBe(true);
     const readBooking = await objectOf(read(sql, grant, "booking"));
     await objectOf(stage(sql, grant, String(readBooking.receipt), drafted("Prepared, then dropped.")));
     const prepared = await objectOf(prepare(sql, grant));

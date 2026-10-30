@@ -262,22 +262,22 @@ export function prdMessagePrepare(deps: PrdRelayDeps) {
     _caller: Caller,
     args: PrdMessageArgs,
     _reads: CallerReads,
-    _stream: boolean,
+    stream: boolean,
   ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
     await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
+    if (!stream) return { ok: true, args };
     return readyModelTurn(deps, args);
   };
 }
 
-export function prdActionPrepare(deps: PrdRelayDeps) {
+export function prdActionPrepare(_deps: PrdRelayDeps) {
   return async (
     _caller: Caller,
     args: PrdActionArgs,
     _reads: CallerReads,
     _stream: boolean,
   ): Promise<WriteRouteDecision<PrdActionArgs>> => {
-    if (args.p_kind !== "complete-answer") return { ok: true, args };
-    return readyModelTurn(deps, args);
+    return { ok: true, args };
   };
 }
 
@@ -288,11 +288,7 @@ function turnIdOf(reserved: unknown): string | null {
 export function prdMessageSettle(deps: PrdRelayDeps) {
   return {
     rpc: "prd_turn_ingest",
-    act: async (reserved: unknown, args: PrdMessageArgs): Promise<SettleActResult> =>
-      runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), {
-        emit() {},
-        closed: () => false,
-      }),
+    act: async (): Promise<SettleActResult> => ({ args: null, failure: null, skipSettle: true }),
     uiStream: async (
       reserved: unknown,
       args: PrdMessageArgs,

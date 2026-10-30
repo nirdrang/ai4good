@@ -259,10 +259,6 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     return roundedDivide(cost * feeBps, 10_000n * 1_000_000n);
   }
 
-  function runtimeCost(table: Rates, secondsMicros: bigint): bigint {
-    return roundedDivide(secondsMicros * table["runtime:active-hour"], 3600n * 1_000_000n);
-  }
-
   it("refuses an unfunded reply, credits funds, holds a reply, and releases it when the turn ends", async () => {
     const w = await world(stack, sql);
     const empty = await funds(w);
@@ -372,7 +368,6 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     expect(readback).toMatchObject({
       providerMicros: Number(providerSum),
       tokenMicros: Number(providerSum),
-      runtimeMicros: 0,
       feeMicros: Number(feeSum),
       deductedMicros: Number(providerSum + feeSum),
       tokens: {
@@ -390,12 +385,14 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     const other = await world(stack, sql);
     await credit(other.project, 1_000_000n);
     const otherTurn = await reserveIn(other, other.dev, "main");
-    expect(await refusal(ingest(otherTurn, modelEnd("sesn_many", "evt_9", first)))).toBe(
+    expect(await refusal(ingest(otherTurn, modelEnd("sesn_many", "evt_1", first)))).toBe(
       "invalid-request",
     );
-    expect(await refusal(ingest(turn, modelEnd("sesn_other", "evt_3", first)))).toBe(
-      "invalid-request",
-    );
+    expect(await ingest(turn, modelEnd("sesn_other", "evt_3", first))).toMatchObject({
+      eventId: "evt_3",
+      state: "settled",
+      providerMicros: Number(firstCost),
+    });
     expect(await refusal(ingest(turn, { kind: "model-end", sessionId: "sesn_many" }))).toBe(
       "invalid-request",
     );
@@ -475,49 +472,47 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     });
   });
 
-  it("charges runtime once per turn from the session baseline, and moves the baseline", async () => {
+  it("prices a turn with a second model's rate, not the Haiku seed", async () => {
     const w = await world(stack, sql);
     await credit(w.project, 10_000_000n);
-    const first = await reserveIn(w, w.dev, "main");
-    const table = await rates(first);
-    const charged = await ingest(first, {
-      kind: "runtime",
-      sessionId: "sesn_run",
-      activeSeconds: 90,
+    const model = "selftest-model";
+    await sql`insert into public.prd_rate_versions
+      (model, version, effective_from, rate_card, category, usd)
+      values
+        (${model}, 1, clock_timestamp(), 'up-to-100k', 'input', 3.000000),
+        (${model}, 1, clock_timestamp(), 'up-to-100k', 'output', 9.000000),
+        (${model}, 1, clock_timestamp(), 'up-to-100k', 'cache-read', 1.000000),
+        (${model}, 1, clock_timestamp(), 'up-to-100k', 'cache-write', 2.000000),
+        (${model}, 1, clock_timestamp(), 'over-100k', 'input', 4.000000),
+        (${model}, 1, clock_timestamp(), 'over-100k', 'output', 12.000000),
+        (${model}, 1, clock_timestamp(), 'over-100k', 'cache-read', 1.500000),
+        (${model}, 1, clock_timestamp(), 'over-100k', 'cache-write', 3.000000)`;
+    const request = crypto.randomUUID();
+    const reserved = await one(sql`select public.prd_turn_reserve(
+      ${w.dev}::uuid, ${w.project}::uuid, 'main', ${request}, ${await revision(w.project)},
+      ${JSON.stringify({ kind: "text", text: "Price the other model" })}::text::jsonb,
+      ${`hash-${request}`}, ${model}
+    ) as r`);
+    const turn = String(reserved.turnId);
+    const table = await rates(turn);
+    const haikuTurn = await reserveIn(w, w.dev, "topic:booking");
+    const haiku = await rates(haikuTurn);
+    expect(table["up-to-100k:output"]).toBe(9_000_000n);
+    expect(haiku["up-to-100k:output"]).not.toBe(table["up-to-100k:output"]);
+    const usage: Usage = { input: 100, output: 40, cacheRead: 0, cacheWrite: 0 };
+    const cost = tokenCost(table, usage);
+    expect(cost).not.toBe(tokenCost(haiku, usage));
+    expect(await ingest(turn, modelEnd("ignored", "evt_other_model", usage))).toMatchObject({
+      providerMicros: Number(cost),
+      feeMicros: Number(feeOf(cost)),
+      rateCard: "up-to-100k",
     });
-    expect(charged).toMatchObject({
-      turnId: first,
-      kind: "runtime",
-      runtimeMicros: Number(runtimeCost(table, 90_000_000n)),
-    });
-    expect(
-      await ingest(first, { kind: "runtime", sessionId: "sesn_run", activeSeconds: 120 }),
-    ).toEqual(charged);
-    expect(await entries(first, "runtime")).toEqual([runtimeCost(table, 90_000_000n)]);
-    const baseline = (await sql`select runtime_baseline_seconds::text as seconds
-      from public.prd_sessions where provider_session_id = 'sesn_run'`) as Array<{
-      seconds: string;
+    const pinned = (await sql`select model, rate_version::int as version
+      from public.prd_reservations where turn_id = ${turn}::uuid`) as Array<{
+      model: string;
+      version: number;
     }>;
-    expect(micros(baseline[0].seconds)).toBe(90_000_000n);
-    await ingest(first, { kind: "end", outcome: "answered" });
-
-    const second = await reserveIn(w, w.dev, "main");
-    const again = await ingest(second, {
-      kind: "runtime",
-      sessionId: "sesn_run",
-      activeSeconds: 150.5,
-    });
-    expect(again).toMatchObject({ runtimeMicros: Number(runtimeCost(table, 60_500_000n)) });
-    await ingest(second, { kind: "end", outcome: "answered" });
-
-    const third = await reserveIn(w, w.dev, "main");
-    expect(
-      await refusal(ingest(third, { kind: "runtime", sessionId: "sesn_run", activeSeconds: 100 })),
-    ).toBe("invalid-request");
-    expect(await ledger(w, null)).toMatchObject({
-      runtimeMicros: Number(runtimeCost(table, 90_000_000n) + runtimeCost(table, 60_500_000n)),
-      feeMicros: 0,
-    });
+    expect(pinned[0]).toEqual({ model, version: 1 });
   });
 
   it("releases the whole hold of a turn rejected before any model request, and keeps an uncertain hold", async () => {
@@ -580,34 +575,6 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     expect(await reserveIn(w, w.dev, "main")).toEqual(expect.any(String));
   });
 
-  it("caps the session at its settled list spend plus the reservation, rounded up to a cent", async () => {
-    const w = await world(stack, sql);
-    await credit(w.project, 10_000_000n);
-    const first = await reserveIn(w, w.dev, "main");
-    const table = await rates(first);
-    const opening = (await sql`select public.prd_session_budget(${first}::uuid) as r`) as Array<{
-      r: unknown;
-    }>;
-    expect(whole(opening[0].r)).toBe(Number((hold + 9_999n) / 10_000n));
-    const usage: Usage = { input: 1_234, output: 567, cacheRead: 0, cacheWrite: 0 };
-    const cost = tokenCost(table, usage);
-    await ingest(first, modelEnd("sesn_cap", "evt_cap", usage));
-    const runtime = runtimeCost(table, 45_000_000n);
-    await ingest(first, { kind: "runtime", sessionId: "sesn_cap", activeSeconds: 45 });
-    await ingest(first, { kind: "end", outcome: "answered" });
-    const second = await reserveIn(w, w.dev, "main");
-    const cents = (cost + runtime + hold + 9_999n) / 10_000n;
-    const rows = (await sql`select public.prd_session_budget(${second}::uuid) as r`) as Array<{
-      r: unknown;
-    }>;
-    expect(whole(rows[0].r)).toBe(Number(cents));
-    const topic = await reserveIn(w, w.dev, "topic:booking");
-    const other = (await sql`select public.prd_session_budget(${topic}::uuid) as r`) as Array<{
-      r: unknown;
-    }>;
-    expect(whole(other[0].r)).toBe(Number((hold + 9_999n) / 10_000n));
-  });
-
   it("colors the band from settled spend only, at 79.999, 80, 95 and 95.001 percent", async () => {
     const unit = 100_000n;
     const allocation = ((21n * hold + unit - 1n) / unit) * unit;
@@ -623,15 +590,20 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
       const turn = await reserveIn(w, w.dev, "main");
       const table = await rates(turn);
       const target = (allocation * item.thousandths) / 100_000n;
-      const scaled = target * 3600n * 1_000_000n;
-      expect(scaled % table["runtime:active-hour"], "the runtime rate divides the target").toBe(0n);
-      const secondsMicros = scaled / table["runtime:active-hour"];
-      expect(runtimeCost(table, secondsMicros)).toBe(target);
-      await ingest(turn, {
-        kind: "runtime",
-        sessionId: `sesn_band_${item.thousandths}`,
-        activeSeconds: Number(dollars(secondsMicros)),
-      });
+      const divisor = 10_000n * 1_000_000n + feeBps;
+      expect(target * 10_000n * 1_000_000n % divisor, "the fee divides the target").toBe(0n);
+      const cost = (target * 10_000n * 1_000_000n) / divisor;
+      expect(cost + feeOf(cost)).toBe(target);
+      const outputRate = table["up-to-100k:output"];
+      expect(cost * 1_000_000n % outputRate, "the output rate divides the provider cost").toBe(0n);
+      const usage: Usage = {
+        input: 0,
+        output: Number(cost * 1_000_000n / outputRate),
+        cacheRead: 0,
+        cacheWrite: 0,
+      };
+      expect(tokenCost(table, usage)).toBe(cost);
+      await ingest(turn, modelEnd(`sesn_band_${item.thousandths}`, `evt_${item.thousandths}`, usage));
       await ingest(turn, { kind: "end", outcome: "answered" });
       const settled = await funds(w);
       expect(settled, `${item.thousandths}`).toMatchObject({
@@ -726,110 +698,42 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     return rows[0].r;
   }
 
-  function sessionRead(w: World, key: string) {
-    return one(sql`select public.prd_session_read(${w.project}::uuid, ${key}) as r`);
+  function openTurn(w: World, key: string) {
+    return one(sql`select public.prd_turn_open(${w.project}::uuid, ${key}) as r`);
   }
 
-  it("keeps one session per chat, and moves its credential and cursor only from what was read", async () => {
+  it("reads the open turn for a chat and clears it when the turn ends", async () => {
     const w = await world(stack, sql);
     await credit(w.project, 1_000_000n);
     const turn = await reserveIn(w, w.dev, "main", "Who books shifts?");
 
-    const fresh = await sessionRead(w, "main");
-    expect(fresh.session).toBeNull();
+    const fresh = await openTurn(w, "main");
+    expect(typeof fresh.chatId).toBe("string");
     expect(record(fresh.turn)).toMatchObject({
       id: turn,
       kind: "reply",
       state: "admitted",
-      dispatched: false,
       parts: [{ type: "text", text: "Who books shifts?" }],
       modelRequests: 0,
+      reservationMicros: Number(hold),
+      spentMicros: 0,
     });
+    expect(typeof record(fresh.turn).messageId).toBe("string");
     expect(Number(record(fresh.turn).ageSeconds)).toBeGreaterThanOrEqual(0);
-    expect(await refusal(sessionRead(w, "topic:nope"))).toBe("invalid-request");
-
-    expect(await scalar(sql`select public.prd_turn_dispatch(${turn}::uuid) as r`)).toBe(true);
-    expect(await scalar(sql`select public.prd_turn_dispatch(${turn}::uuid) as r`)).toBe(false);
-    expect(record((await sessionRead(w, "main")).turn).dispatched).toBe(true);
-
-    const opened = await one(
-      sql`select public.prd_session_open(${turn}::uuid, 'sesn_a', 'vlt_a', 'vcrd_a') as r`,
-    );
-    expect(opened).toEqual({
-      sessionId: "sesn_a",
-      vaultId: "vlt_a",
-      credentialId: "vcrd_a",
-      generation: 1,
-      cursor: null,
-    });
-    expect(
-      await one(
-        sql`select public.prd_session_open(${turn}::uuid, 'sesn_a', 'vlt_a', 'vcrd_a') as r`,
-      ),
-    ).toEqual(opened);
-    expect(
-      await refusal(
-        sql`select public.prd_session_open(${turn}::uuid, 'sesn_b', 'vlt_b', 'vcrd_b') as r`,
-      ),
-    ).toBe("invalid-request");
-    expect(
-      await refusal(
-        sql`select public.prd_session_open(${turn}::uuid, 'sesn_a', '', 'vcrd_a') as r`,
-      ),
-    ).toBe("invalid-request");
+    expect(await refusal(openTurn(w, "topic:nope"))).toBe("invalid-request");
 
     const usage = { input: 100, output: 10, cacheRead: 0, cacheWrite: 0 };
     expect(await ingest(turn, modelEnd("sesn_a", "sevt_e1", usage))).toMatchObject({
       state: "settled",
     });
-    expect(await refusal(ingest(turn, modelEnd("sesn_b", "sevt_e2", usage)))).toBe(
-      "invalid-request",
-    );
-    expect(record((await sessionRead(w, "main")).turn).modelRequests).toBe(1);
-
-    expect(await scalar(sql`select public.prd_session_rotate(${turn}::uuid, 1) as r`)).toBe(2);
-    expect(await refusal(sql`select public.prd_session_rotate(${turn}::uuid, 1) as r`)).toBe(
-      "stale",
-    );
-
-    expect(
-      await scalar(sql`select public.prd_session_advance(${turn}::uuid, null, 'sevt_1') as r`),
-    ).toBe(true);
-    expect(
-      await scalar(sql`select public.prd_session_advance(${turn}::uuid, null, 'sevt_2') as r`),
-    ).toBe(false);
-    expect(
-      await scalar(sql`select public.prd_session_advance(${turn}::uuid, 'sevt_1', 'sevt_2') as r`),
-    ).toBe(true);
-    expect(
-      await refusal(sql`select public.prd_session_advance(${turn}::uuid, 'sevt_2', ' ') as r`),
-    ).toBe("invalid-request");
-    expect((await sessionRead(w, "main")).session).toEqual({
-      sessionId: "sesn_a",
-      vaultId: "vlt_a",
-      credentialId: "vcrd_a",
-      generation: 2,
-      cursor: "sevt_2",
-    });
+    expect(record((await openTurn(w, "main")).turn).modelRequests).toBe(1);
 
     await ingest(turn, { kind: "end", outcome: "answered" });
-    for (const finished of [
-      sql`select public.prd_turn_dispatch(${turn}::uuid) as r`,
-      sql`select public.prd_session_rotate(${turn}::uuid, 2) as r`,
-      sql`select public.prd_session_advance(${turn}::uuid, 'sevt_2', 'sevt_3') as r`,
-    ]) {
-      expect(await refusal(finished)).toBe("stale");
-    }
-    const after = await sessionRead(w, "main");
-    expect(after.turn).toBeNull();
-    expect(record(after.session).sessionId).toBe("sesn_a");
+    expect((await openTurn(w, "main")).turn).toBeNull();
 
     const next = await reserveIn(w, w.dev, "main", "And who cancels?");
-    expect(record((await sessionRead(w, "main")).turn)).toMatchObject({
-      id: next,
-      dispatched: false,
-    });
-    expect((await sessionRead(w, "topic:booking")).session).toBeNull();
+    expect(record((await openTurn(w, "main")).turn).id).toBe(next);
+    expect((await openTurn(w, "topic:booking")).turn).toBeNull();
   });
 
   it("lists the chats whose turn is uncertain or past its deadline", async () => {

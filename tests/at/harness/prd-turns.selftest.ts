@@ -301,6 +301,18 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
       actor_kind: "dev",
     });
     expect(JSON.stringify(parsed(stored[0].parts))).toContain("Hello from Priya");
+    const opened = await one(sql`select public.prd_turn_open(${project}::uuid, 'main') as r`);
+    const openTurn = parsed(opened.turn) as Record<string, unknown>;
+    expect(typeof opened.chatId).toBe("string");
+    expect(openTurn).toMatchObject({
+      id: held.mainTurn,
+      kind: "reply",
+      state: "admitted",
+      modelRequests: 0,
+      spentMicros: 0,
+    });
+    expect(Number(openTurn.reservationMicros)).toBeGreaterThan(0);
+    expect(Number(openTurn.ageSeconds)).toBeGreaterThanOrEqual(0);
 
     const busy = await measure();
     expect(

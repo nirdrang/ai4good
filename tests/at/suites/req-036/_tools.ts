@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 import { loadGithubTest } from "../../harness/github.ts";
 import { type Stack } from "../../harness/live-stack.ts";
@@ -21,10 +18,11 @@ import {
 } from "../../../../supabase/functions/_shared/prd/file.ts";
 import { commitTurn, type CommitTurnResult } from "../../../../supabase/functions/_shared/prd/git.ts";
 import {
-  issueGrantToken,
-  signGrant,
-  type GrantClaims,
-} from "../../../../supabase/functions/_shared/prd/grant.ts";
+  executePrdTool,
+  TOOLS,
+  type PrdToolDeps,
+  type PrdToolScope,
+} from "../../../../supabase/functions/_shared/prd/tools.ts";
 import type { SettleDatabase } from "../../../../supabase/functions/_shared/write-routes.ts";
 import {
   act,
@@ -39,7 +37,6 @@ import {
   sectionFile,
   seed,
   send,
-  serviceRpc,
   signDelivery,
   signInAgain,
   topicById,
@@ -82,8 +79,7 @@ const STALE_SENTENCE =
 
 type Seeded = Awaited<ReturnType<typeof seed>>;
 type ChatScope = { kind: "main" } | { kind: "topic"; topicId: string };
-type Turn = { turnId: string; token: string; grantId: string };
-type ToolResponse = { status: number; text: string };
+type Turn = { turnId: string; grantId: string; scope: PrdToolScope };
 type ToolsWorld = {
   seeded: Seeded;
   client: GithubRepo;
@@ -104,61 +100,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function grantKey(): string {
-  const path = join(
-    dirname(fileURLToPath(import.meta.url)),
-    "..",
-    "..",
-    "..",
-    "..",
-    "supabase",
-    "functions",
-    ".env",
-  );
-  const text = readFileSync(path, "utf8").replace(/^\uFEFF/, "");
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("PRD_GRANT_SIGNING_KEY=")) continue;
-    let value = trimmed.slice("PRD_GRANT_SIGNING_KEY=".length).trim();
-    const first = value[0];
-    const last = value[value.length - 1];
-    if (
-      value.length >= 2 &&
-      ((first === '"' && last === '"') || (first === "'" && last === "'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    if (value === "") throw new Error("PRD_GRANT_SIGNING_KEY is empty");
-    return value;
-  }
-  throw new Error("PRD_GRANT_SIGNING_KEY is missing from supabase/functions/.env");
-}
-
-function claimsFrom(token: string): GrantClaims {
-  const dot = token.indexOf(".");
-  if (dot <= 0) throw new Error("the grant token has no payload");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(Buffer.from(token.slice(0, dot), "base64url").toString("utf8"));
-  } catch {
-    throw new Error("the grant token payload is not json");
-  }
-  if (!isRecord(parsed)) throw new Error("the grant token payload is not a record");
-  const { grantId, projectId, chatId, expiresAt } = parsed;
-  if (
-    typeof grantId !== "string" ||
-    typeof projectId !== "string" ||
-    typeof chatId !== "string" ||
-    typeof expiresAt !== "string"
-  ) {
-    throw new Error("the grant token payload is missing a claim");
-  }
-  return { grantId, projectId, chatId, expiresAt };
-}
-
-function changedSignature(token: string): string {
-  const last = token.slice(-1);
-  return token.slice(0, -1) + (last === "A" ? "B" : "A");
+function chatKeyOf(scope: ChatScope): string {
+  return scope.kind === "main" ? "main" : `topic:${scope.topicId}`;
 }
 
 function hintRpc(stack: Stack): SettleDatabase {
@@ -226,76 +169,35 @@ function loseFirstAdvance(inner: GithubFetch): GithubFetch {
   };
 }
 
-async function postPrdTools(
-  stack: Stack,
-  token: string | null,
-  body: unknown,
-): Promise<ToolResponse> {
-  const headers: Record<string, string> = {
-    apikey: stack.anonKey,
-    "content-type": "application/json",
-  };
-  if (token !== null) headers.authorization = `Bearer ${token}`;
-  const response = await fetch(`${stack.apiUrl.replace(/\/$/, "")}/functions/v1/prd-tools`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
+function toolDeps(world: ToolsWorld, fetchImpl: GithubFetch = fetch): PrdToolDeps {
+  const configured = githubConfig({
+    PRD_GITHUB_ORG: world.config.org,
+    GITHUB_APP_ID: world.config.appId,
+    GITHUB_APP_PRIVATE_KEY: world.config.privateKey,
+    PRD_GITHUB_REPO_VISIBILITY: world.config.visibility,
   });
-  return { status: response.status, text: await response.text() };
+  if (!configured.ok) throw new Error(configured.reason);
+  return { rpc: hintRpc(world.seeded.stack), github: githubRepo(configured.config, fetchImpl) };
 }
 
-function callTool(
-  stack: Stack,
-  token: string | null,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<ToolResponse> {
-  return postPrdTools(stack, token, {
-    jsonrpc: "2.0",
-    id: crypto.randomUUID(),
-    method: "tools/call",
-    params: { name, arguments: args },
-  });
+function runTool(world: ToolsWorld, turn: Turn, name: string, input: unknown): Promise<string> {
+  return executePrdTool(toolDeps(world), turn.scope, turn.scope, name, input);
 }
 
-function rpcBody(response: ToolResponse, label: string): Record<string, unknown> {
-  expect(response.status, `${label}: ${response.text}`).toBe(200);
-  let parsed: unknown;
+function toolValue(text: string, label: string): unknown {
   try {
-    parsed = JSON.parse(response.text);
+    return JSON.parse(text);
   } catch {
-    throw new Error(`${label} did not return JSON`);
+    throw new Error(`${label}: ${text}`);
   }
-  if (!isRecord(parsed)) throw new Error(`${label} did not return a JSON object`);
-  return parsed;
 }
 
-function toolValue(response: ToolResponse, label: string): unknown {
-  const body = rpcBody(response, label);
-  if (!isRecord(body.result)) throw new Error(`${label} has no result`);
-  const content = body.result.content;
-  if (body.result.isError === true) {
-    const text = Array.isArray(content) && isRecord(content[0]) ? content[0].text : body.result;
-    throw new Error(`${label}: ${typeof text === "string" ? text : JSON.stringify(text)}`);
-  }
-  if (!Array.isArray(content) || !isRecord(content[0]) || typeof content[0].text !== "string") {
-    throw new Error(`${label} returned no text`);
-  }
-  return JSON.parse(content[0].text);
-}
-
-function refusedCommitText(response: ToolResponse, label: string): string {
-  const body = rpcBody(response, label);
-  if (!isRecord(body.result) || body.result.isError !== true || !Array.isArray(body.result.content)) {
-    throw new Error(`${label} was not refused`);
-  }
-  const sentence = body.result.content[0];
-  const sections = body.result.content[1];
-  if (!isRecord(sentence) || !isRecord(sections) || typeof sections.text !== "string") {
-    throw new Error(`${label} did not return the current sections`);
-  }
-  expect(sentence.text, label).toBe(STALE_SENTENCE);
-  return sections.text;
+async function refusedCommitText(world: ToolsWorld, turn: Turn, label: string): Promise<string> {
+  const text = await runTool(world, turn, "commit_turn", {});
+  const split = text.indexOf("\n");
+  const sentence = split === -1 ? text : text.slice(0, split);
+  expect(sentence, label).toBe(STALE_SENTENCE);
+  return split === -1 ? "" : text.slice(split + 1);
 }
 
 function withText(document: SectionDocument, text: string): SectionDocument {
@@ -541,26 +443,36 @@ async function beginTurn(world: ToolsWorld, scope: ChatScope, label: string): Pr
   expect(response.status, `${label}: ${JSON.stringify(response.json)}`).toBe(200);
   const turnId = response.json.turnId;
   if (typeof turnId !== "string") throw new Error(`${label} named no turn`);
-  const issued = await issueGrantToken(
-    serviceRpc(world.seeded.stack),
-    grantKey(),
+  const rpc = hintRpc(world.seeded.stack);
+  const issued = await rpc("prd_grant_issue", {
+    p_turn: turnId,
+    p_mode: "reply",
+    p_ttl_seconds: 3600,
+  });
+  if (!issued.ok || typeof issued.value !== "string") {
+    throw new Error(`${label} could not issue a grant: ${issued.ok ? "no grant id" : issued.message}`);
+  }
+  const opened = await rpc("prd_turn_open", {
+    p_project: world.seeded.projectId,
+    p_chat_key: chatKeyOf(scope),
+  });
+  const chatId = opened.ok && isRecord(opened.value) ? opened.value.chatId : null;
+  if (typeof chatId !== "string") throw new Error(`${label} named no chat`);
+  const bound: PrdToolScope = {
+    grantId: issued.value,
+    projectId: world.seeded.projectId,
+    chatId,
     turnId,
-    "reply",
-    3600,
-  );
-  if (!issued.ok) throw new Error(`${label} could not issue a grant: ${issued.reason}`);
-  return { turnId, token: issued.token, grantId: claimsFrom(issued.token).grantId };
+  };
+  return { turnId, grantId: issued.value, scope: bound };
 }
 
 async function readKey(
   world: ToolsWorld,
-  token: string,
+  turn: Turn,
   key: string,
 ): Promise<{ receipt: string; document: SectionDocument }> {
-  const value = toolValue(
-    await callTool(world.seeded.stack, token, "read_section", { key }),
-    `read ${key}`,
-  );
+  const value = toolValue(await runTool(world, turn, "read_section", { key }), `read ${key}`);
   if (!isRecord(value) || typeof value.receipt !== "string") {
     throw new Error(`read ${key} named no receipt`);
   }
@@ -571,36 +483,27 @@ async function readKey(
 
 async function stageKey(
   world: ToolsWorld,
-  token: string,
+  turn: Turn,
   receipt: string,
   document: SectionDocument,
   label: string,
 ): Promise<void> {
   const value = toolValue(
-    await callTool(world.seeded.stack, token, "stage_section", {
-      receipt,
-      document: { ...document },
-    }),
+    await runTool(world, turn, "stage_section", { receipt, document: { ...document } }),
     label,
   );
   if (!isRecord(value) || typeof value.staged !== "string") throw new Error(`${label} did not stage`);
 }
 
-async function proposeKey(world: ToolsWorld, token: string, key: string): Promise<void> {
-  const value = toolValue(
-    await callTool(world.seeded.stack, token, "propose_ready", { key }),
-    `propose ${key} ready`,
-  );
+async function proposeKey(world: ToolsWorld, turn: Turn, key: string): Promise<void> {
+  const value = toolValue(await runTool(world, turn, "propose_ready", { key }), `propose ${key} ready`);
   if (!isRecord(value) || value.staged !== "ready") {
     throw new Error(`propose ${key} did not stage Ready to confirm`);
   }
 }
 
-async function commitTool(world: ToolsWorld, token: string, label: string): Promise<string> {
-  const value = toolValue(
-    await callTool(world.seeded.stack, token, "commit_turn", {}),
-    label,
-  );
+async function commitTool(world: ToolsWorld, turn: Turn, label: string): Promise<string> {
+  const value = toolValue(await runTool(world, turn, "commit_turn", {}), label);
   if (!isRecord(value) || typeof value.sha !== "string") throw new Error(`${label} named no sha`);
   return value.sha;
 }
@@ -663,67 +566,43 @@ function hookBody(world: ToolsWorld): string {
   return JSON.stringify({ repository: { id: world.repoId }, commits: [{ message: "ignored" }] });
 }
 
-async function expectRefusedToken(
-  world: ToolsWorld,
-  token: string | null,
-  label: string,
-): Promise<void> {
+async function proveWrongGrant(world: ToolsWorld, turn: Turn): Promise<void> {
   const before = await counts(world.seeded);
-  const response = await callTool(world.seeded.stack, token, "read_section", { key: "booking" });
-  expect(response.status, `${label} answers 401`).toBe(401);
-  expect(await counts(world.seeded), `${label} reaches no tool`).toEqual(before);
-}
-
-async function proveGrantToken(world: ToolsWorld, token: string): Promise<void> {
-  await expectRefusedToken(world, null, "no bearer");
-  await expectRefusedToken(world, "not-a-grant-token", "a malformed token");
-  await expectRefusedToken(world, changedSignature(token), "a token with a changed signature");
-  const claims = claimsFrom(token);
-  await expectRefusedToken(
-    world,
-    await signGrant({ ...claims, expiresAt: "2020-01-01T00:00:00.000Z" }, grantKey()),
-    "an expired token",
-  );
-  await expectRefusedToken(
-    world,
-    await signGrant({ ...claims, projectId: crypto.randomUUID() }, grantKey()),
-    "a token signed for another project",
-  );
-  await expectRefusedToken(
-    world,
-    await signGrant({ ...claims, chatId: crypto.randomUUID() }, grantKey()),
-    "a token signed for another chat",
-  );
-
-  const before = await counts(world.seeded);
-  const listed = rpcBody(
-    await postPrdTools(world.seeded.stack, token, {
-      jsonrpc: "2.0",
-      id: crypto.randomUUID(),
-      method: "tools/list",
-    }),
-    "tools/list",
-  );
-  expect(await counts(world.seeded), "tools/list reaches no section").toEqual(before);
-  if (!isRecord(listed.result) || !Array.isArray(listed.result.tools)) {
-    throw new Error("tools/list returned no tools");
-  }
-  const tools = listed.result.tools.map((tool) => {
-    if (!isRecord(tool) || typeof tool.name !== "string" || !isRecord(tool.inputSchema)) {
-      throw new Error("tools/list returned a tool without a name and a schema");
-    }
-    return { name: tool.name, inputSchema: tool.inputSchema };
-  });
+  const other = await beginTurn(world, { kind: "topic", topicId: "rules" }, "Another chat's grant.");
+  const deps = toolDeps(world);
   expect(
-    tools.map((tool) => tool.name),
-    "a reply grant lists only the tools its mode allows",
-  ).toEqual(REPLY_TOOLS);
-  for (const tool of tools) {
-    const properties = isRecord(tool.inputSchema.properties)
-      ? Object.keys(tool.inputSchema.properties)
-      : [];
+    await executePrdTool(deps, turn.scope, other.scope, "read_section", { key: "booking" }),
+    "another chat's grant is refused",
+  ).toBe("That action is not allowed.");
+  expect(
+    await executePrdTool(
+      deps,
+      turn.scope,
+      { ...turn.scope, projectId: crypto.randomUUID() },
+      "read_section",
+      { key: "booking" },
+    ),
+    "another project's grant is refused",
+  ).toBe("That action is not allowed.");
+  await finishTurn(world.seeded, other.turnId);
+  expect(
+    await executePrdTool(deps, other.scope, other.scope, "read_section", { key: "rules" }),
+    "an ended turn's grant is refused",
+  ).toBe("That turn has finished.");
+  expect(await counts(world.seeded), "a refused grant reaches no tool").toEqual(before);
+
+  const listed = await hintRpc(world.seeded.stack)("prd_grant_tools", { p_grant: turn.grantId });
+  if (!listed.ok || !Array.isArray(listed.value)) throw new Error("the grant listed no tools");
+  const allowed = new Set(listed.value);
+  const names = TOOLS.filter((spec) => allowed.has(spec.sql)).map((spec) => spec.name);
+  expect(names, "a reply grant lists only the tools its mode allows").toEqual(REPLY_TOOLS);
+  for (const spec of TOOLS) {
+    if (!allowed.has(spec.sql)) continue;
     for (const name of DIRECT_WRITE) {
-      expect(properties, `${tool.name} does not write the repository directly`).not.toContain(name);
+      expect(
+        Object.keys(spec.inputSchema.properties),
+        `${spec.name} does not write the repository directly`,
+      ).not.toContain(name);
     }
   }
 }
@@ -732,23 +611,23 @@ async function proveLandTogether(world: ToolsWorld, turn: Turn): Promise<void> {
   const beforeDev = await devView(world);
   const beforeNgo = await ngoView(world);
   const beforeHead = await head(world);
-  const booking = await readKey(world, turn.token, "booking");
-  const rules = await readKey(world, turn.token, "rules");
+  const booking = await readKey(world, turn, "booking");
+  const rules = await readKey(world, turn, "rules");
   await stageKey(
     world,
-    turn.token,
+    turn,
     booking.receipt,
     withText(booking.document, LAND_BOOKING),
     "stage booking for the shared commit",
   );
   await stageKey(
     world,
-    turn.token,
+    turn,
     rules.receipt,
     withText(rules.document, LAND_RULES),
     "stage rules for the shared commit",
   );
-  await proposeKey(world, turn.token, "booking");
+  await proposeKey(world, turn, "booking");
   const heldDev = await devView(world);
   const heldNgo = await ngoView(world);
   expect(texts(heldDev, "booking"), "staged booking is invisible to the developer").toEqual(
@@ -768,7 +647,7 @@ async function proveLandTogether(world: ToolsWorld, turn: Turn): Promise<void> {
   );
   expect(heldDev.revision, "staging does not move the revision").toBe(beforeDev.revision);
 
-  const sha = await commitTool(world, turn.token, "the shared commit");
+  const sha = await commitTool(world, turn, "the shared commit");
   await expectTurnCommit(world, beforeHead, sha, turn.turnId, [
     filePath(world, "booking"),
     filePath(world, "rules"),
@@ -796,7 +675,7 @@ async function proveLandTogether(world: ToolsWorld, turn: Turn): Promise<void> {
   const againHead = await head(world);
   const againRevision = afterDev.revision;
   const againSequence = afterDev.sequence;
-  const again = await commitTool(world, turn.token, "the second commit in the same turn");
+  const again = await commitTool(world, turn, "the second commit in the same turn");
   expect(again.toLowerCase(), "a second commit in the same turn returns the same sha").toBe(
     sha.toLowerCase(),
   );
@@ -841,38 +720,35 @@ async function proveStaleCommit(world: ToolsWorld): Promise<void> {
     "The topic chat that also read section X.",
   );
   const rulesBefore = texts(await devView(world), "rules");
-  const mainBooking = await readKey(world, main.token, "booking");
-  const topicBooking = await readKey(world, topic.token, "booking");
-  const topicRules = await readKey(world, topic.token, "rules");
+  const mainBooking = await readKey(world, main, "booking");
+  const topicBooking = await readKey(world, topic, "booking");
+  const topicRules = await readKey(world, topic, "rules");
   await stageKey(
     world,
-    main.token,
+    main,
     mainBooking.receipt,
     withText(mainBooking.document, STALE_FIRST),
     "the first chat stages section X",
   );
   const before = await head(world);
-  const first = await commitTool(world, main.token, "the first chat commits section X");
+  const first = await commitTool(world, main, "the first chat commits section X");
   await expectTurnCommit(world, before, first, main.turnId, [filePath(world, "booking")], "the first chat");
   await stageKey(
     world,
-    topic.token,
+    topic,
     topicBooking.receipt,
     withText(topicBooking.document, STALE_SECOND_X),
     "the second chat stages the stale section X",
   );
   await stageKey(
     world,
-    topic.token,
+    topic,
     topicRules.receipt,
     withText(topicRules.document, STALE_SECOND_Y),
     "the second chat stages section Y",
   );
   const headBeforeRefusal = await head(world);
-  const refused = refusedCommitText(
-    await callTool(world.seeded.stack, topic.token, "commit_turn", {}),
-    "the stale commit is refused as a whole",
-  );
+  const refused = await refusedCommitText(world, topic, "the stale commit is refused as a whole");
   expect(refused, "the refusal returns the current text of section X").toContain(STALE_FIRST);
   expect((await head(world)).toLowerCase(), "the refusal leaves main unchanged").toBe(
     headBeforeRefusal.toLowerCase(),
@@ -883,23 +759,23 @@ async function proveStaleCommit(world: ToolsWorld): Promise<void> {
   ]);
   expect(texts(held, "rules"), "the refusal leaves section Y unchanged").toEqual(rulesBefore);
 
-  const redoBooking = await readKey(world, topic.token, "booking");
-  const redoRules = await readKey(world, topic.token, "rules");
+  const redoBooking = await readKey(world, topic, "booking");
+  const redoRules = await readKey(world, topic, "rules");
   await stageKey(
     world,
-    topic.token,
+    topic,
     redoBooking.receipt,
     withText(redoBooking.document, STALE_REDO_X),
     "the second chat stages section X again",
   );
   await stageKey(
     world,
-    topic.token,
+    topic,
     redoRules.receipt,
     withText(redoRules.document, STALE_REDO_Y),
     "the second chat stages section Y again",
   );
-  const redone = await commitTool(world, topic.token, "the second chat commits after reading again");
+  const redone = await commitTool(world, topic, "the second chat commits after reading again");
   await expectTurnCommit(
     world,
     headBeforeRefusal,
@@ -922,24 +798,24 @@ async function proveSeparateChats(world: ToolsWorld): Promise<void> {
     { kind: "topic", topicId: "technical-scope" },
     "The topic chat writes the technical scope.",
   );
-  const users = await readKey(world, main.token, "usersToday");
-  const scope = await readKey(world, topic.token, "technical-scope");
+  const users = await readKey(world, main, "usersToday");
+  const scope = await readKey(world, topic, "technical-scope");
   await stageKey(
     world,
-    main.token,
+    main,
     users.receipt,
     withText(users.document, SPLIT_USERS),
     "the main chat stages its section",
   );
   await stageKey(
     world,
-    topic.token,
+    topic,
     scope.receipt,
     withText(scope.document, SPLIT_SCOPE),
     "the topic chat stages its section",
   );
   const before = await head(world);
-  const mainShaWritten = await commitTool(world, main.token, "the main chat commits its section");
+  const mainShaWritten = await commitTool(world, main, "the main chat commits its section");
   await expectTurnCommit(
     world,
     before,
@@ -949,7 +825,7 @@ async function proveSeparateChats(world: ToolsWorld): Promise<void> {
     "the main chat's own commit",
   );
   const middle = await head(world);
-  const topicSha = await commitTool(world, topic.token, "the topic chat commits its section");
+  const topicSha = await commitTool(world, topic, "the topic chat commits its section");
   await expectTurnCommit(
     world,
     middle,
@@ -967,10 +843,10 @@ async function proveSeparateChats(world: ToolsWorld): Promise<void> {
 
 async function proveOutsideDuringAdvance(world: ToolsWorld): Promise<void> {
   const unrelated = await beginTurn(world, { kind: "main" }, "The turn that lands on an outside edit.");
-  const booking = await readKey(world, unrelated.token, "booking");
+  const booking = await readKey(world, unrelated, "booking");
   await stageKey(
     world,
-    unrelated.token,
+    unrelated,
     booking.receipt,
     withText(booking.document, RACE_TURN),
     "stage the section the outside edit does not touch",
@@ -1021,10 +897,10 @@ async function proveOutsideDuringAdvance(world: ToolsWorld): Promise<void> {
     { kind: "main" },
     "The turn whose staged section is pushed.",
   );
-  const again = await readKey(world, conflicting.token, "booking");
+  const again = await readKey(world, conflicting, "booking");
   await stageKey(
     world,
-    conflicting.token,
+    conflicting,
     again.receipt,
     withText(again.document, RACE_STALE_TURN),
     "stage the section the outside edit will touch",
@@ -1074,10 +950,10 @@ async function proveOutsideDuringAdvance(world: ToolsWorld): Promise<void> {
 async function proveLostAdvance(world: ToolsWorld): Promise<void> {
   const turn = await beginTurn(world, { kind: "main" }, "The turn whose advance response is lost.");
   const beforeView = await devView(world);
-  const users = await readKey(world, turn.token, "usersToday");
+  const users = await readKey(world, turn, "usersToday");
   await stageKey(
     world,
-    turn.token,
+    turn,
     users.receipt,
     withText(users.document, LOST_TEXT),
     "stage the section whose advance response is lost",
@@ -1099,10 +975,10 @@ async function proveLostAdvance(world: ToolsWorld): Promise<void> {
 
 async function proveForgedTrailer(world: ToolsWorld): Promise<void> {
   const turn = await beginTurn(world, { kind: "main" }, "The turn whose trailer is copied.");
-  const rules = await readKey(world, turn.token, "rules");
+  const rules = await readKey(world, turn, "rules");
   await stageKey(
     world,
-    turn.token,
+    turn,
     rules.receipt,
     withText(rules.document, FORGED_STAGED),
     "stage rules and do not commit them",
@@ -1156,34 +1032,34 @@ async function confirmSection(world: ToolsWorld, token: string, label: string): 
 
 async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   const readyTurn = await beginTurn(world, { kind: "main" }, "The turn that marks sections ready.");
-  const booking = await readKey(world, readyTurn.token, "booking");
-  const rules = await readKey(world, readyTurn.token, "rules");
-  const scope = await readKey(world, readyTurn.token, "technical-scope");
+  const booking = await readKey(world, readyTurn, "booking");
+  const rules = await readKey(world, readyTurn, "rules");
+  const scope = await readKey(world, readyTurn, "technical-scope");
   await stageKey(
     world,
-    readyTurn.token,
+    readyTurn,
     booking.receipt,
     withText(booking.document, READY_BOOKING),
     "stage booking ready",
   );
   await stageKey(
     world,
-    readyTurn.token,
+    readyTurn,
     rules.receipt,
     withText(rules.document, READY_RULES),
     "stage rules ready",
   );
   await stageKey(
     world,
-    readyTurn.token,
+    readyTurn,
     scope.receipt,
     withText(scope.document, READY_SCOPE),
     "stage technical scope ready",
   );
-  await proposeKey(world, readyTurn.token, "booking");
-  await proposeKey(world, readyTurn.token, "rules");
-  await proposeKey(world, readyTurn.token, "technical-scope");
-  await commitTool(world, readyTurn.token, "the turn that marks three sections ready");
+  await proposeKey(world, readyTurn, "booking");
+  await proposeKey(world, readyTurn, "rules");
+  await proposeKey(world, readyTurn, "technical-scope");
+  await commitTool(world, readyTurn, "the turn that marks three sections ready");
   await finishTurn(world.seeded, readyTurn.turnId);
 
   const offered = await devView(world);
@@ -1248,16 +1124,16 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   });
 
   const again = await beginTurn(world, { kind: "main" }, "The turn that marks booking ready again.");
-  const bookingAgain = await readKey(world, again.token, "booking");
+  const bookingAgain = await readKey(world, again, "booking");
   await stageKey(
     world,
-    again.token,
+    again,
     bookingAgain.receipt,
     withText(bookingAgain.document, READY_AGAIN),
     "stage booking ready again",
   );
-  await proposeKey(world, again.token, "booking");
-  await commitTool(world, again.token, "booking is Ready to confirm again");
+  await proposeKey(world, again, "booking");
+  await commitTool(world, again, "booking is Ready to confirm again");
   await finishTurn(world.seeded, again.turnId);
   const readyAgain = await devView(world);
   expect(topicById(readyAgain, "booking").state, "booking is Ready to confirm again").toBe("ready");
@@ -1288,15 +1164,15 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
   const scopeText = texts(allConfirmed, "technical-scope");
 
   const change = await beginTurn(world, { kind: "main" }, "The turn that changes a confirmed section.");
-  const changed = await readKey(world, change.token, "booking");
+  const changed = await readKey(world, change, "booking");
   await stageKey(
     world,
-    change.token,
+    change,
     changed.receipt,
     withText(changed.document, CHANGE_BOOKING),
     "stage a change with no Ready to confirm proposal",
   );
-  await commitTool(world, change.token, "the change to the confirmed section");
+  await commitTool(world, change, "the change to the confirmed section");
   await finishTurn(world.seeded, change.turnId);
   const invalidated = await devView(world);
   expect(topicById(invalidated, "booking").state, "the changed section is no longer confirmed").toBe(
@@ -1358,7 +1234,7 @@ export async function proveTopicTools(): Promise<void> {
     expect(opened.status, JSON.stringify(opened.json)).toBe(200);
     const world = await loadWorld(seeded);
     const shared = await beginTurn(world, { kind: "main" }, "The shared commit turn.");
-    await proveGrantToken(world, shared.token);
+    await proveWrongGrant(world, shared);
     await proveLandTogether(world, shared);
     await proveReplayedWebhook(world);
     await finishTurn(seeded, shared.turnId);
