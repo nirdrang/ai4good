@@ -43,12 +43,11 @@ export type PrdModelSettings = {
   apiKey: string;
 };
 
-export type PrdFetch = (url: string, init?: RequestInit) => Promise<Response>;
+export type PrdFetch = typeof fetch;
 
 export type PrdTurnDeps = PrdToolDeps & {
   settings: PrdModelSettings | null;
   model: LanguageModel | null;
-  fetchImpl: PrdFetch;
 };
 
 export type PrdTurnSink = {
@@ -345,7 +344,7 @@ export async function runPrdTurn(
   let ingestFailed = false;
   let providerFailed = false;
   const text: string[] = [];
-  const model = deps.model ?? prdModel(turn.chatId, deps.settings, deps.fetchImpl);
+  const model = deps.model ?? prdModel(turn.chatId, deps.settings);
 
   if (!capped) {
     try {

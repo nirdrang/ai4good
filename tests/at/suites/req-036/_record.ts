@@ -1838,7 +1838,6 @@ export async function proveRolesAndPermissions(): Promise<void> {
 }
 
 const FUNDS_SENTENCE = "Not enough left for another AI reply. The kitchen adds funds to continue.";
-const GAUGE_SESSION = "sesn_gauge_main";
 
 async function ingestOver(seeded: Seed, turnId: string, event: Record<string, unknown>) {
   const answer = await serviceRpc(seeded.stack)("prd_turn_ingest", {
@@ -1849,11 +1848,25 @@ async function ingestOver(seeded: Seed, turnId: string, event: Record<string, un
   return answer.value as Record<string, unknown>;
 }
 
-async function runtimeRate(sql: Sql): Promise<number> {
-  const rows = (await sql`select (usd * 1000000)::bigint as micros from public.prd_rate_versions
-    where model = 'claude-haiku-5-5' and rate_card = 'runtime'
-    order by version desc limit 1`) as Array<{ micros: unknown }>;
-  return whole(rows[0]?.micros);
+async function outputTokensFor(sql: Sql, turnId: string, totalMicros: number): Promise<number> {
+  const rates = (await sql`select (v.usd * 1000000)::bigint as micros
+    from public.prd_reservations r
+    join public.prd_rate_versions v on v.model = r.model and v.version = r.rate_version
+    where r.turn_id = ${turnId}::uuid and v.rate_card = 'up-to-100k' and v.category = 'output'`) as Array<{
+    micros: unknown;
+  }>;
+  const fees = (await sql`select value::text as value from public.prd_money_config
+    where key = 'fee-basis-points'`) as Array<{ value: string }>;
+  const providerMicros = (totalMicros * 10_000) / (10_000 + Number(fees[0].value));
+  return (providerMicros * 1_000_000) / whole(rates[0]?.micros);
+}
+
+function outputSpend(turnId: string, output: number): Record<string, unknown> {
+  return {
+    kind: "model-end",
+    eventId: `${turnId}:0`,
+    usage: { input: 0, output, cacheRead: 0, cacheWrite: 0 },
+  };
 }
 
 async function ledgerRows(sql: Sql, projectId: string): Promise<number> {
@@ -1875,7 +1888,6 @@ export async function proveFundsGauge(): Promise<void> {
     const opened = await open(seeded, seeded.dev);
     expect(opened.status, JSON.stringify(opened.json)).toBe(200);
     const hold = await replyHoldMicros(seeded.sql);
-    const rate = await runtimeRate(seeded.sql);
     const empty = await readSnapshot(seeded, seeded.dev);
     expect(empty.funds, "no free Discovery counter funds the PRD").toMatchObject({
       allocationMicros: 0,
@@ -1922,13 +1934,10 @@ export async function proveFundsGauge(): Promise<void> {
       { thousandths: 95_000, band: "yellow" },
       { thousandths: 95_001, band: "red" },
     ] as const;
-    let activeMicros = 0;
+    let spentBefore = 0;
     for (const step of steps) {
       const target = (allocation * step.thousandths) / 100_000;
       expect(Number.isInteger(target)).toBe(true);
-      const secondsMicros = (target * 3600 * 1_000_000) / rate;
-      expect(Number.isInteger(secondsMicros), "the runtime rate divides the target").toBe(true);
-      activeMicros = secondsMicros;
       const before = await readSnapshot(seeded, seeded.dev);
       const turnId = sentTurn(
         await send(
@@ -1941,11 +1950,10 @@ export async function proveFundsGauge(): Promise<void> {
         ),
         `the funded reply at ${step.thousandths}`,
       );
-      await ingestOver(seeded, turnId, {
-        kind: "runtime",
-        sessionId: GAUGE_SESSION,
-        activeSeconds: activeMicros / 1_000_000,
-      });
+      const output = await outputTokensFor(seeded.sql, turnId, target - spentBefore);
+      expect(Number.isInteger(output), "the output rate and the fee divide the step").toBe(true);
+      await ingestOver(seeded, turnId, outputSpend(turnId, output));
+      spentBefore = target;
       await ingestOver(seeded, turnId, { kind: "end", outcome: "answered" });
       const settled = await readSnapshot(seeded, seeded.dev);
       expect(settled.funds, `${step.thousandths} thousandths of a percent settled`).toEqual({
@@ -1996,12 +2004,8 @@ export async function proveFundsGauge(): Promise<void> {
       "the funded red reply",
     );
     const spendDown = (allocation - (allocation * 95_001) / 100_000) * 2;
-    const extraMicros = Math.ceil((spendDown * 3600 * 1_000_000) / rate / 1_000_000) * 1_000_000;
-    await ingestOver(seeded, last, {
-      kind: "runtime",
-      sessionId: GAUGE_SESSION,
-      activeSeconds: (activeMicros + extraMicros) / 1_000_000,
-    });
+    const extra = Math.ceil(await outputTokensFor(seeded.sql, last, spendDown));
+    await ingestOver(seeded, last, outputSpend(last, extra));
     await ingestOver(seeded, last, { kind: "end", outcome: "answered" });
     const out = await readSnapshot(seeded, seeded.dev);
     expect(out.funds).toMatchObject({ band: "red", replyFunded: false, availableMicros: 0 });

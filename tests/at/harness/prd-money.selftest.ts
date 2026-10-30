@@ -603,7 +603,7 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
         cacheWrite: 0,
       };
       expect(tokenCost(table, usage)).toBe(cost);
-      await ingest(turn, modelEnd(`sesn_band_${item.thousandths}`, `evt_${item.thousandths}`, usage));
+      await ingest(turn, modelEnd(`sesn_band_${item.thousandths}`, `${turn}:0`, usage));
       await ingest(turn, { kind: "end", outcome: "answered" });
       const settled = await funds(w);
       expect(settled, `${item.thousandths}`).toMatchObject({
@@ -615,7 +615,7 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
       expect(settled.replyFunded, "red alone still allows a funded reply").toBe(true);
 
       const held = await reserveIn(w, w.dev, "main");
-      await ingest(held, modelEnd(`sesn_band_${item.thousandths}`, "evt_wait", null));
+      await ingest(held, modelEnd(`sesn_band_${item.thousandths}`, `${held}:0`, null));
       const waiting = await funds(w);
       expect(waiting.pendingMicros).toBe(Number(hold));
       expect(waiting.band, "pending spend never changes the band").toBe(item.band);
@@ -655,7 +655,7 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
       const turn = await reserveIn(w, w.dev, "main", `Reply ${index}`);
       await ingest(
         turn,
-        modelEnd("sesn_count", `evt_${index}`, {
+        modelEnd("sesn_count", `${turn}:0`, {
           input: 500,
           output: 50,
           cacheRead: 0,

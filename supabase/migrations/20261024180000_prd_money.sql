@@ -153,7 +153,15 @@ insert into public.prd_rate_versions (model, version, effective_from, rate_card,
   ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'input', 0.500000),
   ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'output', 2.500000),
   ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'cache-read', 0.050000),
-  ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'cache-write', 0.625000);
+  ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'cache-write', 0.625000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'up-to-100k', 'input', 0.100000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'up-to-100k', 'output', 0.500000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'up-to-100k', 'cache-read', 0.010000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'up-to-100k', 'cache-write', 0.125000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'over-100k', 'input', 0.500000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'over-100k', 'output', 2.500000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'over-100k', 'cache-read', 0.050000),
+  ('gpt-6-luna', 1, timestamptz '2026-10-30 00:00:00+00', 'over-100k', 'cache-write', 0.625000);
 
 create function public.prd_model_priced(p_model text)
 returns boolean

@@ -485,8 +485,8 @@ describe("PRD turn on a mock model", () => {
       { baseURL: "https://api.openai.com/v1", modelId: "gpt-test", apiKey: "k" },
       fetchImpl,
     );
-    await streamText({ model: go, prompt: "Hello", maxRetries: 0 }).text.catch(() => undefined);
-    await streamText({ model: openai, prompt: "Hello", maxRetries: 0 }).text.catch(() => undefined);
+    await Promise.resolve(streamText({ model: go, prompt: "Hello", maxRetries: 0 }).text).catch(() => undefined);
+    await Promise.resolve(streamText({ model: openai, prompt: "Hello", maxRetries: 0 }).text).catch(() => undefined);
     const goCalls = seen.filter((item) => item.url.includes("opencode.ai"));
     const openaiCalls = seen.filter((item) => item.url.includes("api.openai.com"));
     expect(goCalls.length).toBeGreaterThan(0);

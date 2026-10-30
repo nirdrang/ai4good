@@ -35,7 +35,6 @@ export function prdRelayDeps(input: {
     rpc: input.rpc,
     settings: prdModelSettings(input.env),
     model: input.model ?? null,
-    fetchImpl: input.fetch,
     github: input.github ?? prdGithub(input.env, input.fetch),
   };
 }
@@ -58,17 +57,19 @@ function openTurn(value: unknown): OpenTurn | null {
 
 /** Ends a turn whose edge function died. It never calls the model. */
 export async function catchUpChat(deps: PrdTurnDeps, project: string, chatKey: string): Promise<void> {
-  const read = await deps.rpc("prd_turn_open", { p_project: project, p_chat_key: chatKey });
+  const database = deps.rpc;
+  const read = await database("prd_turn_open", { p_project: project, p_chat_key: chatKey });
   if (!read.ok) return;
   const turn = openTurn(read.value);
   if (turn === null) return;
   if (turn.state !== "uncertain" && turn.ageSeconds < PRD_TURN_DEADLINE_SECONDS) return;
   const outcome: Outcome = turn.modelRequests > 0 ? "answered" : "rejected";
-  await deps.rpc("prd_turn_ingest", { p_turn: turn.id, p_event: { kind: "end", outcome } });
+  await database("prd_turn_ingest", { p_turn: turn.id, p_event: { kind: "end", outcome } });
 }
 
 export async function catchUpOverdue(deps: PrdTurnDeps, project: string): Promise<void> {
-  const overdue = await deps.rpc("prd_turns_overdue", {
+  const database = deps.rpc;
+  const overdue = await database("prd_turns_overdue", {
     p_project: project,
     p_seconds: PRD_TURN_DEADLINE_SECONDS,
   });

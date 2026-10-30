@@ -235,7 +235,8 @@ export async function executePrdTool(
   const args = input === undefined ? {} : input;
   if (!argumentsMatch(spec.inputSchema, args)) return sentence("invalid-request");
   if (spec.name === "commit_turn") return commitResult(deps, grant);
-  const called = await deps.rpc(spec.sql, sqlArgs(spec, grant.grantId, args));
+  const database = deps.rpc;
+  const called = await database(spec.sql, sqlArgs(spec, grant.grantId, args));
   if (!called.ok) return sentence(failureCode(called));
   return JSON.stringify(called.value);
 }
