@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import type { Caller } from "../caller.ts";
 import type { CallerReads } from "../tenant-reads.ts";
-import { catchUpChat, PRD_MODEL_UNAVAILABLE, runPrdTurn, type PrdRelayDeps } from "./relay.ts";
+import {
+  catchUpChat,
+  prdModelReady,
+  PRD_MODEL_UNAVAILABLE,
+  runPrdTurn,
+  type PrdRelayDeps,
+} from "./relay.ts";
 import { snapshotFromRecord, viewerFromRecord } from "./snapshot.ts";
 import type { ActionKind, ChatScope, PrdIntent, QuestionId, TopicId } from "./wire.ts";
 import {
@@ -91,6 +97,7 @@ export type PrdMessageArgs = {
   p_base_revision: number;
   p_intent: PrdIntent;
   p_body_hash: string;
+  p_model?: string;
 };
 
 export type PrdActionArgs = {
@@ -99,6 +106,7 @@ export type PrdActionArgs = {
   p_kind: ActionKind;
   p_token: string;
   p_request_id: string;
+  p_model?: string;
 };
 
 function canonicalJson(value: unknown): string {
@@ -239,34 +247,59 @@ export function decidePrdAction(input: AccountWriteRouteInput): WriteRouteDecisi
   };
 }
 
+async function readyModelTurn<Args extends { p_model?: string }>(
+  deps: PrdRelayDeps,
+  args: Args,
+): Promise<WriteRouteDecision<Args>> {
+  if (!(await prdModelReady(deps)) || deps.settings === null) {
+    return refuseWrite("refused", 503, PRD_MODEL_UNAVAILABLE);
+  }
+  return { ok: true, args: { ...args, p_model: deps.settings.modelId } };
+}
+
 export function prdMessagePrepare(deps: PrdRelayDeps) {
   return async (
     _caller: Caller,
     args: PrdMessageArgs,
     _reads: CallerReads,
-    stream: boolean,
+    _stream: boolean,
   ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
-    if (deps.managed === null) {
-      return stream ? refuseWrite("refused", 503, PRD_MODEL_UNAVAILABLE) : { ok: true, args };
-    }
     await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
-    return { ok: true, args };
+    return readyModelTurn(deps, args);
   };
+}
+
+export function prdActionPrepare(deps: PrdRelayDeps) {
+  return async (
+    _caller: Caller,
+    args: PrdActionArgs,
+    _reads: CallerReads,
+    _stream: boolean,
+  ): Promise<WriteRouteDecision<PrdActionArgs>> => {
+    if (args.p_kind !== "complete-answer") return { ok: true, args };
+    return readyModelTurn(deps, args);
+  };
+}
+
+function turnIdOf(reserved: unknown): string | null {
+  return isRecord(reserved) ? uuidField(reserved.turnId) : null;
 }
 
 export function prdMessageSettle(deps: PrdRelayDeps) {
   return {
     rpc: "prd_turn_ingest",
-    act: async (): Promise<SettleActResult> => ({ args: null, failure: null, skipSettle: true }),
-    stream: async (
+    act: async (reserved: unknown, args: PrdMessageArgs): Promise<SettleActResult> =>
+      runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), {
+        emit() {},
+        closed: () => false,
+      }),
+    uiStream: async (
       reserved: unknown,
       args: PrdMessageArgs,
-      onDelta: (text: string) => void,
-    ): Promise<SettleActResult> => {
-      const turnId = isRecord(reserved) ? uuidField(reserved.turnId) : null;
-      if (turnId === null) return { args: null, failure: "The turn could not be read." };
-      return runPrdTurn(deps, args.p_project, args.p_chat_key, turnId, onDelta);
-    },
+      emit: (chunk: unknown) => void,
+      closed: () => boolean,
+    ): Promise<SettleActResult> =>
+      runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), { emit, closed }),
   };
 }
 

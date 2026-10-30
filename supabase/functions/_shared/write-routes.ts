@@ -302,6 +302,12 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   readonly settle?: {
     readonly rpc: string;
     readonly act: (reserved: unknown, args: Args, database?: SettleDatabase) => Promise<SettleActResult>;
+    readonly uiStream?: (
+      value: unknown,
+      args: Args,
+      emit: (chunk: unknown) => void,
+      closed: () => boolean,
+    ) => Promise<SettleActResult>;
     readonly stream?: (value: unknown, args: Args, onDelta: (text: string) => void, signal: AbortSignal) => Promise<SettleActResult>;
     readonly streamHead?: (value: unknown, args: Args) => {
       messageId: string;

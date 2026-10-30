@@ -15,7 +15,11 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"],
-    "paths": { "@/*": ["../../src/*"] },
+    "paths": {
+      "@/*": ["../../src/*"],
+      "npm:ai@7.0.102": ["../../node_modules/ai"],
+      "npm:@ai-sdk/openai@4.0.67": ["../../node_modules/@ai-sdk/openai"]
+    },
 
     /* The harness imports with explicit .ts specifiers ('./registry.ts'), which only Bundler
        resolution accepts; TypeScript requires noEmit alongside allowImportingTsExtensions. */

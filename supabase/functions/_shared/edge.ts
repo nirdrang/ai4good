@@ -167,11 +167,13 @@ export function prdRelay(): PrdRelayDeps {
     rpc: prdServiceRpc(),
     fetch,
     env: {
-      ANTHROPIC_API_KEY: Deno.env.get('ANTHROPIC_API_KEY'),
-      PRD_MANAGED_AGENT_ID: Deno.env.get('PRD_MANAGED_AGENT_ID'),
-      PRD_MANAGED_ENVIRONMENT_ID: Deno.env.get('PRD_MANAGED_ENVIRONMENT_ID'),
-      PRD_TOOLS_PUBLIC_URL: Deno.env.get('PRD_TOOLS_PUBLIC_URL'),
-      PRD_GRANT_SIGNING_KEY: Deno.env.get('PRD_GRANT_SIGNING_KEY'),
+      PRD_MODEL_BASE_URL: Deno.env.get('PRD_MODEL_BASE_URL'),
+      PRD_MODEL: Deno.env.get('PRD_MODEL'),
+      PRD_MODEL_API_KEY: Deno.env.get('PRD_MODEL_API_KEY'),
+      PRD_GITHUB_ORG: Deno.env.get('PRD_GITHUB_ORG'),
+      GITHUB_APP_ID: Deno.env.get('GITHUB_APP_ID'),
+      GITHUB_APP_PRIVATE_KEY: Deno.env.get('GITHUB_APP_PRIVATE_KEY'),
+      PRD_GITHUB_REPO_VISIBILITY: Deno.env.get('PRD_GITHUB_REPO_VISIBILITY'),
     },
   });
 }
@@ -314,6 +316,42 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     if (!outcome.ok) {
       await spec.commitRefused?.(decision.args);
       return rpcRefusal(outcome);
+    }
+
+    if (spec.settle?.uiStream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {
+      const settle = spec.settle;
+      const uiStream = settle.uiStream!;
+      const reserved = outcome.value;
+      const args = decision.args;
+      let cancelled = false;
+      let work: Promise<void> = Promise.resolve();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const encoder = new TextEncoder();
+          const emit = (chunk: unknown) => {
+            if (cancelled) return;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+          };
+          work = (async () => {
+            try {
+              const acted = await uiStream(reserved, args, emit, () => cancelled);
+              if (acted.failure !== null && !cancelled) emit({ type: 'error', errorText: acted.failure });
+            } catch (error) {
+              if (!cancelled) emit({ type: 'error', errorText: error instanceof Error ? error.message : String(error) });
+            } finally {
+              if (!cancelled) {
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
+              }
+            }
+          })();
+        },
+        cancel() {
+          cancelled = true;
+          EdgeRuntime.waitUntil(work);
+        },
+      });
+      return new Response(body, { headers: { ...CORS_HEADERS, ...discoveryStream.DISCOVERY_STREAM_HEADERS } });
     }
 
     if (spec.settle?.stream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {

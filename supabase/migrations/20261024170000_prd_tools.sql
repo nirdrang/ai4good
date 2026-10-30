@@ -308,30 +308,6 @@ begin
 end;
 $$;
 
-create function public.prd_grant_claims(p_grant uuid)
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  v_grant public.prd_grants%rowtype;
-begin
-  select * into v_grant from public.prd_grants where id = p_grant;
-  if not found then
-    raise exception 'that grant does not exist' using errcode = '22023', detail = 'unknown-grant';
-  end if;
-  return jsonb_build_object(
-    'grant', v_grant.id,
-    'project', v_grant.project_id,
-    'chat', v_grant.chat_id,
-    'turn', v_grant.turn_id,
-    'expiresAt', v_grant.expires_at
-  );
-end;
-$$;
-
 create function public.prd_section_read(p_project uuid, p_section uuid)
 returns jsonb
 language plpgsql
@@ -1951,9 +1927,7 @@ grant execute on function public.prd_grant_check(uuid, text) to service_role;
 revoke execute on function public.prd_grant_tools(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_grant_tools(uuid) to service_role;
-revoke execute on function public.prd_grant_claims(uuid)
-  from public, anon, authenticated, service_role;
-grant execute on function public.prd_grant_claims(uuid) to service_role;
+
 revoke execute on function public.read_section(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.read_section(uuid, text) to service_role;

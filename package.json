@@ -25,6 +25,7 @@
     "db:reset": "bunx supabase db reset"
   },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.67",
     "@ai-sdk/react": "^4.0.105",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",

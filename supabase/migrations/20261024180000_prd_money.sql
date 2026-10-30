@@ -9,15 +9,11 @@ create table public.prd_rate_versions (
   model text not null check (length(btrim(model)) > 0),
   version integer not null check (version >= 1),
   effective_from timestamptz not null,
-  rate_card text not null check (rate_card in ('up-to-100k', 'over-100k', 'runtime')),
+  rate_card text not null check (rate_card in ('up-to-100k', 'over-100k')),
   category text not null
-    check (category in ('input', 'output', 'cache-read', 'cache-write', 'active-hour')),
+    check (category in ('input', 'output', 'cache-read', 'cache-write')),
   usd numeric(20,6) not null check (usd >= 0),
-  primary key (model, version, rate_card, category),
-  constraint prd_rate_versions_unit check (
-    (rate_card = 'runtime' and category = 'active-hour')
-    or (rate_card <> 'runtime' and category <> 'active-hour')
-  )
+  primary key (model, version, rate_card, category)
 );
 
 create table public.prd_fund_credits (
@@ -29,19 +25,6 @@ create table public.prd_fund_credits (
 );
 
 create index prd_fund_credits_project_idx on public.prd_fund_credits (project_id);
-
-create table public.prd_sessions (
-  chat_id uuid primary key,
-  project_id uuid not null,
-  provider_session_id text not null unique check (length(btrim(provider_session_id)) > 0),
-  vault_id text,
-  credential_generation integer not null default 0 check (credential_generation >= 0),
-  runtime_baseline_seconds numeric(20,6) not null default 0 check (runtime_baseline_seconds >= 0),
-  event_cursor text,
-  created_at timestamptz not null default clock_timestamp(),
-  updated_at timestamptz not null default clock_timestamp(),
-  foreign key (project_id, chat_id) references public.prd_chats (project_id, id) on delete cascade
-);
 
 create table public.prd_reservations (
   turn_id uuid primary key references public.prd_turns (id) on delete cascade,
@@ -62,7 +45,6 @@ create table public.prd_provider_events (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.prd_records (project_id) on delete cascade,
   turn_id uuid not null references public.prd_turns (id) on delete cascade,
-  provider_session_id text not null check (length(btrim(provider_session_id)) > 0),
   event_id text not null check (length(btrim(event_id)) > 0),
   kind text not null check (kind in ('model-request')),
   state text not null check (state in ('pending', 'settled')),
@@ -72,7 +54,7 @@ create table public.prd_provider_events (
   cache_write_tokens bigint,
   created_at timestamptz not null default clock_timestamp(),
   settled_at timestamptz,
-  constraint prd_provider_events_once unique (provider_session_id, event_id),
+  constraint prd_provider_events_once unique (event_id),
   constraint prd_provider_events_usage check (
     (state = 'pending'
       and input_tokens is null
@@ -93,7 +75,7 @@ create table public.prd_ledger_entries (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.prd_records (project_id) on delete cascade,
   turn_id uuid not null references public.prd_turns (id) on delete cascade,
-  component text not null check (component in ('provider', 'fee', 'runtime', 'release', 'adjustment')),
+  component text not null check (component in ('provider', 'fee', 'release', 'adjustment')),
   source_key text not null check (length(btrim(source_key)) > 0),
   amount numeric(20,6) not null check (amount >= 0),
   rate_card text check (rate_card is null or rate_card in ('up-to-100k', 'over-100k')),
@@ -101,24 +83,16 @@ create table public.prd_ledger_entries (
   output_tokens bigint,
   cache_read_tokens bigint,
   cache_write_tokens bigint,
-  runtime_seconds numeric(20,6),
   created_at timestamptz not null default clock_timestamp(),
   constraint prd_ledger_entries_once unique (component, source_key),
   constraint prd_ledger_entries_attribution check (
     (component = 'provider'
       and rate_card is not null
       and num_nonnulls(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) = 4
-      and least(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) >= 0
-      and runtime_seconds is null)
-    or (component = 'runtime'
-      and rate_card is null
-      and num_nonnulls(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) = 0
-      and runtime_seconds is not null
-      and runtime_seconds >= 0)
+      and least(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) >= 0)
     or (component in ('fee', 'release', 'adjustment')
       and rate_card is null
-      and num_nonnulls(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) = 0
-      and runtime_seconds is null)
+      and num_nonnulls(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) = 0)
   )
 );
 
@@ -136,7 +110,6 @@ create table public.prd_turn_settings (
 revoke all on table public.prd_money_config from public, anon, authenticated, service_role;
 revoke all on table public.prd_rate_versions from public, anon, authenticated, service_role;
 revoke all on table public.prd_fund_credits from public, anon, authenticated, service_role;
-revoke all on table public.prd_sessions from public, anon, authenticated, service_role;
 revoke all on table public.prd_reservations from public, anon, authenticated, service_role;
 revoke all on table public.prd_provider_events from public, anon, authenticated, service_role;
 revoke all on table public.prd_ledger_entries from public, anon, authenticated, service_role;
@@ -145,7 +118,6 @@ revoke all on table public.prd_turn_settings from public, anon, authenticated, s
 alter table public.prd_money_config enable row level security;
 alter table public.prd_rate_versions enable row level security;
 alter table public.prd_fund_credits enable row level security;
-alter table public.prd_sessions enable row level security;
 alter table public.prd_reservations enable row level security;
 alter table public.prd_provider_events enable row level security;
 alter table public.prd_ledger_entries enable row level security;
@@ -181,16 +153,21 @@ insert into public.prd_rate_versions (model, version, effective_from, rate_card,
   ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'input', 0.500000),
   ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'output', 2.500000),
   ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'cache-read', 0.050000),
-  ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'cache-write', 0.625000),
-  ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'runtime', 'active-hour', 0.080000);
+  ('claude-haiku-5-5', 1, timestamptz '2026-10-01 00:00:00+00', 'over-100k', 'cache-write', 0.625000);
 
-create function public.prd_service_model()
-returns text
+create function public.prd_model_priced(p_model text)
+returns boolean
 language sql
-immutable
+stable
+security definer
 set search_path = ''
 as $$
-  select 'claude-haiku-5-5'::text;
+  select exists (
+    select 1
+      from public.prd_rate_versions
+     where model = p_model
+       and effective_from <= clock_timestamp()
+  );
 $$;
 
 create function public.prd_micros(p_amount numeric)
@@ -254,7 +231,7 @@ as $$
   select coalesce(sum(amount), 0)
     from public.prd_ledger_entries
    where turn_id = p_turn
-     and component in ('provider', 'fee', 'runtime');
+     and component in ('provider', 'fee');
 $$;
 
 create function public.prd_funds(p_project uuid)
@@ -276,7 +253,7 @@ begin
     from public.prd_fund_credits
    where project_id = p_project;
   select
-      coalesce(sum(amount) filter (where component in ('provider', 'fee', 'runtime')), 0),
+      coalesce(sum(amount) filter (where component in ('provider', 'fee')), 0),
       coalesce(sum(amount) filter (where component = 'adjustment'), 0)
     into v_settled, v_overrun
     from public.prd_ledger_entries
@@ -320,7 +297,7 @@ begin
 end;
 $$;
 
-create function public.prd_hold(p_project uuid, p_turn uuid)
+create function public.prd_hold(p_project uuid, p_turn uuid, p_model text default 'claude-haiku-5-5')
 returns numeric
 language plpgsql
 volatile
@@ -328,10 +305,13 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_model text := public.prd_service_model();
+  v_model text := btrim(coalesce(p_model, ''));
   v_version integer;
   v_amount numeric := public.prd_money_value('turn-reservation-usd');
 begin
+  if v_model = '' then
+    raise exception 'a hold names its model' using errcode = '22023', detail = 'invalid-request';
+  end if;
   select max(version) into v_version
     from public.prd_rate_versions
    where model = v_model
@@ -439,29 +419,6 @@ begin
 end;
 $$;
 
-create function public.prd_session_bind(p_project uuid, p_chat uuid, p_session text)
-returns void
-language plpgsql
-volatile
-security definer
-set search_path = ''
-as $$
-declare
-  v_bound text;
-begin
-  insert into public.prd_sessions (chat_id, project_id, provider_session_id)
-  values (p_chat, p_project, p_session)
-  on conflict do nothing;
-  select provider_session_id into v_bound
-    from public.prd_sessions
-   where chat_id = p_chat
-     for update;
-  if v_bound is distinct from p_session then
-    raise exception 'that event names another session' using errcode = '22023', detail = 'invalid-request';
-  end if;
-end;
-$$;
-
 create function public.prd_settle_event(
   p_event uuid,
   p_input bigint,
@@ -497,7 +454,7 @@ begin
     6
   );
   v_fee := round(v_cost * v_res.fee_basis_points / 10000, 6);
-  v_key := 'event:' || v_event.provider_session_id || ':' || v_event.event_id;
+  v_key := 'event:' || v_event.event_id;
   v_before := public.prd_turn_spend(v_event.turn_id);
   insert into public.prd_ledger_entries (
     project_id, turn_id, component, source_key, amount, rate_card,
@@ -540,36 +497,14 @@ as $$
     from public.prd_provider_events e
     left join public.prd_ledger_entries provider
       on provider.component = 'provider'
-     and provider.source_key = 'event:' || e.provider_session_id || ':' || e.event_id
+     and provider.source_key = 'event:' || e.event_id
     left join public.prd_ledger_entries fee
       on fee.component = 'fee'
-     and fee.source_key = 'event:' || e.provider_session_id || ':' || e.event_id
+     and fee.source_key = 'event:' || e.event_id
     left join public.prd_ledger_entries adjustment
       on adjustment.component = 'adjustment'
-     and adjustment.source_key = 'event:' || e.provider_session_id || ':' || e.event_id
+     and adjustment.source_key = 'event:' || e.event_id
    where e.id = p_event;
-$$;
-
-create function public.prd_runtime_result(p_turn uuid)
-returns jsonb
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select jsonb_build_object(
-    'turnId', p_turn,
-    'kind', 'runtime',
-    'seconds', runtime.runtime_seconds,
-    'runtimeMicros', public.prd_micros(runtime.amount),
-    'overrunMicros', public.prd_micros(adjustment.amount)
-  )
-    from public.prd_ledger_entries runtime
-    left join public.prd_ledger_entries adjustment
-      on adjustment.component = 'adjustment'
-     and adjustment.source_key = runtime.source_key
-   where runtime.component = 'runtime'
-     and runtime.source_key = 'runtime:' || p_turn::text;
 $$;
 
 create function public.prd_end_result(p_turn uuid)
@@ -641,7 +576,6 @@ declare
   v_turn public.prd_turns%rowtype;
   v_res public.prd_reservations%rowtype;
   v_kind text;
-  v_session text;
   v_event_id text;
   v_event uuid;
   v_event_turn uuid;
@@ -652,11 +586,6 @@ declare
   v_output bigint;
   v_read bigint;
   v_write bigint;
-  v_seconds numeric;
-  v_baseline numeric;
-  v_amount numeric;
-  v_before numeric;
-  v_key text;
   v_outcome text;
 begin
   if p_event is null or jsonb_typeof(p_event) is distinct from 'object' then
@@ -679,7 +608,6 @@ begin
   v_kind := p_event->>'kind';
 
   if v_kind = 'model-end' then
-    v_session := public.prd_event_text(p_event, 'sessionId');
     v_event_id := public.prd_event_text(p_event, 'eventId');
     v_usage := p_event->'usage';
     v_has_usage := v_usage is not null and jsonb_typeof(v_usage) is distinct from 'null';
@@ -692,11 +620,9 @@ begin
       v_read := public.prd_usage_count(v_usage, 'cacheRead');
       v_write := public.prd_usage_count(v_usage, 'cacheWrite');
     end if;
-    perform public.prd_session_bind(v_project, v_turn.chat_id, v_session);
     select id, turn_id, state into v_event, v_event_turn, v_event_state
       from public.prd_provider_events
-     where provider_session_id = v_session
-       and event_id = v_event_id
+     where event_id = v_event_id
        for update;
     if found then
       if v_event_turn is distinct from p_turn then
@@ -707,9 +633,9 @@ begin
       end if;
     else
       insert into public.prd_provider_events (
-        project_id, turn_id, provider_session_id, event_id, kind, state
+        project_id, turn_id, event_id, kind, state
       ) values (
-        v_project, p_turn, v_session, v_event_id, 'model-request', 'pending'
+        v_project, p_turn, v_event_id, 'model-request', 'pending'
       )
       returning id into v_event;
       if not v_has_usage then
@@ -722,51 +648,6 @@ begin
        set snapshot_sequence = snapshot_sequence + 1
      where project_id = v_project;
     return public.prd_event_result(v_event);
-  end if;
-
-  if v_kind = 'runtime' then
-    v_session := public.prd_event_text(p_event, 'sessionId');
-    if jsonb_typeof(p_event->'activeSeconds') is distinct from 'number'
-       or (p_event->>'activeSeconds')::numeric < 0 then
-      raise exception 'runtime names the active seconds' using errcode = '22023', detail = 'invalid-request';
-    end if;
-    v_seconds := round((p_event->>'activeSeconds')::numeric, 6);
-    perform public.prd_session_bind(v_project, v_turn.chat_id, v_session);
-    v_key := 'runtime:' || p_turn::text;
-    if exists (
-      select 1 from public.prd_ledger_entries where component = 'runtime' and source_key = v_key
-    ) then
-      return public.prd_runtime_result(p_turn);
-    end if;
-    select runtime_baseline_seconds into v_baseline
-      from public.prd_sessions
-     where chat_id = v_turn.chat_id
-       for update;
-    if v_seconds < v_baseline then
-      raise exception 'active seconds only grow' using errcode = '22023', detail = 'invalid-request';
-    end if;
-    v_amount := round(
-      (v_seconds - v_baseline)
-        * public.prd_rate(v_res.model, v_res.rate_version, 'runtime', 'active-hour')
-        / 3600,
-      6
-    );
-    v_before := public.prd_turn_spend(p_turn);
-    insert into public.prd_ledger_entries (
-      project_id, turn_id, component, source_key, amount, runtime_seconds
-    ) values (
-      v_project, p_turn, 'runtime', v_key, v_amount, v_seconds - v_baseline
-    );
-    update public.prd_sessions
-       set runtime_baseline_seconds = v_seconds,
-           updated_at = clock_timestamp()
-     where chat_id = v_turn.chat_id;
-    perform public.prd_adjust(p_turn, v_key, v_before, v_before + v_amount);
-    perform public.prd_turn_release(p_turn);
-    update public.prd_records
-       set snapshot_sequence = snapshot_sequence + 1
-     where project_id = v_project;
-    return public.prd_runtime_result(p_turn);
   end if;
 
   if v_kind = 'end' then
@@ -789,34 +670,6 @@ begin
 end;
 $$;
 
-create function public.prd_session_budget(p_turn uuid)
-returns bigint
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  v_chat uuid;
-  v_amount numeric;
-  v_spent numeric;
-begin
-  select t.chat_id, r.amount into v_chat, v_amount
-    from public.prd_turns t
-    join public.prd_reservations r on r.turn_id = t.id
-   where t.id = p_turn;
-  if not found then
-    raise exception 'that turn holds no reservation' using errcode = '22023', detail = 'invalid-request';
-  end if;
-  select coalesce(sum(l.amount), 0) into v_spent
-    from public.prd_ledger_entries l
-    join public.prd_turns t on t.id = l.turn_id
-   where t.chat_id = v_chat
-     and l.component in ('provider', 'runtime');
-  return ceil((v_spent + v_amount) * 100)::bigint;
-end;
-$$;
-
 create function public.prd_ledger(p_project uuid, p_turn uuid)
 returns jsonb
 language plpgsql
@@ -826,7 +679,6 @@ set search_path = ''
 as $$
 declare
   v_tokens numeric;
-  v_runtime numeric;
   v_fee numeric;
   v_overrun numeric;
   v_released numeric;
@@ -844,7 +696,6 @@ begin
   end if;
   select
       coalesce(sum(amount) filter (where component = 'provider'), 0),
-      coalesce(sum(amount) filter (where component = 'runtime'), 0),
       coalesce(sum(amount) filter (where component = 'fee'), 0),
       coalesce(sum(amount) filter (where component = 'adjustment'), 0),
       coalesce(sum(amount) filter (where component = 'release'), 0),
@@ -852,7 +703,7 @@ begin
       coalesce(sum(output_tokens), 0),
       coalesce(sum(cache_read_tokens), 0),
       coalesce(sum(cache_write_tokens), 0)
-    into v_tokens, v_runtime, v_fee, v_overrun, v_released, v_input, v_output, v_read, v_write
+    into v_tokens, v_fee, v_overrun, v_released, v_input, v_output, v_read, v_write
     from public.prd_ledger_entries
    where project_id = p_project
      and (p_turn is null or turn_id = p_turn);
@@ -873,11 +724,10 @@ begin
   return jsonb_build_object(
     'projectId', p_project,
     'turnId', p_turn,
-    'providerMicros', public.prd_micros(v_tokens + v_runtime),
+    'providerMicros', public.prd_micros(v_tokens),
     'tokenMicros', public.prd_micros(v_tokens),
-    'runtimeMicros', public.prd_micros(v_runtime),
     'feeMicros', public.prd_micros(v_fee),
-    'deductedMicros', public.prd_micros(v_tokens + v_runtime + v_fee),
+    'deductedMicros', public.prd_micros(v_tokens + v_fee),
     'overrunMicros', public.prd_micros(v_overrun),
     'releasedMicros', public.prd_micros(v_released),
     'heldMicros', public.prd_micros(v_held),
@@ -932,14 +782,17 @@ begin
 end;
 $$;
 
-create or replace function public.prd_turn_reserve(
+drop function public.prd_turn_reserve(uuid, uuid, text, text, bigint, jsonb, text);
+
+create function public.prd_turn_reserve(
   p_actor uuid,
   p_project uuid,
   p_chat_key text,
   p_request_id text,
   p_base_revision bigint,
   p_intent jsonb,
-  p_body_hash text
+  p_body_hash text,
+  p_model text default 'claude-haiku-5-5'
 )
 returns jsonb
 language plpgsql
@@ -1233,7 +1086,7 @@ begin
     'reply',
     v_message
   );
-  perform public.prd_hold(p_project, v_turn);
+  perform public.prd_hold(p_project, v_turn, p_model);
   return jsonb_build_object('turnId', v_turn, 'messageId', v_message, 'sequence', v_sequence);
 end;
 $$;
@@ -1292,12 +1145,15 @@ begin
 end;
 $$;
 
-create or replace function public.prd_action(
+drop function public.prd_action(uuid, uuid, text, text, text);
+
+create function public.prd_action(
   p_actor uuid,
   p_project uuid,
   p_kind text,
   p_token text,
-  p_request_id text
+  p_request_id text,
+  p_model text default 'claude-haiku-5-5'
 )
 returns jsonb
 language plpgsql
@@ -1462,7 +1318,7 @@ begin
       'answer-write',
       null
     );
-    perform public.prd_hold(p_project, v_turn);
+    perform public.prd_hold(p_project, v_turn, p_model);
     v_result := jsonb_build_object('turnId', v_turn, 'messageId', null, 'sequence', v_sequence);
   elsif p_kind in ('confirm-topic', 'reopen-topic') then
     v_result := public.prd_section_transition(
@@ -1610,8 +1466,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.prd_service_model()
+revoke execute on function public.prd_model_priced(text)
   from public, anon, authenticated, service_role;
+grant execute on function public.prd_model_priced(text) to service_role;
 revoke execute on function public.prd_micros(numeric)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_money_value(text)
@@ -1624,7 +1481,7 @@ revoke execute on function public.prd_funds(uuid)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_funds_admit(uuid)
   from public, anon, authenticated, service_role;
-revoke execute on function public.prd_hold(uuid, uuid)
+revoke execute on function public.prd_hold(uuid, uuid, text)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_adjust(uuid, text, numeric, numeric)
   from public, anon, authenticated, service_role;
@@ -1634,13 +1491,9 @@ revoke execute on function public.prd_usage_count(jsonb, text)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_event_text(jsonb, text)
   from public, anon, authenticated, service_role;
-revoke execute on function public.prd_session_bind(uuid, uuid, text)
-  from public, anon, authenticated, service_role;
 revoke execute on function public.prd_settle_event(uuid, bigint, bigint, bigint, bigint)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_event_result(uuid)
-  from public, anon, authenticated, service_role;
-revoke execute on function public.prd_runtime_result(uuid)
   from public, anon, authenticated, service_role;
 revoke execute on function public.prd_end_result(uuid)
   from public, anon, authenticated, service_role;
@@ -1651,9 +1504,6 @@ grant execute on function public.prd_fund_credit(uuid, numeric, text) to service
 revoke execute on function public.prd_turn_ingest(uuid, jsonb)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_turn_ingest(uuid, jsonb) to service_role;
-revoke execute on function public.prd_session_budget(uuid)
-  from public, anon, authenticated, service_role;
-grant execute on function public.prd_session_budget(uuid) to service_role;
 revoke execute on function public.prd_ledger(uuid, uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_ledger(uuid, uuid) to service_role;
@@ -1661,18 +1511,142 @@ revoke execute on function public.prd_turn_settings_record(uuid, text, jsonb)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_turn_settings_record(uuid, text, jsonb) to service_role;
 
-revoke execute on function public.prd_turn_reserve(uuid, uuid, text, text, bigint, jsonb, text)
+revoke execute on function public.prd_turn_reserve(uuid, uuid, text, text, bigint, jsonb, text, text)
   from public, anon, authenticated, service_role;
-grant execute on function public.prd_turn_reserve(uuid, uuid, text, text, bigint, jsonb, text)
+grant execute on function public.prd_turn_reserve(uuid, uuid, text, text, bigint, jsonb, text, text)
   to service_role;
 revoke execute on function public.prd_turn_finish(uuid, text)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_turn_finish(uuid, text) to service_role;
-revoke execute on function public.prd_action(uuid, uuid, text, text, text)
+revoke execute on function public.prd_action(uuid, uuid, text, text, text, text)
   from public, anon, authenticated, service_role;
-grant execute on function public.prd_action(uuid, uuid, text, text, text) to service_role;
+grant execute on function public.prd_action(uuid, uuid, text, text, text, text) to service_role;
 revoke execute on function public.prd_facts(uuid, uuid)
   from public, anon, authenticated, service_role;
 grant execute on function public.prd_facts(uuid, uuid) to service_role;
+
+create function public.prd_turn_open(p_project uuid, p_chat_key text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_chat uuid;
+  v_turn public.prd_turns%rowtype;
+  v_amount numeric;
+  v_requests bigint;
+begin
+  v_chat := public.prd_chat_for_key(p_project, p_chat_key);
+  if v_chat is null then
+    raise exception 'a message names its chat' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  select * into v_turn
+    from public.prd_turns
+   where chat_id = v_chat
+     and state in ('admitted', 'uncertain')
+   order by created_at desc
+   limit 1;
+  if not found then
+    return jsonb_build_object('chatId', v_chat, 'turn', null);
+  end if;
+  select amount into v_amount from public.prd_reservations where turn_id = v_turn.id;
+  select count(*) into v_requests
+    from public.prd_provider_events
+   where turn_id = v_turn.id;
+  return jsonb_build_object(
+    'chatId', v_chat,
+    'turn', jsonb_build_object(
+      'id', v_turn.id,
+      'kind', v_turn.kind,
+      'state', v_turn.state,
+      'ageSeconds', extract(epoch from (clock_timestamp() - v_turn.created_at)),
+      'parts', coalesce(
+        (select parts from public.prd_messages where id = v_turn.message_id),
+        '[]'::jsonb
+      ),
+      'modelRequests', v_requests,
+      'reservationMicros', public.prd_micros(coalesce(v_amount, 0)),
+      'spentMicros', public.prd_micros(public.prd_turn_spend(v_turn.id)),
+      'messageId', v_turn.message_id
+    )
+  );
+end;
+$$;
+
+create function public.prd_chat_transcript(p_project uuid, p_chat_key text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_chat uuid;
+  v_rows jsonb;
+begin
+  v_chat := public.prd_chat_for_key(p_project, p_chat_key);
+  if v_chat is null then
+    raise exception 'a message names its chat' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  select coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', m.id,
+          'role', case when m.actor_kind = 'ai' then 'assistant' else 'user' end,
+          'parts', m.parts
+        )
+        order by m.ordinal
+      ),
+      '[]'::jsonb
+    )
+    into v_rows
+    from public.prd_messages m
+   where m.chat_id = v_chat;
+  return v_rows;
+end;
+$$;
+
+create function public.prd_turns_overdue(p_project uuid, p_seconds integer)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    jsonb_agg(
+      case c.kind
+        when 'main' then 'main'
+        when 'section' then 'topic:' || s.stable_key
+        else 'side:' || c.question_id::text
+      end
+      order by t.created_at
+    ),
+    '[]'::jsonb
+  )
+    from public.prd_turns t
+    join public.prd_chats c on c.id = t.chat_id
+    left join public.prd_sections s on s.id = c.section_id
+   where t.project_id = p_project
+     and (
+       t.state = 'uncertain'
+       or (
+         t.state = 'admitted'
+         and t.created_at < clock_timestamp() - make_interval(secs => greatest(coalesce(p_seconds, 0), 0))
+       )
+     );
+$$;
+
+revoke execute on function public.prd_turn_open(uuid, text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.prd_turn_open(uuid, text) to service_role;
+revoke execute on function public.prd_chat_transcript(uuid, text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.prd_chat_transcript(uuid, text) to service_role;
+revoke execute on function public.prd_turns_overdue(uuid, integer)
+  from public, anon, authenticated, service_role;
+grant execute on function public.prd_turns_overdue(uuid, integer) to service_role;
 
 notify pgrst, 'reload schema';
