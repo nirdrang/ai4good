@@ -123,12 +123,12 @@ The composer has no effort selector. Each request uses a fixed service configura
 Automatic scoring and the planning package use an explicit service configuration.
 Validate the configured model's capabilities and record the effective provider parameters.
 
-Each PRD chat runs as one Claude Managed Agents session that the backend starts and relays. The Anthropic key and the token signing key stay on the server. The AI changes PRD state only through the platform's PRD tools MCP server.
+Each PRD chat turn runs in the backend: an edge function calls the model with the PRD tools, runs each tool as a function over the database rules, and streams the reply. The model and its provider are settings, reached through the OpenAI Responses format, and the model key stays on the server. The AI changes PRD state only through the PRD tools.
 PRD uses USD fuel. Discovery's free turn allowance does not continue into PRD.
-Price each model request's reported tokens with versioned rates when its span ends, and the session runtime when the turn ends.
+Price each model request's reported tokens with versioned rates for the model that served it when the request ends.
 Settle once per model-request event identifier, associated with a stable application request identifier.
 Preserve fractional cents and distinguish a reported zero cost from missing cost.
-If usage is missing, retain the reservation, display Pending cost, and reconcile by reading the session's events again.
+If usage is missing, retain the reservation and display Pending cost.
 Do not start a second turn merely to retrieve the first turn's cost.
 
 Retain the existing platform fee from the ledger requirement.
@@ -206,4 +206,4 @@ The approved canvas in `design/canvas/prd-workspace/project/` shows every intera
 The older [conversation reference](references/prd-grill-me-chat.html) predates the screen design and is kept for history only.
 Neither makes live model calls, settles money, writes to Linear, or proves production acceptance.
 
-The OpenRouter references of 2026-09-21 are replaced by decision d100. The design, evidence, and Managed Agents interface are in `loop/items/ai-path/memo.md`.
+The OpenRouter references of 2026-09-21 are replaced by decision d100. The design, evidence, and Managed Agents interface are in `loop/items/ai-path/memo.md`. Decision d103 then replaces Managed Agents with model calls the backend makes through the AI SDK, and decision d104 reaches the model through the OpenAI Responses format.

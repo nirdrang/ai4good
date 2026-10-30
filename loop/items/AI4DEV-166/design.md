@@ -8,6 +8,8 @@ The PRD workspace screen is built and fixed behind `PrdPort` (`src/components/pr
 
 Decision d102 (2026-10-24) added a fifth writer and moved the text. The PRD's topics are markdown files under `prd/` in the project's GitHub repository from the moment the PRD opens. The platform creates that repository through its GitHub App, and the PRD tools write it through the GitHub API, one commit per AI reply. The database keeps everything that is not document text, plus a read copy of each topic tied to its commit. People with repository access can also push to `prd/` directly, so GitHub is now a writer we do not call. Live updates are a data-free Realtime ping, not polling. The investigation behind d102 is `prd-storage.md` beside this file.
 
+Decisions d103 and d104 (2026-10-30) replace Managed Agents for the PRD chats, and they win over every part of this file that says otherwise. Each turn runs inside `prd-message`: the AI SDK's `streamText` calls the model through the OpenAI Responses format (`@ai-sdk/openai`, with the base URL, model and key as settings, opencode go by default), runs each PRD tool the model asks for as a plain function over the SQL rules, and streams the reply to useChat. The backend commits the staged topics, imports the commit, sets states, settles each model request in the ledger and ends the turn. There is no Managed Agents session, vault, MCP tools server, signed tools token, chat tunnel, session budget or runtime charge. The test of a push notification GitHub itself sends is dropped; an outside push is picked up by the stale sync on the next load.
+
 ## Usage
 
 ```tsx
