@@ -15,6 +15,7 @@ import { needIntakeAnswer } from './need-intake.ts';
 import type { Caller } from './caller.ts';
 import { isRecord, refuseWrite, stringField, uuidField, type AccountWriteRouteInput, type WriteRouteDecision } from './write-routes.ts';
 import { fileDigestContext, fileReport, type FileRow } from './discovery-files.ts';
+import { currentAnswersText } from './discovery-prompt.ts';
 import type { Decision } from './accounts.ts';
 
 export type { CallerReads, DiscoveryReads, DiscoveryTurnSqlRow } from './discovery-reads.ts';
@@ -275,7 +276,7 @@ async function prepareReply(
       fileReports,
     },
   };
-  request.system[1].text += `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}`;
+  request.system[1].text += `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}${currentAnswersText(current)}`;
   return { ok: true, args: {
     ...args,
     p_settings: { ...args.p_settings, model: port.model },

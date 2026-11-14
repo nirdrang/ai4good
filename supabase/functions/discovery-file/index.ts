@@ -16,7 +16,8 @@ Deno.serve(writeRoute({
     if (Number(request.headers.get('content-length')) > FILE_MAX_BYTES + 65536) {
       return { ok: false, kind: 'file-too-large', status: 413, reason: 'Choose a file of 10 MB or less.' };
     }
-    const form = await request.formData();
+    const form = await request.formData().catch(() => null);
+    if (form === null) return { ok: false, kind: 'invalid-request', status: 400, reason: 'Add a file as a multipart upload.' };
     const file = form.get('file');
     if (!(file instanceof File)) return { ok: false, reason: 'Choose a file to add.' };
     if (file.size > FILE_MAX_BYTES) return { ok: false, kind: 'file-too-large', status: 413, reason: 'Choose a file of 10 MB or less.' };

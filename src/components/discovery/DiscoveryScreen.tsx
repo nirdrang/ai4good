@@ -10,6 +10,7 @@ import { FilesCard } from "./FilesCard";
 import { answerText, confirmationCurrent, currentQuestions, progressOf, questionRows } from "./model";
 import type { DiscoveryPort } from "./port";
 import { ProgressStrip } from "./ProgressStrip";
+import { Refused } from "./Refused";
 import { questionCountLine, QuestionsCard, QuestionsDialog } from "./QuestionsCard";
 import { useDiscovery } from "./use-discovery";
 import { useIsPhone } from "./use-is-phone";
@@ -21,12 +22,14 @@ export function DiscoveryScreen({
   onBuyFuel,
   active = true,
   returnFocus = null,
+  draftKey = null,
 }: {
   port: DiscoveryPort;
   onOpenReview(): void;
   onBuyFuel?: () => void;
   active?: boolean;
   returnFocus?: { questionId: string; nonce: number } | null;
+  draftKey?: string | null;
 }) {
   const [loaded, setLoaded] = useState<DiscoveryState | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export function DiscoveryScreen({
       live = false;
     };
   }, [port]);
-  if (failure) return <p role="alert">{failure}</p>;
+  if (failure) return <Refused />;
   if (!loaded) return <p>Loading Discovery.</p>;
   return (
     <Loaded
@@ -57,6 +60,7 @@ export function DiscoveryScreen({
       onBuyFuel={onBuyFuel}
       active={active}
       returnFocus={returnFocus}
+      draftKey={draftKey}
     />
   );
 }
@@ -89,6 +93,7 @@ function Loaded({
   onBuyFuel,
   active,
   returnFocus,
+  draftKey,
 }: {
   port: DiscoveryPort;
   initial: DiscoveryState;
@@ -96,9 +101,10 @@ function Loaded({
   onBuyFuel?: () => void;
   active: boolean;
   returnFocus: { questionId: string; nonce: number } | null;
+  draftKey: string | null;
 }) {
   const phone = useIsPhone();
-  const discovery = useDiscovery(port, initial, active, returnFocus);
+  const discovery = useDiscovery(port, initial, active, returnFocus, draftKey);
   const briefOpenerRef = useRef<HTMLButtonElement>(null);
   const questionsOpenerRef = useRef<HTMLButtonElement>(null);
   const addOpenerRef = useRef<HTMLButtonElement>(null);
@@ -126,10 +132,20 @@ function Loaded({
   const readyToFinish =
     !finished && questions.length === 0 && progress.total > 0 && progress.agreed === progress.total;
   const visible = discovery.oneAtATime ? questions.slice(discovery.questionIndex, discovery.questionIndex + 1) : questions;
+  const offerSave = (questionId: string) =>
+    discovery.reopened.includes(questionId) || (finished && discovery.pinned.includes(questionId));
+  const editPending = questions.some((question) => offerSave(question.id) && canSaveQuestion(question, discovery));
+  const blocked = discovery.replying ? TEXT.finishBlocked.reply : editPending ? TEXT.finishBlocked.edit : null;
+  const saveState = discovery.saving
+    ? TEXT.saveState.saving
+    : editPending
+      ? TEXT.saveState.unsaved
+      : TEXT.saveState.saved;
   const tags = Object.fromEntries(visible.map((question) => [question.id, tagFor(question, discovery)]));
   const messageIds = new Set(discovery.messages.map((message) => message.id));
   const rows = questionRows(discovery.brief, discovery.drafts, messageIds);
   const showFile = discovery.panel?.kind === "chooser" || discovery.panel?.kind === "file";
+  const openFileId = discovery.panel?.kind === "file" ? discovery.panel.key : null;
   const files = (
     <FilesCard
       files={discovery.files}
@@ -148,6 +164,7 @@ function Loaded({
       view={discovery.fileView}
       notice={discovery.fileNotice}
       onChoose={(file) => void discovery.chooseFile(file)}
+      onRemove={openFileId && !finished ? () => void discovery.removeFile(openFileId) : undefined}
       onClose={discovery.closePanel}
     />
   ) : null;
@@ -165,10 +182,9 @@ function Loaded({
       canAdvance={discovery.oneAtATime && discovery.questionIndex < questions.length - 1}
       tail={phone ? files : null}
       onPick={discovery.pick}
-      offerSave={(questionId) =>
-        discovery.reopened.includes(questionId) || (finished && discovery.pinned.includes(questionId))
-      }
+      offerSave={offerSave}
       onSave={(questionId) => void discovery.saveChange(questionId)}
+      onCancel={discovery.cancelChange}
       canSave={(questionId) => {
         const question = visible.find((item) => item.id === questionId);
         return question !== undefined && canSaveQuestion(question, discovery);
@@ -205,6 +221,10 @@ function Loaded({
       <ProgressStrip
         brief={discovery.brief}
         projectTitle={discovery.project.title}
+        organizationName={discovery.project.organizationName}
+        stage={finished ? TEXT.stage.finished : TEXT.stage.open}
+        saveState={saveState}
+        blocked={blocked}
         phone={phone}
         onOpenReview={onOpenReview}
       />

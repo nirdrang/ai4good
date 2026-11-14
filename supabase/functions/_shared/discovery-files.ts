@@ -68,8 +68,11 @@ export function screenFile(row: FileRow) {
 }
 
 export function fileReport(row: FileRow): string {
-  const facts = row.digest?.facts.map((fact) => fact.text.replace(/[\r\n]+/g, ' ')).join('; ');
-  return facts ? `I finished reading ${row.name}, and it shows that ${facts}` : `I finished reading ${row.name} and found no facts relevant to this need.`;
+  const facts = row.digest?.facts ?? [];
+  if (facts.length === 0) return `I finished reading ${row.name} and found no facts relevant to this need.`;
+  const first = facts[0]!.text.replace(/[\r\n]+/g, ' ').replace(/[\s.;:]+$/, '');
+  const more = facts.length - 1;
+  return `I finished reading ${row.name}: ${first}${more > 0 ? ` (${more} more ${more === 1 ? 'fact' : 'facts'} in Your files)` : ''}.`;
 }
 
 export function fileDigestContext(files: readonly FileRow[]) {

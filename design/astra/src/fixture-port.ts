@@ -24,6 +24,7 @@ export function fixturePort(scenario: ScreenScenario, pace: Pace = "test"): Disc
       await reportModelCall("file-read");
       return world.addFile(file);
     },
+    removeFile: (fileId) => world.removeFile(fileId),
     subscribe: (listener) => world.subscribe(listener),
     saveBriefEdit: (input) => world.saveBriefEdit(input),
     acceptSuggestion: (input) => world.acceptSuggestion(input),
