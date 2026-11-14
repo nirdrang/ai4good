@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-bold">ai4good</h1>
+      <h1 className="text-4xl font-bold">ai4good sandbox round trip</h1>
     </div>
   );
 }
