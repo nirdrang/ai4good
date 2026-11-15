@@ -129,7 +129,7 @@ export function QuestionsDialog({
 }
 
 export function questionCountLine(rows: readonly QuestionRow[]): string {
-  const answered = rows.filter((row) => row.status === "answered" || row.status === "notSure").length;
-  const open = rows.filter((row) => row.status === "open" || row.status === "ready").length;
+  const answered = rows.filter((row) => row.status === "answered").length;
+  const open = rows.filter((row) => row.status === "open" || row.status === "ready" || row.status === "notSure").length;
   return `${answered} answered · ${open} open`;
 }

@@ -33,6 +33,8 @@ export interface DiscoveryPort {
    * The read uses no reply, no free turn, and no fuel.
    */
   addFile(file: File): Promise<Result<DiscoveryFile>>;
+  /** Remove one Discovery file, freeing its place. Refused once Discovery is finished. */
+  removeFile(fileId: string): Promise<Result<DiscoveryFile>>;
   subscribe(listener: (change: ServerChange) => void): () => void;
   saveBriefEdit(input: {
     sectionId: string;

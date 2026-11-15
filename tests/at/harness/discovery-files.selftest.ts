@@ -62,7 +62,9 @@ it('passes only completed live digests to later turns and composes the report', 
   expect(context).toHaveLength(1);
   expect(context[0]!.content).toContain('45 volunteers');
   expect(context[0]!.content).toContain('Which days?');
-  expect(fileReport(row)).toBe('I finished reading rota.txt, and it shows that 45 volunteers');
+  expect(fileReport(row)).toBe('I finished reading rota.txt: 45 volunteers.');
+  const two = { ...row, digest: { facts: [{ sectionId: 'usersToday', text: 'Three kitchens.' }, { sectionId: 'measure', text: 'Two hours' }], questions: [] } } as FileRow;
+  expect(fileReport(two)).toBe('I finished reading rota.txt: Three kitchens (1 more fact in Your files).');
 });
 
 it('refuses unsupported, oversized and non-admin uploads before storage', () => {

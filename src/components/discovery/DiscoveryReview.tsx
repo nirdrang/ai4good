@@ -8,6 +8,7 @@ import { IMPORTANCE, NAME, SCREEN, TEXT } from "./a11y";
 import { DiscoveryDocument } from "./DiscoveryDocument";
 import { confirmationCurrent, dataTierOf, fileTookLine, type OpenReviewItem, type ReviewSection } from "./model";
 import type { DiscoveryPort } from "./port";
+import { Refused } from "./Refused";
 import { useIsPhone } from "./use-is-phone";
 import { useDiscoveryReview, type DiscoveryReviewController } from "./use-discovery";
 
@@ -15,10 +16,12 @@ export function DiscoveryReview({
   port,
   onBackToChat,
   onFindVolunteer,
+  draftKey = null,
 }: {
   port: DiscoveryPort;
   onBackToChat(questionId: string | null): void;
   onFindVolunteer(): void;
+  draftKey?: string | null;
 }) {
   const [loaded, setLoaded] = useState<DiscoveryState | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -39,9 +42,9 @@ export function DiscoveryReview({
       live = false;
     };
   }, [port]);
-  if (failure) return <p role="alert">{failure}</p>;
+  if (failure) return <Refused />;
   if (!loaded) return <p>Loading Discovery.</p>;
-  return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
+  return <Loaded port={port} initial={loaded} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} draftKey={draftKey} />;
 }
 
 function Loaded({
@@ -49,14 +52,16 @@ function Loaded({
   initial,
   onBackToChat,
   onFindVolunteer,
+  draftKey,
 }: {
   port: DiscoveryPort;
   initial: DiscoveryState;
   onBackToChat(questionId: string | null): void;
   onFindVolunteer(): void;
+  draftKey: string | null;
 }) {
   const phone = useIsPhone();
-  const review = useDiscoveryReview(port, initial);
+  const review = useDiscoveryReview(port, initial, draftKey);
   if (confirmationCurrent(review.brief, review.confirmation)) {
     return <Finished review={review} onBackToChat={onBackToChat} onFindVolunteer={onFindVolunteer} />;
   }
@@ -224,7 +229,7 @@ function OpenList({
   return (
     <section aria-label={SCREEN.reviewOpen.name} className="flex min-w-0 flex-col gap-2 rounded-xl border border-usage-warn bg-usage-warn/10 p-3">
       <h2 className="text-base font-semibold">{TEXT.review.openTitle(review.open.length)}</h2>
-      <p className="text-sm text-muted-foreground">{TEXT.review.openNote}</p>
+      <p className="text-sm text-muted-foreground">{TEXT.review.openNote(review.open.length)}</p>
       <ul className="flex flex-col">
         {review.open.map((item) => (
           <OpenItem key={item.topicId} item={item} phone={phone} review={review} onBackToChat={onBackToChat} />

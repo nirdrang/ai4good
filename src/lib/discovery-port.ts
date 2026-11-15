@@ -3,6 +3,8 @@ import type { DiscoveryPort, Result, ServerChange } from "../components/discover
 import type { DiscoveryFile, DiscoveryRefusal, DiscoveryState, DiscoveryUIMessage } from "./discovery-stream";
 import { getSupabase, supabasePublishableKey, supabaseUrl } from "./supabase";
 
+const FILE_MAX_BYTES = 10 * 1024 * 1024;
+
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -125,13 +127,15 @@ export function discoveryPort(scope: { organizationId: string; projectId: string
         return new Response(body, { status: response.status, headers: response.headers });
       },
     }),
-    addFile(file) {
+    async addFile(file) {
+      if (file.size > FILE_MAX_BYTES) return { ok: false, refusal: { kind: "file-too-large", reason: "Choose a file of 10 MB or less." } };
       const form = new FormData();
       form.set("organizationId", scope.organizationId);
       form.set("projectId", scope.projectId);
       form.set("file", file);
       return write("discovery-file", form, "file");
     },
+    removeFile: (fileId) => write("discovery-file", { action: "remove", fileId }, "file"),
     subscribe(listener) {
       listeners.add(listener);
       schedule();

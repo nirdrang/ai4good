@@ -4,6 +4,7 @@ import { uuidField } from '../_shared/write-routes.ts';
 import { callerReads, discoveryFileWorker, edgeHandler, json, readJsonBody, refusal, requireEnv, resolveCaller } from '../_shared/edge.ts';
 import { screenFile } from '../_shared/discovery-files.ts';
 import { needIntakeAnswer } from '../_shared/need-intake.ts';
+import { TENANT_NOT_FOUND } from '../_shared/tenant-reads.ts';
 
 const SUPABASE_URL = requireEnv('SUPABASE_URL');
 const ANON_KEY = requireEnv('SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY');
@@ -17,13 +18,15 @@ Deno.serve(edgeHandler('discovery-conversation', async (request: Request): Promi
   const projectId = uuidField(body.value.projectId);
   if (projectId === null) return refusal('a Discovery conversation must name the project as a uuid', 400);
   const reads = callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!);
+  const project = await reads.project(projectId);
+  if (!project.ok) throw new Error('The Discovery project could not be read.');
+  const source = project.rows[0];
+  if (source === undefined) return json(TENANT_NOT_FOUND.body, TENANT_NOT_FOUND.status);
+  const organization = await reads.organization(source.org_id);
+  if (!organization.ok) throw new Error('The Discovery organisation could not be read.');
+  if (organization.rows[0] === undefined) return json(TENANT_NOT_FOUND.body, TENANT_NOT_FOUND.status);
   const answer = await conversationAnswer(reads, projectId);
   if (answer.status !== 200) return json(answer.body, answer.status);
-  const project = await reads.project(projectId);
-  const source = project.ok ? project.rows[0] : undefined;
-  if (source === undefined) throw new Error('The Discovery project could not be read.');
-  const organization = await reads.organization(source.org_id);
-  if (!organization.ok || organization.rows[0] === undefined) throw new Error('The Discovery organisation could not be read.');
   const usage = source === undefined ? null : screenUsage(await reads.discoveryUsage(caller.id, source.org_id, projectId));
   const files = await reads.discoveryFilesOf!(projectId);
   if (!files.ok) throw new Error(files.detail);
