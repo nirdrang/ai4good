@@ -21,7 +21,7 @@ reflect tooling, judgment, divergent, synthesizer: inherit-parent
 arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
 arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: claude:sonnet@high
-architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
+architect runners: codex:gpt-6-astra@medium, claude:fable@medium, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
 interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 codex writer sandbox: full-access
 opencode writer sandbox: full-access
@@ -36,6 +36,17 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### The fable lane in architect runners moves to medium, 2026-11-15
+
+By founder ruling and not by measurement. Written by hand on pstack 1.21.0. The fable lane in
+`architect runners` moves from low to medium. The other four lanes are unchanged. The fable
+lane in `arena runners` stays at low, so fable still holds two efforts on the sheet and the
+next setup run still stops and asks for one.
+
+To undo, on the fable lane of that row:
+
+    claude:fable@low
 
 ### The hardest-tasks row returns to fable at medium, 2026-11-15
 
