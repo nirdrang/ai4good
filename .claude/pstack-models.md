@@ -13,7 +13,7 @@ bug-fix: codex:gpt-6.1-sol@high
 perf-issue: codex:gpt-6.1-sol@high
 hillclimb: claude:opus@medium
 judgment and prose: claude:opus@medium
-hardest tasks: claude:opus@medium
+hardest tasks: claude:fable@medium
 how explorer: grok:grok-4.7@xhigh
 how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
@@ -36,6 +36,18 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### The hardest-tasks row returns to fable at medium, 2026-11-15
+
+By founder ruling and not by measurement. Written by hand on pstack 1.21.0, after the setup
+rerun of the same day. `hardest tasks` moves from opus at medium to fable at medium. The seat
+changes family. Fable now holds two efforts on the sheet: medium here, and low in its lane in
+`arena runners` and `architect runners`. The setup skill allows one effort for each family, so
+the next setup run stops and asks for one fable effort.
+
+To undo:
+
+    claude:opus@medium
 
 ### Setup rerun on pstack 1.21.0, and full access for opencode and agy writers, 2026-11-15
 
