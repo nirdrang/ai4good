@@ -10,6 +10,39 @@ and puts an `@` include into `~/.claude/CLAUDE.md`. This repository keeps the sh
 instead, so a cloud session, which starts from a fresh clone and never sees the home folder,
 reads the same values as a local one. This skill changes only where the two writes go.
 
+## After a plugin update: compare with upstream first
+
+Run this section before the steps below whenever the installed pstack version is newer than
+the one the last decision row in `.claude/skills/work/pstack-model-selection.md` names, or
+when the founder asks for a fresh setup. The plugin's setup never shows what a fresh sheet
+would hold once a sheet exists, so this section does (founder 2026-11-15: "i want you to have
+our setup to run a fresh setup and asks me what to do withe the models rows in case there is a
+diff from upstream").
+
+1. Copy `.claude/pstack-models.md` to `.claude/pstack-models.md.bak-<today>`. Never overwrite
+   an existing backup; add a suffix. Do not delete the sheet: a session started while it is
+   missing runs on the plugin defaults.
+2. Read the fresh sheet: the "Role defaults" block in the installed plugin's
+   `skills/poteto-mode/references/model-catalog.md`. It is byte for byte what a first run
+   writes. Read the model matrix and the route table in the same file.
+3. Compare the tree sheet with the fresh sheet, line by line:
+   - a role upstream has and the sheet lacks;
+   - a role the sheet has and upstream dropped;
+   - a row with the same role and a different model, effort, lane count or lane order;
+   - a model on the sheet that the matrix no longer lists, or lists as a kept predecessor;
+   - a setting line (`<provider> writer sandbox: ...`) for a provider the route table dropped,
+     and a provider that now needs a setting line.
+4. Show the founder every difference in one table: role, the sheet's value, upstream's value.
+   If there is none, say so and go to the steps below.
+5. Ask with the `AskUserQuestion` tool, never in prose, and never decide a row yourself:
+   - one question for each new role, each dropped role, and each model the matrix no longer
+     lists, with the choices that apply (take upstream's row, name another model, drop it);
+   - one question for all the rows that differ only in model, effort or lanes: keep every row
+     of the sheet, take every upstream row, or choose row by row. On "row by row", ask about
+     each differing row in turn.
+6. Carry the answers into the steps below as the operator's named changes. Quote them in the
+   decision row.
+
 ## Steps
 
 1. Invoke the plugin skill with the Skill tool: `pstack:setup-pstack`. Follow every step of
