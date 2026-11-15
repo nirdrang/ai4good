@@ -24,6 +24,8 @@ swarm workers: claude:sonnet@high
 architect runners: codex:gpt-6-astra@medium, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
 interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 codex writer sandbox: full-access
+opencode writer sandbox: full-access
+agy writer sandbox: full-access
 
 Routing note for the hardest-tasks row. Send a unit there only when the writer must still
 design something. A unit that applies a fixed contract goes to the feature row. The lead says
@@ -34,6 +36,25 @@ which in the decision trail.
 Do not write an old row out in full anywhere in this file, even inside a comment. Setup reads this
 file as text and treats a second row for the same role as inconsistent state, so a commented-out
 row stops the next setup run. Each entry below gives the old descriptor on its own line for copying.
+
+### Setup rerun on pstack 1.21.0, and full access for opencode and agy writers, 2026-11-15
+
+By founder ruling and not by measurement. Written by the setup skill's rerun on pstack 1.21.0,
+which now lists `gpt-6-astra` in its model matrix, so the Astra lane no longer stops setup. No
+role row or effort changed. Two setting lines are new: `opencode writer sandbox: full-access`
+and `agy writer sandbox: full-access`. Neither provider has a confined writer, so the line is
+what lets its writer run at all, and nothing stops that writer from writing outside its
+worktree. No row names opencode or agy, so setup probed neither and the lines do nothing until
+a row does.
+
+pstack 1.21.0 has no full-access setting for Grok. A Grok writer still runs in auto mode
+inside the workspace sandbox. The Grok CLI moved from 1.0.70 to 1.0.77 the same day. One Grok
+writer probe in a throwaway repository completed on 1.0.77 in 5 minutes 19 seconds.
+
+The sheet as it was before this run is kept beside this file as
+`pstack-models.md.bak-2026-11-15`.
+
+To undo: delete the two new setting lines.
 
 ### Opus at medium in every seat, 2026-10-23
 
