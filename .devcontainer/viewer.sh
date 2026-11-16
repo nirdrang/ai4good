@@ -18,8 +18,10 @@ bun install --frozen-lockfile
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
 {
-  printf 'DISCOVERY_PROVIDER=openai-compatible\nDISCOVERY_MODEL=deepseek-v4.1-flash\n'
-  printf 'DISCOVERY_BASE_URL=https://opencode.ai/zen/go/v1\nDISCOVERY_REASONING_EFFORT=low\n'
+  printf 'DISCOVERY_PROVIDER=%s\n' "${DISCOVERY_PROVIDER:-openai-compatible}"
+  printf 'DISCOVERY_MODEL=%s\n' "${DISCOVERY_MODEL:-deepseek-v4.1-flash}"
+  printf 'DISCOVERY_BASE_URL=%s\n' "${DISCOVERY_BASE_URL:-https://opencode.ai/zen/go/v1}"
+  printf 'DISCOVERY_REASONING_EFFORT=%s\n' "${DISCOVERY_REASONING_EFFORT:-low}"
   for name in DISCOVERY_API_KEY ANTHROPIC_API_KEY; do
     if [ -n "${!name:-}" ]; then printf '%s=%s\n' "$name" "${!name}"; fi
   done
