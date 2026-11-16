@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DiscoveryOrganizationIdProjectIdRouteImport } from './routes/discovery/$organizationId.$projectId'
+import { Route as PrdOrganizationIdProjectIdRouteImport } from './routes/prd/$organizationId.$projectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,31 +24,41 @@ const DiscoveryOrganizationIdProjectIdRoute =
     path: '/discovery/$organizationId/$projectId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PrdOrganizationIdProjectIdRoute =
+  PrdOrganizationIdProjectIdRouteImport.update({
+    id: '/prd/$organizationId/$projectId',
+    path: '/prd/$organizationId/$projectId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/discovery/$organizationId/$projectId': typeof DiscoveryOrganizationIdProjectIdRoute
+  '/prd/$organizationId/$projectId': typeof PrdOrganizationIdProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/discovery/$organizationId/$projectId': typeof DiscoveryOrganizationIdProjectIdRoute
+  '/prd/$organizationId/$projectId': typeof PrdOrganizationIdProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/discovery/$organizationId/$projectId': typeof DiscoveryOrganizationIdProjectIdRoute
+  '/prd/$organizationId/$projectId': typeof PrdOrganizationIdProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/discovery/$organizationId/$projectId'
+  fullPaths: '/' | '/discovery/$organizationId/$projectId' | '/prd/$organizationId/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/discovery/$organizationId/$projectId'
-  id: '__root__' | '/' | '/discovery/$organizationId/$projectId'
+  to: '/' | '/discovery/$organizationId/$projectId' | '/prd/$organizationId/$projectId'
+  id: '__root__' | '/' | '/discovery/$organizationId/$projectId' | '/prd/$organizationId/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiscoveryOrganizationIdProjectIdRoute: typeof DiscoveryOrganizationIdProjectIdRoute
+  PrdOrganizationIdProjectIdRoute: typeof PrdOrganizationIdProjectIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -66,12 +77,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DiscoveryOrganizationIdProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prd/$organizationId/$projectId': {
+      id: '/prd/$organizationId/$projectId'
+      path: '/prd/$organizationId/$projectId'
+      fullPath: '/prd/$organizationId/$projectId'
+      preLoaderRoute: typeof PrdOrganizationIdProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiscoveryOrganizationIdProjectIdRoute: DiscoveryOrganizationIdProjectIdRoute,
+  PrdOrganizationIdProjectIdRoute: PrdOrganizationIdProjectIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
