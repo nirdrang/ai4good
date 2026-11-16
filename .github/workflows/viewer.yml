@@ -1,0 +1,84 @@
+name: Viewer codespace
+
+on:
+  push:
+    branches: ['claude/**']
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [up, stop]
+        default: up
+      branch:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: viewer-${{ inputs.branch || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  viewer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ secrets.CODESPACES_TOKEN }}
+      ACTION: ${{ inputs.action || 'up' }}
+      BRANCH: ${{ inputs.branch || github.ref_name }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Skip until the token exists
+        id: ready
+        run: |
+          if [ -n "$GH_TOKEN" ]; then echo "go=true" >> "$GITHUB_OUTPUT"
+          else echo "CODESPACES_TOKEN is not set; no codespace touched" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Create, start or stop the codespace
+        if: steps.ready.outputs.go == 'true'
+        run: |
+          api() { gh api -H "Accept: application/vnd.github+json" "$@"; }
+          find() { api "repos/$REPO/codespaces" --paginate --jq ".codespaces[] | select(.git_status.ref == \"$BRANCH\") | .name" | head -1; }
+          name=$(find)
+
+          if [ "$ACTION" = stop ]; then
+            [ -n "$name" ] && api -X POST "user/codespaces/$name/stop" > /dev/null
+            echo "Stopped ${name:-nothing} for $BRANCH" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ -z "$name" ]; then
+            name=$(api -X POST "repos/$REPO/codespaces" -f ref="$BRANCH" -f machine=basicLinux32gb \
+              -F idle_timeout_minutes=30 -F retention_period_minutes=4320 -f display_name="${BRANCH: -48}" --jq .name)
+          fi
+          for _ in $(seq 1 80); do
+            state=$(api "user/codespaces/$name" --jq .state)
+            case "$state" in
+              Available) break ;;
+              Shutdown) api -X POST "user/codespaces/$name/start" > /dev/null ;;
+            esac
+            sleep 10
+          done
+          [ "$state" = Available ] || { echo "codespace $name is $state"; exit 1; }
+
+          url="https://$name-8080.app.github.dev"
+          echo "url=$url" >> "$GITHUB_ENV"
+          {
+            echo "Codespace: $name ($state)"
+            echo "App: $url (the app is up a few minutes after this; GitHub login required)"
+            echo "Sign in as preview-ngo@ai4good.example"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Put the link on the commit
+        if: steps.ready.outputs.go == 'true' && env.ACTION == 'up'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(gh api "repos/$REPO/commits/$BRANCH" --jq .sha)
+          seen=$(gh api "repos/$REPO/commits/$sha/statuses" --jq '[.[] | select(.context == "viewer")] | length')
+          [ "$seen" = 0 ] || exit 0
+          gh api -X POST "repos/$REPO/statuses/$sha" -f state=pending -f context=viewer \
+            -f target_url="$url" -f description="Codespace running; app starting" > /dev/null
