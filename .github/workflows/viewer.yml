@@ -42,7 +42,8 @@ jobs:
         run: |
           api() { gh api -H "Accept: application/vnd.github+json" "$@"; }
           find() { api "repos/$REPO/codespaces" --paginate --jq ".codespaces[] | select(.display_name == \"$1\") | .name" | head -1; }
-          name=$(find "${BRANCH: -48}")
+          label=$(printf %s "$BRANCH" | tail -c 48)
+          name=$(find "$label")
 
           if [ "$ACTION" = probe ]; then
             [ -n "$name" ] || { echo "no codespace for $BRANCH"; exit 1; }
@@ -71,14 +72,14 @@ jobs:
           if [ -z "$name" ]; then
             name=$(find viewer-spare)
             if [ -n "$name" ]; then
-              api -X PATCH "user/codespaces/$name" -f display_name="${BRANCH: -48}" > /dev/null
+              api -X PATCH "user/codespaces/$name" -f display_name="$label" > /dev/null
               claimed=yes
               echo "Claimed the spare codespace $name"
             fi
           fi
           if [ -z "$name" ]; then
             name=$(api -X POST "repos/$REPO/codespaces" -f ref="$BRANCH" -f machine=basicLinux32gb -f geo=EuropeWest \
-              -F idle_timeout_minutes=30 -F retention_period_minutes=4320 -f display_name="${BRANCH: -48}" --jq .name)
+              -F idle_timeout_minutes=30 -F retention_period_minutes=4320 -f display_name="$label" --jq .name)
           fi
           for _ in $(seq 1 80); do
             state=$(api "user/codespaces/$name" --jq .state)
