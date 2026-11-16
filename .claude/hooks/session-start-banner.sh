@@ -77,6 +77,8 @@ else
   lines+=("pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
 
+lines+=("$("$CLAUDE_PROJECT_DIR/scripts/viewer.sh" up)")
+
 banner=$(printf '%s\n' "${lines[@]}")
 
 if command -v jq >/dev/null 2>&1; then

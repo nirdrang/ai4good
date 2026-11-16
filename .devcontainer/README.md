@@ -6,6 +6,10 @@ port stays private, so only your GitHub login opens it.
 
 ## How it starts
 
+- Every cloud session start runs `scripts/viewer.sh up` from the session-start hook. It pushes the
+  session's branch if it is new, or runs the workflow below if the branch exists, so the codespace
+  comes up with the session. `scripts/viewer.sh url` prints the app link; `scripts/viewer.sh stop`
+  stops it.
 - Every push to a `claude/**` branch runs the workflow "Viewer codespace". It finds the codespace
   for that branch, creates it if none exists, starts it if it is stopped, and puts a `viewer`
   status with the app link on the pushed commit. The status turns green when the app answers.
