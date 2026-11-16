@@ -516,11 +516,18 @@ function resting(snapshot: PrdSnapshot, holdMicros: number): void {
     band: "red",
     replyFunded: false,
   });
-  expect(snapshot.close).toEqual({
+  expect(snapshot.close).toMatchObject({
     kind: "open",
-    remaining: [],
     path: "check",
-    close: { kind: "unavailable", reason: "Not available yet." },
+    close: {
+      kind: "unavailable",
+      reason: "Not enough left for another AI reply. The kitchen adds funds to continue.",
+    },
+  });
+  if (snapshot.close.kind !== "open") throw new Error("the PRD is closed");
+  expect(snapshot.close.remaining.at(-1)).toEqual({
+    text: "Completion check runs when you close, or when all sections are confirmed",
+    target: null,
   });
   expect(snapshot.canWrite.main).toBe(true);
   expect(snapshot.send.main).toEqual({

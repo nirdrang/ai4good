@@ -79,6 +79,13 @@ async function checkCount(seeded: Seeded): Promise<number> {
   return whole(rows[0]?.n);
 }
 
+async function namesEachUnconfirmed(seeded: Seeded, text: string): Promise<void> {
+  const rows = (await seeded.sql`select title from public.prd_sections
+    where project_id = ${seeded.projectId}::uuid and required and state <> 'confirmed'`) as Array<{ title: string }>;
+  expect(rows.length).toBeGreaterThan(0);
+  for (const row of rows) expect(text, "the warning names each unconfirmed section").toContain(row.title);
+}
+
 async function plantDiscovery(seeded: Seeded): Promise<void> {
   const rows = (await seeded.sql`select document from public.brief_revisions
     where project_id = ${seeded.projectId}::uuid and revision = 2`) as Array<{ document: unknown }>;
@@ -170,7 +177,7 @@ export async function proveClosedRevision(): Promise<void> {
     expect(ask.data.keepWorking.kind).toBe("keep-working");
     const warningText = chatText(warned);
     expect(warningText).toContain("You can close anyway");
-    expect(warningText).toContain("Not confirmed yet:");
+    await namesEachUnconfirmed(seeded, warningText);
 
     const closedAction = await act(
       seeded,
@@ -186,7 +193,14 @@ export async function proveClosedRevision(): Promise<void> {
       where project_id = ${seeded.projectId}::uuid order by ordinal`) as Array<Record<string, unknown>>;
     expect(closed.close.openPoints, "the closed snapshot counts the recorded points").toBe(points.length);
     expect(points.length, "the warning recorded at least the unconfirmed sections").toBeGreaterThan(0);
-    expect(points.some((point) => point.kind === "unconfirmed")).toBe(true);
+    const unconfirmed = (await seeded.sql`select stable_key from public.prd_sections
+      where project_id = ${seeded.projectId}::uuid and required and state <> 'confirmed'`) as Array<{ stable_key: string }>;
+    for (const section of unconfirmed) {
+      expect(
+        points.some((point) => point.section_key === section.stable_key && (point.kind === "gap" || point.kind === "unconfirmed")),
+        `${section.stable_key} is recorded as an open point`,
+      ).toBe(true);
+    }
     const gaps = (await seeded.sql`select g.section_key, g.text from public.prd_check_gaps g
       join public.prd_checks c on c.id = g.check_id
       where c.project_id = ${seeded.projectId}::uuid and g.fixed = false`) as Array<Record<string, unknown>>;
@@ -202,7 +216,7 @@ export async function proveClosedRevision(): Promise<void> {
     expect(whole(closeRow[0].revision)).toBe(closed.close.revision);
     const ops = (await seeded.sql`select status, commit_sha from public.prd_git_ops
       where project_id = ${seeded.projectId}::uuid and kind = 'close-tag'`) as Array<Record<string, unknown>>;
-    expect(ops, "the tag operation is published before anyone reads the tag").toEqual([
+    expect([...ops], "the tag operation is published before anyone reads the tag").toEqual([
       { status: "published", commit_sha: closeRow[0].commit_sha },
     ]);
 
@@ -383,7 +397,7 @@ export async function proveCloseAtAnyTime(): Promise<void> {
     expect(ask.data.closeAnyway.kind).toBe("close-anyway");
     expect(ask.data.keepWorking.kind).toBe("keep-working");
     expect(chatText(first)).toContain("You can close anyway");
-    expect(chatText(first)).toContain("Not confirmed yet:");
+    await namesEachUnconfirmed(warning, chatText(first));
     expect(await checkCount(warning)).toBe(beforeChecks + 1);
     expect(await providerEvents(warning)).toBeGreaterThan(beforeEvents);
 
@@ -458,7 +472,7 @@ export async function proveCloseAtAnyTime(): Promise<void> {
     const checkId = crypto.randomUUID();
     await passing.sql`select public.prd_check_record(
       ${passing.projectId}::uuid, ${turnId}::uuid, ${checkId}::uuid, ${100}, 'The planted check passes.',
-      ${"[]"}::jsonb, ${JSON.stringify([{ type: "text", text: "The planted check passes." }])}::text::jsonb
+      ${"[]"}::text::jsonb, ${JSON.stringify([{ type: "text", text: "The planted check passes." }])}::text::jsonb
     )`;
     await finishTurn(passing, turnId);
     const beforeSpend = await providerSpend(passing);
@@ -482,7 +496,7 @@ export async function proveCloseAtAnyTime(): Promise<void> {
     expect(await providerEvents(passing)).toBe(0);
     expect(await checkCount(passing)).toBe(1);
 
-    await passing.sql`update public.prd_questions set status = 'used'
+    await passing.sql`update public.prd_questions set blocking = false
       where project_id = ${passing.projectId}::uuid and body = ${QUESTION}`;
     const clear = await readSnapshot(passing, passing.dev);
     const clearClose = openClose(clear);

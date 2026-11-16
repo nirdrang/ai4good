@@ -291,7 +291,7 @@ export async function proveCompletionCheck(): Promise<void> {
     throw new AtPending(
       "AT-036.04",
       "sut-missing",
-      "The screen line for the score and threshold, and the Close PRD half, are the next units.",
+      "The screen line for the score and threshold is screen wiring. The check that Close PRD runs, and its busy and funds refusals, are proven by AT-036.16's backend half.",
     );
   } finally {
     try {

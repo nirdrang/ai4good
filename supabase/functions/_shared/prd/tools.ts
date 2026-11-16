@@ -9,7 +9,8 @@ const REFUSAL: Record<string, string> = {
   "nothing-staged": "Nothing is staged to commit.",
   forbidden: "That action is not allowed.",
   "wrong-receipt": "That read receipt is not for this turn.",
-  "invalid-document": "That document is not a section.",
+  "invalid-document":
+    'That document is not a section. A section is {"statements": [{"text": "...", "sources": ["..."]}], "decisions": []}, with technicalScope kept as read when the section has one.',
   "invalid-request": "That request is not valid.",
   "not-ready": "That section is not ready.",
   "not-confirmed": "That section is not confirmed.",
@@ -55,7 +56,8 @@ export const TOOLS: readonly ToolSpec[] = [
   },
   {
     name: "stage_section",
-    description: "Stage a new document for a section read in this turn.",
+    description:
+      'Stage a new document for a section read in this turn. The document has the same shape as the one read: {"statements": [{"text": "...", "sources": ["..."]}], "decisions": [...]}. Each statement is an object with its text and a list of source names, which may be empty. Keep decisions, and technicalScope when present, as read unless the change is to them.',
     inputSchema: {
       type: "object",
       properties: { receipt: uuidField, document: objectField },
