@@ -12,6 +12,7 @@ import {
   proveRolesAndPermissions,
   createdRepoNames,
 } from "./_record.ts";
+import { proveModelCharges } from "./_charge.ts";
 import { proveTopicTools } from "./_tools.ts";
 import {
   closeFlow,
@@ -359,7 +360,7 @@ atTest(
 atTest(
   "AT-036.05",
   "The chat shows no receipt and no effort control, and one request is charged once",
-  { surface: "ui", timeoutMs: { loop: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000, integration: 180_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "queue", viewport: "desktop" }, async (prd) => {
@@ -401,6 +402,10 @@ atTest(
       }
     },
     default: wiringPending("AT-036.05"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveModelCharges();
+    },
   },
 );
 
