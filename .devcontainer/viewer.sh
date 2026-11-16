@@ -28,12 +28,17 @@ case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-resp
   done
 } > supabase/functions/.env
 
+bunx supabase stop
 bunx supabase start $VIEWER_EXCLUDE --ignore-health-check
 eval "$(bunx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
 
-SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
-  PREVIEW_NGO_EMAIL=preview-ngo@ai4good.example PREVIEW_NGO_PASSWORD="$seed_password" \
-  bun scripts/preview-seed.ts > /tmp/viewer-seed.txt || echo "seed failed; see above"
+for _ in $(seq 1 30); do
+  SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+    PREVIEW_NGO_EMAIL=preview-ngo@ai4good.example PREVIEW_NGO_PASSWORD="$seed_password" \
+    bun scripts/preview-seed.ts > /tmp/viewer-seed.txt && break
+  echo "seed failed; retrying"
+  sleep 4
+done
 
 run_app() {
   while true; do
