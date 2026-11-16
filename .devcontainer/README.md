@@ -26,6 +26,7 @@ Sign in as `preview-ngo@ai4good.example` with the `VIEWER_NGO_PASSWORD` Codespac
 - Repository Actions secret `CODESPACES_TOKEN`: a personal access token (classic) with only the
   `codespace` scope.
 - Codespaces secrets for this repository: `DISCOVERY_API_KEY`, and `DISCOVERY_BASE_URL` plus
-  `DISCOVERY_MODEL` to move off the opencode default (and `ANTHROPIC_API_KEY` if a
+  `DISCOVERY_MODEL` to move off the opencode default (an `https://api.openai.com/` address
+  uses the Responses API, because OpenAI's newer models refuse the chat call's `max_tokens`; and `ANTHROPIC_API_KEY` if a
   function needs it), and `VIEWER_NGO_PASSWORD` if you want your own password.
 - Optional: a prebuild for `main` in Settings, Codespaces, to cut the first start.

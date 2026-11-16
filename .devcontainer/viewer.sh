@@ -17,8 +17,9 @@ bun install --frozen-lockfile
 
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
+case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses ;; *) provider=openai-compatible ;; esac
 {
-  printf 'DISCOVERY_PROVIDER=%s\n' "${DISCOVERY_PROVIDER:-openai-compatible}"
+  printf 'DISCOVERY_PROVIDER=%s\n' "${DISCOVERY_PROVIDER:-$provider}"
   printf 'DISCOVERY_MODEL=%s\n' "${DISCOVERY_MODEL:-deepseek-v4.1-flash}"
   printf 'DISCOVERY_BASE_URL=%s\n' "${DISCOVERY_BASE_URL:-https://opencode.ai/zen/go/v1}"
   printf 'DISCOVERY_REASONING_EFFORT=%s\n' "${DISCOVERY_REASONING_EFFORT:-low}"
