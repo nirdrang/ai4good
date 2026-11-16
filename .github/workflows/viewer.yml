@@ -51,7 +51,7 @@ jobs:
           fi
 
           if [ -z "$name" ]; then
-            name=$(api -X POST "repos/$REPO/codespaces" -f ref="$BRANCH" -f machine=basicLinux32gb \
+            name=$(api -X POST "repos/$REPO/codespaces" -f ref="$BRANCH" -f machine=basicLinux32gb -f geo=EuropeWest \
               -F idle_timeout_minutes=30 -F retention_period_minutes=4320 -f display_name="${BRANCH: -48}" --jq .name)
           fi
           for _ in $(seq 1 80); do
