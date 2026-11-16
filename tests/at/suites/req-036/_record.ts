@@ -1830,7 +1830,7 @@ export async function proveRolesAndPermissions(): Promise<void> {
     throw new AtPending(
       "AT-036.09",
       "sut-missing",
-      "Confirm and reopen work only on a section in the right state, and closing the PRD is not built, so it still answers not-yet for the developer. Changing the threshold or overriding scoring has no endpoint yet; the completion check is not in this tree yet.",
+      "Confirm and reopen work only on a section in the right state, and closing the PRD is not built, so it still answers not-yet for the developer. There is no endpoint to change the threshold or override scoring, so the NGO cannot do either.",
     );
   } finally {
     await seeded.sql.close();

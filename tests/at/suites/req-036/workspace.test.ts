@@ -13,6 +13,7 @@ import {
   createdRepoNames,
 } from "./_record.ts";
 import { proveModelCharges } from "./_charge.ts";
+import { proveCompletionCheck } from "./_check.ts";
 import { proveTopicTools } from "./_tools.ts";
 import {
   closeFlow,
@@ -267,7 +268,7 @@ atTest(
 atTest(
   "AT-036.04",
   "The completion check names each gap and its topic, and a failing score stays on screen",
-  { surface: "ui", timeoutMs: { loop: 180_000 } },
+  { surface: "ui", timeoutMs: { loop: 180_000, integration: 240_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "all-ready", viewport: "desktop" }, async (prd) => {
@@ -354,6 +355,9 @@ atTest(
       });
     },
     default: wiringPending("AT-036.04"),
+    integration: async () => {
+      await proveCompletionCheck();
+    },
   },
 );
 

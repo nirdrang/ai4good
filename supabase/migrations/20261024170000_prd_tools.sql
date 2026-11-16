@@ -1776,6 +1776,7 @@ begin
     if v_turn then
       v_visible := public.prd_finish_turn_op(p_project, v_turn_op.id, v_sha, v_written) or v_visible;
     end if;
+    v_visible := public.prd_close_changed_gaps(p_project, v_changed_keys) or v_visible;
     v_visible := public.prd_invalidate_dependents(p_project, v_changed_keys) or v_visible;
     v_applied := v_applied + 1;
   end loop;

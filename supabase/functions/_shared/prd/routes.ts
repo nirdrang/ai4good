@@ -8,6 +8,7 @@ import {
   runPrdTurn,
   type PrdRelayDeps,
 } from "./relay.ts";
+import { runCompletionCheck, type StartedCheck } from "./check.ts";
 import { snapshotFromRecord, viewerFromRecord } from "./snapshot.ts";
 import type { ActionKind, ChatScope, PrdIntent, QuestionId, TopicId } from "./wire.ts";
 import {
@@ -18,6 +19,7 @@ import {
   uuidField,
   type AccountWriteRouteInput,
   type SettleActResult,
+  type SettleDatabase,
   type WriteRouteDecision,
 } from "../write-routes.ts";
 
@@ -270,14 +272,15 @@ export function prdMessagePrepare(deps: PrdRelayDeps) {
   };
 }
 
-export function prdActionPrepare(_deps: PrdRelayDeps) {
+export function prdActionPrepare(deps: PrdRelayDeps) {
   return async (
     _caller: Caller,
     args: PrdActionArgs,
     _reads: CallerReads,
     _stream: boolean,
   ): Promise<WriteRouteDecision<PrdActionArgs>> => {
-    return { ok: true, args };
+    if (deps.settings === null) return { ok: true, args };
+    return { ok: true, args: { ...args, p_model: deps.settings.modelId } };
   };
 }
 
@@ -296,6 +299,39 @@ export function prdMessageSettle(deps: PrdRelayDeps) {
       closed: () => boolean,
     ): Promise<SettleActResult> =>
       runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), { emit, closed }),
+  };
+}
+
+function startedCheck(reserved: unknown): StartedCheck | null {
+  if (!isRecord(reserved) || !isRecord(reserved.check)) return null;
+  const check = reserved.check;
+  const turnId = uuidField(check.turnId);
+  const sectionKey = stringField(check.sectionKey);
+  const priorState = stringField(check.priorState);
+  if (turnId === null || sectionKey === null || priorState === null) return null;
+  if (check.priorChanged !== null && check.priorChanged !== undefined && stringField(check.priorChanged) === null) {
+    return null;
+  }
+  return {
+    turnId,
+    sectionKey,
+    priorState,
+    priorChanged: stringField(check.priorChanged),
+  };
+}
+
+export function prdActionSettle(deps: PrdRelayDeps) {
+  return {
+    rpc: "prd_turn_ingest",
+    act: async (
+      reserved: unknown,
+      args: PrdActionArgs,
+      database?: SettleDatabase,
+    ): Promise<SettleActResult> => {
+      const started = startedCheck(reserved);
+      if (started === null) return { args: null, failure: null, skipSettle: true };
+      return runCompletionCheck({ ...deps, rpc: database ?? deps.rpc }, args.p_project, started);
+    },
   };
 }
 

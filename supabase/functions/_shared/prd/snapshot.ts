@@ -3,6 +3,7 @@ import type {
   ActionToken,
   Availability,
   CloseState,
+  CompletionCheck,
   DevQuestion,
   FundsState,
   NgoQuestion,
@@ -124,8 +125,13 @@ function topicReason(
       : `Only ${names.dev} reopens sections.`;
   }
   if (code === "closed") return CLOSED_REASON;
+  if (code === "gap") return "Fix the completion check gap first.";
   if (code === "not-ready") return "This section is not ready to confirm.";
   if (code === "not-confirmed") return "This section is not confirmed.";
+  if (code === "busy") return "Wait for the AI to finish.";
+  if (code === "funds") {
+    return "Confirming this section runs the completion check, and there is not enough left for it. The kitchen adds funds to continue.";
+  }
   return NOT_YET;
 }
 
@@ -145,7 +151,7 @@ function topicAvailability<K extends "confirm-topic" | "reopen-topic">(
   return { kind: "unavailable", reason: topicReason(action.reason, kind, names) };
 }
 
-function topicOf(section: unknown, names: Names): Topic {
+function topicOf(section: unknown, names: Names, role: Viewer["role"]): Topic {
   if (!isRecord(section)) fail("a section is a record");
   const state = section.state;
   if (typeof state !== "string" || !TOPIC_STATES.includes(state as TopicState)) {
@@ -158,23 +164,40 @@ function topicOf(section: unknown, names: Names): Topic {
   const content = unreadable ? { statements: [], sources: [] } : statementsOf(document);
   const scope = unreadable ? null : scopeOf(document);
   const changed = section.changedSinceConfirmed;
+  const gap = typeof section.gap === "string" && section.gap.trim() !== "" ? section.gap : null;
+  const gapClosed = changed === "Gap closed";
+  const topicState = state as TopicState;
   const problem = typeof section.problem === "string" ? section.problem : null;
+  const status = gap
+    ? `Gap from the completion check: ${gap}`
+    : gapClosed && topicState === "needs-review"
+      ? role === "dev"
+        ? "Gap closed. Read it again and confirm."
+        : `Gap closed. Ready for ${names.dev} to confirm again.`
+      : statusText(topicState);
+  const blocker = unreadable
+    ? (problem ?? "the section could not be read")
+    : gap !== null
+      ? role === "dev"
+        ? "Completion check gap · fix it in this section"
+        : `Completion check gap · ${names.dev} fixes it in this section`
+      : gapClosed && topicState === "needs-review"
+        ? `Gap closed · ${names.dev} reviews and confirms again`
+        : typeof section.blocker === "string"
+          ? section.blocker
+          : null;
   return {
     id: text(section.key, "section key") as Topic["id"],
     title: text(section.title, "section title"),
     required: section.required,
-    state: state as TopicState,
-    statusText: statusText(state as TopicState),
-    blocker: unreadable
-      ? (problem ?? "the section could not be read")
-      : typeof section.blocker === "string"
-        ? section.blocker
-        : null,
+    state: topicState,
+    statusText: status,
+    blocker,
     statements: content.statements,
     sources: content.sources,
     stories: storiesOf(scope),
     scope,
-    changeSummary: typeof changed === "string" ? changed : null,
+    changeSummary: gap !== null || gapClosed ? null : typeof changed === "string" ? changed : null,
     author: typeof section.author === "string" ? section.author : null,
     confirm: topicAvailability(section.confirm, "confirm", "confirm-topic", names),
     reopen: topicAvailability(section.reopen, "reopen", "reopen-topic", names),
@@ -476,6 +499,31 @@ export function viewerFromRecord(record: unknown): Viewer {
   return { role, name };
 }
 
+function checkOf(value: unknown): CompletionCheck | null {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value) || !Array.isArray(value.gaps) || typeof value.passed !== "boolean") {
+    fail("the completion check is a record");
+  }
+  const id = text(value.id, "check id");
+  const thresholdText = text(value.thresholdText, "threshold");
+  if (id.length === 0 || thresholdText.length === 0) fail("the completion check names its threshold");
+  return {
+    id,
+    revision: wholeNumber(value.revision, "check revision"),
+    passed: value.passed,
+    coverageText: text(value.coverageText, "coverage"),
+    thresholdText,
+    gaps: value.gaps.map((gap) => {
+      if (!isRecord(gap) || typeof gap.fixed !== "boolean") fail("a completion check gap is a record");
+      const topicId = text(gap.topicId, "gap topic");
+      const title = text(gap.title, "gap title");
+      const body = text(gap.text, "gap text");
+      if (topicId.length === 0 || title.length === 0 || body.length === 0) fail("a completion check gap names its section");
+      return { topicId: topicId as TopicId, title, text: body, fixed: gap.fixed };
+    }),
+  };
+}
+
 /** Turns the facts record into the screen snapshot. It maps text and drops nothing it was given. */
 export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnapshot {
   if (!isRecord(record)) fail("the PRD facts are a record");
@@ -496,14 +544,14 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
       organizationName: text(record.project.organizationName, "organisation name"),
     },
     discoveryRevision: wholeNumber(record.discoveryRevision, "discovery revision"),
-    topics: record.sections.map((section) => topicOf(section, names)),
+    topics: record.sections.map((section) => topicOf(section, names, viewer.role)),
     devQuestions: record.devQuestions.map(devQuestionOf),
     questions: record.questions.map((question) => ngoQuestionOf(question, names)),
     chats: presented.chats,
     canWrite: presented.canWrite,
     send: presented.send,
     funds: fundsOf(record.funds),
-    check: null,
+    check: checkOf(record.check),
     close: restingClose(),
     drafts: draftsOf(record.drafts),
   };

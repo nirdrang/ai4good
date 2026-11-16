@@ -1247,7 +1247,7 @@ export async function proveTopicTools(): Promise<void> {
     throw new AtPending(
       "AT-036.08",
       "sut-missing",
-      "The overview list and its test ids are the screen wiring unit's, and stale recommendations and score events need the completion check, which is not in this tree yet.",
+      "The overview list and its test ids are the screen wiring unit's, and stale recommendations still need the Close PRD unit.",
     );
   } finally {
     await seeded.sql.close();

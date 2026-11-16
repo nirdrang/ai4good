@@ -1,5 +1,11 @@
 import { prdRelay, writeRoute } from "../_shared/edge.ts";
-import { decidePrdAction, prdActionPrepare, projectTarget, renderPrdAction } from "../_shared/prd/routes.ts";
+import {
+  decidePrdAction,
+  prdActionPrepare,
+  prdActionSettle,
+  projectTarget,
+  renderPrdAction,
+} from "../_shared/prd/routes.ts";
 
 const relay = prdRelay();
 
@@ -9,5 +15,6 @@ Deno.serve(writeRoute({
   target: projectTarget,
   decide: decidePrdAction,
   prepare: prdActionPrepare(relay),
+  settle: prdActionSettle(relay),
   render: renderPrdAction,
 }));

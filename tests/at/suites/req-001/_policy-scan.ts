@@ -60,6 +60,9 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   prd_provider_events: 'unreachable-by-client-roles',
   prd_ledger_entries: 'unreachable-by-client-roles',
   prd_turn_settings: 'unreachable-by-client-roles',
+  prd_check_config: 'unreachable-by-client-roles',
+  prd_checks: 'unreachable-by-client-roles',
+  prd_check_gaps: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
