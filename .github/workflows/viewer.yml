@@ -7,7 +7,7 @@ on:
     inputs:
       action:
         type: choice
-        options: [up, stop, probe]
+        options: [up, stop, probe, recreate]
         default: up
       branch:
         type: string
@@ -62,6 +62,11 @@ jobs:
             exit 0
           fi
 
+          if [ "$ACTION" = recreate ] && [ -n "$name" ]; then
+            api -X DELETE "user/codespaces/$name" > /dev/null
+            name=""
+          fi
+
           if [ -z "$name" ]; then
             name=$(api -X POST "repos/$REPO/codespaces" -f ref="$BRANCH" -f machine=basicLinux32gb -f geo=EuropeWest \
               -F idle_timeout_minutes=30 -F retention_period_minutes=4320 -f display_name="${BRANCH: -48}" --jq .name)
@@ -85,7 +90,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Put the link on the commit
-        if: steps.ready.outputs.go == 'true' && env.ACTION == 'up'
+        if: steps.ready.outputs.go == 'true' && (env.ACTION == 'up' || env.ACTION == 'recreate')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

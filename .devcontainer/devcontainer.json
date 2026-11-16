@@ -2,18 +2,36 @@
   "name": "ai4good viewer",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/sshd:1": {}
   },
-  "hostRequirements": { "cpus": 2, "memory": "8gb", "storage": "32gb" },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
   "onCreateCommand": "bash .devcontainer/setup.sh",
   "updateContentCommand": "bash .devcontainer/setup.sh",
   "postStartCommand": "setsid nohup bash .devcontainer/viewer.sh > /tmp/viewer.log 2>&1 < /dev/null &",
-  "forwardPorts": [8080],
+  "forwardPorts": [
+    8080
+  ],
   "portsAttributes": {
-    "8080": { "label": "app", "onAutoForward": "silent" },
-    "44321": { "onAutoForward": "ignore" },
-    "44322": { "onAutoForward": "ignore" },
-    "44324": { "onAutoForward": "ignore" }
+    "8080": {
+      "label": "app",
+      "onAutoForward": "silent"
+    },
+    "44321": {
+      "onAutoForward": "ignore"
+    },
+    "44322": {
+      "onAutoForward": "ignore"
+    },
+    "44324": {
+      "onAutoForward": "ignore"
+    }
   },
-  "otherPortsAttributes": { "onAutoForward": "ignore" }
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  }
 }
