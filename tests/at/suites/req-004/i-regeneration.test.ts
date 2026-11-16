@@ -78,3 +78,38 @@ atTest('AT-004.39', 'failure releases its credit and the successful retry consum
     expect(afterResend.ok && afterResend.allowance.remaining).toBe(afterLoss.allowance.remaining);
   },
 });
+
+atTest('AT-004.75', 'a failed first reply is asked for again, and a successful one is replayed', {
+  default: async ({ open }) => {
+    const { w, sut } = await open();
+    const ngo = await sut.provisionNgo(w.email('opening-75'), { emailVerified: true });
+    const { projectId } = await sut.startDiscoveryNeed(ngo.session, ngo.organizationId, GRANT_TRACKER.intake);
+    const opening = {
+      accountId: ngo.accountId, organizationId: ngo.organizationId, projectId,
+      message: '', mode: 'opening' as const, userMessageId: `opening-${projectId}`,
+    };
+    const first = await sut.reserveTurnAsOperator(opening);
+    expect(first).toMatchObject({ ok: true });
+    if (!first.ok) return;
+    expect(first.reservation.turn.billing).toBe('opening');
+    expect(await sut.settleTurnAsOperator({
+      accountId: ngo.accountId, turnId: first.reservation.turn.id, outcome: 'failed',
+    })).toMatchObject({ ok: true });
+    const again = await sut.reserveTurnAsOperator(opening);
+    expect(again).toMatchObject({ ok: true });
+    if (!again.ok) return;
+    expect(again.reservation.replay, 'the failed first reply is not replayed').not.toBe('stored');
+    expect(again.reservation.turn.id).not.toBe(first.reservation.turn.id);
+    expect(again.reservation.turn.status).toBe('open');
+    expect(again.reservation.turn.billing).toBe('opening');
+    expect(await sut.settleTurnAsOperator({
+      accountId: ngo.accountId, turnId: again.reservation.turn.id, outcome: 'completed',
+      reply: 'Who makes the grant calendar today?', usage: USAGE,
+    })).toMatchObject({ ok: true });
+    const reopened = await sut.reserveTurnAsOperator(opening);
+    expect(reopened).toMatchObject({ ok: true });
+    if (!reopened.ok) return;
+    expect(reopened.reservation.replay, 'the successful first reply is replayed').toBe('stored');
+    expect(reopened.reservation.turn.id).toBe(again.reservation.turn.id);
+  },
+});
