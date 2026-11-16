@@ -54,7 +54,7 @@ async function errorCode(run: Promise<unknown>): Promise<string> {
   try {
     await run;
   } catch (error) {
-    const code = (error as { code?: unknown }).code;
+    const code = (error as { errno?: unknown }).errno;
     return typeof code === "string" ? code : "";
   }
   return "inserted";
