@@ -15,8 +15,9 @@ port stays private, so only your GitHub login opens it.
   status with the app link on the pushed commit. The status turns green when the app answers.
 - Building a codespace takes about seven minutes, so the workflow keeps one stopped spare,
   named `viewer-spare`, built from `main`. A new branch claims the spare: the workflow renames
-  it, starts it, and switches it to the branch. Then the workflow builds the next spare in the
-  background.
+  it, starts it, and switches it to the branch. Then the workflow builds the next spare and
+  stops it once its images are pulled. GitHub limits how many codespaces run at once, so when
+  that limit is reached no spare is built and the next run tries again.
 - On a restart the codespace's start hook loses the start script, so the workflow starts it
   over ssh when it is not running.
 - Run the workflow by hand with `action: stop` to stop one early. A codespace also stops after 30

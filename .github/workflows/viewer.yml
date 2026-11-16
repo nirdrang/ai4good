@@ -24,7 +24,7 @@ concurrency:
 jobs:
   viewer:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ secrets.CODESPACES_TOKEN }}
       ACTION: ${{ inputs.action || 'up' }}
@@ -96,7 +96,7 @@ jobs:
           if [ -n "$claimed" ]; then
             branch=$(printf %q "$BRANCH")
             for _ in $(seq 1 12); do
-              gh codespace ssh -c "$name" -- "pkill -f '^bash .devcontainer/viewer.sh'; pkill -f 'vite dev'; cd /workspaces/ai4good && git fetch -q origin $branch && git checkout -q -B $branch FETCH_HEAD && echo switched to $branch" 2>&1 && break
+              gh codespace ssh -c "$name" -- "pkill -f '^bash .devcontainer/viewer.sh'; pkill -f '[v]ite dev'; cd /workspaces/ai4good && git fetch -q origin $branch && git checkout -q -B $branch FETCH_HEAD && echo switched to $branch" 2>&1 && break
               sleep 10
             done
           fi
@@ -131,10 +131,23 @@ jobs:
         run: |
           api() { gh api -H "Accept: application/vnd.github+json" "$@"; }
           spare=$(api "repos/$REPO/codespaces" --paginate --jq '.codespaces[] | select(.display_name == "viewer-spare") | .name' | head -1)
-          if [ -z "$spare" ]; then
-            base=main
-            api "repos/$REPO/contents/.devcontainer/devcontainer.json?ref=main" > /dev/null 2>&1 || base="$BRANCH"
-            spare=$(api -X POST "repos/$REPO/codespaces" -f ref="$base" -f machine=basicLinux32gb -f geo=EuropeWest \
-              -F idle_timeout_minutes=30 -F retention_period_minutes=43200 -f display_name=viewer-spare --jq .name)
-            echo "Started building the spare codespace $spare from $base" | tee -a "$GITHUB_STEP_SUMMARY"
+          [ -z "$spare" ] || { echo "Spare codespace $spare is ready"; exit 0; }
+          base=main
+          api "repos/$REPO/contents/.devcontainer/devcontainer.json?ref=main" > /dev/null 2>&1 || base="$BRANCH"
+          if ! spare=$(api -X POST "repos/$REPO/codespaces" -f ref="$base" -f machine=basicLinux32gb -f geo=EuropeWest \
+            -F idle_timeout_minutes=30 -F retention_period_minutes=43200 -f display_name=viewer-spare --jq .name); then
+            echo "No spare built this time; the next run tries again" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          echo "Building the spare codespace $spare from $base" | tee -a "$GITHUB_STEP_SUMMARY"
+          for _ in $(seq 1 60); do
+            [ "$(api "user/codespaces/$spare" --jq .state)" = Available ] && break
+            sleep 10
+          done
+          for _ in $(seq 1 60); do
+            images=$(gh codespace ssh -c "$spare" -- 'docker image ls -q | wc -l' 2>/dev/null || echo 0)
+            [ "$images" -ge 8 ] && break
+            sleep 10
+          done
+          api -X POST "user/codespaces/$spare/stop" > /dev/null
+          echo "Spare codespace $spare built ($images images) and stopped" | tee -a "$GITHUB_STEP_SUMMARY"
