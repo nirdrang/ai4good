@@ -44,19 +44,6 @@ run_app() {
 }
 run_app > /tmp/viewer-app.log 2>&1 &
 
-report_ready() {
-  for _ in $(seq 1 120); do
-    curl -fsS -o /dev/null "http://127.0.0.1:${app_port}/" && break
-    sleep 2
-  done
-  [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ] || return 0
-  curl -fsS -o /dev/null -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
-    "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/$(git rev-parse HEAD)" \
-    -d "{\"state\":\"success\",\"context\":\"viewer\",\"target_url\":\"${app_url}\",\"description\":\"App running in the codespace\"}" \
-    || echo "could not post the viewer status"
-}
-report_ready
-
 while true; do
   sleep 10
   git fetch --quiet origin "$branch" || continue
@@ -76,5 +63,4 @@ while true; do
   if grep -q '^supabase/config.toml$' <<<"$changed"; then
     bunx supabase stop && bunx supabase start $VIEWER_EXCLUDE --ignore-health-check
   fi
-  report_ready
 done
