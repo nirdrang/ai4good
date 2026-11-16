@@ -127,14 +127,22 @@ function checkMessage(snapshot: PrdSnapshot): { text: string; checkId: string; g
 }
 
 function missingThemes(gaps: ReadonlyArray<{ topicId: string; text: string }>): string[] {
-  const taken = new Set<number>();
-  for (const gap of gaps) {
-    const index = PLANTED.findIndex(
-      (theme, themeIndex) => !taken.has(themeIndex) && theme.match(gap.text, gap.topicId),
-    );
-    if (index >= 0) taken.add(index);
-  }
-  return PLANTED.filter((_, index) => !taken.has(index)).map((theme) => theme.name);
+  const owner = new Map<number, number>();
+  const claim = (gapIndex: number, seen: Set<number>): boolean => {
+    const gap = gaps[gapIndex];
+    for (const [themeIndex, theme] of PLANTED.entries()) {
+      if (seen.has(themeIndex) || !theme.match(gap.text, gap.topicId)) continue;
+      seen.add(themeIndex);
+      const holder = owner.get(themeIndex);
+      if (holder === undefined || claim(holder, seen)) {
+        owner.set(themeIndex, gapIndex);
+        return true;
+      }
+    }
+    return false;
+  };
+  gaps.forEach((_, gapIndex) => claim(gapIndex, new Set()));
+  return PLANTED.filter((_, index) => !owner.has(index)).map((theme) => theme.name);
 }
 
 async function sendStream(seeded: Seeded, topicId: string, text: string, revision: number, request: string) {

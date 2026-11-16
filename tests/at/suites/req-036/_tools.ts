@@ -1151,6 +1151,13 @@ async function proveDatabaseStates(world: ToolsWorld): Promise<void> {
     confirmToken(readyAgain, "rules"),
     "the developer confirms the section that depends on it",
   );
+  await world.seeded.sql`insert into public.prd_checks
+      (id, project_id, revision, score, threshold, passed, coverage_text, threshold_text, turn_id)
+    select gen_random_uuid(), r.project_id, r.current_revision, 100, c.threshold, true,
+      'A passing check for this revision, so the last confirm makes no model call.',
+      c.threshold_text, ${again.turnId}::uuid
+      from public.prd_records r, public.prd_check_config c
+     where r.project_id = ${world.seeded.projectId}::uuid and c.key = 'completion'`;
   await confirmSection(
     world,
     confirmToken(readyAgain, "technical-scope"),
