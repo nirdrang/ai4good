@@ -83,6 +83,10 @@ jobs:
 
           url="https://$name-8080.app.github.dev"
           echo "url=$url" >> "$GITHUB_ENV"
+          for _ in $(seq 1 12); do
+            gh codespace ssh -c "$name" -- 'pgrep -f "bash .devcontainer/viewer.sh" > /dev/null || (cd /workspaces/ai4good && setsid -f nohup bash .devcontainer/viewer.sh > /tmp/viewer.log 2>&1 < /dev/null); echo viewer script running' && break
+            sleep 10
+          done
           {
             echo "Codespace: $name ($state)"
             echo "App: $url (the app is up a few minutes after this; GitHub login required)"

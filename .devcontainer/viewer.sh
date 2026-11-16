@@ -19,6 +19,7 @@ bun install --frozen-lockfile
 echo "viewer: waiting for docker"
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
+if [ -n "${DISCOVERY_API_KEY:-}" ] || [ ! -f supabase/functions/.env ]; then
 case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses ;; *) provider=openai-compatible ;; esac
 {
   printf 'DISCOVERY_PROVIDER=%s\n' "${DISCOVERY_PROVIDER:-$provider}"
@@ -29,6 +30,7 @@ case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-resp
     if [ -n "${!name:-}" ]; then printf '%s=%s\n' "$name" "${!name}"; fi
   done
 } > supabase/functions/.env
+fi
 
 echo "viewer: restarting the stack"
 bunx supabase stop
