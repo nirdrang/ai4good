@@ -1446,6 +1446,8 @@ declare
   v_author text := 'repository';
   v_written uuid[] := '{}';
   v_changed_keys text[] := '{}';
+  v_frozen boolean := false;
+  v_history bigint;
 begin
   if p_commits is null or jsonb_typeof(p_commits) is distinct from 'array' then
     raise exception 'a reconcile lists commits' using errcode = '22023', detail = 'invalid-request';
@@ -1467,6 +1469,7 @@ begin
 
   v_state := v_record.state;
   v_revision := v_record.current_revision;
+  v_frozen := v_record.closed_revision is not null;
   if v_revision >= 1 then
     select manifest into v_manifest
       from public.prd_revisions
@@ -1746,7 +1749,8 @@ begin
         end if;
         if v_turn and v_variant = 'readable' then
           v_written := v_written || v_section.id;
-        elsif v_section.state = 'confirmed'
+        elsif not v_frozen
+          and v_section.state = 'confirmed'
           and (v_variant is distinct from 'readable' or v_blob is distinct from v_old_blob) then
           v_note := case
             when v_variant = 'missing' then 'the file was removed from the repository'
@@ -1765,19 +1769,32 @@ begin
     end loop;
 
     if v_changed then
-      v_revision := v_revision + 1;
-      insert into public.prd_revisions (
-        project_id, revision, discovery_revision, manifest, commit_sha
-      ) values (
-        p_project, v_revision, v_record.discovery_revision, v_manifest, v_sha
-      );
-      v_visible := true;
+      if v_frozen then
+        select coalesce(max(revision), 0) + 1 into v_history
+          from public.prd_revisions
+         where project_id = p_project;
+        insert into public.prd_revisions (
+          project_id, revision, discovery_revision, manifest, commit_sha
+        ) values (
+          p_project, v_history, v_record.discovery_revision, v_manifest, v_sha
+        );
+      else
+        v_revision := v_revision + 1;
+        insert into public.prd_revisions (
+          project_id, revision, discovery_revision, manifest, commit_sha
+        ) values (
+          p_project, v_revision, v_record.discovery_revision, v_manifest, v_sha
+        );
+        v_visible := true;
+      end if;
     end if;
-    if v_turn then
-      v_visible := public.prd_finish_turn_op(p_project, v_turn_op.id, v_sha, v_written) or v_visible;
+    if not v_frozen then
+      if v_turn then
+        v_visible := public.prd_finish_turn_op(p_project, v_turn_op.id, v_sha, v_written) or v_visible;
+      end if;
+      v_visible := public.prd_close_changed_gaps(p_project, v_changed_keys) or v_visible;
+      v_visible := public.prd_invalidate_dependents(p_project, v_changed_keys) or v_visible;
     end if;
-    v_visible := public.prd_close_changed_gaps(p_project, v_changed_keys) or v_visible;
-    v_visible := public.prd_invalidate_dependents(p_project, v_changed_keys) or v_visible;
     v_applied := v_applied + 1;
   end loop;
 
@@ -1791,14 +1808,22 @@ begin
     );
   end if;
 
-  update public.prd_records
-     set head_commit = v_tip,
-         synced_at = clock_timestamp(),
-         state = v_state,
-         current_revision = v_revision,
-         snapshot_sequence = snapshot_sequence + case when v_visible then 1 else 0 end
-   where project_id = p_project
-   returning snapshot_sequence, current_revision into v_sequence, v_revision;
+  if v_frozen then
+    update public.prd_records
+       set head_commit = v_tip,
+           synced_at = clock_timestamp()
+     where project_id = p_project
+     returning snapshot_sequence, current_revision into v_sequence, v_revision;
+  else
+    update public.prd_records
+       set head_commit = v_tip,
+           synced_at = clock_timestamp(),
+           state = v_state,
+           current_revision = v_revision,
+           snapshot_sequence = snapshot_sequence + case when v_visible then 1 else 0 end
+     where project_id = p_project
+     returning snapshot_sequence, current_revision into v_sequence, v_revision;
+  end if;
   return jsonb_build_object(
     'stale', false,
     'applied', v_applied,

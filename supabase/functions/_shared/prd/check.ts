@@ -2,7 +2,7 @@ import { generateText, jsonSchema, Output, type LanguageModelUsage } from "npm:a
 import { isRecord, type SettleActResult, type SettleDatabase } from "../write-routes.ts";
 import { ingestModelStep, prdModel, usageOf, type PrdTurnDeps } from "./turn.ts";
 
-const CHECK_FAILED = "The completion check could not be read. Nothing was recorded, and the section is back where it was.";
+export const CHECK_FAILED = "The completion check could not be read. Nothing was recorded, and the section is back where it was.";
 const AI_NAME = "ai4good AI";
 
 const checkSchema = jsonSchema({
@@ -262,12 +262,14 @@ function messageParts(
 }
 
 async function undo(database: SettleDatabase, started: StartedCheck): Promise<SettleActResult> {
-  await database("prd_check_revert", {
-    p_turn: started.turnId,
-    p_section_key: started.sectionKey,
-    p_prior_state: started.priorState,
-    p_prior_changed: started.priorChanged,
-  });
+  if (started.sectionKey !== "") {
+    await database("prd_check_revert", {
+      p_turn: started.turnId,
+      p_section_key: started.sectionKey,
+      p_prior_state: started.priorState,
+      p_prior_changed: started.priorChanged,
+    });
+  }
   await database("prd_turn_ingest", {
     p_turn: started.turnId,
     p_event: { kind: "end", outcome: "rejected" },

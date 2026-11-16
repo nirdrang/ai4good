@@ -836,6 +836,7 @@ declare
   v_ngo_messages bigint;
   v_pick record;
   v_lines text := '';
+  v_prior public.prd_actions%rowtype;
 begin
   perform public.assert_account_active(p_actor);
   if btrim(coalesce(p_request_id, '')) = '' or btrim(coalesce(p_body_hash, '')) = '' then
@@ -859,6 +860,35 @@ begin
      and request_id = v_request;
   if found then
     if v_existing.actor_id = p_actor and v_existing.body_hash = v_hash then
+      if v_existing.close_check and v_existing.kind = 'check' and v_existing.state in ('admitted', 'uncertain') then
+        return jsonb_build_object(
+          'turnId', v_existing.id,
+          'messageId', v_existing.message_id,
+          'sequence', v_existing.admitted_sequence,
+          'check', jsonb_build_object(
+            'turnId', v_existing.id,
+            'sectionKey', '',
+            'priorState', 'ready',
+            'priorChanged', null
+          )
+        );
+      end if;
+      if v_existing.close_check and v_existing.kind = 'check' and v_existing.state = 'answered' then
+        return jsonb_build_object(
+          'turnId', v_existing.id,
+          'messageId', v_existing.message_id,
+          'sequence', v_existing.admitted_sequence,
+          'closeFollowUp', true
+        );
+      end if;
+      if v_existing.close_check and v_existing.kind = 'check' and v_existing.state = 'rejected' then
+        return jsonb_build_object(
+          'turnId', v_existing.id,
+          'messageId', v_existing.message_id,
+          'sequence', v_existing.admitted_sequence,
+          'closeRejected', true
+        );
+      end if;
       return jsonb_build_object(
         'turnId', v_existing.id,
         'messageId', v_existing.message_id,
@@ -867,10 +897,16 @@ begin
     end if;
     raise exception 'that request was already used' using errcode = '22023', detail = 'invalid-request';
   end if;
-  if exists (
-    select 1 from public.prd_actions
-     where project_id = p_project and request_id = v_request
-  ) then
+  select * into v_prior
+    from public.prd_actions
+   where project_id = p_project
+     and request_id = v_request;
+  if found then
+    if v_prior.actor_id = p_actor
+       and v_prior.kind = 'close-check'
+       and v_prior.result->>'bodyHash' = v_hash then
+      return v_prior.result - 'bodyHash';
+    end if;
     raise exception 'that request was already used' using errcode = '22023', detail = 'invalid-request';
   end if;
 
@@ -899,6 +935,10 @@ begin
   if v_kind = 'use-answer' and p_chat_key is distinct from 'main' then
     raise exception 'an answer is used in the main chat' using errcode = '22023', detail = 'invalid-request';
   end if;
+  if v_kind = 'close-check' and p_chat_key is distinct from 'main' then
+    raise exception 'The completion check runs in the main chat.'
+      using errcode = '22023', detail = 'invalid-request';
+  end if;
   if v_kind = 'answers' and left(coalesce(p_chat_key, ''), 6) is distinct from 'topic:' then
     raise exception 'answers belong in a section chat' using errcode = '22023', detail = 'invalid-request';
   end if;
@@ -906,7 +946,11 @@ begin
   if v_record.closed_revision is not null then
     raise exception 'the PRD is closed' using errcode = '42501', detail = 'closed';
   end if;
-  if v_kind in ('use-answer', 'close-check')
+  if v_kind = 'close-check'
+     and p_base_revision is distinct from v_record.current_revision then
+    raise exception 'The PRD changed. Close again.' using errcode = '22023', detail = 'stale';
+  end if;
+  if v_kind = 'use-answer'
      and p_base_revision is distinct from v_record.current_revision then
     raise exception 'the PRD changed since this was sent' using errcode = '22023', detail = 'stale';
   end if;
@@ -918,9 +962,17 @@ begin
   ) then
     raise exception 'the AI is still answering in this chat' using errcode = '22023', detail = 'busy';
   end if;
+  if v_kind = 'close-check' and exists (
+    select 1
+      from public.prd_turns
+     where project_id = p_project
+       and state in ('admitted', 'uncertain')
+  ) then
+    raise exception 'Wait for the AI to finish.' using errcode = '22023', detail = 'busy';
+  end if;
 
   if v_kind = 'close-check' then
-    raise exception 'that action is not available yet' using errcode = '22023', detail = 'not-yet';
+    return public.prd_close_check_begin(p_actor, p_project, v_chat, v_request, v_hash, p_model);
   elsif v_kind = 'text' then
     if jsonb_typeof(p_intent->'text') is distinct from 'string' or btrim(p_intent->>'text') = '' then
       raise exception 'a send carries text' using errcode = '22023', detail = 'invalid-request';

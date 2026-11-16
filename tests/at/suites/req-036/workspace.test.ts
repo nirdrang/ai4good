@@ -14,6 +14,7 @@ import {
 } from "./_record.ts";
 import { proveModelCharges } from "./_charge.ts";
 import { proveCompletionCheck } from "./_check.ts";
+import { proveCloseAtAnyTime, proveClosedRevision } from "./_close.ts";
 import { proveTopicTools } from "./_tools.ts";
 import {
   closeFlow,
@@ -416,7 +417,7 @@ atTest(
 atTest(
   "AT-036.06",
   "Close freezes the revision and opens UI Design as read-only",
-  { surface: "ui", timeoutMs: { loop: 60_000 } },
+  { surface: "ui", timeoutMs: { loop: 60_000, integration: 240_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "closed", viewport: "desktop" }, async (prd) => {
@@ -454,6 +455,10 @@ atTest(
       );
     },
     default: wiringPending("AT-036.06"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveClosedRevision();
+    },
   },
 );
 
@@ -935,7 +940,7 @@ atTest(
 atTest(
   "AT-036.16",
   "Dev can close the PRD at any time, and gaps warn without blocking",
-  { surface: "ui", timeoutMs: { loop: 180_000 } },
+  { surface: "ui", timeoutMs: { loop: 180_000, integration: 240_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
@@ -1015,6 +1020,10 @@ atTest(
       );
     },
     default: wiringPending("AT-036.16"),
+    integration: async (ctx) => {
+      await ctx.open();
+      await proveCloseAtAnyTime();
+    },
   },
 );
 

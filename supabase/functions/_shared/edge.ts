@@ -20,7 +20,7 @@ import type { FileRow } from './discovery-files.ts';
 import { requireEnv } from './env.ts';
 import { githubConfig } from './github/app.ts';
 import { githubRepo } from './github/repo.ts';
-import { syncRepo } from './prd/git.ts';
+import { publishCloseTag, syncRepo } from './prd/git.ts';
 import { prdRelayDeps, type PrdRelayDeps } from './prd/relay.ts';
 export { requireEnv } from './env.ts';
 
@@ -218,6 +218,24 @@ export async function syncPrdFromGithub(
   });
   if (!synced.ok) return { ok: false, reason: synced.reason, status: 502 };
   return { ok: true };
+}
+
+export async function publishPrdCloseTag(projectId: string): Promise<void> {
+  const configured = githubConfig({
+    PRD_GITHUB_ORG: Deno.env.get('PRD_GITHUB_ORG'),
+    GITHUB_APP_ID: Deno.env.get('GITHUB_APP_ID'),
+    GITHUB_APP_PRIVATE_KEY: Deno.env.get('GITHUB_APP_PRIVATE_KEY'),
+    PRD_GITHUB_REPO_VISIBILITY: Deno.env.get('PRD_GITHUB_REPO_VISIBILITY'),
+  });
+  if (!configured.ok) {
+    console.error(`prd close tag: ${configured.reason}`);
+    return;
+  }
+  const published = await publishCloseTag(projectId, {
+    github: githubRepo(configured.config, fetch),
+    rpc: callDatabaseFunction,
+  });
+  if (!published.ok) console.error(`prd close tag: ${published.reason}`);
 }
 
 function settledRefusal(value: unknown): string | null {

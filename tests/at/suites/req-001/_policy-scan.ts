@@ -63,6 +63,8 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   prd_check_config: 'unreachable-by-client-roles',
   prd_checks: 'unreachable-by-client-roles',
   prd_check_gaps: 'unreachable-by-client-roles',
+  prd_closes: 'unreachable-by-client-roles',
+  prd_close_points: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };

@@ -485,6 +485,7 @@ begin
   if v_chat is null then
     raise exception 'the main chat is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  p_parts := public.prd_close_attach_recommendation(p_project, v_turn.base_revision, v_passed, p_parts);
   perform public.prd_insert_message(p_project, v_chat, 'ai', 'ai4good AI', null, p_parts, null);
   update public.prd_records
      set snapshot_sequence = snapshot_sequence + 1
@@ -673,9 +674,6 @@ begin
     raise exception 'this account cannot take that action'
       using errcode = '42501', detail = 'forbidden';
   end if;
-  if v_record.closed_revision is not null then
-    raise exception 'the PRD is closed' using errcode = '42501', detail = 'closed';
-  end if;
 
   select * into v_action
     from public.prd_actions
@@ -692,6 +690,9 @@ begin
      where project_id = p_project and request_id = v_request
   ) then
     raise exception 'that request was already used' using errcode = '22023', detail = 'invalid-request';
+  end if;
+  if v_record.closed_revision is not null then
+    raise exception 'the PRD is closed' using errcode = '42501', detail = 'closed';
   end if;
 
   if p_kind = 'post-question' then
@@ -789,7 +790,14 @@ begin
       v_record.current_revision
     );
   else
-    raise exception 'that action is not available yet' using errcode = '22023', detail = 'not-yet';
+    v_result := public.prd_close_act(
+      p_actor,
+      p_project,
+      p_kind,
+      v_target,
+      v_token_revision,
+      v_token_version
+    );
   end if;
 
   insert into public.prd_actions (project_id, actor_id, request_id, kind, result)
@@ -997,7 +1005,11 @@ begin
     from public.prd_checks c
    where c.project_id = p_project
      and c.revision = v_revision;
-  return v_facts || jsonb_build_object('funds', v_funds, 'check', v_check);
+  return v_facts || jsonb_build_object(
+    'funds', v_funds,
+    'check', v_check,
+    'close', public.prd_close_facts(p_project, v_role)
+  );
 end;
 $$;
 

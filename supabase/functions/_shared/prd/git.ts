@@ -353,6 +353,7 @@ async function syncOnce(
   });
   if (!reconciled.ok) return reconciled;
   const stale = isRecord(reconciled.value) && reconciled.value.stale === true;
+  await publishCloseTag(project, deps).catch(() => undefined);
   return { ok: true, stale };
 }
 
@@ -373,6 +374,36 @@ function settledOpen(state: SyncState): PublishResult | null {
   if (state.state === "pending") return null;
   if (state.headCommit === null) return { ok: true, sha: null };
   return { ok: true, sha: state.headCommit, known: state.headCommit };
+}
+
+function revisionOf(value: unknown): number | null {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1) return value;
+  if (typeof value === "string" && /^[1-9]\d*$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+export async function publishCloseTag(
+  project: string,
+  deps: GitDeps,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const pending = await called(deps, "prd_close_tag_pending", { p_project: project });
+  if (!pending.ok) return pending;
+  if (pending.value === null || pending.value === undefined) return { ok: true };
+  if (!isRecord(pending.value)) return { ok: false, reason: "the close tag could not be read" };
+  const opId = text(pending.value.opId);
+  const repoName = text(pending.value.repoName);
+  const commitSha = shaOf(pending.value.commitSha);
+  const revision = revisionOf(pending.value.revision);
+  if (opId === null || repoName === null || commitSha === null || revision === null) {
+    return { ok: false, reason: "the close tag could not be read" };
+  }
+  const tagged = await deps.github.tag(repoName, `prd-r${revision}`, commitSha);
+  if (!tagged.ok) return { ok: false, reason: tagged.reason };
+  if (tagged.result !== "tagged") return { ok: false, reason: "the close tag points at another commit" };
+  return markPublished(deps, opId);
 }
 
 async function markPublished(

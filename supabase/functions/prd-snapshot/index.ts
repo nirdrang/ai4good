@@ -8,6 +8,7 @@ import {
   refusal,
   requireEnv,
   resolveCaller,
+  publishPrdCloseTag,
   syncPrdFromGithub,
 } from "../_shared/edge.ts";
 import { catchUpOverdue } from "../_shared/prd/relay.ts";
@@ -53,6 +54,12 @@ Deno.serve(
       catchUpOverdue(RELAY, projectId).catch((error: unknown) => {
         const detail = error instanceof Error ? error.message : String(error);
         console.error(`prd-snapshot catch-up: ${detail}`);
+      }),
+    );
+    EdgeRuntime.waitUntil(
+      publishPrdCloseTag(projectId).catch((error: unknown) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        console.error(`prd-snapshot close tag: ${detail}`);
       }),
     );
     if (outcome.value === null) return empty(204);

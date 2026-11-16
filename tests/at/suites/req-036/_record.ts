@@ -1377,7 +1377,7 @@ const ROLE_ACTIONS = ["confirm-topic", "reopen-topic", "close"] as const;
 const DEVELOPER_REFUSAL = {
   "confirm-topic": "not-ready",
   "reopen-topic": "not-confirmed",
-  close: "not-yet",
+  close: "stale",
 } as const;
 const EVERY_ACTION = [
   "post-question",
@@ -1830,7 +1830,7 @@ export async function proveRolesAndPermissions(): Promise<void> {
     throw new AtPending(
       "AT-036.09",
       "sut-missing",
-      "Confirm and reopen work only on a section in the right state, and closing the PRD is not built, so it still answers not-yet for the developer. There is no endpoint to change the threshold or override scoring, so the NGO cannot do either.",
+      "Confirm and reopen work only on a section in the right state. A close token for an older target is refused because the PRD changed. There is no endpoint to change the threshold or override scoring, so the NGO cannot do either.",
     );
   } finally {
     await seeded.sql.close();

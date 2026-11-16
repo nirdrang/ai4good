@@ -8,7 +8,8 @@ import {
   runPrdTurn,
   type PrdRelayDeps,
 } from "./relay.ts";
-import { runCompletionCheck, type StartedCheck } from "./check.ts";
+import { CHECK_FAILED, runCompletionCheck, type StartedCheck } from "./check.ts";
+import { publishCloseTag } from "./git.ts";
 import { snapshotFromRecord, viewerFromRecord } from "./snapshot.ts";
 import type { ActionKind, ChatScope, PrdIntent, QuestionId, TopicId } from "./wire.ts";
 import {
@@ -267,6 +268,10 @@ export function prdMessagePrepare(deps: PrdRelayDeps) {
     stream: boolean,
   ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
     await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
+    if (args.p_intent.kind === "close-check") {
+      if (deps.settings === null) return { ok: true, args };
+      return { ok: true, args: { ...args, p_model: deps.settings.modelId } };
+    }
     if (!stream) return { ok: true, args };
     return readyModelTurn(deps, args);
   };
@@ -291,22 +296,65 @@ function turnIdOf(reserved: unknown): string | null {
 export function prdMessageSettle(deps: PrdRelayDeps) {
   return {
     rpc: "prd_turn_ingest",
-    act: async (): Promise<SettleActResult> => ({ args: null, failure: null, skipSettle: true }),
+    act: async (
+      reserved?: unknown,
+      args?: PrdMessageArgs,
+      database?: SettleDatabase,
+    ): Promise<SettleActResult> => {
+      if (args === undefined || args.p_intent.kind !== "close-check") {
+        return { args: null, failure: null, skipSettle: true };
+      }
+      return settleCloseCheck(deps, args.p_project, reserved, database ?? deps.rpc);
+    },
     uiStream: async (
       reserved: unknown,
       args: PrdMessageArgs,
       emit: (chunk: unknown) => void,
       closed: () => boolean,
-    ): Promise<SettleActResult> =>
-      runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), { emit, closed }),
+    ): Promise<SettleActResult> => {
+      if (args.p_intent.kind === "close-check") {
+        return settleCloseCheck(deps, args.p_project, reserved, deps.rpc);
+      }
+      return runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), { emit, closed });
+    },
   };
+}
+
+async function settleCloseCheck(
+  deps: PrdRelayDeps,
+  project: string,
+  reserved: unknown,
+  database: SettleDatabase,
+): Promise<SettleActResult> {
+  if (isRecord(reserved) && reserved.closeRejected === true) {
+    return { args: null, failure: CHECK_FAILED, status: 502 };
+  }
+  const started = startedCheck(reserved);
+  let turnId: string | null = null;
+  if (started !== null && started.sectionKey === "") {
+    const checked = await runCompletionCheck({ ...deps, rpc: database }, project, started);
+    if (checked.failure !== null) return checked;
+    turnId = started.turnId;
+  } else if (isRecord(reserved) && reserved.closeFollowUp === true) {
+    turnId = uuidField(reserved.turnId);
+    if (turnId === null) return { args: null, failure: CHECK_FAILED, status: 502 };
+  }
+  if (turnId !== null) {
+    const decided = await database("prd_close_after_check", { p_project: project, p_turn: turnId });
+    if (!decided.ok) {
+      const status = decided.code === "22023" || decided.code === "42501" ? 409 : 502;
+      return { args: null, failure: decided.message, status };
+    }
+  }
+  await publishCloseTag(project, { github: deps.github, rpc: database }).catch(() => undefined);
+  return { args: null, failure: null, skipSettle: true };
 }
 
 function startedCheck(reserved: unknown): StartedCheck | null {
   if (!isRecord(reserved) || !isRecord(reserved.check)) return null;
   const check = reserved.check;
   const turnId = uuidField(check.turnId);
-  const sectionKey = stringField(check.sectionKey);
+  const sectionKey = typeof check.sectionKey === "string" ? check.sectionKey.trim() : null;
   const priorState = stringField(check.priorState);
   if (turnId === null || sectionKey === null || priorState === null) return null;
   if (check.priorChanged !== null && check.priorChanged !== undefined && stringField(check.priorChanged) === null) {
@@ -328,9 +376,13 @@ export function prdActionSettle(deps: PrdRelayDeps) {
       args: PrdActionArgs,
       database?: SettleDatabase,
     ): Promise<SettleActResult> => {
+      const db = database ?? deps.rpc;
       const started = startedCheck(reserved);
-      if (started === null) return { args: null, failure: null, skipSettle: true };
-      return runCompletionCheck({ ...deps, rpc: database ?? deps.rpc }, args.p_project, started);
+      if (started !== null) return runCompletionCheck({ ...deps, rpc: db }, args.p_project, started);
+      if (args.p_kind === "close" || args.p_kind === "close-anyway") {
+        await publishCloseTag(args.p_project, { github: deps.github, rpc: db }).catch(() => undefined);
+      }
+      return { args: null, failure: null, skipSettle: true };
     },
   };
 }

@@ -11,6 +11,8 @@ import type {
   PrdWireMessage,
   PrdWireSnapshot,
   QuestionId,
+  RemainingItem,
+  RemainingTarget,
   SendAvailability,
   Topic,
   TopicId,
@@ -204,7 +206,7 @@ function topicOf(section: unknown, names: Names, role: Viewer["role"]): Topic {
   };
 }
 
-function messageOf(value: unknown): PrdWireMessage {
+function messageOf(value: unknown, keep?: (part: unknown) => boolean): PrdWireMessage {
   if (!isRecord(value) || typeof value.id !== "string" || value.id.length === 0) {
     fail("a message has an id");
   }
@@ -215,7 +217,7 @@ function messageOf(value: unknown): PrdWireMessage {
   const message: PrdWireMessage = {
     id: value.id,
     role: value.role,
-    parts: value.parts as PrdWireMessage["parts"],
+    parts: (keep === undefined ? value.parts : value.parts.filter(keep)) as PrdWireMessage["parts"],
   };
   if (value.metadata !== undefined) {
     if (!isRecord(value.metadata)) fail("a message names its actor");
@@ -276,6 +278,7 @@ function chatAccess(
 function chatsOf(
   value: unknown,
   names: Names,
+  keep?: (part: unknown) => boolean,
 ): {
   chats: Record<string, readonly PrdWireMessage[]>;
   canWrite: Record<string, boolean>;
@@ -291,7 +294,7 @@ function chatsOf(
     }
     if (!Array.isArray(chat.messages)) fail("a chat lists its messages");
     const access = chatAccess(chat, names);
-    chats[chat.key] = chat.messages.map(messageOf);
+    chats[chat.key] = chat.messages.map((message) => messageOf(message, keep));
     canWrite[chat.key] = access.canWrite;
     send[chat.key] = access.send;
   }
@@ -488,6 +491,189 @@ function restingClose(): CloseState {
   return { kind: "open", remaining: [], path: "check", close: unavailable() };
 }
 
+function wholeOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
+
+function closeRecordOf(value: unknown): Record<string, unknown> | null {
+  if (value === undefined) return null;
+  if (!isRecord(value) || (value.kind !== "open" && value.kind !== "closed")) fail("the close state is a record");
+  return value;
+}
+
+function closeReason(code: unknown, names: Names): string {
+  if (code === "forbidden") return `Only ${names.dev} can close the PRD.`;
+  if (code === "busy") return "Wait for the AI to finish.";
+  if (code === "funds") return FUNDS_REASON;
+  if (code === "closed") return CLOSED_REASON;
+  return NOT_YET;
+}
+
+function tokenMatches(action: unknown, checkId: string, revision: number, version: number): boolean {
+  if (!isRecord(action) || typeof action.token !== "string") return false;
+  const pieces = action.token.split("|");
+  if (pieces.length !== 4) return false;
+  return pieces[1] === `ask:${checkId}` && Number(pieces[2]) === revision && Number(pieces[3]) === version;
+}
+
+function keepClosePart(part: unknown, close: Record<string, unknown>): boolean {
+  if (!isRecord(part)) return true;
+  if (part.type !== "data-close-ask" && part.type !== "data-recommendation") return true;
+  if (close.kind !== "open" || !isRecord(part.data)) return false;
+  const revision = wholeOrNull(close.revision);
+  if (revision === null || part.data.revision !== revision) return false;
+  if (part.type === "data-recommendation") {
+    const action = part.data.close;
+    return close.path === "close" && isRecord(action) && action.token === close.token && typeof close.token === "string";
+  }
+  if (typeof close.checkId !== "string" || part.data.checkId !== close.checkId) return false;
+  const version = wholeOrNull(close.askVersion);
+  if (version === null) return false;
+  return tokenMatches(part.data.closeAnyway, close.checkId, revision, version)
+    && tokenMatches(part.data.keepWorking, close.checkId, revision, version);
+}
+
+type CloseSection = { key: string; required: boolean; state: string; gap: boolean; dependencies: string[] };
+
+function closeSections(value: unknown): CloseSection[] {
+  if (!Array.isArray(value)) fail("the PRD facts list its sections");
+  return value.map((section) => {
+    if (!isRecord(section) || typeof section.key !== "string" || section.key.length === 0) fail("a section is a record");
+    const dependencies = Array.isArray(section.dependencies)
+      ? section.dependencies.filter((item): item is string => typeof item === "string")
+      : [];
+    return {
+      key: section.key,
+      required: section.required === true,
+      state: typeof section.state === "string" ? section.state : "",
+      gap: typeof section.gap === "string" && section.gap.trim() !== "",
+      dependencies,
+    };
+  });
+}
+
+function closeQuestions(value: unknown): Array<{ status: string; blocking: boolean; intro: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.map((question) => {
+    if (!isRecord(question) || typeof question.status !== "string") fail("a question for the NGO names its status");
+    return {
+      status: question.status,
+      blocking: question.blocking === true,
+      intro: typeof question.introMessage === "string" ? question.introMessage : "",
+    };
+  });
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function remainingLines(record: Record<string, unknown>, names: Names, role: Viewer["role"]): RemainingItem[] {
+  const isDev = role === "dev";
+  const sections = closeSections(record.sections);
+  const questions = closeQuestions(record.questions);
+  const required = sections.filter((section) => section.required);
+  const gaps = sections.filter((section) => section.gap);
+  const open = required.filter((section) => section.state !== "confirmed" && !section.gap);
+  const reviewable = open.filter((section) => section.state === "ready" || section.state === "needs-review");
+  const held = reviewable.filter((section) =>
+    section.dependencies.some((key) => {
+      const dep = sections.find((item) => item.key === key);
+      return dep !== undefined && dep.state !== "ready" && dep.state !== "confirmed";
+    }),
+  );
+  const ready = reviewable.filter((section) => !held.includes(section));
+  const writing = open.filter((section) => !reviewable.includes(section));
+  const blocking = questions.filter((question) => question.blocking);
+  const unposted = blocking.filter((question) => question.status === "suggested");
+  const waiting = blocking.filter((question) => question.status === "posted" || question.status === "answering");
+  const toUse = questions.filter((question) => question.status === "complete");
+  const items: RemainingItem[] = [];
+  const questionsPanel: RemainingTarget = { kind: "questions" };
+  const first = (list: readonly CloseSection[]): RemainingTarget | null =>
+    list[0] ? { kind: "topic", topicId: list[0].key as TopicId } : null;
+  if (ready.length > 0) {
+    items.push({
+      text: `${plural(ready.length, "section", "sections")} ready for ${isDev ? "you" : names.dev} to confirm`,
+      target: first(ready),
+    });
+  }
+  if (held.length > 0) {
+    items.push({
+      text: `${plural(held.length, "section", "sections")} waiting on another section`,
+      target: first(held),
+    });
+  }
+  if (writing.length > 0) {
+    items.push({
+      text: `${plural(writing.length, "section", "sections")} still being written`,
+      target: first(writing),
+    });
+  }
+  if (unposted.length > 0) {
+    const suggested = unposted[0];
+    items.push({
+      text: isDev
+        ? `${plural(unposted.length, "blocking question", "blocking questions")} not posted to ${names.ngo}`
+        : `${plural(unposted.length, "blocking question", "blocking questions")} ${names.dev} has not sent you yet`,
+      target: isDev && suggested !== undefined && suggested.intro !== ""
+        ? { kind: "turn", turnId: suggested.intro as TurnId }
+        : null,
+    });
+  }
+  if (waiting.length > 0) {
+    items.push({
+      text: `${plural(waiting.length, "blocking question", "blocking questions")} waiting for ${isDev ? names.ngo : "your answer"}`,
+      target: questionsPanel,
+    });
+  }
+  if (toUse.length > 0) {
+    const answers = plural(toUse.length, "answer", "answers");
+    items.push({
+      text: isDev ? `${answers} from ${names.ngo} to use` : `${answers} you sent, waiting for ${names.dev} to use`,
+      target: questionsPanel,
+    });
+  }
+  if (gaps.length > 0) {
+    items.push({
+      text: `${plural(gaps.length, "gap", "gaps")} from the completion check ${isDev ? "to fix" : `for ${names.dev} to fix`}`,
+      target: first(gaps),
+    });
+  }
+  const checkCurrent = isRecord(record.check) && record.check.revision === record.revision;
+  if (!checkCurrent) {
+    items.push({
+      text: `Completion check runs when ${isDev ? "you close" : `${names.dev} closes`}, or when all sections are confirmed`,
+      target: null,
+    });
+  }
+  return items;
+}
+
+function closeStateOf(
+  record: Record<string, unknown>,
+  close: Record<string, unknown>,
+  names: Names,
+  role: Viewer["role"],
+): CloseState {
+  if (close.kind === "closed") {
+    return {
+      kind: "closed",
+      revision: wholeNumber(close.revision, "closed revision"),
+      openPoints: wholeNumber(close.openPoints, "open points"),
+    };
+  }
+  if (close.path !== "close" && close.path !== "check") fail("the close state names its path");
+  return {
+    kind: "open",
+    remaining: remainingLines(record, names, role),
+    path: close.path,
+    close: close.allowed === true
+      ? { kind: "available", action: { kind: "close", token: text(close.token, "close token") as ActionToken } }
+      : { kind: "unavailable", reason: closeReason(close.reason, names) },
+  };
+}
+
 /** Reads the viewer the facts record already named. */
 export function viewerFromRecord(record: unknown): Viewer {
   if (!isRecord(record) || !isRecord(record.viewer)) fail("the PRD facts name the viewer");
@@ -533,7 +719,12 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
   if (!Array.isArray(record.questions)) fail("the PRD facts list the questions for the NGO");
   const people = peopleOf(record.people);
   const names = namesOf(people);
-  const presented = chatsOf(record.chats, names);
+  const closeFacts = closeRecordOf(record.close);
+  const presented = chatsOf(
+    record.chats,
+    names,
+    closeFacts === null ? undefined : (part) => keepClosePart(part, closeFacts),
+  );
   return {
     sequence: wholeNumber(record.sequence, "sequence"),
     revision: wholeNumber(record.revision, "revision"),
@@ -552,7 +743,7 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
     send: presented.send,
     funds: fundsOf(record.funds),
     check: checkOf(record.check),
-    close: restingClose(),
+    close: closeFacts === null ? restingClose() : closeStateOf(record, closeFacts, names, viewer.role),
     drafts: draftsOf(record.drafts),
   };
 }
