@@ -13,6 +13,12 @@ port stays private, so only your GitHub login opens it.
 - Every push to a `claude/**` branch runs the workflow "Viewer codespace". It finds the codespace
   for that branch, creates it if none exists, starts it if it is stopped, and puts a `viewer`
   status with the app link on the pushed commit. The status turns green when the app answers.
+- Building a codespace takes about seven minutes, so the workflow keeps one stopped spare,
+  named `viewer-spare`, built from `main`. A new branch claims the spare: the workflow renames
+  it, starts it, and switches it to the branch. Then the workflow builds the next spare in the
+  background.
+- On a restart the codespace's start hook loses the start script, so the workflow starts it
+  over ssh when it is not running.
 - Run the workflow by hand with `action: stop` to stop one early. A codespace also stops after 30
   idle minutes and is deleted 3 days after it stops. Its work is all on the branch already.
 - Inside the codespace, `.devcontainer/viewer.sh` follows the branch every 10 seconds. It runs
@@ -29,4 +35,3 @@ Sign in as `preview-ngo@ai4good.example` with the `VIEWER_NGO_PASSWORD` Codespac
   `DISCOVERY_MODEL` to move off the opencode default (an `https://api.openai.com/` address
   uses the Responses API, because OpenAI's newer models refuse the chat call's `max_tokens`; and `ANTHROPIC_API_KEY` if a
   function needs it), and `VIEWER_NGO_PASSWORD` if you want your own password.
-- Optional: a prebuild for `main` in Settings, Codespaces, to cut the first start.

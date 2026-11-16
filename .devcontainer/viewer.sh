@@ -36,6 +36,7 @@ fi
 echo "viewer: restarting the stack"
 bunx supabase stop
 bunx supabase start $VIEWER_EXCLUDE --ignore-health-check
+bunx supabase migration up --local || echo "migration up failed"
 eval "$(bunx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
 
 echo "viewer: seeding"
