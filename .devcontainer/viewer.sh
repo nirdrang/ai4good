@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+{
 set -uo pipefail
 cd "$(dirname "$0")/.."
 source .devcontainer/stack-env.sh
@@ -77,3 +78,5 @@ while true; do
     bunx supabase stop && bunx supabase start $VIEWER_EXCLUDE --ignore-health-check
   fi
 done
+exit
+}
