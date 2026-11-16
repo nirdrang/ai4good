@@ -12,9 +12,11 @@ fi
 seed_password="${VIEWER_NGO_PASSWORD:-viewer-kitchen-2026}"
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
+echo "viewer: start on $branch at $(date -u +%T)"
 git fetch --quiet origin "$branch" && git merge --quiet --ff-only FETCH_HEAD
 bun install --frozen-lockfile
 
+echo "viewer: waiting for docker"
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
 case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses ;; *) provider=openai-compatible ;; esac
@@ -28,10 +30,12 @@ case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-resp
   done
 } > supabase/functions/.env
 
+echo "viewer: restarting the stack"
 bunx supabase stop
 bunx supabase start $VIEWER_EXCLUDE --ignore-health-check
 eval "$(bunx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
 
+echo "viewer: seeding"
 for _ in $(seq 1 30); do
   SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
     PREVIEW_NGO_EMAIL=preview-ngo@ai4good.example PREVIEW_NGO_PASSWORD="$seed_password" \
@@ -48,6 +52,7 @@ run_app() {
     sleep 2
   done
 }
+echo "viewer: starting the app"
 run_app > /tmp/viewer-app.log 2>&1 &
 
 while true; do
