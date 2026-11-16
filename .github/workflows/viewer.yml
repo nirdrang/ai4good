@@ -7,7 +7,7 @@ on:
     inputs:
       action:
         type: choice
-        options: [up, stop]
+        options: [up, stop, probe]
         default: up
       branch:
         type: string
@@ -43,6 +43,18 @@ jobs:
           api() { gh api -H "Accept: application/vnd.github+json" "$@"; }
           find() { api "repos/$REPO/codespaces" --paginate --jq ".codespaces[] | select(.git_status.ref == \"$BRANCH\") | .name" | head -1; }
           name=$(find)
+
+          if [ "$ACTION" = probe ]; then
+            [ -n "$name" ] || { echo "no codespace for $BRANCH"; exit 1; }
+            {
+              echo "Codespace: $name ($(api "user/codespaces/$name" --jq .state))"
+              echo "App answers: $(curl -s -o /dev/null -w '%{http_code}' -H "X-Github-Token: $GH_TOKEN" "https://$name-8080.app.github.dev/")"
+              echo '```'
+              gh codespace ssh -c "$name" -- 'tail -n 40 /tmp/viewer.log; echo ---; tail -n 20 /tmp/viewer-app.log; echo ---; cat /tmp/viewer-seed.txt' 2>&1 | tail -n 80
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           if [ "$ACTION" = stop ]; then
             [ -n "$name" ] && api -X POST "user/codespaces/$name/stop" > /dev/null
