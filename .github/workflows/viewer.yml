@@ -50,7 +50,7 @@ jobs:
               echo "Codespace: $name ($(api "user/codespaces/$name" --jq .state))"
               echo "App answers: $(curl -s -o /dev/null -w '%{http_code}' -H "X-Github-Token: $GH_TOKEN" "https://$name-8080.app.github.dev/")"
               echo '```'
-              gh codespace ssh -c "$name" -- 'tail -n 40 /tmp/viewer.log; echo ---; tail -n 20 /tmp/viewer-app.log; echo ---; cat /tmp/viewer-seed.txt' 2>&1 | tail -n 80
+              gh codespace ssh -c "$name" -- 'tail -n 40 /tmp/viewer.log; echo ---; tail -n 20 /tmp/viewer-app.log; echo ---; cat /tmp/viewer-seed.txt; echo ---; ps -eo pid,etime,args --sort=start_time | tail -n 20; echo ---; tail -n 40 /workspaces/.codespaces/.persistedshare/creation.log' 2>&1 | tail -n 150
               echo '```'
             } | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -95,7 +95,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha=$(gh api "repos/$REPO/commits/$BRANCH" --jq .sha)
-          seen=$(gh api "repos/$REPO/commits/$sha/statuses" --jq '[.[] | select(.context == "viewer")] | length')
+          seen=$(gh api "repos/$REPO/commits/$sha/statuses" --jq "[.[] | select(.context == \"viewer\" and .target_url == \"$url\")] | length")
           [ "$seen" = 0 ] || exit 0
           gh api -X POST "repos/$REPO/statuses/$sha" -f state=pending -f context=viewer \
             -f target_url="$url" -f description="Codespace running; app starting" > /dev/null
