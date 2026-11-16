@@ -909,7 +909,7 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
       await refusal(
         act(sql, opened.dev, project, "close", "close|topic:booking|1|0", "early-close"),
       ),
-    ).toBe("not-yet");
+    ).toBe("stale");
     expect(await stamp(sql, project)).toEqual(beforeRoles);
     expect(await actionCount(sql, project)).toBe(beforeActions);
     const draftFacts = await factSection(sql, opened.dev, project, "booking");

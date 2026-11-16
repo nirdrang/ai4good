@@ -794,7 +794,7 @@ describe.skipIf(!live)("close PRD rows on the local stack", () => {
     expect(whole(closeRow[0].revision)).toBe(revision);
     const tag = (await sql`select status, commit_sha from public.prd_git_ops
       where project_id = ${opened.project}::uuid and kind = 'close-tag'`) as Array<Record<string, unknown>>;
-    expect(tag).toEqual([{ status: "written", commit_sha: closeRow[0].commit_sha }]);
+    expect([...tag]).toEqual([{ status: "written", commit_sha: closeRow[0].commit_sha }]);
     expect(await statesOf(sql, opened.project)).toEqual(beforeStates);
     expect(await fundsOf(sql, opened.project)).toEqual(beforeFunds);
     expect(await passedOf(sql, opened.project)).toBe(beforePassed);

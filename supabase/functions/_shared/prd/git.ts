@@ -353,7 +353,6 @@ async function syncOnce(
   });
   if (!reconciled.ok) return reconciled;
   const stale = isRecord(reconciled.value) && reconciled.value.stale === true;
-  await publishCloseTag(project, deps).catch(() => undefined);
   return { ok: true, stale };
 }
 

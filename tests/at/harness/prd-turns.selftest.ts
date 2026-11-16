@@ -403,8 +403,8 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
       ),
     ).toBe("invalid-request");
     expect(
-      await refusal(reserve(dev, "main", "send-close", "hash-close", { kind: "close-check" }, rev)),
-    ).toBe("not-yet");
+      await refusal(reserve(dev, "main", "send-close", "hash-close", { kind: "close-check" }, rev + 1)),
+    ).toBe("stale");
     expect(
       await refusal(
         reserve(
@@ -700,7 +700,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     for (const kind of ["close", "close-anyway", "keep-working"]) {
       expect(
         await refusal(action(dev, kind, `${kind}|topic:booking|${rev}|1`, `later-${kind}`)),
-      ).toBe("not-yet");
+      ).toBe("stale");
     }
     expect(await measure()).toEqual(beforeRoles);
 
@@ -979,7 +979,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
       ),
     ).toBe("forbidden");
     const posted = await questionRow(ids.retention);
-    expect(await refusal(action(dev, "post-question", held.postToken, "post-retention"))).toBe(
+    expect(await refusal(action(dev, "post-question", held.postToken, "post-retention-closed"))).toBe(
       "closed",
     );
     expect(await refusal(action(dev, "close", `close|close|${rev}|1`, "close-when-closed"))).toBe(
