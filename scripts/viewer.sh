@@ -16,9 +16,9 @@ dispatch() {
 if [ -n "${VERCEL_TOKEN:-}" ]; then
   case "${1:-up}" in
     up)
-      setsid -f nohup bun scripts/viewer-sandbox.ts up > /tmp/viewer-sandbox.log 2>&1 < /dev/null
+      setsid -f nohup node --experimental-strip-types scripts/viewer-sandbox.ts up > /tmp/viewer-sandbox.log 2>&1 < /dev/null
       echo "viewer: Vercel sandbox for $branch is starting (about a minute); run scripts/viewer.sh url for the link" ;;
-    stop) bun scripts/viewer-sandbox.ts stop ;;
+    stop) node --experimental-strip-types scripts/viewer-sandbox.ts stop ;;
     url) cat /tmp/viewer-url 2>/dev/null || echo "viewer: no link yet" ;;
   esac
   exit 0
