@@ -49,9 +49,12 @@ async function run() {
   const start = [
     "cd ai4good",
     "rm -f /tmp/viewer-seed.txt",
-    `git checkout -q -B ${JSON.stringify(branch)}`,
-    "pkill -f '^bash .devcontainer/viewer.sh' || true",
-    "setsid -f nohup bash .devcontainer/viewer.sh > /tmp/viewer.log 2>&1 < /dev/null",
+    `git fetch -q --depth 1 origin ${JSON.stringify(branch)}`,
+    `git checkout -q -B ${JSON.stringify(branch)} FETCH_HEAD`,
+    "git reset -q --hard FETCH_HEAD",
+    "(pkill -f '^bash (.devcontainer/viewer.sh|scripts/viewer-stack.sh)' || true)",
+    "(pkill -f '[v]ite dev' || true)",
+    "setsid -f nohup bash scripts/viewer-stack.sh > /tmp/viewer.log 2>&1 < /dev/null",
   ].join(" && ");
   await sandbox.runCommand({ cmd: "bash", args: ["-c", start], cwd: "/vercel", sudo: true, env: { ...modelEnv, VIEWER_APP_URL: appUrl } });
 
