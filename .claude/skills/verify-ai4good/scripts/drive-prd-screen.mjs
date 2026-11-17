@@ -9,6 +9,11 @@ const route = `${input.baseUrl}/prd/${organizationId}/${projectId}`;
 const browser = await chromium.launch({ headless: true });
 let count = 0;
 const pass = (name) => { count++; console.log(`PASS ${viewport}: ${name}`); };
+const http = [];
+const brief = (body) => {
+  if (!body || typeof body !== 'object' || !Array.isArray(body.topics)) return body;
+  return { topics: body.topics.map((topic) => ({ id: topic.id, title: topic.title, state: topic.state })), funds: body.funds, close: body.close?.kind };
+};
 const sessions = {
   dev: { email: input.dev.email, password: input.dev.password, bearer: '' },
   ngo: { email: input.ngo.email, password: input.ngo.password, bearer: '' },
@@ -38,7 +43,9 @@ async function post(who, name, body) {
     body: JSON.stringify(body),
   });
   const text = await response.text();
-  return { status: response.status, body: text ? JSON.parse(text) : {} };
+  const answer = { status: response.status, body: text ? JSON.parse(text) : {} };
+  http.push({ as: who, name, request: body, status: answer.status, response: brief(answer.body) });
+  return answer;
 }
 
 function micros(snapshot) {
@@ -85,7 +92,7 @@ try {
     await page.getByTestId('phone-tab-chat').click();
     await page.getByTestId('prd-chat').waitFor();
     assert.equal(await page.locator('[data-testid="prd-turn"]').count(), 0);
-    pass('main chat shows its history and no reply was sent');
+    pass('main chat shows the new PRD with no turns, and no reply was sent');
     await page.screenshot({ path: join(input.outDir, 'phone.png'), fullPage: true });
     writeFileSync(join(input.outDir, 'phone-checks.json'), JSON.stringify({ modelCalls: 0 }));
   } else {
@@ -138,6 +145,8 @@ try {
     assert.match(await ngoPage.getByTestId('prd-readonly-banner').innerText(), /You can read along/);
     assert.equal(await ngoPage.getByTestId('prd-composer').count(), 0);
     pass('the NGO administrator reads along with no main-chat composer');
+    await page.screenshot({ path: join(input.outDir, 'desktop.png'), fullPage: true });
+    await ngoPage.screenshot({ path: join(input.outDir, 'desktop-ngo.png'), fullPage: true });
     await page.getByTestId('prd-close-button').click();
     await page.getByTestId('prd-close-warning').waitFor({ timeout: 240_000 });
     await page.getByTestId('prd-close-anyway').waitFor();
@@ -189,14 +198,15 @@ try {
     });
     const hookText = await hookResponse.text();
     const hookBody = hookText ? JSON.parse(hookText) : {};
+    http.push({ as: 'dev', name: 'prd-github-hook', request: { headers: { 'x-github-event': 'push', 'x-hub-signature-256': signature }, body: { zen: 'verify' } }, status: hookResponse.status, response: hookBody });
     assert.equal(hookResponse.status, 401, hookText);
     assert.equal(hookBody.kind, undefined);
     assert.equal(hookBody.reason, 'the webhook signature does not match');
     pass('refusal webhook signature');
-    await page.screenshot({ path: join(input.outDir, 'desktop.png'), fullPage: true });
     writeFileSync(join(input.outDir, 'desktop-checks.json'), JSON.stringify({ availableBefore, availableAfter, draft }));
   }
   console.log(`${count} checks passed on ${viewport}.`);
 } finally {
+  writeFileSync(join(input.outDir, `${viewport}-http.json`), JSON.stringify(http, null, 2));
   await browser.close();
 }

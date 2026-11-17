@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { repoRoot } from './prepare-chat-page.ts';
@@ -87,6 +87,16 @@ async function verifyDesktop(setup: PreparedPrd): Promise<void> {
     const tagged = await loaded.client.tag(setup.repoName, `prd-r${whole(closes[0].revision)}`, closes[0].commit_sha);
     if (!tagged.ok || tagged.result !== 'tagged') throw new Error(`the repository tag is missing: ${JSON.stringify(tagged)}`);
     console.log('PASS desktop: the close tag is published on the repository');
+    evidence.push({
+      viewport: 'desktop',
+      rowsReadBack: {
+        replyTurn: turns[0],
+        replyMicros: { provider, charge, availableBefore: checks.availableBefore, availableAfter: checks.availableAfter },
+        draft: drafts[0],
+        close: { ...closes[0], revision: whole(closes[0].revision) },
+        closeTag: { ...ops[0], tag: `prd-r${whole(closes[0].revision)}`, github: tagged.result },
+      },
+    });
   } finally {
     await sql.close();
   }
@@ -101,6 +111,7 @@ async function verifyPhone(setup: PreparedPrd): Promise<void> {
       from public.prd_ledger_entries where project_id = ${setup.projectId}::uuid and component = 'provider'` as { micros: unknown }[];
     if (whole(turns[0]?.n) !== 0 || whole(spend[0]?.micros) !== 0) throw new Error('the phone pass called the model');
     console.log('PASS phone: no turn and no provider tokens');
+    evidence.push({ viewport: 'phone', rowsReadBack: { turns: whole(turns[0]?.n), providerMicros: whole(spend[0]?.micros) } });
   } finally {
     await sql.close();
   }
@@ -141,7 +152,9 @@ try {
     });
     const stdout = (run.stdout ?? '').replaceAll(setup.password, '[REDACTED]').replaceAll(setup.devPassword, '[REDACTED]');
     const stderr = (run.stderr ?? '').replaceAll(setup.password, '[REDACTED]').replaceAll(setup.devPassword, '[REDACTED]');
-    evidence.push({ viewport, exitCode: run.status, stdout, stderr });
+    const httpFile = join(outDir, `${viewport}-http.json`);
+    const http = existsSync(httpFile) ? JSON.parse(readFileSync(httpFile, 'utf8')) as unknown : null;
+    evidence.push({ viewport, exit: run.status, stdout, stderr, http });
     console.log(stdout);
     if (run.status !== 0) throw new Error(`The ${viewport} screen drive failed: ${stderr}`);
     if (viewport === 'desktop') await verifyDesktop(setup);

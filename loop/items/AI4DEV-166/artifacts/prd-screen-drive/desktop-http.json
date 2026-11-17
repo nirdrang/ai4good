@@ -1,0 +1,257 @@
+[
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "open"
+        },
+        {
+          "id": "booking",
+          "title": "Who books shifts",
+          "state": "open"
+        },
+        {
+          "id": "measure",
+          "title": "Success measure",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "rules",
+          "title": "Booking rules",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 0,
+        "pendingMicros": 0,
+        "replyHoldMicros": 50000,
+        "availableMicros": 5000000,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "open"
+        },
+        {
+          "id": "booking",
+          "title": "Who books shifts",
+          "state": "open"
+        },
+        {
+          "id": "measure",
+          "title": "Success measure",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "rules",
+          "title": "Booking rules",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 295,
+        "pendingMicros": 49705,
+        "replyHoldMicros": 50000,
+        "availableMicros": 4950000,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "open"
+        },
+        {
+          "id": "booking",
+          "title": "Who books shifts",
+          "state": "open"
+        },
+        {
+          "id": "measure",
+          "title": "Success measure",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "rules",
+          "title": "Booking rules",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 397,
+        "pendingMicros": 0,
+        "replyHoldMicros": 50000,
+        "availableMicros": 4999603,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "70097925-c822-41db-b643-edf2c2aa1f5b"
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "forbidden",
+      "reason": "this account has no role on the PRD"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-action",
+    "request": {
+      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+      "kind": "close",
+      "token": "made-up",
+      "requestId": "92b21193-26a7-42ea-97bd-9cacf5fe10d2"
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "invalid-request",
+      "reason": "this action could not be read"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-message",
+    "request": {
+      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+      "scope": {
+        "kind": "main"
+      },
+      "requestId": "87816fb4-8e70-48b2-8d9c-84e7ed96b470",
+      "baseRevision": 0,
+      "intent": {
+        "kind": "text",
+        "text": "Too late"
+      }
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "closed",
+      "reason": "the PRD is closed"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-draft",
+    "request": {
+      "projectId": "066a0f5f-c946-4105-94e4-e23208be5d48",
+      "key": "main",
+      "text": "no"
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "forbidden",
+      "reason": "this account has no role on the PRD"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-github-hook",
+    "request": {
+      "headers": {
+        "x-github-event": "push",
+        "x-hub-signature-256": "sha256=0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "body": {
+        "zen": "verify"
+      }
+    },
+    "status": 401,
+    "response": {
+      "ok": false,
+      "reason": "the webhook signature does not match"
+    }
+  }
+]

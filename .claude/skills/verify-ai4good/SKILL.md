@@ -148,7 +148,11 @@ it; pass `outDir` to redirect, e.g. into `loop/items/<item>/artifacts/`). Standa
   admin users API), and a project with no need row (needed to reach the public project page,
   since every product-created project starts with a draft need). Volunteer seating on a
   project is operator SQL too, and a linked GitHub identity cannot be produced at all, so the
-  volunteer happy path stays unproved live.
+  volunteer happy path stays unproved live. For the same reason a PRD drive makes its Dev with
+  two operator inserts after product email signup and confirmation: the volunteer `accounts`
+  row and the `platform_tos_and_promise` acknowledgment row (founder, 2026-11-17). PRD funds
+  have no product path either: no edge function credits them, so a drive calls
+  `prd_fund_credit` with the service role, and the transcript names it.
 - Capture the action AND the resulting state: the HTTP request/response pair and the rows
   read back, not just a final 200.
 - REDACT before writing. Any value under a credential-shaped key (`token|secret|password|

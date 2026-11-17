@@ -1,0 +1,77 @@
+{
+  "email": "verify-discovery-1794951263942-1445e4@example.com",
+  "organizationId": "fd2bc355-bcd9-4148-8c31-a0b01f00586b",
+  "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+  "transcript": [
+    {
+      "name": "complete-signup",
+      "request": {
+        "accountType": "ngo",
+        "organizationName": "Discovery drive 1794951264168",
+        "acknowledgmentTextVersion": "tos-platform-promise-v1",
+        "signerName": "Discovery verifier",
+        "signerTitle": "Coordinator",
+        "authorityAttestation": "I attest that I have the authority to make this acknowledgment for my organisation — to bind it, to fund non-refundable model-fuel purchases, and to accept services that carry no SLA."
+      },
+      "status": 200,
+      "response": {
+        "ok": true,
+        "accountId": "3f9757eb-e350-4364-b3b3-801be054154c",
+        "accountType": "ngo",
+        "organizationId": "fd2bc355-bcd9-4148-8c31-a0b01f00586b"
+      }
+    },
+    {
+      "name": "project-need",
+      "request": {
+        "organizationId": "fd2bc355-bcd9-4148-8c31-a0b01f00586b",
+        "action": "start",
+        "title": "Volunteer scheduling",
+        "description": "We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week. We need a shared shift rota to reduce coordination time.",
+        "urgency": "soon"
+      },
+      "status": 200,
+      "response": {
+        "ok": true,
+        "changed": true,
+        "need": {
+          "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+          "organizationId": "fd2bc355-bcd9-4148-8c31-a0b01f00586b",
+          "title": "Volunteer scheduling",
+          "description": "We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week. We need a shared shift rota to reduce coordination time.",
+          "urgency": "soon",
+          "stage": "draft",
+          "causeLabels": [],
+          "tier2ClassifiedAt": null,
+          "submittedAt": null,
+          "updatedAt": "2026-11-17T21:34:24.350073+00:00"
+        }
+      }
+    },
+    {
+      "name": "project-need",
+      "request": {
+        "organizationId": "fd2bc355-bcd9-4148-8c31-a0b01f00586b",
+        "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+        "action": "submit"
+      },
+      "status": 200,
+      "response": {
+        "ok": true,
+        "changed": true,
+        "need": {
+          "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+          "organizationId": "fd2bc355-bcd9-4148-8c31-a0b01f00586b",
+          "title": "Volunteer scheduling",
+          "description": "We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week. We need a shared shift rota to reduce coordination time.",
+          "urgency": "soon",
+          "stage": "discovery_in_progress",
+          "causeLabels": [],
+          "tier2ClassifiedAt": null,
+          "submittedAt": "2026-11-17T21:34:24.438442+00:00",
+          "updatedAt": "2026-11-17T21:34:24.438442+00:00"
+        }
+      }
+    }
+  ]
+}
