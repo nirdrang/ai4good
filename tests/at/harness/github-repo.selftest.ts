@@ -217,34 +217,55 @@ if (!loaded.ok && loaded.skip) {
 
   it("treats a repository that exists after a server error as created by the other caller", async () => {
     const name = `${prefix}-raced`;
-    const fake = (exists: boolean) => async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      const method = init?.method ?? "GET";
-      const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
-      if (url.endsWith("/installation")) return reply(200, { id: 1 });
-      if (url.endsWith("/access_tokens")) {
-        return reply(201, { token: "fake", expires_at: new Date(Date.now() + 3_600_000).toISOString() });
-      }
-      if (method === "POST" && url.endsWith("/repos")) return reply(500, { message: "Server Error" });
-      if (method === "GET" && url.includes(`/repos/${config.org}/${name}`)) {
-        if (!exists) return reply(404, { message: "Not Found" });
-        return reply(200, {
-          id: 7,
-          full_name: `${config.org}/${name}`,
-          html_url: `https://github.com/${config.org}/${name}`,
-          visibility: config.visibility,
-          private: config.visibility === "private",
-        });
-      }
-      if (method === "PUT" && url.endsWith("/protection")) return reply(200, {});
-      return reply(418, { message: `unexpected ${method} ${url}` });
+    const repoJson = {
+      id: 7,
+      full_name: `${config.org}/${name}`,
+      html_url: `https://github.com/${config.org}/${name}`,
+      visibility: config.visibility,
+      private: config.visibility === "private",
     };
-    const raced = await githubRepo(config, fake(true)).createRepo(name);
-    expect(raced).toMatchObject({ ok: true, result: "exists", id: 7 });
-    const failed = await githubRepo(config, fake(false)).createRepo(name);
+    const fake = (exists: boolean, failingPosts: number) => {
+      let posts = 0;
+      const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+        if (url.endsWith("/installation")) return reply(200, { id: 1 });
+        if (url.endsWith("/access_tokens")) {
+          return reply(201, { token: "fake", expires_at: new Date(Date.now() + 3_600_000).toISOString() });
+        }
+        if (method === "POST" && url.endsWith("/repos")) {
+          posts += 1;
+          return posts <= failingPosts ? reply(500, { message: "Server Error" }) : reply(201, repoJson);
+        }
+        if (method === "GET" && url.includes(`/repos/${config.org}/${name}`)) {
+          return exists ? reply(200, repoJson) : reply(404, { message: "Not Found" });
+        }
+        if (method === "PUT" && url.endsWith("/protection")) return reply(200, {});
+        return reply(418, { message: `unexpected ${method} ${url}` });
+      };
+      return { fetchImpl, posts: () => posts };
+    };
+    const raced = fake(true, 1);
+    expect(await githubRepo(config, raced.fetchImpl).createRepo(name)).toMatchObject({
+      ok: true,
+      result: "exists",
+      id: 7,
+    });
+    expect(raced.posts()).toBe(1);
+    const retried = fake(false, 1);
+    expect(await githubRepo(config, retried.fetchImpl).createRepo(name)).toMatchObject({
+      ok: true,
+      result: "created",
+      id: 7,
+    });
+    expect(retried.posts()).toBe(2);
+    const down = fake(false, 9);
+    const failed = await githubRepo(config, down.fetchImpl).createRepo(name);
     expect(failed.ok).toBe(false);
     if (!failed.ok) expect(failed.reason).toContain("500");
-  });
+    expect(down.posts()).toBe(3);
+  }, 30_000);
 
   it("returns uncertain when the request cannot be sent", async () => {
     const offline = githubRepo(config, () => {
