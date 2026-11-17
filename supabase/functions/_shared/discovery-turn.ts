@@ -1,6 +1,6 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
 import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
-import { DATA_REPORT_REQUEST, DATA_REPORT_TOOL, openQuestions, parseDataReport, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
+import { DATA_REPORT_REQUEST, DATA_REPORT_TOOL, DISCOVERY_FILE_LIMIT, openQuestions, parseDataReport, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
@@ -276,7 +276,7 @@ async function prepareReply(
       fileReports,
     },
   };
-  request.system[1].text += `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}${currentAnswersText(current)}`;
+  request.system[1].text += `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}${currentAnswersText(current)}\nThe NGO can add files: ${discoveryFileCount < DISCOVERY_FILE_LIMIT ? 'yes' : 'no'}`;
   return { ok: true, args: {
     ...args,
     p_settings: { ...args.p_settings, model: port.model },
