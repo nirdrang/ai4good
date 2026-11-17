@@ -58,7 +58,14 @@ project is still operator SQL (see `project-workspace.md`).
 | Set organization Discovery (admin per-NGO switch, audited) | [set-organization-discovery.md](set-organization-discovery.md) |
 | PRD technical scope (confirmed Discovery source) | [discovery-scope.md](discovery-scope.md) |
 | Wired Discovery screen (desktop and phone) | [discovery-screen.md](discovery-screen.md) |
+| Wired PRD workspace (desktop and phone) | [prd-screen.md](prd-screen.md) |
+| Open the PRD | [prd-open.md](prd-open.md) |
+| Read the PRD snapshot | [prd-snapshot.md](prd-snapshot.md) |
+| Send a PRD message | [prd-message.md](prd-message.md) |
+| Take a PRD action | [prd-action.md](prd-action.md) |
+| Save a PRD draft | [prd-draft.md](prd-draft.md) |
+| Receive a GitHub push for the PRD | [prd-github-hook.md](prd-github-hook.md) |
 
-Not mapped yet, deliberately: the other screens and the Google/GitHub OAuth consent step.
+Not mapped yet, deliberately: screens other than Discovery and the PRD workspace, and the Google/GitHub OAuth consent step.
 Consent is a human browser step. Configuration well-formedness is checkable; the handshake
 is not.
