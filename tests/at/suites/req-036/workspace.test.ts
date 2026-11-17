@@ -107,7 +107,7 @@ async function withinSpend(atId: string, body: () => Promise<void>): Promise<voi
 
 afterAll(async () => {
   await cleanupReposNamed(createdRepoNames());
-});
+}, 180_000);
 
 async function showChat(prd: PrdPage): Promise<void> {
   await prd.phone.tab("chat");
