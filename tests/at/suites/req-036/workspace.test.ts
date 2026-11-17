@@ -20,13 +20,19 @@ import {
   closeFlow,
   closePassedFlow,
   confirmReadyTopics,
+  LIVE_WAIT_MS,
   ngoCannotClose,
   sideChatFlow,
+  sideChatFlowLive,
   topicFlow,
+  topicFlowLive,
   topicReadOnly,
+  topicReadOnlyLive,
   useAnswerFlow,
+  useAnswerFlowLive,
   useAnswerPlain,
 } from "./_flows.ts";
+import { noteScreenSpend, resetScreenSpend, screenSpend } from "./_screen-live.ts";
 import {
   AI_COLOR,
   AI_NAME,
@@ -87,6 +93,17 @@ import {
 } from "./_world.ts";
 
 const withPrd = prdScreens();
+const SPEND_CAP_MICROS = 250_000;
+
+async function withinSpend(atId: string, body: () => Promise<void>): Promise<void> {
+  resetScreenSpend();
+  try {
+    await body();
+  } finally {
+    console.log(`${atId} provider cost ${screenSpend()} micros`);
+  }
+  expect(screenSpend(), `${atId} stays within 250000 micros`).toBeLessThanOrEqual(SPEND_CAP_MICROS);
+}
 
 afterAll(async () => {
   await cleanupReposNamed(createdRepoNames());
@@ -823,7 +840,7 @@ atTest(
 atTest(
   "AT-036.10",
   "Actors, history, and controls stay readable on a narrow screen and in the dark",
-  { surface: "ui", timeoutMs: { loop: 120_000 } },
+  { surface: "ui", timeoutMs: { loop: 120_000, integration: 600_000 } },
   {
     loop: async (ctx) => {
       let lightBackground = "";
@@ -888,13 +905,78 @@ atTest(
       );
     },
     default: wiringPending("AT-036.10"),
+    integration: async (ctx) => {
+      await withinSpend("AT-036.10", async () => {
+        let lightBackground = "";
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewport: "desktop", colorScheme: "light" },
+          async (prd) => {
+            const chat = await prd.chat.text();
+            for (const day of DAYS) expect(chat, "the long history keeps its days").toContain(day);
+            expect(await prd.nameColor(DEV_NAME), "Dev's name stays blue").toBe(DEV_COLOR);
+            expect(await prd.nameColor(AI_NAME), "the AI's name stays purple").toBe(AI_COLOR);
+            expect(await prd.participantBackground("Maya Levi"), "Maya's chip stays amber").toBe(
+              NGO_COLOR,
+            );
+            await prd.topics.open(TOPIC.users);
+            expect(await prd.topic.sectionText(), "the topic shows its source").toContain(
+              DISCOVERY_SOURCE,
+            );
+            for (const name of ["Bookmark", "Hand over", "Handover", "Effort"]) {
+              expect(await prd.buttonCount(name), `there is no ${name} control`).toBe(0);
+            }
+            expect(chat.toLowerCase(), "there is no turn owner").not.toContain("turn owner");
+            expect(await prd.panel.closeCount(), "Close PRD is in the panel").toBe(1);
+            await showChat(prd);
+            await prd.composer.focus();
+            await prd.composer.blur();
+            expect(await prd.composer.sendFocused(), "Tab from the composer reaches Send").toBe(
+              true,
+            );
+            lightBackground = await prd.chat.background();
+          },
+        );
+        await withPrd(ctx, { scenario: "check-passed", viewport: "desktop" }, async (prd) => {
+          expect(await prd.chat.recommendationCloseCount(), "Close PRD is also inline").toBe(1);
+          expect(await prd.panel.closeCount(), "the panel close remains").toBe(1);
+        });
+        await withPrd(ctx, { scenario: "prd-today", viewport: "narrow" }, async (prd) => {
+          await prd.inside(prd.composer.input(), "the composer");
+          await prd.inside(prd.composer.sendButton(), "Send");
+        });
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewport: "desktop", colorScheme: "dark" },
+          async (prd) => {
+            const background = await prd.chat.background();
+            expect(background, "dark uses a different chat background").not.toBe(lightBackground);
+            expect(await prd.chat.color(), "the chat text stays distinct from its background").not.toBe(
+              background,
+            );
+            expect(await prd.chat.text(), "Dev's name is still readable").toContain(DEV_NAME);
+          },
+        );
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
+          async (prd) => {
+            const text = await prd.surfaceText();
+            expect(text.toLowerCase(), "Maya's projection has no development board").not.toContain(
+              "development board",
+            );
+            expect(text, "Maya's projection has no Linear").not.toContain("Linear");
+          },
+        );
+      });
+    },
   },
 );
 
 atTest(
   "AT-036.13",
   "The NGO answers in a side chat, and the AI writes one answer",
-  { surface: "ui", timeoutMs: { loop: 120_000 } },
+  { surface: "ui", timeoutMs: { loop: 120_000, integration: 900_000 } },
   {
     loop: async (ctx) => {
       await withPrd(
@@ -904,26 +986,43 @@ atTest(
       );
     },
     default: wiringPending("AT-036.13"),
+    integration: async (ctx) => {
+      await withinSpend("AT-036.13", async () => {
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
+          sideChatFlowLive,
+        );
+      });
+    },
   },
 );
 
 atTest(
   "AT-036.14",
   "Dev can view an answer, edit it, and use it in the PRD",
-  { surface: "ui", timeoutMs: { loop: 120_000 } },
+  { surface: "ui", timeoutMs: { loop: 120_000, integration: 900_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "answer-complete", viewport: "desktop" }, useAnswerFlow);
       await withPrd(ctx, { scenario: "answer-complete", viewport: "desktop" }, useAnswerPlain);
     },
     default: wiringPending("AT-036.14"),
+    integration: async (ctx) => {
+      await withinSpend("AT-036.14", async () => {
+        await withPrd(ctx, { scenario: "answer-complete", viewport: "desktop" }, useAnswerFlowLive);
+        await withPrd(ctx, { scenario: "answer-complete", viewport: "desktop" }, (prd) =>
+          useAnswerPlain(prd, LIVE_WAIT_MS),
+        );
+      });
+    },
   },
 );
 
 atTest(
   "AT-036.15",
   "A topic is its current document plus its own chat",
-  { surface: "ui", timeoutMs: { loop: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000, integration: 900_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, topicFlow);
@@ -934,13 +1033,23 @@ atTest(
       );
     },
     default: wiringPending("AT-036.15"),
+    integration: async (ctx) => {
+      await withinSpend("AT-036.15", async () => {
+        await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, topicFlowLive);
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
+          topicReadOnlyLive,
+        );
+      });
+    },
   },
 );
 
 atTest(
   "AT-036.16",
   "Dev can close the PRD at any time, and gaps warn without blocking",
-  { surface: "ui", timeoutMs: { loop: 180_000, integration: 240_000 } },
+  { surface: "ui", timeoutMs: { loop: 180_000, integration: 900_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
@@ -1021,8 +1130,87 @@ atTest(
     },
     default: wiringPending("AT-036.16"),
     integration: async (ctx) => {
-      await ctx.open();
-      await proveCloseAtAnyTime();
+      await withinSpend("AT-036.16", async () => {
+        await ctx.open();
+        noteScreenSpend(await proveCloseAtAnyTime());
+        await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
+          const before = await prd.modelCalls();
+          await closeFlow(prd, LIVE_WAIT_MS);
+          const after = await prd.modelCalls();
+          expect(
+            after.slice(before.length).filter((kind) => kind === "prd-check"),
+            "a second Close PRD on the same failed revision adds no model call",
+          ).toEqual(["prd-check"]);
+          expect(after.length - before.length, "only the first Close PRD calls a model").toBe(1);
+        });
+        await withPrd(ctx, { scenario: "check-passed", viewport: "desktop" }, (prd) =>
+          closePassedFlow(prd, LIVE_WAIT_MS),
+        );
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
+          ngoCannotClose,
+        );
+        await withPrd(ctx, { scenario: "prd-today", viewport: "phone" }, async (prd) => {
+          const before = await prd.modelCalls();
+          await prd.phone.tab("prd");
+          expect(
+            await prd.panel.remainingLinkCount("Completion check runs"),
+            "the completion check line is not a task to open",
+          ).toBe(0);
+          await prd.panel.openRemaining("ready for you to confirm");
+          expect(await prd.topic.pageCount(), "a Still open line opens the section it names").toBe(1);
+          expect(await prd.topic.sectionText(), "it opens the ready section").toContain(TOPIC.notify);
+          expect(await prd.topic.state(), "the opened section is the one ready to confirm").toBe(
+            "Ready to confirm",
+          );
+          await prd.topic.back();
+          await prd.panel.openRemaining("waiting for Maya");
+          expect(await prd.phone.current(), "a question line opens the Questions tab").toBe(
+            "questions",
+          );
+          expect(await prd.questions.count(), "the questions panel is on screen").toBe(1);
+          await prd.phone.tab("prd");
+          await prd.panel.openRemaining("not posted to Maya");
+          expect(await prd.phone.current(), "the unposted question line opens the Chat tab").toBe(
+            "chat",
+          );
+          expect(
+            await prd.chat.introInView(SUCCESS_QUESTION),
+            "the suggested question card is in view",
+          ).toBe(true);
+          expect(await prd.modelCalls(), "opening Still open lines calls no model").toEqual(before);
+        });
+        await withPrd(ctx, { scenario: "prd-today", viewport: "desktop" }, async (prd) => {
+          const before = await prd.modelCalls();
+          await prd.topics.open(TOPIC.data);
+          expect(await prd.chat.shown(), "a section is open instead of the main chat").toBe(false);
+          await prd.panel.openRemaining("not posted to Maya");
+          expect(await prd.chat.shown(), "the unposted question line opens the main chat").toBe(true);
+          expect(
+            await prd.chat.introInView(SUCCESS_QUESTION),
+            "the turn that suggests the question is in view, with Post to Maya",
+          ).toBe(true);
+          expect(
+            await prd.questions.introPostCount(SUCCESS_QUESTION),
+            "Post to Maya is on the card in view",
+          ).toBe(1);
+          expect(await prd.modelCalls(), "opening the line calls no model").toEqual(before);
+        });
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "desktop" },
+          async (prd) => {
+            const before = await prd.modelCalls();
+            await prd.panel.openRemaining("ready for Priya to confirm");
+            expect(await prd.topic.sectionText(), "Maya's line opens the same section").toContain(
+              TOPIC.notify,
+            );
+            expect(await prd.topic.confirmCount(), "Maya reads it without Confirm").toBe(0);
+            expect(await prd.modelCalls(), "Maya's Still open lines call no model").toEqual(before);
+          },
+        );
+      });
     },
   },
 );
@@ -1030,7 +1218,7 @@ atTest(
 atTest(
   "AT-036.17",
   "Messages sent while the AI answers wait in a queue and stay editable",
-  { surface: "ui", timeoutMs: { loop: 90_000 } },
+  { surface: "ui", timeoutMs: { loop: 90_000, integration: 900_000 } },
   {
     loop: async (ctx) => {
       await withPrd(ctx, { scenario: "queue", viewer: "dev", viewport: "desktop" }, async (prd) => {
@@ -1081,13 +1269,88 @@ atTest(
       });
     },
     default: wiringPending("AT-036.17"),
+    integration: async (ctx) => {
+      await withinSpend("AT-036.17", async () => {
+        await withPrd(ctx, { scenario: "queue", viewer: "dev", viewport: "desktop" }, async (prd) => {
+          const before = await prd.modelCalls();
+          await prd.composer.write("What does each reply cost?");
+          await prd.composer.send();
+          await prd.chat.waitAnswering(60_000);
+          expect(await prd.composer.sendLabel()).toBe("Add to queue");
+          for (const text of ["First queued", "Second queued", "Third queued"]) {
+            await prd.composer.write(text);
+            await prd.composer.send();
+          }
+          expect(await prd.queue.texts()).toEqual(["First queued", "Second queued", "Third queued"]);
+          expect(
+            (await prd.modelCalls()).length - before.length,
+            "settled calls stay at most one while the three messages are still queued",
+          ).toBeLessThanOrEqual(1);
+          await prd.composer.write("A draft in progress");
+          expect(await prd.queue.editCount("Second queued"), "Edit waits for an empty composer").toBe(
+            0,
+          );
+          await prd.composer.write("");
+          await prd.queue.edit("Second queued");
+          expect(await prd.composer.value()).toBe("Second queued");
+          await prd.queue.remove("Third queued");
+          expect(await prd.queue.texts()).toEqual(["First queued"]);
+          await prd.chat.waitIdle(LIVE_WAIT_MS);
+          await eventually(
+            "the two sent messages are in the chat, in order",
+            () => prd.chat.text(),
+            (text) => {
+              const cost = text.indexOf("What does each reply cost?");
+              const first = text.indexOf("First queued");
+              return (
+                cost >= 0 &&
+                first > cost &&
+                !text.includes("Second queued") &&
+                !text.includes("Third queued")
+              );
+            },
+            LIVE_WAIT_MS,
+          );
+          await eventually(
+            "the two sent messages are two paid chat calls",
+            async () => (await prd.modelCalls()).length - before.length,
+            (delta) => delta === 2,
+            LIVE_WAIT_MS,
+          );
+        });
+        await withPrd(ctx, { scenario: "queue", viewer: "dev", viewport: "desktop" }, async (prd) => {
+          const before = await prd.modelCalls();
+          await prd.composer.write("Answer this one.");
+          await prd.composer.send();
+          await prd.chat.waitAnswering(60_000);
+          await prd.composer.write("Queued, then left behind.");
+          await prd.composer.send();
+          expect(await prd.queue.texts()).toEqual(["Queued, then left behind."]);
+          await prd.viewAs("ngo");
+          await eventually(
+            "the message that was already sent settles",
+            async () => (await prd.modelCalls()).length - before.length,
+            (delta) => delta >= 1,
+            LIVE_WAIT_MS,
+          );
+          await prd.hold(2_000);
+          expect(
+            (await prd.modelCalls()).length - before.length,
+            "a queued message does not send after its screen is gone",
+          ).toBe(1);
+          expect(await prd.chat.text(), "the queued message was not sent").not.toContain(
+            "Queued, then left behind.",
+          );
+        });
+      });
+    },
   },
 );
 
 atTest(
   "AT-036.18",
   "The phone workspace has three tabs and the same question, topic, and close flows",
-  { surface: "ui", timeoutMs: { loop: 180_000 } },
+  { surface: "ui", timeoutMs: { loop: 180_000, integration: 900_000 } },
   {
     loop: async (ctx) => {
       await withPrd(
@@ -1139,5 +1402,67 @@ atTest(
       );
     },
     default: wiringPending("AT-036.18"),
+    integration: async (ctx) => {
+      await withinSpend("AT-036.18", async () => {
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "dev", viewport: "phone" },
+          async (prd) => {
+            expect(await prd.phone.current(), "Dev opens on Chat").toBe("chat");
+            await prd.phone.labelsOneLine();
+            await prd.phone.targets();
+            await prd.phone.tab("prd");
+            await prd.topics.open(TOPIC.shifts);
+            await prd.phone.sectionGeometry();
+            await prd.phone.topicOptionsFit();
+            await prd.topic.expectBackTarget();
+            await prd.topic.expectSendTarget();
+            await prd.topic.back();
+            expect(await prd.topics.listVisible(), "back returns to the topic list").toBe(true);
+            expect(await prd.topic.pageCount(), "the topic page closes").toBe(0);
+          },
+        );
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "phone" },
+          async (prd) => {
+            expect(await prd.phone.current(), "the phone opens on Chat").toBe("chat");
+            await prd.phone.tab("questions");
+            const badge = await prd.phone.badge();
+            expect(badge, "the questions tab shows how many are waiting").toMatch(/^\d+$/);
+            expect(Number(badge), "Maya has questions waiting").toBeGreaterThan(0);
+            await prd.phone.labelsOneLine();
+            await prd.questions.open(RETENTION_QUESTION);
+            await prd.phone.sideOptionsFit();
+          },
+        );
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "phone" },
+          sideChatFlowLive,
+        );
+        await withPrd(ctx, { scenario: "answer-complete", viewport: "phone" }, useAnswerFlowLive);
+        await withPrd(ctx, { scenario: "answer-complete", viewport: "phone" }, (prd) =>
+          useAnswerPlain(prd, LIVE_WAIT_MS),
+        );
+        await withPrd(ctx, { scenario: "prd-today", viewport: "phone" }, topicFlowLive);
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "phone" },
+          topicReadOnlyLive,
+        );
+        await withPrd(ctx, { scenario: "prd-today", viewport: "phone" }, (prd) =>
+          closeFlow(prd, LIVE_WAIT_MS),
+        );
+        await withPrd(ctx, { scenario: "check-passed", viewport: "phone" }, (prd) =>
+          closePassedFlow(prd, LIVE_WAIT_MS),
+        );
+        await withPrd(
+          ctx,
+          { scenario: "prd-today", viewer: "ngo", viewport: "phone" },
+          ngoCannotClose,
+        );
+      });
+    },
   },
 );

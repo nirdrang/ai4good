@@ -1,5 +1,4 @@
 import { expect } from "vitest";
-import type { AtContext } from "../../harness/registry.ts";
 import { AtPending, TIER } from "../../harness/registry.ts";
 import {
   eventually,
@@ -11,8 +10,10 @@ import {
   type Viewport,
 } from "../../harness/screen.ts";
 import { MODEL_CALL_PROBE } from "../../../../design/astra/src/givens.ts";
+import { stackFromEnv, type Stack } from "../../harness/live-stack.ts";
 import { testIds } from "../../../../src/components/prd-workspace/testids.ts";
 import { DEV_NAME, NGO_NAME } from "./_phrases.ts";
+import { noteScreenSpend, seedPrdScreen } from "./_screen-live.ts";
 
 export type PrdScenario =
   | "first-entry"
@@ -38,7 +39,12 @@ export type PrdGiven = {
   pace?: "test" | "demo";
 };
 
-type PrdCtx = AtContext<"req-036", "scope", "loop">;
+type PrdCtx = { open(): Promise<unknown> };
+type PrdLive = {
+  modelCalls(): Promise<readonly string[]>;
+  openAs(viewer: PrdViewer): Promise<ScreenPage>;
+  readyMs: number;
+};
 type Box = { x: number; y: number; width: number; height: number };
 type PhoneTab = "chat" | "prd" | "questions";
 
@@ -93,8 +99,9 @@ export function wiringPending(atId: string): () => Promise<void> {
 
 export class PrdPage {
   constructor(
-    private readonly page: ScreenPage,
+    private page: ScreenPage,
     readonly viewport: Viewport,
+    private readonly live: PrdLive | null = null,
   ) {}
 
   get width(): number {
@@ -106,6 +113,7 @@ export class PrdPage {
   }
 
   modelCalls(): Promise<readonly string[]> {
+    if (this.live) return this.live.modelCalls();
     return this.page.modelCalls();
   }
 
@@ -119,6 +127,11 @@ export class PrdPage {
   }
 
   async viewAs(viewer: PrdViewer): Promise<void> {
+    if (this.live) {
+      this.page = await this.live.openAs(viewer);
+      await this.ready();
+      return;
+    }
     const name = viewer === "dev" ? DEV_NAME : NGO_NAME;
     const button: LocatorStep[] = [
       byId(testIds.prototypeViewerSwitch),
@@ -144,7 +157,7 @@ export class PrdPage {
         return chat + tabs + topics + questions;
       },
       (shown) => shown > 0,
-      10_000,
+      this.live?.readyMs ?? 10_000,
     );
   }
 
@@ -352,12 +365,12 @@ export class PrdPage {
       rgb(await this.page.style([byId(testIds.prdChat)], "color")),
     turnCount: (text: string): Promise<number> => this.page.count([byId(testIds.prdTurn, text)]),
     dayCount: (): Promise<number> => this.page.count([byId(testIds.prdDayDivider)]),
-    waitAnswering: (): Promise<unknown> =>
+    waitAnswering: (timeoutMs = 8_000): Promise<unknown> =>
       eventually(
         "the AI is answering",
         () => this.page.visible([byId(testIds.prdAiAnswering)]),
         (visible) => visible,
-        8_000,
+        timeoutMs,
       ),
     waitIdle: (timeoutMs = 10_000): Promise<unknown> =>
       eventually(
@@ -666,10 +679,36 @@ export class PrdPage {
   };
 }
 
+function authStorage(stack: Stack, base: string, session: Record<string, unknown>) {
+  return {
+    cookies: [] as never[],
+    origins: [
+      {
+        origin: base,
+        localStorage: [
+          {
+            name: `sb-${new URL(stack.apiUrl).hostname.split(".")[0]}-auth-token`,
+            value: JSON.stringify(session),
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function usePrdScreens() {
+  const stack = TIER === "integration" ? stackFromEnv() : null;
   const driver = useScreenDriver({
     viteConfig: "design/astra/vite.config.ts",
-    enabled: TIER === "loop",
+    enabled: TIER === "loop" || TIER === "integration",
+    ...(stack
+      ? {
+          appEnv: {
+            VITE_SUPABASE_URL: stack.apiUrl,
+            VITE_SUPABASE_PUBLISHABLE_KEY: stack.anonKey,
+          },
+        }
+      : {}),
   });
 
   return async function withPrd(
@@ -677,6 +716,47 @@ function usePrdScreens() {
     given: PrdGiven,
     body: (screen: PrdPage) => Promise<void>,
   ): Promise<void> {
+    if (stack) {
+      await ctx.open();
+      const seeded = await seedPrdScreen(given.scenario);
+      const viewer = given.viewer ?? "dev";
+      const openFor = (who: PrdViewer) =>
+        driver.open({
+          viewport: given.viewport,
+          colorScheme: given.colorScheme,
+          probeName: MODEL_CALL_PROBE,
+          url: (base) => `${base}/prd/${seeded.organizationId}/${seeded.projectId}`,
+          storageState: (base) =>
+            authStorage(stack, base, who === "dev" ? seeded.devSession : seeded.ngoSession),
+        });
+      let active: { page: ScreenPage; close(): Promise<void> } | null = null;
+      try {
+        active = await openFor(viewer);
+        const screen = new PrdPage(active.page, given.viewport, {
+          readyMs: 120_000,
+          modelCalls: () => seeded.modelCalls(),
+          openAs: async (next) => {
+            const previous = active;
+            active = null;
+            if (previous) await previous.close();
+            active = await openFor(next);
+            return active.page;
+          },
+        });
+        await screen.ready();
+        await body(screen);
+      } finally {
+        try {
+          noteScreenSpend(await seeded.providerMicros());
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "unread";
+          console.log(`provider cost unread: ${message}`);
+        }
+        if (active) await active.close();
+        await seeded.close();
+      }
+      return;
+    }
     await ctx.open();
     const opened = await driver.open({
       viewport: given.viewport,
