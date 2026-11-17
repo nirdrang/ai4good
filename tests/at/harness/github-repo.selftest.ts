@@ -215,6 +215,37 @@ if (!loaded.ok && loaded.skip) {
     await expectHead(empty.sha);
   }, 180_000);
 
+  it("treats a repository that exists after a server error as created by the other caller", async () => {
+    const name = `${prefix}-raced`;
+    const fake = (exists: boolean) => async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+      if (url.endsWith("/installation")) return reply(200, { id: 1 });
+      if (url.endsWith("/access_tokens")) {
+        return reply(201, { token: "fake", expires_at: new Date(Date.now() + 3_600_000).toISOString() });
+      }
+      if (method === "POST" && url.endsWith("/repos")) return reply(500, { message: "Server Error" });
+      if (method === "GET" && url.includes(`/repos/${config.org}/${name}`)) {
+        if (!exists) return reply(404, { message: "Not Found" });
+        return reply(200, {
+          id: 7,
+          full_name: `${config.org}/${name}`,
+          html_url: `https://github.com/${config.org}/${name}`,
+          visibility: config.visibility,
+          private: config.visibility === "private",
+        });
+      }
+      if (method === "PUT" && url.endsWith("/protection")) return reply(200, {});
+      return reply(418, { message: `unexpected ${method} ${url}` });
+    };
+    const raced = await githubRepo(config, fake(true)).createRepo(name);
+    expect(raced).toMatchObject({ ok: true, result: "exists", id: 7 });
+    const failed = await githubRepo(config, fake(false)).createRepo(name);
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.reason).toContain("500");
+  });
+
   it("returns uncertain when the request cannot be sent", async () => {
     const offline = githubRepo(config, () => {
       throw new Error("network down");

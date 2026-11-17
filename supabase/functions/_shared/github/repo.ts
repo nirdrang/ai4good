@@ -244,14 +244,15 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
         private: config.visibility === "private",
       });
       if (!created.ok) {
-        if (created.status === 422 && nameTaken(created.value)) {
+        const raced = (created.status ?? 0) >= 500;
+        if ((created.status === 422 && nameTaken(created.value)) || raced) {
           const existing = await githubHttp(
             fetchImpl,
             auth.token,
             "GET",
             `/repos/${org}/${encodeURIComponent(name)}`,
           );
-          if (!existing.ok) return existing.failure;
+          if (!existing.ok) return raced ? created.failure : existing.failure;
           const repo = readRepo(existing.value);
           if (repo === null)
             return invalid("GitHub returned an existing repository the client could not read");
