@@ -77,6 +77,15 @@ else
   lines+=("pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
 
+(bunx playwright-core install chromium-headless-shell >/tmp/playwright-install.log 2>&1
+  mkdir -p "$HOME/.cache/ms-playwright"
+  for dir in "${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"/chromium_headless_shell-*; do
+    ln -sfn "$dir" "$HOME/.cache/ms-playwright/$(basename "$dir")"
+  done) &
+lines+=("playwright: installing the pinned headless browser in the background (/tmp/playwright-install.log)")
+
+lines+=("$("$CLAUDE_PROJECT_DIR/scripts/viewer.sh" up)")
+
 banner=$(printf '%s\n' "${lines[@]}")
 
 if command -v jq >/dev/null 2>&1; then
