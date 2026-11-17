@@ -5,11 +5,14 @@ cd "$(dirname "$0")/.."
 source .devcontainer/stack-env.sh
 
 app_port=8080
-if [ -n "${CODESPACE_NAME:-}" ]; then
+if [ -n "${VIEWER_APP_URL:-}" ]; then
+  app_url="$VIEWER_APP_URL"
+elif [ -n "${CODESPACE_NAME:-}" ]; then
   app_url="https://${CODESPACE_NAME}-${app_port}.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
 else
   app_url="http://127.0.0.1:${app_port}"
 fi
+app_host="${app_url#https://}"; app_host=".${app_host#*.}"; app_host="${app_host%%/*}"
 seed_password="${VIEWER_NGO_PASSWORD:-viewer-kitchen-2026}"
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -17,6 +20,11 @@ echo "viewer: start on $branch at $(date -u +%T)"
 git fetch --quiet origin "$branch" && git merge --quiet --ff-only FETCH_HEAD
 bun install --frozen-lockfile
 
+if ! command -v docker > /dev/null; then
+  echo "viewer: installing docker"
+  apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io > /dev/null
+fi
+docker info > /dev/null 2>&1 || ! command -v dockerd > /dev/null || [ -n "${CODESPACE_NAME:-}" ] || setsid -f nohup dockerd > /tmp/dockerd.log 2>&1 < /dev/null
 echo "viewer: waiting for docker"
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
@@ -51,8 +59,8 @@ done
 run_app() {
   while true; do
     VITE_SUPABASE_URL="$app_url" VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" VIEWER_SUPABASE_PROXY="$API_URL" \
-      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=".${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}" \
-      bunx vite dev --host 127.0.0.1 --port "$app_port" --strictPort
+      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="$app_host" \
+      bunx vite dev --host 0.0.0.0 --port "$app_port" --strictPort
     sleep 2
   done
 }

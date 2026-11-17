@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
-cd /workspaces/ai4good
+cd "$(dirname "$0")/.."
 eval "$(bunx supabase status -o env 2>/dev/null | grep -E '^(API_URL|ANON_KEY)=')"
 path=$(grep -oE '/discovery/[0-9a-f-]+/[0-9a-f-]+' /tmp/viewer-seed.txt)
 org=$(echo "$path" | cut -d/ -f3); project=$(echo "$path" | cut -d/ -f4)
