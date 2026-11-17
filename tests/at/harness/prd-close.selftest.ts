@@ -101,7 +101,7 @@ function harness(options: {
       return { ok: true, value: { sequence: 5, closed: options.pending !== null, tag: null } };
     }
     if (name === "prd_close_tag_pending") return { ok: true, value: options.pending };
-    if (name === "prd_git_op_published") return { ok: true, value: null };
+    if (name === "prd_git_op_pushed") return { ok: true, value: null };
     return { ok: false, message: `unexpected ${name}` };
   };
   const github = {
@@ -314,7 +314,7 @@ describe("close PRD offline", () => {
     expect(text).toContain("passes.");
     expect(built.calls.some((call) => call.name === "prd_close_after_check")).toBe(true);
     expect(built.tags).toEqual([{ repo: REPO, name: "prd-r2", sha: FROZEN }]);
-    expect(recordCall(built.calls, "prd_git_op_published")).toEqual({ p_op: OP });
+    expect(recordCall(built.calls, "prd_git_op_pushed")).toEqual({ p_op: OP });
   });
 
   it("warns with the gaps and parses the close ask", async () => {
@@ -410,7 +410,7 @@ describe("close PRD offline", () => {
     }
     expect(ngo.close.close.reason).toBe("Only Priya can close the PRD.");
     expect(built.tags).toEqual([]);
-    expect(built.calls.some((call) => call.name === "prd_git_op_published")).toBe(false);
+    expect(built.calls.some((call) => call.name === "prd_git_op_pushed")).toBe(false);
   });
 
   it("repeats the warning on the same revision without a model call", async () => {
@@ -433,7 +433,7 @@ describe("close PRD offline", () => {
     const published = await publishCloseTag(PROJECT, { github: done.github, rpc: done.rpc });
     expect(published).toEqual({ ok: true });
     expect(done.tags).toEqual([{ repo: REPO, name: "prd-r2", sha: FROZEN }]);
-    expect(recordCall(done.calls, "prd_git_op_published")).toEqual({ p_op: OP });
+    expect(recordCall(done.calls, "prd_git_op_pushed")).toEqual({ p_op: OP });
 
     const conflict = harness({ pending, tagged: { ok: true, result: "conflict", sha: OTHER } });
     const language = withModel(conflict, JSON.stringify({ score: 91, coverageText: "Covered.", gaps: [] }));
@@ -449,7 +449,7 @@ describe("close PRD offline", () => {
     );
     expect(settled).toEqual({ args: null, failure: null, skipSettle: true });
     expect(conflict.tags).toEqual([{ repo: REPO, name: "prd-r2", sha: FROZEN }]);
-    expect(conflict.calls.some((call) => call.name === "prd_git_op_published")).toBe(false);
+    expect(conflict.calls.some((call) => call.name === "prd_git_op_pushed")).toBe(false);
     const direct = await publishCloseTag(PROJECT, { github: conflict.github, rpc: conflict.rpc });
     expect(direct).toEqual({ ok: false, reason: "the close tag points at another commit" });
   });

@@ -225,7 +225,7 @@ export async function useAnswerPlain(prd: PrdPage, waitMs = 15_000): Promise<voi
   await showChat(prd);
   await eventually(
     "Use answer from the list posts the original answer",
-    () => prd.chat.briefText(),
+    () => prd.chat.briefText().catch(() => ""),
     (text) => text.includes(RETENTION_ANSWER),
     waitMs,
   );
@@ -406,6 +406,16 @@ async function aiReply(prd: PrdPage, marker: string, namesBefore: number): Promi
   );
 }
 
+async function sideSettled(prd: PrdPage): Promise<boolean> {
+  const settled = await eventually(
+    "the side chat turn ends with Mark answer complete on or a follow-up hint",
+    async () => ({ complete: await prd.side.completeEnabled(), hint: await prd.side.hintCount() }),
+    (state) => state.complete || state.hint > 0,
+    LIVE_WAIT_MS,
+  );
+  return settled.complete;
+}
+
 export async function sideChatFlowLive(prd: PrdPage): Promise<void> {
   const before = await prd.modelCalls();
   await prd.phone.tab("questions");
@@ -422,9 +432,9 @@ export async function sideChatFlowLive(prd: PrdPage): Promise<void> {
   await prd.side.send();
   await aiReply(prd, "a year", namesBefore);
   let replies = 1;
-  while (!(await prd.side.completeEnabled()) && replies < 4) {
+  while (!(await sideSettled(prd)) && replies < 4) {
     namesBefore = (await prd.side.text()).split(AI_NAME).length - 1;
-    const marker = `Yes, keep them for a year (${replies}).`;
+    const marker = "Keep contact details for 12 months after the volunteer's last shift, then delete them.";
     await prd.side.write(marker);
     await prd.side.send();
     replies += 1;
@@ -452,7 +462,7 @@ export async function sideChatFlowLive(prd: PrdPage): Promise<void> {
   await prd.phone.tab("questions");
   await eventually(
     "the written answer shows in the Questions list",
-    () => prd.questions.sent(RETENTION_QUESTION),
+    () => prd.questions.sent(RETENTION_QUESTION).catch(() => ""),
     (text) => text.trim().length > 0,
     LIVE_WAIT_MS,
   );
@@ -508,7 +518,7 @@ export async function useAnswerFlowLive(prd: PrdPage): Promise<void> {
   await showChat(prd);
   await eventually(
     "Use answer posts Dev's brief",
-    () => prd.chat.briefText(),
+    async () => ((await prd.chat.briefCount()) > 0 ? prd.chat.briefText() : ""),
     (text) => text.includes(EDITED_ANSWER) && text.includes(DEV_NOTE) && text.includes(CHANGED_ROW),
     LIVE_WAIT_MS,
   );
@@ -527,8 +537,13 @@ export async function useAnswerFlowLive(prd: PrdPage): Promise<void> {
   );
   await prd.questions.toggleAnswered();
   await prd.questions.openAnswered(RETENTION_ANSWER);
+  const brief = await eventually(
+    "opening Answered shows Dev's brief",
+    () => prd.chat.briefText().catch(() => ""),
+    (text) => text !== "",
+    15_000,
+  );
   expect(await prd.chat.briefCount(), "opening Answered does not post a second brief").toBe(1);
-  const brief = await prd.chat.briefText();
   expect(brief.match(new RegExp(CHANGED_ROW, "g"))?.length ?? 0, "the brief names the change once").toBe(
     1,
   );
@@ -619,5 +634,5 @@ export async function topicReadOnlyLive(prd: PrdPage): Promise<void> {
   await prd.topics.open(TOPIC.shifts);
   expect(await prd.topic.text(), "Maya sees the same shift document").toContain(SATURDAY_LINE);
   expect(await prd.topic.composerCount(), "Maya cannot write in the topic chat").toBe(0);
-  expect(await prd.banner.readOnlyText(), "Maya can read along").toContain("You can read along.");
+  expect(await prd.banner.readOnlyText(), "Maya can read along").toContain("You can read along");
 }

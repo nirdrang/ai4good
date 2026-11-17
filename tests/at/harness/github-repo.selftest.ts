@@ -208,6 +208,11 @@ if (!loaded.ok && loaded.skip) {
     const renderedBlobs = await client.readBlobs(repoName, [match.sha]);
     if (!renderedBlobs.ok) stop("rendered blobs", renderedBlobs);
     expect(parseSection(renderedBlobs.blobs[0]?.text ?? "")).toEqual({ ok: true, file: section });
+
+    const empty = await client.writeCommit(repoName, written.sha, [], "Record an outcome");
+    if (!empty.ok) stop("empty write", empty);
+    expect(await client.advance(repoName, empty.sha)).toEqual({ ok: true, result: "advanced" });
+    await expectHead(empty.sha);
   }, 180_000);
 
   it("returns uncertain when the request cannot be sent", async () => {

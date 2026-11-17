@@ -1717,7 +1717,9 @@ export async function proveRolesAndPermissions(): Promise<void> {
     expect(completed.status, JSON.stringify(completed.json)).toBe(200);
     expect(completed.json.messageId, "marking the answer complete writes no message").toBeNull();
     if (typeof completed.json.turnId !== "string") throw new Error("complete-answer named no turn");
-    await finishTurn(seeded, completed.json.turnId);
+    const answerTurn = (await seeded.sql`select state from public.prd_turns
+      where id = ${completed.json.turnId}::uuid`) as Array<{ state: string }>;
+    if (answerTurn[0]?.state === "admitted") await finishTurn(seeded, completed.json.turnId);
 
     const sideId = await sideChatId(seeded, postedId);
     const recorded = await append(

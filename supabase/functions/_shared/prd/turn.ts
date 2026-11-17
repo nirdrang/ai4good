@@ -24,7 +24,8 @@ const UNSAVED = "The AI's reply could not be saved.";
 const PRD_SYSTEM = [
   "You are the ai4good PRD assistant. You change the PRD only through the prd tools.",
   "Before you change a section, read it with read_section, then stage the new document with stage_section and the receipt from that read.",
-  "Stage state changes with propose_ready and suggest_ngo_question, and in an NGO side chat record the answer with record_outcome.",
+  "Stage state changes with propose_ready and suggest_ngo_question.",
+  "In an NGO side chat, call record_outcome only to open a follow-up when your reply asks the NGO one, or to write the final answer after the NGO marked the answer complete.",
   "Call commit_turn once per reply, after you staged everything.",
   "If commit_turn says a staged section changed since you read it, use the current sections it returns, redo your work, stage again, and commit again.",
   "Answer in plain, short sentences.",
@@ -68,6 +69,8 @@ type OpenTurn = {
   spentMicros: number;
   messageId: string | null;
   chatId: string;
+  question: { text: string; why: string; options: string[] } | null;
+  sections: { key: string; title: string }[];
 };
 
 export function prdModelSettings(env: Record<string, string | undefined>): PrdModelSettings | null {
@@ -168,6 +171,25 @@ function turnOf(value: unknown, chatId: string): OpenTurn | null {
     spentMicros: spent,
     messageId,
     chatId,
+    question: questionOf(turn.question),
+    sections: Array.isArray(turn.sections)
+      ? turn.sections.flatMap((section) =>
+          isRecord(section) && typeof section.key === "string" && typeof section.title === "string"
+            ? [{ key: section.key, title: section.title }]
+            : [],
+        )
+      : [],
+  };
+}
+
+function questionOf(value: unknown): OpenTurn["question"] {
+  if (!isRecord(value) || typeof value.text !== "string") return null;
+  return {
+    text: value.text,
+    why: typeof value.why === "string" ? value.why : "",
+    options: Array.isArray(value.options)
+      ? value.options.filter((option): option is string => typeof option === "string")
+      : [],
   };
 }
 
@@ -203,8 +225,28 @@ function promptOf(chatKey: string, turn: OpenTurn): string {
     lines.push(
       "The NGO marked the answer complete. Write the final answer with record_outcome, then call commit_turn.",
     );
+  } else if (turn.question !== null) {
+    lines.unshift(
+      "Ask a follow-up only when the NGO's reply leaves the question unclear. When the reply answers the question, thank the NGO in one sentence and open no follow-up. The NGO's message:",
+    );
   }
-  return [`This message is in ${where}.`, ...lines].join("\n");
+  const question =
+    turn.question === null
+      ? []
+      : [
+          `The NGO is answering this question: ${turn.question.text}`,
+          ...(turn.question.why === "" ? [] : [`Why it is asked: ${turn.question.why}`]),
+          ...(turn.question.options.length === 0
+            ? []
+            : [`Suggested answers: ${turn.question.options.join("; ")}`]),
+        ];
+  const sections =
+    turn.question !== null || turn.sections.length === 0
+      ? []
+      : [
+          `The PRD sections, by key: ${turn.sections.map((section) => `${section.key} (${section.title})`).join("; ")}. Tools take the key.`,
+        ];
+  return [`This message is in ${where}.`, ...sections, ...question, ...lines].join("\n");
 }
 
 function historyOf(rows: unknown, chatKey: string, turn: OpenTurn): ModelMessage[] {

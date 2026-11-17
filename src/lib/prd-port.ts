@@ -69,35 +69,41 @@ function withSnapshot(
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let pending = "";
-  let inserted = false;
+  let held: string[] | null = null;
 
-  async function take(event: string, controller: TransformStreamDefaultController<Uint8Array>) {
+  function take(event: string, controller: TransformStreamDefaultController<Uint8Array>) {
     if (event === "") return;
-    if (!inserted && eventName(event) === "finish") {
-      inserted = true;
-      const snapshot = await read().catch(() => null);
-      if (snapshot) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "data-snapshot", data: snapshot, transient: true })}\n\n`,
-          ),
-        );
-      }
+    if (held === null && eventName(event) === "finish") held = [];
+    if (held !== null) held.push(event);
+    else controller.enqueue(encoder.encode(`${event}\n\n`));
+  }
+
+  async function release(controller: TransformStreamDefaultController<Uint8Array>) {
+    if (held === null) return;
+    const snapshot = await read().catch(() => null);
+    if (snapshot) {
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "data-snapshot", data: snapshot, transient: true })}\n\n`,
+        ),
+      );
     }
-    controller.enqueue(encoder.encode(`${event}\n\n`));
+    for (const event of held) controller.enqueue(encoder.encode(`${event}\n\n`));
+    held = null;
   }
 
   return source.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
-      async transform(chunk, controller) {
+      transform(chunk, controller) {
         pending += decoder.decode(chunk, { stream: true });
         const events = pending.split("\n\n");
         pending = events.pop() ?? "";
-        for (const event of events) await take(event, controller);
+        for (const event of events) take(event, controller);
       },
       async flush(controller) {
         pending += decoder.decode();
-        if (pending !== "") await take(pending, controller);
+        if (pending !== "") take(pending, controller);
+        await release(controller);
       },
     }),
   );

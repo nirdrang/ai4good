@@ -49,10 +49,20 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/discovery/$organizationId/$projectId' | '/prd/$organizationId/$projectId'
+  fullPaths:
+    | '/'
+    | '/discovery/$organizationId/$projectId'
+    | '/prd/$organizationId/$projectId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/discovery/$organizationId/$projectId' | '/prd/$organizationId/$projectId'
-  id: '__root__' | '/' | '/discovery/$organizationId/$projectId' | '/prd/$organizationId/$projectId'
+  to:
+    | '/'
+    | '/discovery/$organizationId/$projectId'
+    | '/prd/$organizationId/$projectId'
+  id:
+    | '__root__'
+    | '/'
+    | '/discovery/$organizationId/$projectId'
+    | '/prd/$organizationId/$projectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {

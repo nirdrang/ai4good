@@ -409,7 +409,7 @@ async function markPublished(
   deps: GitDeps,
   opId: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const marked = await called(deps, "prd_git_op_published", { p_op: opId });
+  const marked = await called(deps, "prd_git_op_pushed", { p_op: opId });
   if (!marked.ok) return marked;
   return { ok: true };
 }

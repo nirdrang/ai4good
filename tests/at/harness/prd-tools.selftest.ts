@@ -653,7 +653,7 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect(await versionCount(sql, project)).toBe(4);
     expect(await toolCommits(sql, turn.turnId)).toBe(0);
 
-    await sql`select public.prd_git_op_published(${op}::uuid)`;
+    await sql`select public.prd_git_op_pushed(${op}::uuid)`;
     expect(await opStatus(sql, op)).toBe("published");
     expect(await refusal(prepare(sql, grant))).toBe("attempt-published");
     expect((await stamp(sql, project)).sequence).toBe(hidden.sequence);
@@ -1261,6 +1261,85 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect(await turnOps(sql, turn.turnId)).toBe(0);
     expect(await questionCount(sql, project)).toBe(0);
     expect((await sections(sql, project)).booking.state).toBe("draft");
+  });
+
+  it("gives the model keys and the question, and keeps side-chat outcomes to their turn", async () => {
+    const opened = await world(stack, sql);
+    const project = opened.project;
+    const reply = await reserve(sql, project, opened.dev, "main", "suggest-2", "Suggest a question");
+    const mainOpen = await objectOf(sql`select public.prd_turn_open(${project}::uuid, 'main') as r`);
+    const mainTurn = record(mainOpen.turn);
+    expect(asArray(mainTurn.sections).map((item) => record(item).key)).toEqual(
+      expect.arrayContaining(["booking", "rules"]),
+    );
+    expect(mainTurn.question).toBeNull();
+    const replyGrant = await grantOf(issue(sql, reply.turnId, "reply"));
+    const question = ngoQuestion("How long are contact details kept?");
+    await objectOf(
+      sql`select public.suggest_ngo_question(${replyGrant}::uuid,
+        ${JSON.stringify(question)}::text::jsonb) as r`,
+    );
+    const prepared = await objectOf(prepare(sql, replyGrant));
+    const sha = madeSha(`${project}:suggest-2`);
+    await sql`select public.prd_git_op_written(${String(prepared.op)}::uuid, ${String(prepared.base)}, ${sha})`;
+    await reconcile(sql, project, String(prepared.base), [
+      { sha, parents: [String(prepared.base)], login: null, message: "PRD tools", changes: [] },
+    ]);
+    await finish(sql, reply.turnId);
+    const suggested = await questionRows(sql, opened.dev, project);
+    const questionId = String(suggested[0].id);
+    await objectOf(
+      act(sql, opened.dev, project, "post-question", String(record(suggested[0].post).token), "post-2"),
+    );
+
+    const side = await reserve(sql, project, opened.ngo, `side:${questionId}`, "ngo-1", "A year.");
+    const sideOpen = await objectOf(
+      sql`select public.prd_turn_open(${project}::uuid, ${`side:${questionId}`}) as r`,
+    );
+    expect(record(record(sideOpen.turn).question)).toEqual({
+      text: question.text,
+      why: question.why,
+      options: question.options,
+    });
+    const sideGrant = await grantOf(issue(sql, side.turnId, "answer-write"));
+    expect(
+      await refusal(
+        sql`select public.record_outcome(${sideGrant}::uuid,
+          '{"kind":"final-answer","answer":"A year."}'::jsonb) as r`,
+      ),
+    ).toBe("not-complete");
+    await objectOf(
+      sql`select public.record_outcome(${sideGrant}::uuid, '{"kind":"follow-up-open"}'::jsonb) as r`,
+    );
+    const staged = (await sql`select payload from public.prd_staged_effects
+      where turn_id = ${side.turnId}::uuid`) as Array<{ payload: unknown }>;
+    expect(record(staged[0].payload).message).toBe(side.messageId);
+    const followed = await objectOf(prepare(sql, sideGrant));
+    const followSha = madeSha(`${project}:follow-up`);
+    await sql`select public.prd_git_op_written(${String(followed.op)}::uuid, ${String(followed.base)}, ${followSha})`;
+    await reconcile(sql, project, String(followed.base), [
+      { sha: followSha, parents: [String(followed.base)], login: null, message: "PRD tools", changes: [] },
+    ]);
+    await finish(sql, side.turnId);
+    const openFollowUps = () =>
+      counted(sql`select count(*)::int as n from public.prd_followups
+        where question_id = ${questionId}::uuid and resolving_message is null`);
+    expect(await openFollowUps()).toBe(1);
+
+    const again = await reserve(sql, project, opened.ngo, `side:${questionId}`, "ngo-2", "12 months.");
+    expect(await openFollowUps()).toBe(0);
+    await finish(sql, again.turnId);
+    const answering = await questionRows(sql, opened.ngo, project);
+    const admitted = await objectOf(
+      act(sql, opened.ngo, project, "complete-answer", String(record(answering[0].complete).token), "done-2"),
+    );
+    const answerGrant = await grantOf(issue(sql, String(admitted.turnId), "answer-write"));
+    expect(
+      await objectOf(
+        sql`select public.record_outcome(${answerGrant}::uuid,
+          '{"kind":"final-answer","answer":"Keep contact details for 12 months."}'::jsonb) as r`,
+      ),
+    ).toEqual({ staged: "outcome" });
   });
 
   it("records a side-chat outcome only when its commit is reconciled", async () => {

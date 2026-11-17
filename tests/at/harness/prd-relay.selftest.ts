@@ -12,6 +12,7 @@ import {
 } from "../../../supabase/functions/_shared/prd/relay.ts";
 import {
   prdActionPrepare,
+  prdActionSettle,
   prdMessagePrepare,
   prdMessageSettle,
   type PrdActionArgs,
@@ -62,6 +63,8 @@ type TurnJson = {
   spentMicros: number;
   messageId: string | null;
   chatId: string;
+  question?: { text: string; why: string; options: string[] } | null;
+  sections?: Array<{ key: string; title: string }>;
 };
 
 const CALLER: Caller = { id: ACTOR, githubHandle: null, emailVerified: true };
@@ -262,6 +265,59 @@ function named(calls: Call[], name: string): Call[] {
 }
 
 describe("PRD turn on a mock model", () => {
+  it("puts the question and the section keys in the prompt, and runs the answer turn on complete", async () => {
+    const side = await run({
+      streams: [() => textStream("Thanks.")],
+      chatKey: `side:${QUESTION}`,
+      turn: {
+        question: {
+          text: "How long are details kept?",
+          why: "Only the kitchen decides.",
+          options: ["12 months", "24 months"],
+        },
+        sections: [{ key: "booking", title: "Who books shifts" }],
+      },
+    });
+    const sidePrompt = JSON.stringify(side.prompts[0]);
+    expect(sidePrompt).toContain("The NGO is answering this question: How long are details kept?");
+    expect(sidePrompt).toContain("Suggested answers: 12 months; 24 months");
+    expect(sidePrompt).not.toContain("The PRD sections, by key");
+
+    const main = await run({
+      streams: [() => textStream("Done.")],
+      turn: { sections: [{ key: "booking", title: "Who books shifts" }] },
+    });
+    expect(JSON.stringify(main.prompts[0])).toContain("booking (Who books shifts)");
+
+    const db = database({
+      turn: freshTurn({ kind: "answer-write", parts: [], messageId: null }),
+      priced: true,
+    });
+    const language = modelOf([() => textStream("Recorded.")]);
+    const deps = prdRelayDeps({
+      rpc: db.rpc,
+      fetch: async () => new Response("offline", { status: 500 }),
+      env: SETTINGS,
+      model: language.model,
+    });
+    const settled = await prdActionSettle(deps).act(
+      { turnId: TURN, sequence: 4, messageId: null },
+      {
+        p_actor: ACTOR,
+        p_project: PROJECT,
+        p_kind: "complete-answer",
+        p_token: `complete-answer|question:${QUESTION}|3|2`,
+        p_request_id: "request-3",
+      },
+    );
+    expect(settled).toEqual({ args: null, failure: null, skipSettle: true });
+    expect(named(db.calls, "prd_turn_open")[0]?.args).toMatchObject({
+      p_chat_key: `side:${QUESTION}`,
+    });
+    expect(language.calls()).toBe(1);
+    expect(JSON.stringify(language.prompts[0])).toContain("The NGO marked the answer complete.");
+  });
+
   it("settles one model request, appends the reply once, and ends last", async () => {
     const ran = await run({ streams: [() => textStream("Volunteers book themselves.")] });
     const events = ingests(ran.calls);

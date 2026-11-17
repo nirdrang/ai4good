@@ -15,6 +15,8 @@ const REFUSAL: Record<string, string> = {
   "not-ready": "That section is not ready.",
   "not-confirmed": "That section is not confirmed.",
   "follow-up-open": "A follow-up is still open.",
+  "not-complete":
+    "The NGO has not marked the answer complete. Reply to the NGO; the final answer is written after they mark it complete.",
   busy: "The commit is busy. Try again.",
   closed: "The PRD is closed.",
   "commit-failed": "The commit could not be written.",
@@ -90,7 +92,8 @@ export const TOOLS: readonly ToolSpec[] = [
   },
   {
     name: "record_outcome",
-    description: "Stage the outcome of the NGO side chat.",
+    description:
+      'Stage the outcome of the NGO side chat. The outcome is one of: {"kind": "follow-up-open"} when your reply asks the NGO a follow-up question; {"kind": "final-answer", "answer": "..."} when the NGO marked the answer complete, with the answer written in one or two plain sentences.',
     inputSchema: {
       type: "object",
       properties: { outcome: objectField },

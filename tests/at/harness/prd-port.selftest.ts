@@ -295,6 +295,41 @@ describe("PRD port", () => {
     });
   });
 
+  it("reads the snapshot only after the server ends the turn and closes the stream", async () => {
+    const encoder = new TextEncoder();
+    let server: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        server = controller;
+      },
+    });
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/prd-message")) {
+        return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+      }
+      return new Response(JSON.stringify(snapshot(9)));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const stream = await prdPort(PROJECT).chat({ kind: "main" }).sendMessages({
+      trigger: "submit-message",
+      chatId: "main",
+      messageId: undefined,
+      abortSignal: undefined,
+      messages: [] as PrdUIMessage[],
+      body: { scope: { kind: "main" }, requestId: "req-2", baseRevision: 2, intent: { kind: "text", text: "Hi" } },
+    });
+    const received = chunks(stream);
+    server!.enqueue(encoder.encode('data: {"type":"start","messageId":"m1"}\n\ndata: {"type":"finish"}\n\n'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const reads = () => fetcher.mock.calls.filter((call) => String(call[0]).endsWith("/prd-snapshot"));
+    expect(reads()).toHaveLength(0);
+    server!.enqueue(encoder.encode("data: [DONE]\n\n"));
+    server!.close();
+    const types = (await received).map((chunk) => (chunk as { type?: string }).type);
+    expect(reads()).toHaveLength(1);
+    expect(types.indexOf("data-snapshot")).toBeLessThan(types.indexOf("finish"));
+  });
+
   it("surfaces a refused send as a refusal the screen can parse", async () => {
     const fetcher = vi.fn(
       async () =>

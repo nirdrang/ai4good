@@ -742,7 +742,7 @@ begin
 end;
 $$;
 
-create function public.prd_open_publish(p_project uuid)
+create function public.prd_open_push(p_project uuid)
 returns jsonb
 language sql
 stable
@@ -868,7 +868,7 @@ begin
       raise exception 'only the developer opens the PRD'
         using errcode = '42501', detail = 'forbidden';
     end if;
-    v_result := public.prd_open_publish(p_project);
+    v_result := public.prd_open_push(p_project);
     if v_result is null then
       raise exception 'the opening operation is missing'
         using errcode = 'P0002', detail = 'invalid-request';
@@ -949,7 +949,7 @@ begin
   insert into public.prd_git_ops (project_id, kind, sections, status)
   values (p_project, 'open', v_publish, 'prepared');
 
-  v_result := public.prd_open_publish(p_project);
+  v_result := public.prd_open_push(p_project);
   if v_result is null then
     raise exception 'the opening operation is missing'
       using errcode = 'P0002', detail = 'invalid-request';
@@ -1049,7 +1049,7 @@ begin
 end;
 $$;
 
-create function public.prd_git_op_published(p_op uuid)
+create function public.prd_git_op_pushed(p_op uuid)
 returns void
 language plpgsql
 volatile
@@ -1713,7 +1713,7 @@ revoke execute on function public.prd_opening_sections(jsonb, bigint) from publi
 revoke execute on function public.prd_file_path(text) from public, anon, authenticated, service_role;
 revoke execute on function public.prd_repo_name(text, uuid) from public, anon, authenticated, service_role;
 revoke execute on function public.prd_refuse_unready(text) from public, anon, authenticated, service_role;
-revoke execute on function public.prd_open_publish(uuid) from public, anon, authenticated, service_role;
+revoke execute on function public.prd_open_push(uuid) from public, anon, authenticated, service_role;
 revoke execute on function public.prd_commit_known(uuid, text, text, jsonb) from public, anon, authenticated, service_role;
 revoke execute on function public.prd_facts(uuid, uuid) from public, anon, authenticated, service_role;
 
@@ -1729,8 +1729,8 @@ grant execute on function public.prd_git_bind_repo(uuid, bigint, text) to servic
 revoke execute on function public.prd_git_op_written(uuid, text, text) from public, anon, authenticated, service_role;
 grant execute on function public.prd_git_op_written(uuid, text, text) to service_role;
 
-revoke execute on function public.prd_git_op_published(uuid) from public, anon, authenticated, service_role;
-grant execute on function public.prd_git_op_published(uuid) to service_role;
+revoke execute on function public.prd_git_op_pushed(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.prd_git_op_pushed(uuid) to service_role;
 
 revoke execute on function public.prd_git_sync_state(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.prd_git_sync_state(uuid) to service_role;

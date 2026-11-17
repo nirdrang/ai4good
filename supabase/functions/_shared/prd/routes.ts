@@ -382,6 +382,16 @@ export function prdActionSettle(deps: PrdRelayDeps) {
       if (args.p_kind === "close" || args.p_kind === "close-anyway") {
         await publishCloseTag(args.p_project, { github: deps.github, rpc: db }).catch(() => undefined);
       }
+      if (args.p_kind === "complete-answer") {
+        const turnId = turnIdOf(reserved);
+        const question = /^complete-answer\|question:([0-9a-f-]{36})\|/i.exec(args.p_token)?.[1];
+        if (turnId !== null && question !== undefined) {
+          await runPrdTurn({ ...deps, rpc: db }, args.p_project, `side:${question}`, turnId, {
+            emit: () => undefined,
+            closed: () => true,
+          }).catch(() => undefined);
+        }
+      }
       return { args: null, failure: null, skipSettle: true };
     },
   };

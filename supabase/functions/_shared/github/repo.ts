@@ -364,19 +364,22 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
         if (blobId === null) return invalid("GitHub created a blob without a sha");
         entries.push({ path: file.path, mode: "100644", type: "blob", sha: blobId });
       }
-      const tree = await githubHttp(
-        fetchImpl,
-        auth.token,
-        "POST",
-        `/repos/${org}/${repoPath}/git/trees`,
-        {
-          base_tree: baseTree,
-          tree: entries,
-        },
-      );
-      if (!tree.ok) return tree.failure;
-      const treeId = shaOf(tree.value);
-      if (treeId === null) return invalid("GitHub created a tree without a sha");
+      let treeId: string | null = baseTree;
+      if (entries.length > 0) {
+        const tree = await githubHttp(
+          fetchImpl,
+          auth.token,
+          "POST",
+          `/repos/${org}/${repoPath}/git/trees`,
+          {
+            base_tree: baseTree,
+            tree: entries,
+          },
+        );
+        if (!tree.ok) return tree.failure;
+        treeId = shaOf(tree.value);
+        if (treeId === null) return invalid("GitHub created a tree without a sha");
+      }
       const commit = await githubHttp(
         fetchImpl,
         auth.token,
