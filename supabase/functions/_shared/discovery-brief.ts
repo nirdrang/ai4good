@@ -666,6 +666,7 @@ export type ReplyDataReport = { kinds: readonly DataKind[]; reason: string };
 
 export type ReplyUpdate = {
   text: string;
+  plan?: TopicPlan;
   causeLabels?: readonly string[];
   data?: ReplyDataReport;
   fit?: BriefFit;

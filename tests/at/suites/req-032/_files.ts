@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { authPost, functionPost, sqlClient, type Stack } from '../../harness/live-stack.ts';
-import { openingDocument, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
+import { testOpening } from '../../harness/discovery-topic-plan.ts';
+import { type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import type { NeedsSut } from '../req-003/_contract.ts';
 import type { FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
 
@@ -10,7 +11,7 @@ export async function seedFileProject(stack: Stack, needs: NeedsSut, email: stri
   if (!started.ok) throw new Error(started.reason);
   const projectId = started.need.projectId;
   const sql = sqlClient(stack);
-  const brief = input ? input.brief : openingDocument({ need: started.need.description! });
+  const brief = input ? input.brief : testOpening(started.need.description!);
   await sql`update public.need_intakes set stage = 'discovery_in_progress', submitted_at = clock_timestamp() where project_id = ${projectId}::uuid`;
   if (brief) await sql`insert into public.brief_revisions(project_id, revision, document, created_by)
     values (${projectId}::uuid, ${brief.revision}, ${JSON.stringify(brief.document)}::text::jsonb, ${ngo.accountId}::uuid)`;

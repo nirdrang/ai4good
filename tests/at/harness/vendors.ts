@@ -2,6 +2,7 @@ import type { EmailProviderSim, ProviderAttempt, ProviderOutcome } from './contr
 import { providerForceCountProblem } from './guards.ts';
 import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
 import { DISCOVERY_REQUEST_SETTINGS } from '../../../supabase/functions/_shared/discovery-metering.ts';
+import { TEST_TOPIC_IDS, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
 export type { AnthropicMessagesPort } from './contracts.ts';
 
 function foldedInputTokens(usage: {
@@ -14,19 +15,35 @@ function countedRequestTokens(messages: unknown): number {
   return Math.ceil(JSON.stringify(messages).length / 4);
 }
 
+function plansTopics(request: ModelRequestRecord): boolean {
+  const schema = request.tools.find((tool) => tool.name === 'reply')?.input_schema;
+  return isRecordValue(schema?.properties) && 'keyTopics' in schema.properties;
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function withTestPlan(input: Record<string, unknown>, planning: boolean): Record<string, unknown> {
+  return planning && !('keyTopics' in input) ? { ...input, ...TEST_TOPIC_PLAN } : input;
+}
+
 function scriptedReplyInput(reply: Exclude<ScriptedReply, { kind: 'error' }>, request: ModelRequestRecord): unknown {
+  const planning = plansTopics(request);
   if (reply.kind === 'tool' && reply.name === 'reply') {
     const input = reply.input as { text?: unknown; facts?: string[]; constraints?: string[]; openQuestions?: string[] };
-    if (typeof input?.text === 'string') return input;
-    if (Array.isArray(input?.facts)) {
+    if (!isRecordValue(input)) return input;
+    if (typeof input.text === 'string') return withTestPlan(input, planning);
+    if (Array.isArray(input.facts)) {
       const facts = [...input.facts, ...(input.constraints ?? [])];
-      return { text: reply.text ?? 'Recorded.', questions: [],
-        agreed: (request.reply?.topicIds ?? []).map((topicId, i) => ({ topicId, answer: facts[i % facts.length] })),
-        openQuestions: [] };
+      const topicIds = planning ? TEST_TOPIC_IDS : request.reply?.topicIds ?? [];
+      return withTestPlan({ text: reply.text ?? 'Recorded.', questions: [],
+        agreed: topicIds.map((topicId, i) => ({ topicId, answer: facts[i % facts.length] })),
+        openQuestions: [] }, planning);
     }
     return input;
   }
-  return { text: reply.text ?? '', questions: [], agreed: [], openQuestions: [] };
+  return withTestPlan({ text: reply.text ?? '', questions: [], agreed: [], openQuestions: [] }, planning);
 }
 
 export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port: AnthropicMessagesPort } {

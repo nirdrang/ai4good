@@ -4,7 +4,6 @@ import {
   BRIEF_REASONS,
   decideFinish,
   evolveBrief,
-  openingDocument,
   requiredAgreement,
   snapshotOf,
   type BriefVersion,
@@ -14,6 +13,7 @@ import {
 import { decideDiscoveryBrief, prepareDiscoveryBrief } from '../../../supabase/functions/_shared/discovery-brief-write.ts';
 import type { Caller } from '../../../supabase/functions/_shared/caller.ts';
 import type { AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
+import { testOpening } from './discovery-topic-plan.ts';
 
 const NEED = 'We coordinate 45 volunteers across three community kitchens.';
 
@@ -22,6 +22,10 @@ function changedBrief(version: BriefVersion, command: Parameters<typeof evolveBr
   expect(result.kind).toBe('changed');
   if (result.kind !== 'changed') throw new Error('expected a changed brief');
   return result.brief;
+}
+
+function withKeyTopicsAgreed(version: BriefVersion): BriefVersion {
+  return ['priority', 'owner', 'info'].reduce((next, topicId) => changedBrief(next, { kind: 'accept-suggestion', topicId }), version);
 }
 
 function finishInput(overrides: Partial<FinishInput> & { existing?: Confirmation | null } = {}): FinishInput {
@@ -36,7 +40,7 @@ function finishInput(overrides: Partial<FinishInput> & { existing?: Confirmation
 }
 
 it('keeps an unchanged section edit on the same revision and source', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const result = evolveBrief(version, { kind: 'edit', sectionId: 'need', text: NEED });
   expect(result.kind).toBe('unchanged');
   if (result.kind !== 'unchanged') return;
@@ -45,7 +49,7 @@ it('keeps an unchanged section edit on the same revision and source', () => {
 });
 
 it('bumps a real edit once and writes the person line', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const result = evolveBrief(version, { kind: 'edit', sectionId: 'need', text: 'A new need' });
   expect(result.kind).toBe('changed');
   if (result.kind !== 'changed') return;
@@ -65,7 +69,7 @@ it('bumps a real edit once and writes the person line', () => {
 });
 
 it('marks an answered dependent when its prerequisite suggestion is accepted', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   version.document.topics.measure!.state = {
     kind: 'agreed',
     answer: 'Two hours a week, down from four',
@@ -95,7 +99,7 @@ it('marks an answered dependent when its prerequisite suggestion is accepted', (
 });
 
 it('asks a topic once and leaves a second ask unchanged', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const asked = evolveBrief(version, { kind: 'ask-topic', topicId: 'priority', round: 1 });
   expect(asked.kind).toBe('changed');
   if (asked.kind !== 'changed') return;
@@ -117,7 +121,7 @@ it('asks a topic once and leaves a second ask unchanged', () => {
 });
 
 it('leaves a missing cause label unchanged', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const result = evolveBrief(version, { kind: 'remove-label', label: 'Food' });
   expect(result.kind).toBe('unchanged');
   if (result.kind !== 'unchanged') return;
@@ -126,7 +130,7 @@ it('leaves a missing cause label unchanged', () => {
 });
 
 it('applies the same answer twice and bumps once, keeping provenance', () => {
-  const asked = changedBrief(openingDocument({ need: NEED }), { kind: 'ask-topic', topicId: 'priority', round: 1 });
+  const asked = changedBrief(testOpening(NEED), { kind: 'ask-topic', topicId: 'priority', round: 1 });
   const command = {
     kind: 'apply-answers' as const,
     round: 1,
@@ -152,15 +156,13 @@ it('applies the same answer twice and bumps once, keeping provenance', () => {
 });
 
 it('returns the same confirmation when finish is repeated at one revision', () => {
-  const version = openingDocument({ need: NEED });
+  const version = withKeyTopicsAgreed(testOpening(NEED));
   const first = decideFinish(version, finishInput());
   expect(first.ok).toBe(true);
   if (!first.ok) return;
   expect(first.confirmation.approver).toBe('Sam Taylor');
-  expect(first.confirmation.revision).toBe(1);
-  expect(first.confirmation.acceptedGaps.map((gap) => gap.topicId)).toEqual([
-    'priority', 'booking', 'measure', 'owner', 'info', 'rules',
-  ]);
+  expect(first.confirmation.revision).toBe(4);
+  expect(first.confirmation.acceptedGaps.map((gap) => gap.topicId)).toEqual(['booking', 'measure', 'rules']);
   const second = decideFinish(version, finishInput({
     filesReading: true,
     at: '2026-10-03T00:00:00.000Z',
@@ -169,11 +171,11 @@ it('returns the same confirmation when finish is repeated at one revision', () =
     existing: first.confirmation,
   }));
   expect(second).toEqual(first);
-  expect(version.revision).toBe(1);
+  expect(version.revision).toBe(4);
 });
 
 it('refuses finish for a file still reading, open gaps, and a missing data acknowledgement', () => {
-  const version = openingDocument({ need: NEED });
+  const version = withKeyTopicsAgreed(testOpening(NEED));
   expect(decideFinish(version, finishInput({ filesReading: true, acks: { reviewed: true, openGaps: false, data: false } })))
     .toEqual({ ok: false, kind: 'file-reading', reason: BRIEF_REASONS.fileReading });
   expect(decideFinish(version, finishInput({ acks: { reviewed: true, openGaps: false, data: false } })))
@@ -185,7 +187,7 @@ it('refuses finish for a file still reading, open gaps, and a missing data ackno
 });
 
 it('finishes a fully settled brief without a gaps acknowledgement', () => {
-  let version = openingDocument({ need: NEED });
+  let version = testOpening(NEED);
   for (const topicId of ['priority', 'measure', 'booking', 'rules', 'owner', 'info']) {
     version = changedBrief(version, { kind: 'accept-suggestion', topicId });
   }
@@ -203,7 +205,7 @@ it('finishes a fully settled brief without a gaps acknowledgement', () => {
 });
 
 it('projects a snapshot the screen can read, and keeps a removed label off it', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   version.document.causeLabels = ['Food', 'Health'];
   const removed = evolveBrief(version, { kind: 'remove-label', label: 'Food' });
   expect(removed.kind).toBe('changed');
@@ -218,6 +220,9 @@ it('projects a snapshot the screen can read, and keeps a removed label off it', 
   expect(snapshot.causeLabels).toEqual(['Health']);
   expect(snapshot.topics).toHaveLength(6);
   expect(Object.keys(snapshot.topics[0] ?? {})).toEqual([
+    'id', 'title', 'required', 'importance', 'why', 'suggestion', 'plannedQuestion', 'state', 'key',
+  ]);
+  expect(Object.keys(snapshot.topics[1] ?? {})).toEqual([
     'id', 'title', 'required', 'importance', 'why', 'suggestion', 'plannedQuestion', 'state',
   ]);
   expect(snapshot.questions).toEqual([]);
@@ -229,7 +234,7 @@ it('projects a snapshot the screen can read, and keeps a removed label off it', 
 });
 
 it('records file facts without agreeing any topic, and a later file never replaces a filled section', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   version.document.topics.priority!.required = false;
   const applied = evolveBrief(version, {
     kind: 'apply-file-facts',
@@ -273,7 +278,7 @@ it('records file facts without agreeing any topic, and a later file never replac
 });
 
 it('reopens an agreed topic the AI lists as still open, so Discovery is not ready', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   for (const topic of Object.values(version.document.topics)) {
     topic.state = { kind: 'agreed', answer: 'Agreed', source: { kind: 'chat', round: 1 }, answerMessageId: null };
   }
@@ -287,7 +292,7 @@ it('reopens an agreed topic the AI lists as still open, so Discovery is not read
   expect(reopened.brief.document.topics.owner?.needsReview).toBe(true);
   expect(reopened.brief.document.questions.owner).toBeDefined();
   expect(requiredAgreement(reopened.brief)).toMatchObject({ ready: false, agreed: 5, total: 6 });
-  const edited = openingDocument({ need: NEED });
+  const edited = testOpening(NEED);
   edited.document.topics.owner!.state = { kind: 'agreed', answer: 'Our operations lead', source: { kind: 'edit', revision: 1 }, answerMessageId: null };
   const withdrawn = applyReplyTurn(edited, {
     answers: [], userMessageId: 'm2', round: 2,
@@ -299,7 +304,7 @@ it('reopens an agreed topic the AI lists as still open, so Discovery is not read
 });
 
 it('gives a topic the AI records from chat a question, so the brief offers Edit for it', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const agreed = applyReplyTurn(version, {
     answers: [], userMessageId: 'm1', round: 1,
     update: { text: 'Noted.', questions: [], openQuestions: [], agreed: [{ topicId: 'measure', answer: 'At least 95% of shifts staffed' }] },
@@ -311,7 +316,7 @@ it('gives a topic the AI records from chat a question, so the brief offers Edit 
 });
 
 it('keeps the guidance and the blocker on the current decision when answers change', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const measured = applyReplyTurn(version, {
     answers: [], userMessageId: 'm1', round: 1,
     update: { text: 'Noted.', questions: [], openQuestions: [], agreed: [{ topicId: 'measure', answer: 'At least 95% of shifts staffed' }] },
@@ -350,7 +355,7 @@ it('keeps the guidance and the blocker on the current decision when answers chan
   expect(rebooked.brief.document.questions.rules!.reason).toBe(
     'You changed Who books shifts. Check that this answer still fits. Nobody is named to approve lead-cook training.',
   );
-  const finished = decideFinish(rebooked.brief, {
+  const finished = decideFinish(withKeyTopicsAgreed(rebooked.brief), {
     acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
   });
@@ -361,7 +366,7 @@ it('keeps the guidance and the blocker on the current decision when answers chan
 });
 
 it('replaces stale options when the AI recommends a new answer, and keeps the latest reason as the accepted gap', () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const asked = applyReplyTurn(version, {
     answers: [], userMessageId: 'm1', round: 1,
     update: { text: 'Who approves lead training?', agreed: [], openQuestions: [], questions: [{
@@ -377,7 +382,7 @@ it('replaces stale options when the AI recommends a new answer, and keeps the la
   expect(question.recommendation).toBe('Suggested: Coordinators approve lead training.');
   expect(asked.brief.document.topics.rules?.suggestion).toBe('Coordinators approve lead training');
   expect(question.uncertaintyHelp).toBe('To find out: ask the people who do this work.');
-  const finished = decideFinish(asked.brief, {
+  const finished = decideFinish(withKeyTopicsAgreed(asked.brief), {
     acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
   });
@@ -409,7 +414,7 @@ function storedBrief(version: BriefVersion, confirmation: Record<string, unknown
 it('shapes an edit for the commit and leaves a stale base for the database to refuse', async () => {
   const refused = decideDiscoveryBrief(briefInput({ organizationId: ORG_ID, action: 'edit' }));
   expect(refused).toMatchObject({ ok: false, kind: 'invalid-request', status: 400 });
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const decided = decideDiscoveryBrief(briefInput({
     projectId: PROJECT_ID, action: 'edit', sectionId: 'need', text: 'A shorter need.', baseRevision: 1,
   }));
@@ -435,7 +440,7 @@ it('shapes an edit for the commit and leaves a stale base for the database to re
 });
 
 it('refuses a suggestion on a finished brief before it compares the base revision', async () => {
-  const version = openingDocument({ need: NEED });
+  const version = testOpening(NEED);
   const decided = decideDiscoveryBrief(briefInput({
     projectId: PROJECT_ID, action: 'accept', topicId: 'priority', baseRevision: 9,
   }));

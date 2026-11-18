@@ -1,5 +1,5 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
-import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
+import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, KEY_TOPIC_IDS, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
 import { DATA_REPORT_REQUEST, DATA_REPORT_TOOL, DISCOVERY_FILE_LIMIT, openQuestions, parseDataReport, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
@@ -253,8 +253,7 @@ async function prepareReply(
   if (!briefRead.ok) throw new Error(briefRead.detail);
   const current = isRecord(briefRead.value) ? briefVersionFrom(briefRead.value.revision, briefRead.value.document) : null;
   if (current?.document.fit?.verdict === 'declined') return refuseWrite('discovery-declined', 409, BRIEF_REASONS.declined);
-  const topicIds = current?.document.topicOrder
-    ?? openingDocument({ need: need.body.need.description ?? need.body.need.title }).document.topicOrder;
+  const topicIds = current?.document.topicOrder ?? [...KEY_TOPIC_IDS];
   const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
   const opening = args.p_settings.mode === 'opening';
   const files = reads.discoveryFilesOf ? await reads.discoveryFilesOf(args.p_project_id) : { ok: true as const, rows: [] as FileRow[] };
@@ -266,9 +265,9 @@ async function prepareReply(
     model: port.model, maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: replySystemPrompt({
       title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
-    }, topicIds, skills),
+    }, topicIds, skills, current === null),
     messages: [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }],
-    tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },
+    tools: [replyTool(topicIds, current === null)], toolChoice: { type: 'tool', name: 'reply' },
     reply: {
       messageId: args.p_settings.assistant_message_id ?? crypto.randomUUID(),
       opening, discoveryFileCount, answers: args.p_settings.answers ?? [], topicIds,

@@ -1,11 +1,11 @@
 import { expect, it } from 'vitest';
-import { openingDocument } from '../../../supabase/functions/_shared/discovery-brief.ts';
+import { testOpening } from './discovery-topic-plan.ts';
 import { parseReplyInput, planReplyTurn, replyTool } from '../../../supabase/functions/_shared/discovery-reply.ts';
 
 const TOPICS = ['priority', 'booking', 'measure', 'owner', 'info', 'rules'];
 
 function askedBrief() {
-  const opened = openingDocument({ need: 'Track grants.' });
+  const opened = testOpening('Track grants.');
   const planned = planReplyTurn({
     current: opened, need: 'Track grants.', answers: [], userMessageId: 'open-1', round: 1,
     topicIds: TOPICS, opening: false, discoveryFileCount: 3,
@@ -68,7 +68,7 @@ it('applies the answer before the model update and ignores a repeated agreed top
 });
 
 it('releases the credit when the tool input is invalid', () => {
-  const current = openingDocument({ need: 'Track grants.' });
+  const current = testOpening('Track grants.');
   expect(planReplyTurn({
     current, need: 'Track grants.', answers: [], userMessageId: 'user-3', round: 1,
     topicIds: TOPICS, opening: false, discoveryFileCount: 0, toolInput: { text: 'No update.' },
@@ -84,7 +84,7 @@ it('bounds, canonicalises and deduplicates labels in the reply tool', () => {
   }
 });
 it('a later reply cannot restore a label the NGO removed', () => {
-  const current = openingDocument({ need: 'Food bank shelf list.' });
+  const current = testOpening('Food bank shelf list.');
   current.document.removedCauseLabels = ['food security'];
   const plan = planReplyTurn({ current, need: current.document.need.text, answers: [], userMessageId: 'turn', round: 2,
     topicIds: TOPICS, opening: false, discoveryFileCount: 0,
