@@ -1,7 +1,6 @@
 import { atTest, AtPending } from './_bind.ts';
 
 atTest('AT-032.01', 'the three upload moments and completion boundary', async () => { throw new AtPending('AT-032.01', 'sut-missing', 'Upload moments beyond Discovery have not landed.'); });
-atTest('AT-032.04', 'attachment actor access matrix', async () => { throw new AtPending('AT-032.04', 'sut-missing', 'Volunteer file download access has not landed.'); });
 atTest('AT-032.05', 'short lived download links', async () => { throw new AtPending('AT-032.05', 'sut-missing', 'Authorized attachment download links have not landed.'); });
 atTest('AT-032.06', 'sample data disclosure and tier two acknowledgment', async () => { throw new AtPending('AT-032.06', 'sut-missing', 'The attachment acknowledgment gate has not landed.'); });
 atTest('AT-032.07', 'uploads use no content scanning', async () => { throw new AtPending('AT-032.07', 'sut-missing', 'The full attachment scan absence proof has not landed.'); });

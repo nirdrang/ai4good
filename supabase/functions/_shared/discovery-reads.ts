@@ -20,8 +20,11 @@ export type DiscoveryTurnSqlRow = {
   opened_at: string; settled_at: string | null;
 };
 
+export type ProjectFile = { id: string; project_id: string; name: string; media_type: string; size_bytes: number };
+
 export type DiscoveryReads = {
   discoveryFilesOf?(projectId: string): Promise<ReadResult<FileRow>>;
+  projectFile?(fileId: string): Promise<{ ok: true; value: ProjectFile | null } | { ok: false; detail: string }>;
   discoveryTurnsOf(projectId: string): Promise<ReadResult<DiscoveryTurnSqlRow>>;
   discoveryScopesOf(projectId: string): Promise<ReadResult<ScopeSqlRow>>;
   discoveryAllowance(organizationId: string): Promise<{ ok: true; value: unknown } | { ok: false; detail: string }>;
