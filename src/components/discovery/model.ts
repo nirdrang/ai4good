@@ -615,9 +615,16 @@ export type ReviewTicks = {
 };
 
 /** Finish stays unavailable while a file is reading or an edit is open. The review tick must match this revision. */
+export function keyTopicsMissing(brief: BriefSnapshot): string[] {
+  return brief.topics
+    .filter((topic) => topic.key === true && !topicSettled(topic))
+    .map((topic) => topic.title);
+}
+
 export function reviewGate(input: {
   revision: number;
   openCount: number;
+  keyMissing: readonly string[];
   ticks: ReviewTicks;
   editing: boolean;
   reading: boolean;
@@ -625,6 +632,9 @@ export function reviewGate(input: {
 }): { canFinish: boolean; hint: string } {
   if (input.reading) return { canFinish: false, hint: TEXT.fileStillReading };
   if (input.editing) return { canFinish: false, hint: TEXT.review.gateEditing };
+  if (input.keyMissing.length > 0) {
+    return { canFinish: false, hint: TEXT.review.gateKeyTopics(input.keyMissing) };
+  }
   const reviewed = input.ticks.reviewedRevision === input.revision;
   const gapsOk = input.openCount === 0 || input.ticks.openGapsCount === input.openCount;
   const dataOk = !input.dataRequired || input.ticks.data;
