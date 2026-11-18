@@ -14,6 +14,8 @@ function confirmed(scope: Scope): ConfirmedDiscovery {
   brief.document.dataTier = { tier, kinds: [(['none', 'ordinary-pii', 'special-category'] as const)[tier]], reason: scope.dataSensitivity.rationale, responsibility: 'ngo' };
   brief.document.fit = { verdict: 'fits', reason: scope.maintainabilityFit.rationale };
   brief.document.topics.priority!.state = { kind: 'agreed', answer: scope.summary, source: { kind: 'chat', round: 1 }, answerMessageId: 'answer-1' };
+  brief.document.topics.info!.state = { kind: 'agreed', answer: scope.dataSensitivity.rationale, source: { kind: 'chat', round: 1 }, answerMessageId: 'answer-1' };
+  brief.document.topics.owner!.state = { kind: 'agreed', answer: 'Our operations lead', source: { kind: 'chat', round: 1 }, answerMessageId: 'answer-1' };
   const decision = decideFinish(brief, { acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'ngo', displayName: 'NGO' }, at: '2026-10-04T00:00:00Z', existing: null });
   if (!decision.ok) throw new Error(decision.reason);
