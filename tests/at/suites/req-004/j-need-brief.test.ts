@@ -753,6 +753,7 @@ const phoneRedesign = (id: string) => async () => {
   throw new AtPending(id, 'sut-missing', 'phone redesign of 2026-11-18 lands in screen build and screen wiring');
 };
 atTest('AT-004.76', 'the phone chat shows the first question and one message box', phoneRedesign('AT-004.76'));
-atTest('AT-004.77', 'the phone shows one usage line with Reply limits', phoneRedesign('AT-004.77'));
+atTest('AT-004.77', 'the usage line shows only near the limit and Reply limits stays one tap away', phoneRedesign('AT-004.77'));
 atTest('AT-004.78', 'the phone review shows the brief first and keeps the status', phoneRedesign('AT-004.78'));
 atTest('AT-004.79', 'the phone Account menu signs out and controls are 44 px', phoneRedesign('AT-004.79'));
+atTest('AT-004.80', 'an I am not sure reply uses no free turn and no fuel', phoneRedesign('AT-004.80'));

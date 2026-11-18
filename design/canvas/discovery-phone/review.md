@@ -52,11 +52,21 @@ The bottom row of the canvas kept three earlier rulings so they could be compare
 2. On a phone, the full usage card with its bar no longer sits above the message box. One line shows the free replies left and "no charge" when no fuel is used, with a Reply limits link that opens the details. MARKED: changes the contract and AT-004.72.
 3. On the review page the brief comes first. A line at the top says how many questions are still open and jumps to them. Open questions carry an amber "Still to decide" label instead of a red one. MARKED: changes the contract and AT-004.62.
 
+### 2026-11-18: usage text and "I'm not sure"
+
+After looking at the running preview, the founder wrote: "The progress bar of the budget takes way too much space and its location above the answer box is way not intuitive. It doesn’t feel
+Like a chat with an AI". Asked whether to apply the phone usage line to desktop too and to show it only near the limit, the founder answered "Yes that’s a start".
+
+4. On phone and desktop, no usage card sits above the message box. A short line shows only when 3 or fewer free replies are left, when none are left, or in paid mode. Reply limits is always in the Account menu. The canvas now starts the chat at 5 free replies left so the line shows after two answers. MARKED: changes AT-004.46, AT-004.72 and AT-004.77.
+
+The founder also wrote: "I am not sure doesn’t count towards free credit".
+
+5. Sending "I'm not sure" uses no free reply and no fuel. The sent message reads "Kept open · no charge". MARKED: changes the metering rule; new AT-004.80.
+
 ## Open for the founder
 
 These come from the persona retests, but each one meets a rule that is already in the contract, so the canvas keeps the rule:
 
-- Sending "I'm not sure" uses a free reply, because the AI replies to it. Two personas expected it to be free.
 - Finish is allowed with every topic open (contract: "including at zero topic coverage"). Two personas published an empty brief.
 - Find a volunteer publishes in one tap (contract: "This action publishes the project at once"). All three expected a step before publishing, or a label such as "Publish brief".
 

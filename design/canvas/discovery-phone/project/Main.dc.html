@@ -362,7 +362,8 @@ textarea{font-family:inherit}
           <p style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{freeLeft}} free replies left today</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Each answer you send, and the AI's reply to it, uses one free reply. You get 10 a day. They renew at midnight, your time.</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">You have no paid balance, so you will not be charged. If the free replies run out, Discovery waits until midnight. Everything you wrote stays saved.</p>
-          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Reading files, editing your brief and finishing are always free.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Reading files, editing your brief, keeping a question open with “I’m not sure”, and finishing are always free.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">When 3 or fewer free replies are left, a short line above the message box tells you.</p>
         </sc-if>
       </div>
     </div>
@@ -376,6 +377,7 @@ textarea{font-family:inherit}
           <span style="font-size:13px;color:#475569">dana@harborkitchen.org</span>
           <span style="font-size:13px;color:#475569">Harbor Community Kitchen</span>
         </div>
+        <button type="button" data-testid="account-limits" onClick="{{accountLimits}}" style="height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Reply limits · {{freeLeft}} free today</button>
         <a href="SignIn.dc.html" data-testid="sign-out" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:10px;border:1px solid #cbd5e1;color:#0f172a;text-decoration:none;font-size:15px;font-weight:600">Sign out</a>
         <button type="button" onClick="{{closeAccount}}" style="height:44px;border-radius:10px;border:none;background:#f1f5f9;color:#0f172a;font-size:15px;cursor:pointer">Close</button>
       </div>
@@ -420,7 +422,7 @@ class Component extends DCLogic {
     const first = { who: 'ai', fileHint: true, text: 'Scheduling 45 volunteers across three kitchens takes about four hours a week. ' + this.topics[0].ask };
     this.state = {
       view: startReview ? 'review' : 'chat', focus: null, answers: answers, draft: '', selected: null, thinking: false, lastTurn: false,
-      sheet: null, account: false, freeLeft: startReview ? 4 : 10, files: [], editing: null, editText: '', saving: false,
+      sheet: null, account: false, freeLeft: startReview ? 4 : 5, files: [], editing: null, editText: '', saving: false,
       ackReviewed: false, ackData: false, ackGaps: false, finished: false, published: false, lastUse: null,
       transcript: startReview ? [first, { who: 'ai', text: 'That covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.' }] : [first]
     };
@@ -451,9 +453,9 @@ class Component extends DCLogic {
     const answers = s.answers.slice();
     answers[cur] = { text: text, status: unsure ? 'unsure' : 'agreed', source: unsure ? 'Kept open in the chat' : 'From your chat' };
     const remaining = answers.findIndex((a) => !a);
-    const transcript = s.transcript.concat([{ who: 'me', text: text, meta: unsure ? 'Kept open · free reply' : 'Sent · free reply' }]);
+    const transcript = s.transcript.concat([{ who: 'me', text: text, meta: unsure ? 'Kept open · no charge' : 'Sent · free reply' }]);
     this.setState({ answers: answers, transcript: transcript, draft: '', selected: null, thinking: true, lastTurn: remaining === -1,
-      freeLeft: Math.max(0, s.freeLeft - 1), saving: true, focus: null, finished: false, ackReviewed: false });
+      freeLeft: unsure ? s.freeLeft : Math.max(0, s.freeLeft - 1), saving: true, focus: null, finished: false, ackReviewed: false });
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       const st = this.state;
@@ -600,8 +602,8 @@ class Component extends DCLogic {
       readyBody: unsure ? 'Every topic has an answer or is kept open. Check the brief, then finish. Open questions stay in the brief for the volunteer.' : 'All six topics are answered. Check the brief, then finish. Finishing is free.',
       readyCta: ruled ? 'Finish Discovery' : 'Review your brief',
       showComposer: !ready,
-      compactUsage: !ruled, fullUsage: ruled, freeLeft: s.freeLeft,
-      usageLine: s.freeLeft + ' free replies left today · no charge',
+      compactUsage: !ruled && s.freeLeft <= 3, fullUsage: ruled, freeLeft: s.freeLeft,
+      usageLine: s.freeLeft === 0 ? 'No free replies left today' : 'Only ' + s.freeLeft + (s.freeLeft === 1 ? ' free reply' : ' free replies') + ' left today · no charge',
       barStyle: 'display:block;height:10px;background:#166534;width:' + (s.freeLeft * 10) + '%',
       rows: Math.min(8, Math.max(1, lines)),
       draft: s.draft,
@@ -640,6 +642,7 @@ class Component extends DCLogic {
       closeSheet: () => this.setState({ sheet: null, editing: null }),
       accountOpen: s.account,
       openAccount: () => this.setState({ account: true }),
+      accountLimits: () => this.setState({ account: false, sheet: 'limits' }),
       closeAccount: () => this.setState({ account: false }),
 
       finishedBanner: s.finished, finishedText: s.published ? 'Published. Volunteers can see this brief. Editing a section reopens it, and you confirm again.' : 'Brief saved, not yet published. Editing a section reopens it, and you confirm again.',
