@@ -89,8 +89,8 @@ Optional detail must not delay completion. Unknown facts stay visible; the agent
 
 When required topics are agreed, the AI states that Discovery is ready for review and stops asking questions.
 The interface replaces the composer with a finish invitation. Completion must stop further automatic model calls and charges.
-The **Finish Discovery** action remains enabled and primary throughout, including at zero topic coverage or with no fuel.
-Clicking it opens one review page (revision 12). The open questions come first, each with its importance (Needed before build, A suggestion exists, or Can wait), why it matters, and any suggested answer. The NGO can use the suggestion, answer in the chat, or keep the question open.
+The **Finish Discovery** action remains enabled and primary throughout, including at zero topic coverage or with no fuel. On a phone it is a secondary Review button until every topic is answered or kept open; see Phone redesign, 2026-11-18.
+Clicking it opens one review page (revision 12). On a phone the brief comes first; see Phone redesign, 2026-11-18. Elsewhere the open questions come first, each with its importance (Needed before build, A suggestion exists, or Can wait), why it matters, and any suggested answer. The NGO can use the suggestion, answer in the chat, or keep the question open.
 The NGO can return to the conversation or acknowledge the gaps and finish anyway.
 Unanswered topics, uncertainty, dependent questions, and an empty summary do not block acknowledged completion.
 Existing human review holds and data responsibilities remain separate. A missing answer is not a review hold.
@@ -111,7 +111,7 @@ Verify that the last answer stops questioning, finishing is free, and repeated c
 
 ## Funding panel
 
-Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily turns left of the grant and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. On a phone, the bar sits directly above the message box.
+Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily turns left of the grant and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. On a phone, one usage line replaces the card above the message box; see Phone redesign, 2026-11-18.
 
 | Value | Example | Rule |
 | --- | --- | --- |
@@ -303,6 +303,20 @@ The current application uses the system sans-serif stack supplied by Tailwind.
 Light and dark themes use the existing variables. Do not copy the prototype's independent green page palette.
 Keep visible focus, keyboard answer selection, labeled controls, and accessible progress values.
 At 320 CSS pixels, no required control or amount may be clipped.
+
+## Phone redesign, 2026-11-18
+
+Founder ruling 2026-11-18, after two persona retests of the canvas in `design/canvas/discovery-phone/` (record: `review.md` there). These rules apply at phone width and replace the phone rules above where they differ. The canvas boards hold the detail.
+
+- **Header.** The project name, the NGO and the save state, an Account button (name, email, organisation, Sign out), the topic count with one segment per topic, and Questions, Your brief and Review buttons. Review is secondary until every topic is answered or kept open, then primary. No primary Finish Discovery button sits in the header before that. Finishing stays available at any coverage, as above.
+- **First screen.** One line says what the answers become. The first AI message, the current question and its answer choices, and the message box fit at 390 by 844.
+- **Answering.** One message box. A tapped answer choice, including "I'm not sure yet. Keep it open.", fills the message box, the NGO can change the words, and Send sends it. After Send the answer shows in the chat with a waiting line: "Preparing your next question…", or "Updating your brief…" after the last topic. The answer card always shows the question the AI just asked.
+- **Usage.** One line above the message box: the free replies left today, and "no charge" while the next reply is free; in paid mode, the fuel left and "paid reply", in the gauge's warning colour at yellow and red. A Reply limits link opens a full-screen panel with the bar, the values, the reset, the hold, and Buy fuel when it applies. The usage values and rules above are unchanged; only their place on a phone changes.
+- **Questions.** Order: Answer now, then the open questions with Answer, then later topics, then answered topics as one-line rows.
+- **Files.** The first AI message offers "Attach a sample rota (optional)", and a paperclip sits beside the message box. The sample-data advice sits above Choose a file.
+- **Review.** The brief comes first, each section with Edit. A line at the top gives the number of open questions and jumps to them. The open questions follow the brief, each with an amber "Still to decide" label, its importance, why it matters, its suggestion, Use the suggestion (secondary) and Answer in chat. Using a suggestion shows "Added to your brief" with Undo. Any change to an answer clears the acknowledgments.
+- **After finishing.** A status screen shows "Discovery finished" or "Finished with open questions", explains that Find a volunteer publishes the brief, and offers Find a volunteer and See your brief. After publishing it says what happens next. A reopened brief keeps its saved or published status and offers Back to project status.
+- Every control is at least 44 pixels high.
 
 ## Implementation and proof
 
