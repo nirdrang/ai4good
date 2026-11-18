@@ -5,7 +5,17 @@ import {
   DATA_TOPIC_ID,
   dataReportMissing,
   DECLINE_CAUSES,
+  KEY_TOPICS,
+  KEY_TOPIC_IDS,
   openingDocument,
+  PLAN_FILE_EXAMPLES_MAX,
+  PLAN_OPTIONS_MAX,
+  PLAN_OPTIONS_MIN,
+  PLAN_TEXT_MAX_CHARS,
+  PLAN_TITLE_MAX_CHARS,
+  PLANNED_TOPIC_ID,
+  PLANNED_TOPICS_MAX,
+  plannedOpeningTopics,
   requiredAgreement,
   snapshotOf,
   type BriefQuestion,
@@ -19,8 +29,11 @@ import {
   type FiledTopic,
   type Importance,
   type ReplyDataReport,
+  type PlannedTopic,
   type ReplyUpdate,
   type Tier,
+  type TopicPlan,
+  type TopicWording,
 } from './discovery-brief.ts';
 import type { DiscoveryNeed, SystemBlock } from './discovery-prompt.ts';
 import { discoverySkillsText, type DiscoverySkill } from './discovery-skills.ts';
@@ -28,7 +41,13 @@ import { DECLINE_COPY, SCOPE_COPY } from './scope-copy.ts';
 import { isRecord } from './write-routes.ts';
 
 export const DISCOVERY_FILE_REQUEST =
-  'Before we start: do you have files that show how you work today? A rota, a sign-up sheet, or your volunteer rules would help this need. Add a file in Your files. Attaching is free, and you can also add files later.';
+  'Before we start: do you have files that show how you work today? Add a file in Your files. Attaching is free, and you can also add files later.';
+
+export function fileExamplesSentence(examples: readonly string[]): string {
+  if (examples.length === 0) return '';
+  const list = examples.length === 1 ? examples[0] : `${examples.slice(0, -1).join(', ')} or ${examples.at(-1)}`;
+  return `Files that would help this need: ${list}.`;
+}
 
 export const DISCOVERY_READY_SENTENCE = 'Discovery is ready for review. I have stopped asking questions.';
 
@@ -40,13 +59,16 @@ export function replyPrefix(opening: boolean, discoveryFileCount: number): strin
 
 export function composeReplyText(modelText: string, input: {
   opening: boolean; discoveryFileCount: number; ready: boolean; tier: Tier | null; decline: DeclinedFit | null;
+  fileExamples: readonly string[];
 }): {
   text: string; prefix: string; suffix: string;
 } {
   const prefix = replyPrefix(input.opening, input.discoveryFileCount);
+  const examples = prefix === '' ? '' : fileExamplesSentence(input.fileExamples);
+  const files = examples === '' ? '' : `\n\n${examples}`;
   const tier = input.tier === null ? '' : `\n\n${SCOPE_COPY.dataTier[`tier${input.tier}`]}`;
   const suffix = input.decline === null
-    ? `${tier}${input.ready ? `\n\n${DISCOVERY_READY_SENTENCE}` : ''}`
+    ? `${files}${tier}${input.ready ? `\n\n${DISCOVERY_READY_SENTENCE}` : ''}`
     : `\n\n${DECLINE_TEXT[input.decline.cause]}\n\n${DECLINE_COPY.oversight}`;
   return { text: `${prefix}${modelText}${suffix}`, prefix, suffix };
 }
@@ -61,7 +83,7 @@ export type ReplyTool = {
     type: 'object';
     additionalProperties: false;
     properties: Record<string, unknown>;
-    required: readonly ['text', 'questions', 'agreed', 'openQuestions'];
+    required: readonly string[];
   };
 };
 
@@ -82,10 +104,11 @@ const REPLY_REQUIRED = ['text', 'questions', 'agreed', 'openQuestions'] as const
 const REPLY_OPTIONAL = ['causeLabels', 'data', 'fit'] as const;
 const FIT_CAUSES = ['none', ...DECLINE_CAUSES] as const;
 
-function replyKeysValid(value: Record<string, unknown>): boolean {
+function replyKeysValid(value: Record<string, unknown>, planning: boolean): boolean {
   const present = Object.keys(value);
-  return REPLY_REQUIRED.every((key) => present.includes(key))
-    && present.every((key) => (REPLY_REQUIRED as readonly string[]).includes(key) || (REPLY_OPTIONAL as readonly string[]).includes(key));
+  const required: readonly string[] = planning ? [...REPLY_REQUIRED, ...PLAN_KEYS] : REPLY_REQUIRED;
+  return required.every((key) => present.includes(key))
+    && present.every((key) => required.includes(key) || (REPLY_OPTIONAL as readonly string[]).includes(key));
 }
 
 function isDataKind(value: unknown): value is DataKind {
@@ -138,8 +161,95 @@ export const DATA_REPORT_TOOL = {
 
 export const DATA_REPORT_REQUEST = `The NGO has answered the ${DATA_TOPIC_ID} topic, what data the tool will handle, and your reply did not report data. Report it now from that answer.`;
 
-export function replyTool(topicIds: readonly string[]): ReplyTool {
-  const topicId = { type: 'string', enum: [...topicIds] };
+const WORDING_PROPERTIES = {
+  question: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS },
+  options: { type: 'array', minItems: PLAN_OPTIONS_MIN, maxItems: PLAN_OPTIONS_MAX, items: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS } },
+  suggested: { type: 'string', description: 'The option you recommend, exactly as written in options.' },
+  recommendation: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS, description: 'One sentence that starts with "Suggested:".' },
+  uncertaintyHelp: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS, description: 'One sentence that starts with "To find out:".' },
+} as const;
+const WORDING_KEYS = Object.keys(WORDING_PROPERTIES);
+const PLANNED_KEYS = ['id', 'title', 'why', ...WORDING_KEYS];
+
+const WORDING_SCHEMA = { type: 'object', additionalProperties: false, properties: WORDING_PROPERTIES, required: WORDING_KEYS } as const;
+
+const PLAN_PROPERTIES = {
+  keyTopics: {
+    type: 'object',
+    additionalProperties: false,
+    properties: Object.fromEntries(KEY_TOPIC_IDS.map((id) => [id, WORDING_SCHEMA])),
+    required: [...KEY_TOPIC_IDS],
+  },
+  topics: {
+    type: 'array',
+    maxItems: PLANNED_TOPICS_MAX,
+    items: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        id: { type: 'string', pattern: PLANNED_TOPIC_ID.source },
+        title: { type: 'string', maxLength: PLAN_TITLE_MAX_CHARS },
+        why: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS },
+        ...WORDING_PROPERTIES,
+      },
+      required: PLANNED_KEYS,
+    },
+  },
+  fileExamples: { type: 'array', minItems: 1, maxItems: PLAN_FILE_EXAMPLES_MAX, items: { type: 'string', maxLength: PLAN_TITLE_MAX_CHARS } },
+} as const;
+const PLAN_KEYS = Object.keys(PLAN_PROPERTIES);
+
+const RESERVED_SECTION_IDS = new Set(['need', 'usersToday', 'successMeasure']);
+
+function planText(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim().replace(/\s+/g, ' ');
+  return text === '' || text.length > max ? null : text;
+}
+
+function parseWording(value: unknown, keys: readonly string[]): TopicWording | null {
+  if (!isRecord(value) || !exactKeys(value, keys)) return null;
+  const question = planText(value.question, PLAN_TEXT_MAX_CHARS);
+  const suggested = planText(value.suggested, PLAN_TEXT_MAX_CHARS);
+  const recommendation = planText(value.recommendation, PLAN_TEXT_MAX_CHARS);
+  const uncertaintyHelp = planText(value.uncertaintyHelp, PLAN_TEXT_MAX_CHARS);
+  if (!Array.isArray(value.options) || value.options.length < PLAN_OPTIONS_MIN || value.options.length > PLAN_OPTIONS_MAX) return null;
+  const options = value.options.map((item) => planText(item, PLAN_TEXT_MAX_CHARS));
+  if (options.some((item) => item === null) || new Set(options).size !== options.length) return null;
+  if (question === null || suggested === null || recommendation === null || uncertaintyHelp === null) return null;
+  if (!options.includes(suggested)) return null;
+  return { question, options: options as string[], suggested, recommendation, uncertaintyHelp };
+}
+
+export function parseTopicPlan(value: Record<string, unknown>): TopicPlan | null {
+  if (!isRecord(value.keyTopics) || !exactKeys(value.keyTopics, KEY_TOPIC_IDS)) return null;
+  const keyTopics: Partial<TopicPlan['keyTopics']> = {};
+  for (const key of KEY_TOPICS) {
+    const wording = parseWording(value.keyTopics[key.id], WORDING_KEYS);
+    if (wording === null) return null;
+    keyTopics[key.id] = wording;
+  }
+  if (!Array.isArray(value.topics) || value.topics.length > PLANNED_TOPICS_MAX) return null;
+  const seen = new Set<string>(KEY_TOPIC_IDS);
+  const topics: PlannedTopic[] = [];
+  for (const item of value.topics) {
+    if (!isRecord(item)) return null;
+    const wording = parseWording(item, PLANNED_KEYS);
+    const id = typeof item.id === 'string' ? item.id : '';
+    const title = planText(item.title, PLAN_TITLE_MAX_CHARS);
+    const why = planText(item.why, PLAN_TEXT_MAX_CHARS);
+    if (wording === null || title === null || why === null || !PLANNED_TOPIC_ID.test(id) || seen.has(id) || RESERVED_SECTION_IDS.has(id)) return null;
+    seen.add(id);
+    topics.push({ id, title, why, ...wording });
+  }
+  if (!Array.isArray(value.fileExamples) || value.fileExamples.length < 1 || value.fileExamples.length > PLAN_FILE_EXAMPLES_MAX) return null;
+  const fileExamples = value.fileExamples.map((item) => planText(item, PLAN_TITLE_MAX_CHARS));
+  if (fileExamples.some((item) => item === null)) return null;
+  return { keyTopics: keyTopics as TopicPlan['keyTopics'], topics, fileExamples: fileExamples as string[] };
+}
+
+export function replyTool(topicIds: readonly string[], planning = false): ReplyTool {
+  const topicId = planning ? { type: 'string' } : { type: 'string', enum: [...topicIds] };
   const importance = { type: 'string', enum: [...IMPORTANCE] };
   return {
     name: 'reply',
@@ -181,6 +291,7 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
             required: ['topicId', 'importance'],
           },
         },
+        ...(planning ? PLAN_PROPERTIES : {}),
         data: DATA_SCHEMA,
         fit: {
           type: 'object',
@@ -194,18 +305,20 @@ export function replyTool(topicIds: readonly string[]): ReplyTool {
           required: ['verdict', 'cause', 'reason', 'reshaping'],
         },
       },
-      required: ['text', 'questions', 'agreed', 'openQuestions'],
+      required: planning ? [...REPLY_REQUIRED, ...PLAN_KEYS] : REPLY_REQUIRED,
     },
   };
 }
 
-export function parseReplyInput(input: unknown, topicIds: readonly string[]): ReplyUpdate | null {
-  if (!isRecord(input) || !replyKeysValid(input)) return null;
+export function parseReplyInput(input: unknown, topicIds: readonly string[], planning = false): ReplyUpdate | null {
+  if (!isRecord(input) || !replyKeysValid(input, planning)) return null;
   const text = stringValue(input.text);
   if (text === null || !Array.isArray(input.questions) || !Array.isArray(input.agreed) || !Array.isArray(input.openQuestions)) {
     return null;
   }
-  const known = new Set(topicIds);
+  const plan = planning ? parseTopicPlan(input) : undefined;
+  if (plan === null) return null;
+  const known = new Set(plan === undefined ? topicIds : [...KEY_TOPIC_IDS, ...plan.topics.map((topic) => topic.id)]);
   const questions = [];
   for (const item of input.questions) {
     if (!isRecord(item) || !exactKeys(item, ['topicId', 'suggestion', 'suggested', 'importance', 'reason'])) return null;
@@ -245,6 +358,7 @@ export function parseReplyInput(input: unknown, topicIds: readonly string[]): Re
   if (fit === null) return null;
   return {
     text, questions, agreed, openQuestions,
+    ...(plan === undefined ? {} : { plan }),
     ...(causeLabels === undefined ? {} : { causeLabels }),
     ...(data === undefined ? {} : { data }),
     ...(fit === undefined ? {} : { fit }),
