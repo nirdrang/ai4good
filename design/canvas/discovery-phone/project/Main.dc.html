@@ -275,12 +275,27 @@ textarea{font-family:inherit}
     <span style="align-self:flex-start;font-size:13px;font-weight:600;color:#166534;background:#dcfce7;border-radius:999px;padding:4px 10px">{{statusChip}}</span>
     <h2 style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{doneTitle}}</h2>
     <p style="margin:0;font-size:16px;line-height:24px;color:#334155">{{doneBody}}</p>
-    <sc-if value="{{notPublished}}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{showNext}}" hint-placeholder-val="{{ true }}">
       <section style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px">
         <h3 style="margin:0;font-size:15px;font-weight:700">Next: find a volunteer</h3>
-        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Find a volunteer publishes your brief. Volunteers on ai4good can see it straight away, and ai4good helps you match with one. You can still edit the brief until a volunteer starts work.</p>
+        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Find a volunteer shows you what volunteers will see, then you publish. Once published, volunteers on ai4good can see it straight away, and ai4good helps you match with one. You can still edit the brief until a volunteer starts work.</p>
       </section>
-      <button type="button" data-testid="find-volunteer" onClick="{{publish}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Find a volunteer</button>
+      <button type="button" data-testid="find-volunteer" onClick="{{askPublish}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Find a volunteer</button>
+    </sc-if>
+    <sc-if value="{{confirming}}" hint-placeholder-val="{{ false }}">
+      <section data-testid="publish-preview" style="flex:0 0 auto;border:1px solid #cbd5e1;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <h3 style="margin:0;font-size:17px;font-weight:700">What volunteers will see</h3>
+        <p style="margin:0;font-size:14px;line-height:20px;color:#475569">Volunteer scheduling · Harbor Community Kitchen.</p>
+        <sc-for list="{{previewRows}}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid #e2e8f0;padding-top:8px">
+            <span style="font-size:14px;font-weight:600">{{r.title}}</span>
+            <span style="{{r.style}}">{{r.text}}</span>
+          </div>
+        </sc-for>
+      </section>
+      <p style="margin:0;font-size:15px;line-height:22px;color:#334155">{{publishNote}}</p>
+      <button type="button" data-testid="publish-confirm" onClick="{{publish}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Publish brief</button>
+      <button type="button" data-testid="publish-back" onClick="{{cancelPublish}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Not yet</button>
     </sc-if>
     <sc-if value="{{published}}" hint-placeholder-val="{{ false }}">
       <section data-testid="published" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px">
@@ -288,7 +303,7 @@ textarea{font-family:inherit}
         <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Volunteers can now see your brief, and ai4good is looking for a match. We will email dana@harborkitchen.org when a volunteer is interested. Nothing else is needed from you today.</p>
       </section>
     </sc-if>
-    <button type="button" data-testid="see-brief" onClick="{{seeBrief}}" style="height:48px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;font-weight:600;cursor:pointer">See your brief</button>
+    <button type="button" data-testid="see-brief" onClick="{{seeBrief}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;font-weight:600;cursor:pointer">See your brief</button>
   </main>
 </sc-if>
 
@@ -423,7 +438,7 @@ class Component extends DCLogic {
     this.state = {
       view: startReview ? 'review' : 'chat', focus: null, answers: answers, draft: '', selected: null, thinking: false, lastTurn: false,
       sheet: null, account: false, freeLeft: startReview ? 4 : 5, files: [], editing: null, editText: '', saving: false,
-      ackReviewed: false, ackData: false, ackGaps: false, finished: false, published: false, lastUse: null,
+      ackReviewed: false, ackData: false, ackGaps: false, finished: false, published: false, confirming: false, lastUse: null,
       transcript: startReview ? [first, { who: 'ai', text: 'That covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.' }] : [first]
     };
     this.setBody = (el) => { this.body = el; };
@@ -671,7 +686,17 @@ class Component extends DCLogic {
       doneTitle: s.published ? 'Your project is published' : 'Your brief is saved',
       doneBody: hasOpen ? open.length + (open.length === 1 ? ' question stays' : ' questions stay') + ' open in it for the volunteer.' : 'Every question has an answer.',
       notPublished: !s.published, published: s.published,
-      publish: () => this.setState({ published: true }),
+      showNext: !s.published && !s.confirming, confirming: !s.published && !!s.confirming,
+      previewRows: this.topics.map((t, i) => {
+        const a = s.answers[i];
+        const kept = !a || a.status === 'unsure';
+        return { title: t.title, text: kept ? 'Still to decide. The volunteer will ask you.' : a.text,
+          style: 'font-size:14px;line-height:20px;' + (kept ? 'color:#92400e' : 'color:#334155') };
+      }),
+      publishNote: hasOpen ? open.length + (open.length === 1 ? ' question is' : ' questions are') + ' still open. Volunteers see them as still to decide. You can still edit the brief until a volunteer starts work.' : 'You can still edit the brief until a volunteer starts work.',
+      askPublish: () => this.setState({ confirming: true }),
+      cancelPublish: () => this.setState({ confirming: false }),
+      publish: () => this.setState({ published: true, confirming: false }),
       seeBrief: () => this.setState({ view: 'review' })
     };
   }

@@ -34,7 +34,7 @@ Assess the shared process bar separately from those screens.
 ## After Discovery: volunteer matching
 
 After the NGO confirms Discovery, the process bar highlights **Volunteer match**, before PRD.
-The finished screen offers **Find a volunteer**. This action publishes the project at once; only a vetted NGO can publish.
+The finished screen offers **Find a volunteer**. Since 2026-11-18 it first shows what volunteers will see, then **Publish brief** publishes the project at once; only a vetted NGO can publish. See Phone redesign, 2026-11-18.
 The project has been public since intake as an intake card; publishing swaps the intake need for the Discovery document and opens matching. ai4good then coordinates a volunteer match.
 The volunteer must consent, and the NGO must fund kickoff before PRD work begins.
 The matching step covers publishing, finding a volunteer, consent, and funding readiness.
@@ -306,7 +306,7 @@ At 320 CSS pixels, no required control or amount may be clipped.
 
 ## Phone redesign, 2026-11-18
 
-Founder ruling 2026-11-18, after two persona retests of the canvas in `design/canvas/discovery-phone/` (record: `review.md` there). These rules apply at phone width and replace the phone rules above where they differ. The usage rule and the "I'm not sure" rule apply on desktop too. The canvas boards hold the detail.
+Founder ruling 2026-11-18, after two persona retests of the canvas in `design/canvas/discovery-phone/` (record: `review.md` there). These rules apply at phone width and replace the phone rules above where they differ. The usage rule, the "I'm not sure" rule and the publish preview apply on desktop too. The canvas boards hold the detail.
 
 - **Header.** The project name, the NGO and the save state, an Account button (name, email, organisation, Sign out), the topic count with one segment per topic, and Questions, Your brief and Review buttons. Review is secondary until every topic is answered or kept open, then primary. No primary Finish Discovery button sits in the header before that. Finishing stays available at any coverage, as above.
 - **First screen.** One line says what the answers become. The first AI message, the current question and its answer choices, and the message box fit at 390 by 844.
@@ -315,7 +315,7 @@ Founder ruling 2026-11-18, after two persona retests of the canvas in `design/ca
 - **Questions.** Order: Answer now, then the open questions with Answer, then later topics, then answered topics as one-line rows.
 - **Files.** The first AI message offers "Attach a sample rota (optional)", and a paperclip sits beside the message box. The sample-data advice sits above Choose a file.
 - **Review.** The brief comes first, each section with Edit. A line at the top gives the number of open questions and jumps to them. The open questions follow the brief, each with an amber "Still to decide" label, its importance, why it matters, its suggestion, Use the suggestion (secondary) and Answer in chat. Using a suggestion shows "Added to your brief" with Undo. Any change to an answer clears the acknowledgments.
-- **After finishing.** A status screen shows "Discovery finished" or "Finished with open questions", explains that Find a volunteer publishes the brief, and offers Find a volunteer and See your brief. After publishing it says what happens next. A reopened brief keeps its saved or published status and offers Back to project status.
+- **After finishing.** A status screen shows "Discovery finished" or "Finished with open questions", and offers Find a volunteer and See your brief. Find a volunteer does not publish on its own tap (founder 2026-11-18, on phone and desktop): it shows "What volunteers will see", the brief's sections with open questions marked "Still to decide", and a line with the number of open questions, then **Publish brief** (primary) and **Not yet**, which returns to the status screen unpublished. Publish brief publishes at once, as before. After publishing the screen says what happens next. MARKED: changes the one-tap publish rule above and AT-004.78. A reopened brief keeps its saved or published status and offers Back to project status.
 - Every control is at least 44 pixels high.
 
 ## Implementation and proof

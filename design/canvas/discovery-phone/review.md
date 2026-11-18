@@ -1,8 +1,8 @@
 # Discovery phone redesign: review record
 
 Requirement: REQ-004. Screen: Discovery on a phone (390 by 844), from sign-in to finish.
-Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 12.
-Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 12). The canvas player (`support.js`) is not committed.
+Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 13.
+Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 13). The canvas player (`support.js`) is not committed.
 
 ## Why this redesign
 
@@ -63,12 +63,15 @@ The founder also wrote: "I am not sure doesn’t count towards free credit".
 
 5. Sending "I'm not sure" uses no free reply and no fuel. The sent message reads "Kept open · no charge". MARKED: changes the metering rule; new AT-004.80.
 
+On the third open point, the founder answered "Go with your recommendation for 3".
+
+6. Find a volunteer no longer publishes in one tap. It shows "What volunteers will see" with every section and the open questions marked "Still to decide", then Publish brief or Not yet. Publish brief still publishes at once. MARKED: changes the contract's one-tap rule and AT-004.78.
+
 ## Open for the founder
 
 These come from the persona retests, but each one meets a rule that is already in the contract, so the canvas keeps the rule:
 
 - Finish is allowed with every topic open (contract: "including at zero topic coverage"). Two personas published an empty brief.
-- Find a volunteer publishes in one tap (contract: "This action publishes the project at once"). All three expected a step before publishing, or a label such as "Publish brief".
 
 Small leftover: the "I'm not sure" row of the first question starts just below the first screen.
 
