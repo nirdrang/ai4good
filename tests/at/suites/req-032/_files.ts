@@ -24,6 +24,7 @@ export async function seedFileProject(stack: Stack, needs: NeedsSut, email: stri
   const freshBearer = async () => {
     if (Date.now() - signedIn.at > 60_000) {
       const again = await authPost(stack, '/auth/v1/token?grant_type=password', { email, password: PASSWORD });
+      if (again.status !== 200) throw new Error(`signing ${email} in again answered ${again.status}: ${JSON.stringify(again.json)}`);
       signedIn = { token: String(again.json.access_token), at: Date.now() };
     }
     return signedIn.token;
