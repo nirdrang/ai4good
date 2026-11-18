@@ -218,12 +218,12 @@ textarea{font-family:inherit}
     <sc-if value="{{openAfter}}" hint-placeholder-val="{{ true }}">
       <section ref="{{setOpenPanel}}" aria-label="Questions still open" style="background:#ffffff;border:1px solid #fcd34d;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
         <h2 style="margin:0;font-size:16px;font-weight:700">{{openTitle}}</h2>
-        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">You can finish now. A volunteer will need these answers before building starts, and they stay in your brief.</p>
+        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">{{openIntro}}</p>
         <sc-for list="{{openItems}}" as="q" hint-placeholder-count="2">
           <div style="border-top:1px solid #e2e8f0;padding-top:10px;display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;align-items:center;gap:8px">
               <span style="flex:1;font-size:15px;font-weight:600">{{q.title}}</span>
-              <span style="font-size:12px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 8px">Still to decide</span>
+              <span style="{{q.chipStyle}}">{{q.chip}}</span>
             </div>
             <span style="font-size:14px;line-height:20px;color:#475569">{{q.why}}</span>
             <span style="font-size:14px;line-height:20px">Suggested: {{q.suggestion}}</span>
@@ -424,6 +424,7 @@ class Component extends DCLogic {
         why: 'Fewer personal details mean less risk and simpler rules.',
         options: ['Name, mobile number and usual availability', 'Name and email only', 'Name, mobile, availability and training date'], suggested: 0 }
     ];
+    this.keyTopics = [0, 2, 5];
     this.unsureText = 'I’m not sure yet. Keep it open.';
     const startReview = (props.start ?? 'chat') === 'review';
     const answers = startReview
@@ -476,7 +477,9 @@ class Component extends DCLogic {
       const st = this.state;
       const next = this.current();
       const label = this.ruled() ? 'needed before build' : 'still to decide';
-      const ack = unsure
+      const ack = unsure && !this.ruled() && this.keyTopics.includes(cur)
+        ? 'That’s fine for now. “' + this.topics[cur].title + '” is one of the three answers needed to finish, so I’ll come back to it before the review.'
+        : unsure
         ? 'That’s fine. I’ve marked “' + this.topics[cur].title + '” as ' + label + '. It stays in your brief, and a volunteer will ask about it before building.'
         : 'Thanks, I’ve added that to your brief under “' + this.topics[cur].title + '”.';
       const text = next < 6 ? ack + '\n\n' + this.topics[next].ask : ack + '\n\nThat covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.';
@@ -561,12 +564,17 @@ class Component extends DCLogic {
       };
     });
 
-    const open = s.answers.map((a, i) => ({ a: a, i: i })).filter((x) => !x.a || x.a.status === 'unsure');
+    const isKey = (i) => !ruled && this.keyTopics.includes(i);
+    const open = s.answers.map((a, i) => ({ a: a, i: i })).filter((x) => !x.a || x.a.status === 'unsure')
+      .sort((x, y) => (isKey(y.i) ? 1 : 0) - (isKey(x.i) ? 1 : 0));
+    const missingKey = open.filter((x) => isKey(x.i)).map((x) => t[x.i].title);
     const openItems = open.map((x) => {
       const topic = t[x.i];
       const suggestion = topic.options[topic.suggested];
       return {
         title: topic.title, why: topic.why, suggestion: suggestion,
+        chip: isKey(x.i) ? 'Needed to finish' : 'Still to decide',
+        chipStyle: isKey(x.i) ? 'font-size:12px;font-weight:600;color:#ffffff;background:#b45309;border-radius:999px;padding:2px 8px' : 'font-size:12px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 8px',
         use: () => {
           const answers = this.state.answers.slice();
           const before = answers[x.i];
@@ -591,7 +599,11 @@ class Component extends DCLogic {
       };
     });
     const hasOpen = open.length > 0;
-    const canFinish = s.editing === null && s.ackReviewed && s.ackData && (!hasOpen || s.ackGaps);
+    const canFinish = s.editing === null && missingKey.length === 0 && s.ackReviewed && s.ackData && (!hasOpen || s.ackGaps);
+    const missingText = missingKey.map((k) => '“' + k + '”').join(', ');
+    const openIntro = missingKey.length > 0
+      ? 'To finish, answer ' + missingText + '. The other open questions can stay open: a volunteer will ask about them before building starts.'
+      : 'You can finish now. A volunteer will need these answers before building starts, and they stay in your brief.';
     const openTitle = open.length === 1 ? '1 question is still open' : open.length + ' questions are still open';
 
     const sheetTitles = { questions: 'Questions', brief: 'Your brief', files: 'Your files', limits: 'Reply limits' };
@@ -605,7 +617,7 @@ class Component extends DCLogic {
       toReview: () => this.setState({ view: 'review', sheet: null }),
       backToChat: () => this.setState({ view: 'chat', editing: null }),
       reviewSecondary: !ruled,
-      reviewStyle: 'height:44px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;' + (ready ? 'background:#0f172a;color:#ffffff;border:1px solid #0f172a' : 'background:#ffffff;color:#0f172a;border:1px solid #cbd5e1'),
+      reviewStyle: 'height:44px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;' + (ready && missingKey.length === 0 ? 'background:#0f172a;color:#ffffff;border:1px solid #0f172a' : 'background:#ffffff;color:#0f172a;border:1px solid #cbd5e1'),
       progressLabel: agreed + ' of 6 topics answered',
       progressHint: ready ? 'Ready to review' : (unsure ? unsure + ' kept open' : 'About 6 replies'),
       segments: segments,
@@ -664,7 +676,7 @@ class Component extends DCLogic {
       backToStatus: () => this.setState({ view: 'done' }),
       openJump: !ruled && hasOpen, jumpOpen: () => { if (this.openPanel) this.openPanel.scrollIntoView({ block: 'start' }); },
       openFirst: ruled && hasOpen, openAfter: !ruled && hasOpen,
-      openItems: openItems, openTitle: openTitle,
+      openItems: openItems, openTitle: openTitle, openIntro: openIntro,
       reviewSections: reviewSections,
       hasToast: !!s.lastUse, toast: s.lastUse ? 'Added to your brief: ' + s.lastUse.title : '',
       undoUse: () => { const lu = this.state.lastUse; if (!lu) return; const answers = this.state.answers.slice(); answers[lu.i] = lu.before; this.setState({ answers: answers, lastUse: null, ackReviewed: false, ackData: false, ackGaps: false, finished: false }); },
@@ -679,7 +691,7 @@ class Component extends DCLogic {
       finishLabel: ruled ? 'Finish Discovery' : 'Finish and save brief',
       finishDisabled: !canFinish,
       finishStyle: 'height:48px;border-radius:10px;border:none;font-size:16px;font-weight:600;cursor:pointer;' + (canFinish ? 'background:#0f172a;color:#ffffff' : 'background:#e2e8f0;color:#64748b'),
-      finishNote: s.editing !== null ? 'Save or cancel your edit first.' : (canFinish ? 'Finishing is free. It records your name and the time.' : 'Tick the boxes above to finish. Finishing is free.'),
+      finishNote: s.editing !== null ? 'Save or cancel your edit first.' : missingKey.length > 0 ? 'To finish, answer ' + missingText + ' first. Finishing is free.' : (canFinish ? 'Finishing is free. It records your name and the time.' : 'Tick the boxes above to finish. Finishing is free.'),
       finish: () => { if (canFinish) this.setState({ finished: true, view: 'done', lastUse: null }); },
 
       statusChip: s.published ? 'Published · volunteers can see it' : (hasOpen ? 'Finished with open questions' : 'Discovery finished'),

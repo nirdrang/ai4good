@@ -1,8 +1,8 @@
 # Discovery phone redesign: review record
 
 Requirement: REQ-004. Screen: Discovery on a phone (390 by 844), from sign-in to finish.
-Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 13.
-Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 13). The canvas player (`support.js`) is not committed.
+Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 14.
+Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 14). The canvas player (`support.js`) is not committed.
 
 ## Why this redesign
 
@@ -67,11 +67,11 @@ On the third open point, the founder answered "Go with your recommendation for 3
 
 6. Find a volunteer no longer publishes in one tap. It shows "What volunteers will see" with every section and the open questions marked "Still to decide", then Publish brief or Not yet. Publish brief still publishes at once. MARKED: changes the contract's one-tap rule and AT-004.78.
 
-## Open for the founder
+On the last open point, two personas had published an empty brief. The founder wrote: "I agree about key topics but how do you set all these prose into a system prompt of the llm in use?"
 
-These come from the persona retests, but each one meets a rule that is already in the contract, so the canvas keeps the rule:
+7. Finish needs agreed answers to three key topics: Main priority, Information handled and Maintenance owner ("Who looks after the tool" and "Volunteer details kept" on the canvas). "I'm not sure" does not settle a key topic. The review marks the missing ones "Needed to finish". The gate is enforced in the finish edge function, and the key flag is set in code, never by the AI. MARKED: changes REQ-004 Discovery completion and AT-004.62; new AT-004.81.
 
-- Finish is allowed with every topic open (contract: "including at zero topic coverage"). Two personas published an empty brief.
+## Leftover
 
 Small leftover: the "I'm not sure" row of the first question starts just below the first screen.
 
