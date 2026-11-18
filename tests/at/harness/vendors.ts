@@ -2,8 +2,8 @@ import type { EmailProviderSim, ProviderAttempt, ProviderOutcome } from './contr
 import { providerForceCountProblem } from './guards.ts';
 import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
 import { DISCOVERY_REQUEST_SETTINGS } from '../../../supabase/functions/_shared/discovery-metering.ts';
-import { planToolInput, TEST_TOPIC_IDS, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
-import { isRecord } from '../../../supabase/functions/_shared/write-routes.ts';
+import { planToolInput, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
+import { TOPIC_PLAN_TOOL } from '../../../supabase/functions/_shared/discovery-reply.ts';
 export type { AnthropicMessagesPort } from './contracts.ts';
 
 function foldedInputTokens(usage: {
@@ -16,31 +16,19 @@ function countedRequestTokens(messages: unknown): number {
   return Math.ceil(JSON.stringify(messages).length / 4);
 }
 
-function plansTopics(request: ModelRequestRecord): boolean {
-  const schema = request.tools.find((tool) => tool.name === 'reply')?.input_schema;
-  return isRecord(schema?.properties) && 'fileExamples' in schema.properties;
-}
-
-function withTestPlan(input: Record<string, unknown>, planning: boolean): Record<string, unknown> {
-  return planning && !('fileExamples' in input) ? { ...input, ...planToolInput(TEST_TOPIC_PLAN) } : input;
-}
-
 function scriptedReplyInput(reply: Exclude<ScriptedReply, { kind: 'error' }>, request: ModelRequestRecord): unknown {
-  const planning = plansTopics(request);
   if (reply.kind === 'tool' && reply.name === 'reply') {
     const input = reply.input as { text?: unknown; facts?: string[]; constraints?: string[]; openQuestions?: string[] };
-    if (!isRecord(input)) return input;
-    if (typeof input.text === 'string') return withTestPlan(input, planning);
-    if (Array.isArray(input.facts)) {
+    if (typeof input?.text === 'string') return input;
+    if (Array.isArray(input?.facts)) {
       const facts = [...input.facts, ...(input.constraints ?? [])];
-      const topicIds = planning ? TEST_TOPIC_IDS : request.reply?.topicIds ?? [];
-      return withTestPlan({ text: reply.text ?? 'Recorded.', questions: [],
-        agreed: topicIds.map((topicId, i) => ({ topicId, answer: facts[i % facts.length] })),
-        openQuestions: [] }, planning);
+      return { text: reply.text ?? 'Recorded.', questions: [],
+        agreed: (request.reply?.topicIds ?? []).map((topicId, i) => ({ topicId, answer: facts[i % facts.length] })),
+        openQuestions: [] };
     }
     return input;
   }
-  return withTestPlan({ text: reply.text ?? '', questions: [], agreed: [], openQuestions: [] }, planning);
+  return { text: reply.text ?? '', questions: [], agreed: [], openQuestions: [] };
 }
 
 export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port: AnthropicMessagesPort } {
@@ -54,6 +42,10 @@ export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port:
     port: {
       model: DISCOVERY_REQUEST_SETTINGS.model,
       create: async (request) => {
+        if (request.toolChoice?.name === TOPIC_PLAN_TOOL.name) {
+          return { ok: true, text: '', model: request.model, stopReason: 'tool_use', usage: { inputTokens: 0, outputTokens: 0 },
+            toolUse: { name: TOPIC_PLAN_TOOL.name, input: planToolInput(TEST_TOPIC_PLAN) } };
+        }
         const reply = replies.shift();
         if (reply === undefined) throw new Error('Anthropic Messages request exceeded its scripted replies');
         requests.push(structuredClone(request));

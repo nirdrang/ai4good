@@ -24,10 +24,6 @@ function changedBrief(version: BriefVersion, command: Parameters<typeof evolveBr
   return result.brief;
 }
 
-function withKeyTopicsAgreed(version: BriefVersion): BriefVersion {
-  return ['priority', 'owner', 'info'].reduce((next, topicId) => changedBrief(next, { kind: 'accept-suggestion', topicId }), version);
-}
-
 function finishInput(overrides: Partial<FinishInput> & { existing?: Confirmation | null } = {}): FinishInput {
   return {
     acks: { reviewed: true, openGaps: true, data: false },
@@ -156,13 +152,15 @@ it('applies the same answer twice and bumps once, keeping provenance', () => {
 });
 
 it('returns the same confirmation when finish is repeated at one revision', () => {
-  const version = withKeyTopicsAgreed(testOpening(NEED));
+  const version = testOpening(NEED);
   const first = decideFinish(version, finishInput());
   expect(first.ok).toBe(true);
   if (!first.ok) return;
   expect(first.confirmation.approver).toBe('Sam Taylor');
-  expect(first.confirmation.revision).toBe(4);
-  expect(first.confirmation.acceptedGaps.map((gap) => gap.topicId)).toEqual(['booking', 'measure', 'rules']);
+  expect(first.confirmation.revision).toBe(1);
+  expect(first.confirmation.acceptedGaps.map((gap) => gap.topicId)).toEqual([
+    'priority', 'booking', 'measure', 'rules', 'info', 'owner',
+  ]);
   const second = decideFinish(version, finishInput({
     filesReading: true,
     at: '2026-10-03T00:00:00.000Z',
@@ -171,11 +169,11 @@ it('returns the same confirmation when finish is repeated at one revision', () =
     existing: first.confirmation,
   }));
   expect(second).toEqual(first);
-  expect(version.revision).toBe(4);
+  expect(version.revision).toBe(1);
 });
 
 it('refuses finish for a file still reading, open gaps, and a missing data acknowledgement', () => {
-  const version = withKeyTopicsAgreed(testOpening(NEED));
+  const version = testOpening(NEED);
   expect(decideFinish(version, finishInput({ filesReading: true, acks: { reviewed: true, openGaps: false, data: false } })))
     .toEqual({ ok: false, kind: 'file-reading', reason: BRIEF_REASONS.fileReading });
   expect(decideFinish(version, finishInput({ acks: { reviewed: true, openGaps: false, data: false } })))
@@ -184,28 +182,6 @@ it('refuses finish for a file still reading, open gaps, and a missing data ackno
   expect(decideFinish(version, finishInput())).toEqual({ ok: false, kind: 'data-ack', reason: BRIEF_REASONS.dataAck });
   const allowed = decideFinish(version, finishInput({ acks: { reviewed: true, openGaps: true, data: true } }));
   expect(allowed.ok).toBe(true);
-});
-
-it('refuses finish while a key topic is open or not sure, and names the missing key topics', () => {
-  const opened = testOpening(NEED);
-  expect(decideFinish(opened, finishInput())).toEqual({
-    ok: false, kind: 'key-topics', reason: BRIEF_REASONS.keyTopics(['Main priority', 'Information handled', 'Maintenance owner']),
-  });
-  const asked = changedBrief(changedBrief(changedBrief(opened, { kind: 'accept-suggestion', topicId: 'priority' }),
-    { kind: 'accept-suggestion', topicId: 'owner' }), { kind: 'ask-topic', topicId: 'info', round: 1 });
-  const unsure = changedBrief(asked, {
-    kind: 'apply-answers', round: 2, userMessageId: 'msg-2',
-    answers: [{ questionId: 'info', choice: 'unsure', text: "I'm not sure", certain: false }],
-  });
-  expect(unsure.document.topics.info?.state.kind).toBe('not-sure');
-  expect(decideFinish(unsure, finishInput())).toEqual({
-    ok: false, kind: 'key-topics', reason: BRIEF_REASONS.keyTopics(['Information handled']),
-  });
-  const agreed = withKeyTopicsAgreed(opened);
-  expect(decideFinish(agreed, finishInput({ acks: { reviewed: true, openGaps: false, data: false } })))
-    .toEqual({ ok: false, kind: 'open-gaps', reason: BRIEF_REASONS.openGaps });
-  const finished = decideFinish(agreed, finishInput());
-  expect(finished.ok && finished.confirmation.acceptedGaps.map((gap) => gap.topicId)).toEqual(['booking', 'measure', 'rules']);
 });
 
 it('finishes a fully settled brief without a gaps acknowledgement', () => {
@@ -242,9 +218,6 @@ it('projects a snapshot the screen can read, and keeps a removed label off it', 
   expect(snapshot.causeLabels).toEqual(['Health']);
   expect(snapshot.topics).toHaveLength(6);
   expect(Object.keys(snapshot.topics[0] ?? {})).toEqual([
-    'id', 'title', 'required', 'importance', 'why', 'suggestion', 'plannedQuestion', 'state', 'key',
-  ]);
-  expect(Object.keys(snapshot.topics[1] ?? {})).toEqual([
     'id', 'title', 'required', 'importance', 'why', 'suggestion', 'plannedQuestion', 'state',
   ]);
   expect(snapshot.questions).toEqual([]);
@@ -377,7 +350,7 @@ it('keeps the guidance and the blocker on the current decision when answers chan
   expect(rebooked.brief.document.questions.rules!.reason).toBe(
     'You changed Who books shifts. Check that this answer still fits. Nobody is named to approve lead-cook training.',
   );
-  const finished = decideFinish(withKeyTopicsAgreed(rebooked.brief), {
+  const finished = decideFinish(rebooked.brief, {
     acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
   });
@@ -404,7 +377,7 @@ it('replaces stale options when the AI recommends a new answer, and keeps the la
   expect(question.recommendation).toBe('Suggested: Coordinators approve lead training.');
   expect(asked.brief.document.topics.rules?.suggestion).toBe('Coordinators approve lead training');
   expect(question.uncertaintyHelp).toBe('To find out: ask the people who do this work.');
-  const finished = decideFinish(withKeyTopicsAgreed(asked.brief), {
+  const finished = decideFinish(asked.brief, {
     acks: { reviewed: true, openGaps: true, data: true }, filesReading: false,
     actor: { id: 'a', displayName: 'Dana' }, at: '2026-10-25T00:00:00Z', existing: null,
   });

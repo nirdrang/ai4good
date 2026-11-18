@@ -21,7 +21,6 @@ import {
   newerBrief,
   openForReview,
   progressOf,
-  keyTopicsMissing,
   reviewGate,
   reviewSections,
   type Draft,
@@ -685,7 +684,6 @@ export function useDiscoveryReview(
   const gate = reviewGate({
     revision: brief.revision,
     openCount: open.length,
-    keyMissing: keyTopicsMissing(brief),
     ticks,
     editing: editingId !== null,
     reading,
@@ -846,7 +844,6 @@ export function useDiscoveryReview(
       const ready = reviewGate({
         revision: latest.revision,
         openCount: openNow.length,
-        keyMissing: keyTopicsMissing(latest),
         ticks: { reviewedRevision, openGapsCount, data: dataAck },
         editing: editingId !== null,
         reading: files.some((file) => file.status.kind === "reading"),

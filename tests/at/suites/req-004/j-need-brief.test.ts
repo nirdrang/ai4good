@@ -222,9 +222,8 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
     await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
       const text = await screen.chat.lastAssistantText();
       expect(text, 'the first reply asks for files that show how you work today').toContain(given.filePhrase);
-      for (const kind of given.fileKinds) {
-        expect(text, `the first reply names ${kind}`).toContain(kind);
-      }
+      if (screen.backend) expect(text, 'the first reply names files that fit this need').toMatch(/Files that would help this need: \S/);
+      else for (const kind of given.fileKinds) expect(text, `the first reply names ${kind}`).toContain(kind);
       expect(text, 'the first reply points to Add a file').toContain('Add a file');
       expect(await screen.files.addVisible(), 'Add a file is on the screen').toBe(true);
       if (screen.backend) {

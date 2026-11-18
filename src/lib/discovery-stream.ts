@@ -56,7 +56,6 @@ export type BriefTopic = {
     | { kind: "agreed"; answer: string; source: BriefSource; answerMessageId: string | null };
   /** An earlier answer this topic depends on changed. The old answer stays visible. */
   needsReview?: boolean;
-  key?: true;
 };
 
 export type BriefSnapshot = {

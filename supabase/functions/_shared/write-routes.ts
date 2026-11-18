@@ -134,7 +134,6 @@ export const WRITE_REFUSAL_KINDS = [
   'project-files-too-large',
   'unsupported-file-type',
   'no-such-file',
-  'key-topics',
   'open-gaps',
   'data-ack',
   'declined',

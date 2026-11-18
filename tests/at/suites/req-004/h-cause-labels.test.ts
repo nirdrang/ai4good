@@ -2,7 +2,6 @@ import { expect } from 'vitest';
 import { atTest, TIER } from './_bind.ts';
 import { labelCurationSurfaceProblems } from './_source-absences.ts';
 import type { DiscoverySut, Session } from './_contract.ts';
-import { agreeKeyTopics } from './_key-topics.ts';
 
 async function briefOf(sut: DiscoverySut, session: Session, projectId: string) {
   const read = await sut.readConversation(session, projectId);
@@ -10,7 +9,6 @@ async function briefOf(sut: DiscoverySut, session: Session, projectId: string) {
   return read.value.brief;
 }
 async function finish(sut: DiscoverySut, session: Session, organizationId: string, projectId: string) {
-  await agreeKeyTopics(sut, session, organizationId, projectId);
   const brief = await briefOf(sut, session, projectId);
   expect(await sut.briefAction(session, { organizationId, projectId, action: 'finish', revision: brief.revision,
     acks: { reviewed: true, openGaps: true, data: true } })).toMatchObject({ ok: true });

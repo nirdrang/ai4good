@@ -130,7 +130,6 @@ export type BriefTopic = {
   plannedQuestion: string;
   state: TopicState;
   needsReview?: boolean;
-  key?: true;
 };
 
 export type BriefSnapshot = {
@@ -190,7 +189,7 @@ export type FinishInput = {
 
 export type FinishDecision =
   | { ok: true; confirmation: Confirmation }
-  | { ok: false; kind: 'declined' | 'file-reading' | 'key-topics' | 'open-gaps' | 'data-ack' | 'invalid-request'; reason: string };
+  | { ok: false; kind: 'declined' | 'file-reading' | 'open-gaps' | 'data-ack' | 'invalid-request'; reason: string };
 
 export type OpeningTopic = {
   id: string;
@@ -216,7 +215,6 @@ export const BRIEF_REASONS = {
   finished: 'Discovery is finished. No further reply is charged.',
   fileReading: 'A file is still being read. You can finish when it is ready.',
   openGaps: 'Open questions stay in the brief unless you accept them.',
-  keyTopics: (titles: readonly string[]) => `Answer ${titles.join(', ')} before you finish. "I'm not sure" does not settle these.`,
   dataAck: 'Tick the data box before you finish.',
   declined: 'Discovery declined this need, so it has no publishable scope.',
   unknownSection: 'That part of the brief cannot be edited.',
@@ -385,7 +383,6 @@ function topicSnapshot(topic: StoredTopic): BriefTopic {
     state: clone(topic.state),
   };
   if (topic.needsReview === true) projected.needsReview = true;
-  if (isKeyTopic(topic.id)) projected.key = true;
   return projected;
 }
 
@@ -666,7 +663,6 @@ export type ReplyDataReport = { kinds: readonly DataKind[]; reason: string };
 
 export type ReplyUpdate = {
   text: string;
-  plan?: TopicPlan;
   causeLabels?: readonly string[];
   data?: ReplyDataReport;
   fit?: BriefFit;
@@ -900,13 +896,6 @@ export function decideFinish(version: BriefVersion, input: FinishInput): FinishD
   if (version.document.fit?.verdict === 'declined') return { ok: false, kind: 'declined', reason: BRIEF_REASONS.declined };
   if (input.filesReading) return { ok: false, kind: 'file-reading', reason: BRIEF_REASONS.fileReading };
   if (input.acks.reviewed !== true) return { ok: false, kind: 'invalid-request', reason: 'Finish needs the review acknowledgement.' };
-  const missingKey = KEY_TOPICS.filter((key) => {
-    const topic = version.document.topics[key.id];
-    return topic === undefined || !topicSettled(topic);
-  });
-  if (missingKey.length > 0) {
-    return { ok: false, kind: 'key-topics', reason: BRIEF_REASONS.keyTopics(missingKey.map((key) => key.title)) };
-  }
   const open = openTopics(version);
   if (open.length > 0 && !input.acks.openGaps) return { ok: false, kind: 'open-gaps', reason: BRIEF_REASONS.openGaps };
   const tier = dataTierOf(version.document);

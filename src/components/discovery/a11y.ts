@@ -194,8 +194,6 @@ export const TEXT = {
     gateEditing: "Save or cancel your edit first.",
     gateReady: (revision: number) => `Finishing is free. It records your name, the time, and revision ${revision}.`,
     gateIdle: "Tick the boxes above to finish. Finishing is free.",
-    gateKeyTopics: (titles: readonly string[]) =>
-      `Answer ${titles.join(", ")} before you finish. "I'm not sure" does not settle these.`,
     doneBody: (revision: number) => `You confirmed revision ${revision} of your Discovery document.`,
     doneOpen: (open: number) =>
       open === 0
