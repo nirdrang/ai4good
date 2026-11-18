@@ -30,7 +30,6 @@ export type DiscoveryModelRequest = {
     messageId: string; opening: boolean; discoveryFileCount: number;
     answers: DiscoveryAnswer[]; topicIds: string[]; userMessageId: string;
     fileReports?: string;
-    planning?: { request: DiscoveryModelRequest; withTopics(topicIds: readonly string[]): Pick<DiscoveryModelRequest, 'system' | 'tools'> };
   };
 };
 export type DiscoveryModelAnswer =
@@ -59,6 +58,8 @@ export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
 }
 export type DiscoveryTurnView = ReturnType<typeof turnViewFromSql>;
 const PREPARED_REQUEST = Symbol('discovery prepared request');
+const PREPARED_PLANNING = Symbol('discovery prepared topic planning');
+type TopicPlanning = { request: DiscoveryModelRequest; withTopics(topicIds: readonly string[]): Pick<DiscoveryModelRequest, 'system' | 'tools'> };
 export type ReplyReserveFields = {
   mode: 'answer' | 'opening'; user_message_id: string;
   answers: DiscoveryAnswer[]; expected_charge: 'free' | 'paid'; assistant_message_id: string;
@@ -67,6 +68,7 @@ export type DiscoveryReserveArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string; p_message: string;
   p_settings: DiscoveryReserveSettings & ReplyReserveFields;
   [PREPARED_REQUEST]?: DiscoveryModelRequest;
+  [PREPARED_PLANNING]?: TopicPlanning;
 };
 export type Reservation = {
   turn: DiscoveryTurnSqlRow; need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; allowance: unknown; brief?: BriefVersion | null; usage?: unknown; replay?: string;
@@ -278,15 +280,16 @@ async function prepareReply(
       opening, discoveryFileCount, answers: args.p_settings.answers ?? [], topicIds: [...topicIds],
       userMessageId: args.p_settings.user_message_id ?? '',
       fileReports,
-      ...(current === null ? { planning: { withTopics, request: {
-        ...settings, system: topicPlanSystem(intake), messages, tools: [TOPIC_PLAN_TOOL], toolChoice: { type: 'tool' as const, name: TOPIC_PLAN_TOOL.name },
-      } } } : {}),
     },
   };
+  const planning: TopicPlanning | undefined = current === null ? { withTopics, request: {
+    ...settings, system: topicPlanSystem(intake), messages, tools: [TOPIC_PLAN_TOOL], toolChoice: { type: 'tool', name: TOPIC_PLAN_TOOL.name },
+  } } : undefined;
   return { ok: true, args: {
     ...args,
     p_settings: { ...args.p_settings, model: port.model },
     [PREPARED_REQUEST]: request,
+    ...(planning === undefined ? {} : { [PREPARED_PLANNING]: planning }),
   } };
 }
 
@@ -352,7 +355,7 @@ async function actReply(
   let request = { ...prepared, maxTokens: reservation.turn.max_output_tokens };
   let topicPlan: TopicPlan | null = null;
   const planUsage = { inputTokens: 0, outputTokens: 0 };
-  const planning = prepared.reply.planning;
+  const planning = args[PREPARED_PLANNING];
   if (current === null && planning !== undefined) {
     const planned = await port.create({ ...planning.request, maxTokens: reservation.turn.max_output_tokens });
     if (!planned.ok) return failed(planned.reason);
