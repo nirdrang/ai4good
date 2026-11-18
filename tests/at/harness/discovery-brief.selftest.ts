@@ -135,7 +135,7 @@ it('applies the same answer twice and bumps once, keeping provenance', () => {
     kind: 'apply-answers' as const,
     round: 1,
     userMessageId: 'msg-1',
-    answers: [{ questionId: 'priority', choice: 'time', text: 'Less coordination time', certain: true }],
+    answers: [{ questionId: 'priority', choice: 'o1', text: 'Less coordination time', certain: true }],
   };
   const first = evolveBrief(asked, command);
   expect(first.kind).toBe('changed');
@@ -184,6 +184,28 @@ it('refuses finish for a file still reading, open gaps, and a missing data ackno
   expect(decideFinish(version, finishInput())).toEqual({ ok: false, kind: 'data-ack', reason: BRIEF_REASONS.dataAck });
   const allowed = decideFinish(version, finishInput({ acks: { reviewed: true, openGaps: true, data: true } }));
   expect(allowed.ok).toBe(true);
+});
+
+it('refuses finish while a key topic is open or not sure, and names the missing key topics', () => {
+  const opened = testOpening(NEED);
+  expect(decideFinish(opened, finishInput())).toEqual({
+    ok: false, kind: 'key-topics', reason: BRIEF_REASONS.keyTopics(['Main priority', 'Information handled', 'Maintenance owner']),
+  });
+  const asked = changedBrief(changedBrief(changedBrief(opened, { kind: 'accept-suggestion', topicId: 'priority' }),
+    { kind: 'accept-suggestion', topicId: 'owner' }), { kind: 'ask-topic', topicId: 'info', round: 1 });
+  const unsure = changedBrief(asked, {
+    kind: 'apply-answers', round: 2, userMessageId: 'msg-2',
+    answers: [{ questionId: 'info', choice: 'unsure', text: "I'm not sure", certain: false }],
+  });
+  expect(unsure.document.topics.info?.state.kind).toBe('not-sure');
+  expect(decideFinish(unsure, finishInput())).toEqual({
+    ok: false, kind: 'key-topics', reason: BRIEF_REASONS.keyTopics(['Information handled']),
+  });
+  const agreed = withKeyTopicsAgreed(opened);
+  expect(decideFinish(agreed, finishInput({ acks: { reviewed: true, openGaps: false, data: false } })))
+    .toEqual({ ok: false, kind: 'open-gaps', reason: BRIEF_REASONS.openGaps });
+  const finished = decideFinish(agreed, finishInput());
+  expect(finished.ok && finished.confirmation.acceptedGaps.map((gap) => gap.topicId)).toEqual(['booking', 'measure', 'rules']);
 });
 
 it('finishes a fully settled brief without a gaps acknowledgement', () => {
