@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { KEY_TOPIC_IDS, snapshotOf } from '../../../supabase/functions/_shared/discovery-brief.ts';
-import { TEST_TOPIC_PLAN, testOpening } from './discovery-topic-plan.ts';
+import { planToolInput, TEST_TOPIC_PLAN, testOpening } from './discovery-topic-plan.ts';
 import { parseReplyInput, parseTopicPlan, planReplyTurn, replyTool } from '../../../supabase/functions/_shared/discovery-reply.ts';
 
 const TOPICS = ['priority', 'booking', 'measure', 'owner', 'info', 'rules'];
@@ -100,11 +100,13 @@ const OPENING_REPLY = {
   agreed: [], openQuestions: [],
 };
 const DONOR_TOPIC = {
-  id: 'donors', title: 'Donor records', why: 'The donor list is what the tool keeps up to date.',
+  id: 'donors', title: 'Donor records', why: 'The donor list is what the tool keeps up to date.', dependsOn: ['priority'],
   question: 'Where do you keep donors today?', options: ['A shared donor list', 'Paper forms'], suggested: 'A shared donor list',
   recommendation: 'Suggested: a shared donor list.', uncertaintyHelp: 'To find out: ask who records a new gift.',
 };
-const DONOR_PLAN = { ...TEST_TOPIC_PLAN, topics: [DONOR_TOPIC], fileExamples: ['donor list'] };
+const KEY_ENTRIES = planToolInput(TEST_TOPIC_PLAN).topics.slice(0, 3);
+const withTopics = (topics: Record<string, unknown>[]) => ({ topics: [...KEY_ENTRIES, ...topics], fileExamples: ['donor list'] });
+const DONOR_PLAN = withTopics([DONOR_TOPIC]);
 
 function openingWith(plan: Record<string, unknown>, discoveryFileCount = 0) {
   return planReplyTurn({ ...OPENING_TURN, discoveryFileCount, toolInput: { ...OPENING_REPLY, ...plan } });
@@ -123,22 +125,25 @@ it('builds the opening brief from the plan, with fixed titles and the key flag o
   ]);
   expect(planned.brief.document.topics.donors?.definition.options.map((option) => option.label)).toEqual(['A shared donor list', 'Paper forms']);
   expect(planned.brief.document.questions.donors).toBeDefined();
+  expect(planned.brief.document.dependsOn).toEqual({ donors: ['priority'] });
 });
 
-it('rejects a plan with a duplicate id, a key id, a reserved id, too many topics, a stray suggestion or a missing key topic', () => {
+it('rejects a plan with a duplicate id, a key topic twice, a reserved id, too many topics, a stray suggestion, a missing key topic or an unknown dependency', () => {
   const bad = [
-    { ...DONOR_PLAN, topics: [DONOR_TOPIC, DONOR_TOPIC] },
-    { ...DONOR_PLAN, topics: [{ ...DONOR_TOPIC, id: 'owner' }] },
-    { ...DONOR_PLAN, topics: [{ ...DONOR_TOPIC, id: 'need' }] },
-    { ...DONOR_PLAN, topics: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((id) => ({ ...DONOR_TOPIC, id })) },
-    { ...DONOR_PLAN, topics: [{ ...DONOR_TOPIC, suggested: 'A spreadsheet' }] },
-    { ...DONOR_PLAN, keyTopics: { priority: TEST_TOPIC_PLAN.keyTopics.priority, info: TEST_TOPIC_PLAN.keyTopics.info } },
+    withTopics([DONOR_TOPIC, DONOR_TOPIC]),
+    withTopics([{ ...DONOR_TOPIC, id: 'owner' }]),
+    withTopics([{ ...DONOR_TOPIC, id: 'need' }]),
+    withTopics(['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((id) => ({ ...DONOR_TOPIC, id, dependsOn: [] }))),
+    withTopics([{ ...DONOR_TOPIC, suggested: 'A spreadsheet' }]),
+    { ...DONOR_PLAN, topics: [...KEY_ENTRIES.slice(0, 2), DONOR_TOPIC] },
+    withTopics([{ ...DONOR_TOPIC, dependsOn: ['grants'] }]),
+    withTopics([{ ...DONOR_TOPIC, dependsOn: ['donors'] }]),
   ];
   for (const plan of bad) {
     expect(parseTopicPlan(plan)).toBeNull();
     expect(openingWith(plan)).toEqual({ ok: false, release: true });
   }
-  expect(parseTopicPlan({ ...DONOR_PLAN, topics: ['a1', 'a2', 'a3', 'a4', 'a5'].map((id) => ({ ...DONOR_TOPIC, id })) })).not.toBeNull();
+  expect(parseTopicPlan(withTopics(['a1', 'a2', 'a3', 'a4', 'a5'].map((id) => ({ ...DONOR_TOPIC, id, dependsOn: [] }))))).not.toBeNull();
 });
 
 it('releases an opening reply without a plan, and a later reply that carries plan fields', () => {
@@ -146,7 +151,7 @@ it('releases an opening reply without a plan, and a later reply that carries pla
   expect(planReplyTurn({
     current: testOpening('Track grants.'), need: 'Track grants.', answers: [], userMessageId: 'later', round: 2,
     topicIds: TOPICS, opening: false, discoveryFileCount: 0,
-    toolInput: { text: 'Noted.', questions: [], agreed: [], openQuestions: [], ...TEST_TOPIC_PLAN },
+    toolInput: { text: 'Noted.', questions: [], agreed: [], openQuestions: [], ...planToolInput(TEST_TOPIC_PLAN) },
   })).toEqual({ ok: false, release: true });
 });
 

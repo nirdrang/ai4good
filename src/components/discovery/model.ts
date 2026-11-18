@@ -614,13 +614,13 @@ export type ReviewTicks = {
   data: boolean;
 };
 
-/** Finish stays unavailable while a file is reading or an edit is open. The review tick must match this revision. */
 export function keyTopicsMissing(brief: BriefSnapshot): string[] {
   return brief.topics
     .filter((topic) => topic.key === true && !topicSettled(topic))
     .map((topic) => topic.title);
 }
 
+/** Finish stays unavailable while a file is reading or an edit is open. The review tick must match this revision. */
 export function reviewGate(input: {
   revision: number;
   openCount: number;

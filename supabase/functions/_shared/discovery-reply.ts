@@ -5,7 +5,7 @@ import {
   DATA_TOPIC_ID,
   dataReportMissing,
   DECLINE_CAUSES,
-  KEY_TOPICS,
+  isKeyTopic,
   KEY_TOPIC_IDS,
   openingDocument,
   PLAN_FILE_EXAMPLES_MAX,
@@ -29,6 +29,7 @@ import {
   type FiledTopic,
   type Importance,
   type ReplyDataReport,
+  type KeyTopicId,
   type PlannedTopic,
   type ReplyUpdate,
   type Tier,
@@ -169,27 +170,21 @@ const WORDING_PROPERTIES = {
   uncertaintyHelp: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS, description: 'One sentence that starts with "To find out:".' },
 } as const;
 const WORDING_KEYS = Object.keys(WORDING_PROPERTIES);
-const PLANNED_KEYS = ['id', 'title', 'why', ...WORDING_KEYS];
-
-const WORDING_SCHEMA = { type: 'object', additionalProperties: false, properties: WORDING_PROPERTIES, required: WORDING_KEYS } as const;
+const PLANNED_KEYS = ['id', 'title', 'why', 'dependsOn', ...WORDING_KEYS];
 
 const PLAN_PROPERTIES = {
-  keyTopics: {
-    type: 'object',
-    additionalProperties: false,
-    properties: Object.fromEntries(KEY_TOPIC_IDS.map((id) => [id, WORDING_SCHEMA])),
-    required: [...KEY_TOPIC_IDS],
-  },
   topics: {
     type: 'array',
-    maxItems: PLANNED_TOPICS_MAX,
+    minItems: KEY_TOPIC_IDS.length,
+    maxItems: KEY_TOPIC_IDS.length + PLANNED_TOPICS_MAX,
     items: {
       type: 'object',
       additionalProperties: false,
       properties: {
-        id: { type: 'string', pattern: PLANNED_TOPIC_ID.source },
+        id: { type: 'string', pattern: PLANNED_TOPIC_ID.source, description: `${KEY_TOPIC_IDS.join(', ')} for the key topics, or a new id.` },
         title: { type: 'string', maxLength: PLAN_TITLE_MAX_CHARS },
         why: { type: 'string', maxLength: PLAN_TEXT_MAX_CHARS },
+        dependsOn: { type: 'array', items: { type: 'string' }, description: 'Ids of the topics whose answer this topic builds on.' },
         ...WORDING_PROPERTIES,
       },
       required: PLANNED_KEYS,
@@ -222,16 +217,10 @@ function parseWording(value: unknown, keys: readonly string[]): TopicWording | n
 }
 
 export function parseTopicPlan(value: Record<string, unknown>): TopicPlan | null {
-  if (!isRecord(value.keyTopics) || !exactKeys(value.keyTopics, KEY_TOPIC_IDS)) return null;
+  if (!Array.isArray(value.topics)) return null;
   const keyTopics: Partial<TopicPlan['keyTopics']> = {};
-  for (const key of KEY_TOPICS) {
-    const wording = parseWording(value.keyTopics[key.id], WORDING_KEYS);
-    if (wording === null) return null;
-    keyTopics[key.id] = wording;
-  }
-  if (!Array.isArray(value.topics) || value.topics.length > PLANNED_TOPICS_MAX) return null;
-  const seen = new Set<string>(KEY_TOPIC_IDS);
   const topics: PlannedTopic[] = [];
+  const seen = new Set<string>();
   for (const item of value.topics) {
     if (!isRecord(item)) return null;
     const wording = parseWording(item, PLANNED_KEYS);
@@ -239,9 +228,13 @@ export function parseTopicPlan(value: Record<string, unknown>): TopicPlan | null
     const title = planText(item.title, PLAN_TITLE_MAX_CHARS);
     const why = planText(item.why, PLAN_TEXT_MAX_CHARS);
     if (wording === null || title === null || why === null || !PLANNED_TOPIC_ID.test(id) || seen.has(id) || RESERVED_SECTION_IDS.has(id)) return null;
+    if (!Array.isArray(item.dependsOn) || !item.dependsOn.every((dep) => typeof dep === 'string' && dep !== id)) return null;
     seen.add(id);
-    topics.push({ id, title, why, ...wording });
+    if (isKeyTopic(id)) keyTopics[id as KeyTopicId] = wording;
+    else topics.push({ id, title, why, dependsOn: [...new Set(item.dependsOn as string[])], ...wording });
   }
+  if (topics.length > PLANNED_TOPICS_MAX || !KEY_TOPIC_IDS.every((id) => seen.has(id))) return null;
+  if (topics.some((topic) => topic.dependsOn.some((dep) => !seen.has(dep)))) return null;
   if (!Array.isArray(value.fileExamples) || value.fileExamples.length < 1 || value.fileExamples.length > PLAN_FILE_EXAMPLES_MAX) return null;
   const fileExamples = value.fileExamples.map((item) => planText(item, PLAN_TITLE_MAX_CHARS));
   if (fileExamples.some((item) => item === null)) return null;
@@ -394,9 +387,8 @@ ${discoverySkillsText(skills.filter((skill) => skill.name !== '06-write-the-scop
   ];
 }
 
-const PLANNING_TEXT = `This is the opening reply. There is no brief yet. Plan the Discovery topics for this NGO's need from the need, any file digests and the conversation.
-keyTopics words the three key topics for this need: priority is what should improve first, ${DATA_TOPIC_ID} is what information the tool will keep, and owner is who looks after the tool after handoff.
-topics lists up to ${PLANNED_TOPICS_MAX} more topics this need must settle. Each has a lowercase id, a title of at most four words, why it matters, one question, two to four concrete answer options, suggested (one of the options, exactly as written), a recommendation that starts with "Suggested:", and uncertaintyHelp that starts with "To find out:". Write only topics this need raises, never topics from another kind of need.
+const PLANNING_TEXT = `This is the first reply of Discovery. There is no brief yet. Plan the Discovery topics for this NGO's need from the need, any file digests and the conversation.
+topics lists every topic of this Discovery in one array. It always holds the three key topics, worded for this need: priority is what should improve first, ${DATA_TOPIC_ID} is what information the tool will keep, and owner is who looks after the tool after handoff. Add up to ${PLANNED_TOPICS_MAX} more topics this need must settle, each with a new id. Each topic has a lowercase id, a title of at most four words, why it matters, dependsOn (the ids of key or planned topics whose answer this topic builds on, often empty), one question, two to four concrete answer options, suggested (one of the options, exactly as written), a recommendation that starts with "Suggested:", and uncertaintyHelp that starts with "To find out:". Write only topics this need raises, never topics from another kind of need.
 fileExamples names one to three documents this NGO likely keeps that would help this need, in plain words without an article, such as "donor list".
 The questions in this reply use these topic ids.`;
 

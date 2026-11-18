@@ -2,7 +2,7 @@ import type { EmailProviderSim, ProviderAttempt, ProviderOutcome } from './contr
 import { providerForceCountProblem } from './guards.ts';
 import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
 import { DISCOVERY_REQUEST_SETTINGS } from '../../../supabase/functions/_shared/discovery-metering.ts';
-import { TEST_TOPIC_IDS, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
+import { planToolInput, TEST_TOPIC_IDS, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
 import { isRecord } from '../../../supabase/functions/_shared/write-routes.ts';
 export type { AnthropicMessagesPort } from './contracts.ts';
 
@@ -18,11 +18,11 @@ function countedRequestTokens(messages: unknown): number {
 
 function plansTopics(request: ModelRequestRecord): boolean {
   const schema = request.tools.find((tool) => tool.name === 'reply')?.input_schema;
-  return isRecord(schema?.properties) && 'keyTopics' in schema.properties;
+  return isRecord(schema?.properties) && 'fileExamples' in schema.properties;
 }
 
 function withTestPlan(input: Record<string, unknown>, planning: boolean): Record<string, unknown> {
-  return planning && !('keyTopics' in input) ? { ...input, ...TEST_TOPIC_PLAN } : input;
+  return planning && !('fileExamples' in input) ? { ...input, ...planToolInput(TEST_TOPIC_PLAN) } : input;
 }
 
 function scriptedReplyInput(reply: Exclude<ScriptedReply, { kind: 'error' }>, request: ModelRequestRecord): unknown {

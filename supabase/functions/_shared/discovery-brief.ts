@@ -266,7 +266,7 @@ export type TopicWording = {
   uncertaintyHelp: string;
 };
 
-export type PlannedTopic = TopicWording & { id: string; title: string; why: string };
+export type PlannedTopic = TopicWording & { id: string; title: string; why: string; dependsOn: string[] };
 
 export type TopicPlan = {
   keyTopics: Record<KeyTopicId, TopicWording>;
@@ -289,7 +289,7 @@ export function plannedOpeningTopics(plan: TopicPlan): OpeningTopic[] {
   const [priority, ...rest] = KEY_TOPICS.map((key) => wordedTopic(key.id, key.title, key.why, plan.keyTopics[key.id]));
   return [
     priority!,
-    ...plan.topics.map((topic) => wordedTopic(topic.id, topic.title, topic.why, topic)),
+    ...plan.topics.map((topic) => ({ ...wordedTopic(topic.id, topic.title, topic.why, topic), dependsOn: topic.dependsOn })),
     ...rest,
   ];
 }
