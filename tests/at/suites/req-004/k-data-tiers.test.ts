@@ -4,6 +4,7 @@ import { AWAITED, awaiting } from './_pending.ts';
 import { DATA_TOPIC_ID, type DataKind } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { SCOPE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import type { DiscoverySut, Session } from './_contract.ts';
+import { agreeKeyTopics } from './_key-topics.ts';
 import type { AnthropicMessagesSim } from '../../harness/contracts.ts';
 import { tierFinalPinProblems } from './_source-pins.ts';
 
@@ -54,6 +55,7 @@ async function tierFlow(sut: DiscoverySut, anthropic: AnthropicMessagesSim, emai
 }
 
 async function finish(sut: DiscoverySut, session: Session, organizationId: string, projectId: string, data: boolean) {
+  await agreeKeyTopics(sut, session, organizationId, projectId);
   const brief = await briefOf(sut, session, projectId);
   return sut.briefAction(session, { organizationId, projectId, action: 'finish', revision: brief.revision,
     acks: { reviewed: true, openGaps: true, data } });
@@ -189,7 +191,7 @@ atTest('AT-004.50', 'the tier attributes the data responsibility to the NGO and 
       }
       const finished = await finish(sut, ngo.session, ngo.organizationId, projectId, flow.tier !== 0);
       expect(finished).toMatchObject({ ok: true, brief: { dataTier: { tier: flow.tier, responsibility: 'ngo' } } });
-      expect(finished.ok && finished.confirmation?.revision).toBe(brief.revision);
+      expect(finished.ok && finished.confirmation?.revision).toBe((await briefOf(sut, ngo.session, projectId)).revision);
     }
     expect(tierFinalPinProblems()).toEqual([]);
   },

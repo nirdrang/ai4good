@@ -7,6 +7,7 @@ import { DISCOVERY_READY_SENTENCE } from '../../../../supabase/functions/_shared
 import { DECLINE_COPY } from '../../../../supabase/functions/_shared/scope-copy.ts';
 import type { AnthropicMessagesSim } from '../../harness/contracts.ts';
 import type { DiscoverySut, Session } from './_contract.ts';
+import { agreeKeyTopics } from './_key-topics.ts';
 
 const USAGE = { inputTokens: 1600, outputTokens: 120 };
 const INTAKE_FORM = {
@@ -54,6 +55,7 @@ async function fitTurn(sut: DiscoverySut, anthropic: AnthropicMessagesSim, email
 }
 
 async function finish(sut: DiscoverySut, session: Session, organizationId: string, projectId: string) {
+  await agreeKeyTopics(sut, session, organizationId, projectId);
   const brief = await briefOf(sut, session, projectId);
   return sut.briefAction(session, { organizationId, projectId, action: 'finish', revision: brief.revision,
     acks: { reviewed: true, openGaps: true, data: true } });

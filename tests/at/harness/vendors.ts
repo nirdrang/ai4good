@@ -3,6 +3,7 @@ import { providerForceCountProblem } from './guards.ts';
 import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
 import { DISCOVERY_REQUEST_SETTINGS } from '../../../supabase/functions/_shared/discovery-metering.ts';
 import { TEST_TOPIC_IDS, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
+import { isRecord } from '../../../supabase/functions/_shared/write-routes.ts';
 export type { AnthropicMessagesPort } from './contracts.ts';
 
 function foldedInputTokens(usage: {
@@ -17,11 +18,7 @@ function countedRequestTokens(messages: unknown): number {
 
 function plansTopics(request: ModelRequestRecord): boolean {
   const schema = request.tools.find((tool) => tool.name === 'reply')?.input_schema;
-  return isRecordValue(schema?.properties) && 'keyTopics' in schema.properties;
-}
-
-function isRecordValue(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return isRecord(schema?.properties) && 'keyTopics' in schema.properties;
 }
 
 function withTestPlan(input: Record<string, unknown>, planning: boolean): Record<string, unknown> {
@@ -32,7 +29,7 @@ function scriptedReplyInput(reply: Exclude<ScriptedReply, { kind: 'error' }>, re
   const planning = plansTopics(request);
   if (reply.kind === 'tool' && reply.name === 'reply') {
     const input = reply.input as { text?: unknown; facts?: string[]; constraints?: string[]; openQuestions?: string[] };
-    if (!isRecordValue(input)) return input;
+    if (!isRecord(input)) return input;
     if (typeof input.text === 'string') return withTestPlan(input, planning);
     if (Array.isArray(input.facts)) {
       const facts = [...input.facts, ...(input.constraints ?? [])];
