@@ -65,9 +65,39 @@ type TurnJson = {
   chatId: string;
   question?: { text: string; why: string; options: string[] } | null;
   sections?: Array<{ key: string; title: string }>;
+  brief?: unknown;
 };
 
 const CALLER: Caller = { id: ACTOR, githubHandle: null, emailVerified: true };
+const BRIEF = {
+  schemaVersion: 1,
+  need: { text: "Schedule kitchen volunteers", source: { kind: "intake" } },
+  usersToday: { text: "Coordinators fill a spreadsheet", source: { kind: "intake" } },
+  successMeasure: null,
+  topicOrder: ["booking", "rules"],
+  topics: {
+    booking: {
+      id: "booking",
+      title: "Who books shifts",
+      state: { kind: "agreed", answer: "Volunteers book themselves.", source: { kind: "chat", round: 1 }, answerMessageId: null },
+    },
+    rules: { id: "rules", title: "Booking rules", state: { kind: "open" } },
+  },
+  questionOrder: [],
+  questions: {},
+  dependsOn: {},
+  dataTier: null,
+  fit: null,
+  causeLabels: [],
+  removedCauseLabels: [],
+  fileFacts: [
+    {
+      text: "The rota is a spreadsheet.",
+      sectionId: "booking",
+      source: { kind: "file", fileId: "00000000-0000-4000-8000-000000000001", fileName: "rota.txt" },
+    },
+  ],
+};
 const READS = {} as CallerReads;
 
 function freshTurn(overrides: Partial<TurnJson> = {}): TurnJson {
@@ -276,18 +306,33 @@ describe("PRD turn on a mock model", () => {
           options: ["12 months", "24 months"],
         },
         sections: [{ key: "booking", title: "Who books shifts" }],
+        brief: BRIEF,
       },
     });
     const sidePrompt = JSON.stringify(side.prompts[0]);
     expect(sidePrompt).toContain("The NGO is answering this question: How long are details kept?");
     expect(sidePrompt).toContain("Suggested answers: 12 months; 24 months");
     expect(sidePrompt).not.toContain("The PRD sections, by key");
+    expect(sidePrompt).not.toContain("Discovery brief");
 
     const main = await run({
       streams: [() => textStream("Done.")],
-      turn: { sections: [{ key: "booking", title: "Who books shifts" }] },
+      turn: { sections: [{ key: "booking", title: "Who books shifts" }], brief: BRIEF },
     });
-    expect(JSON.stringify(main.prompts[0])).toContain("booking (Who books shifts)");
+    const mainPrompt = JSON.stringify(main.prompts[0]);
+    expect(mainPrompt).toContain("booking (Who books shifts)");
+    expect(mainPrompt).toContain("The NGO's confirmed Discovery brief:");
+    expect(mainPrompt).toContain("Need: Schedule kitchen volunteers");
+    expect(mainPrompt).toContain("What users do today: Coordinators fill a spreadsheet");
+    expect(mainPrompt).toContain("Who books shifts (agreed: Volunteers book themselves.)");
+    expect(mainPrompt).toContain("Booking rules (still open)");
+    expect(mainPrompt).toContain("From the file rota.txt: The rota is a spreadsheet.");
+
+    const unreadable = await run({
+      streams: [() => textStream("Done.")],
+      turn: { brief: { schemaVersion: 2 } },
+    });
+    expect(JSON.stringify(unreadable.prompts[0])).not.toContain("Discovery brief");
 
     const db = database({
       turn: freshTurn({ kind: "answer-write", parts: [], messageId: null }),

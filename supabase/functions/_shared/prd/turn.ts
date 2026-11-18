@@ -7,6 +7,7 @@ import {
   type ModelMessage,
 } from "npm:ai@7.0.102";
 import { createOpenAI } from "npm:@ai-sdk/openai@4.0.67";
+import { briefVersionFrom } from "../discovery-brief.ts";
 import { isRecord, type SettleActResult, type SettleDatabase } from "../write-routes.ts";
 import { finishStagedTurn, prdTools, type PrdToolDeps, type PrdToolScope } from "./tools.ts";
 
@@ -71,6 +72,7 @@ type OpenTurn = {
   chatId: string;
   question: { text: string; why: string; options: string[] } | null;
   sections: { key: string; title: string }[];
+  brief: string[];
 };
 
 export function prdModelSettings(env: Record<string, string | undefined>): PrdModelSettings | null {
@@ -179,7 +181,33 @@ function turnOf(value: unknown, chatId: string): OpenTurn | null {
             : [],
         )
       : [],
+    brief: briefLines(turn.brief),
   };
+}
+
+function briefLines(value: unknown): string[] {
+  const version = briefVersionFrom(1, value);
+  if (version === null) return [];
+  const brief = version.document;
+  const topics = brief.topicOrder.flatMap((id) => {
+    const topic = brief.topics[id];
+    if (topic === undefined) return [];
+    const state =
+      topic.state.kind === "agreed"
+        ? `agreed: ${topic.state.answer}`
+        : topic.state.kind === "not-sure"
+          ? "the NGO was not sure"
+          : "still open";
+    return [`- ${topic.title} (${state})`];
+  });
+  return [
+    "The NGO's confirmed Discovery brief:",
+    `Need: ${brief.need.text}`,
+    ...(brief.usersToday === null ? [] : [`What users do today: ${brief.usersToday.text}`]),
+    ...(brief.successMeasure === null ? [] : [`Success measure: ${brief.successMeasure.text}`]),
+    ...(topics.length === 0 ? [] : ["Topics:", ...topics]),
+    ...(brief.fileFacts ?? []).map((fact) => `From the file ${fact.source.fileName}: ${fact.text}`),
+  ];
 }
 
 function questionOf(value: unknown): OpenTurn["question"] {
@@ -246,7 +274,8 @@ function promptOf(chatKey: string, turn: OpenTurn): string {
       : [
           `The PRD sections, by key: ${turn.sections.map((section) => `${section.key} (${section.title})`).join("; ")}. Tools take the key.`,
         ];
-  return [`This message is in ${where}.`, ...sections, ...question, ...lines].join("\n");
+  const brief = turn.question === null ? turn.brief : [];
+  return [`This message is in ${where}.`, ...brief, ...sections, ...question, ...lines].join("\n");
 }
 
 function historyOf(rows: unknown, chatKey: string, turn: OpenTurn): ModelMessage[] {

@@ -85,6 +85,7 @@ declare
   v_requests bigint;
   v_question jsonb;
   v_sections jsonb;
+  v_brief jsonb;
 begin
   v_chat := public.prd_chat_for_key(p_project, p_chat_key);
   if v_chat is null then
@@ -115,6 +116,13 @@ begin
     into v_sections
     from public.prd_sections s
    where s.project_id = p_project;
+  select b.document
+    into v_brief
+    from public.prd_records r
+    join public.brief_revisions b
+      on b.project_id = r.project_id
+     and b.revision = r.discovery_revision
+   where r.project_id = p_project;
   return jsonb_build_object(
     'chatId', v_chat,
     'turn', jsonb_build_object(
@@ -131,7 +139,8 @@ begin
       'spentMicros', public.prd_micros(public.prd_turn_spend(v_turn.id)),
       'messageId', v_turn.message_id,
       'question', v_question,
-      'sections', v_sections
+      'sections', v_sections,
+      'brief', v_brief
     )
   );
 end;

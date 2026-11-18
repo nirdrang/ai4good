@@ -1273,6 +1273,7 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
       expect.arrayContaining(["booking", "rules"]),
     );
     expect(mainTurn.question).toBeNull();
+    expect(record(mainTurn.brief).schemaVersion).toBe(1);
     const replyGrant = await grantOf(issue(sql, reply.turnId, "reply"));
     const question = ngoQuestion("How long are contact details kept?");
     await objectOf(

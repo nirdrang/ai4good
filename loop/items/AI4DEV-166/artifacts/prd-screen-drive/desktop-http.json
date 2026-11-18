@@ -3,7 +3,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8"
+      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
     },
     "status": 200,
     "response": {
@@ -60,7 +60,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8"
+      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
     },
     "status": 200,
     "response": {
@@ -68,7 +68,7 @@
         {
           "id": "priority",
           "title": "Main priority",
-          "state": "open"
+          "state": "draft"
         },
         {
           "id": "booking",
@@ -103,8 +103,8 @@
       ],
       "funds": {
         "allocationMicros": 5000000,
-        "settledMicros": 295,
-        "pendingMicros": 49705,
+        "settledMicros": 349,
+        "pendingMicros": 49651,
         "replyHoldMicros": 50000,
         "availableMicros": 4950000,
         "band": "green",
@@ -117,7 +117,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8"
+      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
     },
     "status": 200,
     "response": {
@@ -125,7 +125,7 @@
         {
           "id": "priority",
           "title": "Main priority",
-          "state": "open"
+          "state": "draft"
         },
         {
           "id": "booking",
@@ -160,10 +160,10 @@
       ],
       "funds": {
         "allocationMicros": 5000000,
-        "settledMicros": 397,
-        "pendingMicros": 0,
+        "settledMicros": 463,
+        "pendingMicros": 49537,
         "replyHoldMicros": 50000,
-        "availableMicros": 4999603,
+        "availableMicros": 4950000,
         "band": "green",
         "replyFunded": true
       },
@@ -174,7 +174,64 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "70097925-c822-41db-b643-edf2c2aa1f5b"
+      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "draft"
+        },
+        {
+          "id": "booking",
+          "title": "Who books shifts",
+          "state": "open"
+        },
+        {
+          "id": "measure",
+          "title": "Success measure",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "rules",
+          "title": "Booking rules",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 463,
+        "pendingMicros": 0,
+        "replyHoldMicros": 50000,
+        "availableMicros": 4999537,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "4aac6cd6-0d04-47ef-aa4d-cc01d6a9fbe2"
     },
     "status": 409,
     "response": {
@@ -187,10 +244,10 @@
     "as": "dev",
     "name": "prd-action",
     "request": {
-      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d",
       "kind": "close",
       "token": "made-up",
-      "requestId": "92b21193-26a7-42ea-97bd-9cacf5fe10d2"
+      "requestId": "410f0dba-535c-49b9-a1f3-d7b54d4be972"
     },
     "status": 409,
     "response": {
@@ -203,11 +260,11 @@
     "as": "dev",
     "name": "prd-message",
     "request": {
-      "projectId": "d22bcd79-b21a-43a5-be03-005f8dc90ec8",
+      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d",
       "scope": {
         "kind": "main"
       },
-      "requestId": "87816fb4-8e70-48b2-8d9c-84e7ed96b470",
+      "requestId": "dbb9e7e3-0224-4c27-b565-0e289bef78d8",
       "baseRevision": 0,
       "intent": {
         "kind": "text",
@@ -225,7 +282,7 @@
     "as": "dev",
     "name": "prd-draft",
     "request": {
-      "projectId": "066a0f5f-c946-4105-94e4-e23208be5d48",
+      "projectId": "3faacabf-dc43-48b6-a631-6426e7c9f50a",
       "key": "main",
       "text": "no"
     },
