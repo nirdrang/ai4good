@@ -375,6 +375,8 @@ textarea{font-family:inherit}
 
         <sc-if value="{{sheetLimits}}" hint-placeholder-val="{{ false }}">
           <p style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{freeLeft}} free replies left today</p>
+          <div data-testid="limits-bar" aria-hidden="true" style="height:10px;border-radius:5px;background:#f1f5f9;overflow:hidden;display:flex"><span style="{{barStyle}}"></span></div>
+          <p data-testid="limits-values" style="margin:0;font-size:15px;line-height:22px;color:#334155">Free today: {{freeLeft}} of 10. Paid fuel: $0.00, none held for the next reply. Resets at midnight, your time.</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Each answer you send, and the AI's reply to it, uses one free reply. You get 10 a day. They renew at midnight, your time.</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">You have no paid balance, so you will not be charged. If the free replies run out, Discovery waits until midnight. Everything you wrote stays saved.</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Reading files, editing your brief, keeping a question open with “I’m not sure”, and finishing are always free.</p>
@@ -471,7 +473,7 @@ class Component extends DCLogic {
     const remaining = answers.findIndex((a) => !a);
     const transcript = s.transcript.concat([{ who: 'me', text: text, meta: unsure ? 'Kept open · no charge' : 'Sent · free reply' }]);
     this.setState({ answers: answers, transcript: transcript, draft: '', selected: null, thinking: true, lastTurn: remaining === -1,
-      freeLeft: unsure ? s.freeLeft : Math.max(0, s.freeLeft - 1), saving: true, focus: null, finished: false, ackReviewed: false });
+      freeLeft: unsure ? s.freeLeft : Math.max(0, s.freeLeft - 1), saving: true, focus: null, finished: false, ackReviewed: false, ackData: false, ackGaps: false });
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       const st = this.state;
@@ -607,7 +609,7 @@ class Component extends DCLogic {
     const openTitle = open.length === 1 ? '1 question is still open' : open.length + ' questions are still open';
 
     const sheetTitles = { questions: 'Questions', brief: 'Your brief', files: 'Your files', limits: 'Reply limits' };
-    const sendDisabled = s.thinking || s.draft.trim() === '';
+    const sendDisabled = s.thinking || s.draft.trim() === '' || (s.freeLeft === 0 && s.draft.trim() !== this.unsureText);
     const lines = Math.ceil((s.draft.length || 1) / 22);
     return {
       setBody: this.setBody, setReview: this.setReview, setOpenPanel: this.setOpenPanel,
@@ -630,12 +632,12 @@ class Component extends DCLogic {
       readyCta: ruled ? 'Finish Discovery' : 'Review your brief',
       showComposer: !ready,
       compactUsage: !ruled && s.freeLeft <= 3, fullUsage: ruled, freeLeft: s.freeLeft,
-      usageLine: s.freeLeft === 0 ? 'No free replies left today' : 'Only ' + s.freeLeft + (s.freeLeft === 1 ? ' free reply' : ' free replies') + ' left today · no charge',
+      usageLine: s.freeLeft === 0 ? 'No free replies left today. Your draft stays; replies return at midnight.' : 'Only ' + s.freeLeft + (s.freeLeft === 1 ? ' free reply' : ' free replies') + ' left today · no charge',
       barStyle: 'display:block;height:10px;background:#166534;width:' + (s.freeLeft * 10) + '%',
       rows: Math.min(8, Math.max(1, lines)),
       draft: s.draft,
       onDraft: (e) => this.setState({ draft: e.target.value }),
-      send: () => { const v = this.state.draft.trim(); if (v) this.submit(v, this.state.selected === 3 && v === this.unsureText); },
+      send: () => { const v = this.state.draft.trim(); if (v) this.submit(v, v === this.unsureText); },
       sendDisabled: sendDisabled,
       sendStyle: 'flex:0 0 auto;height:44px;padding:0 18px;border-radius:10px;border:none;font-size:16px;font-weight:600;cursor:pointer;' + (sendDisabled ? 'background:#e2e8f0;color:#64748b' : 'background:#0f172a;color:#ffffff'),
       sheetOpen: !!s.sheet, sheetTitle: sheetTitles[s.sheet] || '',

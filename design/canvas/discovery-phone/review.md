@@ -1,8 +1,8 @@
 # Discovery phone redesign: review record
 
 Requirement: REQ-004. Screen: Discovery on a phone (390 by 844), from sign-in to finish.
-Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 14.
-Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 14). The canvas player (`support.js`) is not committed.
+Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 15.
+Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 15). The canvas player (`support.js`) is not committed.
 
 ## Why this redesign
 
@@ -78,6 +78,6 @@ Small leftover: the "I'm not sure" row of the first question starts just below t
 ## Not done here
 
 - The desktop boards. This redesign covers the phone only, and the three rulings apply on a phone.
-- PRD text: the three rulings change how the screen shows things, not what REQ-004 requires, so the PRD is unchanged.
+- PRD text: the first three rulings change only how the screen shows things. The later rulings change REQ-004 (Discovery completion, the publish step, and the phone review order), and the PRD copies are updated in this pull request.
 - Paid mode on a phone. The contract section describes the usage line and the Reply limits panel in paid mode, but the canvas draws only free mode.
 - Screen build and screen wiring.
