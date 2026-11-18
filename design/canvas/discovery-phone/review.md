@@ -1,8 +1,8 @@
 # Discovery phone redesign: review record
 
 Requirement: REQ-004. Screen: Discovery on a phone (390 by 844), from sign-in to finish.
-Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 15.
-Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 15). The canvas player (`support.js`) is not committed.
+Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 16.
+Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 16). The canvas player (`support.js`) is not committed.
 
 ## Why this redesign
 
@@ -48,7 +48,7 @@ Reports and screenshots: the project files folder `phone-ui-persona-review/canva
 
 The bottom row of the canvas kept three earlier rulings so they could be compared. In both retest rounds all three personas preferred the proposed version of each. The founder chose "Proposed for all three" on the question "Which version of the three earlier Discovery rulings should we keep?".
 
-1. Finish Discovery is no longer the primary button from the start. The header shows a secondary Review button, which becomes primary when every topic is answered or kept open. MARKED: changes the contract.
+1. Finish Discovery is no longer the primary button from the start. The header shows a secondary Review button, which becomes primary when every topic is answered or kept open and, since ruling 7, the key topics are agreed. MARKED: changes the contract.
 2. On a phone, the full usage card with its bar no longer sits above the message box. One line shows the free replies left and "no charge" when no fuel is used, with a Reply limits link that opens the details. MARKED: changes the contract and AT-004.72.
 3. On the review page the brief comes first. A line at the top says how many questions are still open and jumps to them. Open questions carry an amber "Still to decide" label instead of a red one. MARKED: changes the contract and AT-004.62.
 
@@ -77,7 +77,7 @@ Small leftover: the "I'm not sure" row of the first question starts just below t
 
 ## Not done here
 
-- The desktop boards. This redesign covers the phone only, and the three rulings apply on a phone.
+- The desktop boards. This canvas draws the phone only. The first three rulings apply on a phone; rulings 4 to 7 apply on desktop too, and the contract states them for both.
 - PRD text: the first three rulings change only how the screen shows things. The later rulings change REQ-004 (Discovery completion, the publish step, and the phone review order), and the PRD copies are updated in this pull request.
 - Paid mode on a phone. The contract section describes the usage line and the Reply limits panel in paid mode, but the canvas draws only free mode.
 - Screen build and screen wiring.

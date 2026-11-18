@@ -376,9 +376,9 @@ textarea{font-family:inherit}
         <sc-if value="{{sheetLimits}}" hint-placeholder-val="{{ false }}">
           <p style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{freeLeft}} free replies left today</p>
           <div data-testid="limits-bar" aria-hidden="true" style="height:10px;border-radius:5px;background:#f1f5f9;overflow:hidden;display:flex"><span style="{{barStyle}}"></span></div>
-          <p data-testid="limits-values" style="margin:0;font-size:15px;line-height:22px;color:#334155">Free today: {{freeLeft}} of 10. Paid fuel: $0.00, none held for the next reply. Resets at midnight, your time.</p>
-          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Each answer you send, and the AI's reply to it, uses one free reply. You get 10 a day. They renew at midnight, your time.</p>
-          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">You have no paid balance, so you will not be charged. If the free replies run out, Discovery waits until midnight. Everything you wrote stays saved.</p>
+          <p data-testid="limits-values" style="margin:0;font-size:15px;line-height:22px;color:#334155">Free today: {{freeLeft}} of 10. Paid fuel: $0.00, none held for the next reply. Resets at 00:00 UTC.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Each answer you send, and the AI's reply to it, uses one free reply. Keeping a question open with “I’m not sure” is free. You get 10 a day. They renew at 00:00 UTC.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">You have no paid balance, so you will not be charged. If the free replies run out, Discovery waits until 00:00 UTC. Everything you wrote stays saved.</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Reading files, editing your brief, keeping a question open with “I’m not sure”, and finishing are always free.</p>
           <p style="margin:0;font-size:15px;line-height:22px;color:#334155">When 3 or fewer free replies are left, a short line above the message box tells you.</p>
         </sc-if>
@@ -484,7 +484,11 @@ class Component extends DCLogic {
         : unsure
         ? 'That’s fine. I’ve marked “' + this.topics[cur].title + '” as ' + label + '. It stays in your brief, and a volunteer will ask about it before building.'
         : 'Thanks, I’ve added that to your brief under “' + this.topics[cur].title + '”.';
-      const text = next < 6 ? ack + '\n\n' + this.topics[next].ask : ack + '\n\nThat covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.';
+      const missing = this.ruled() ? [] : this.keyTopics.filter((k) => !answers[k] || answers[k].status !== 'agreed').map((k) => '“' + this.topics[k].title + '”');
+      const end = missing.length > 0
+        ? 'That covers all six topics. To finish, I still need an answer to ' + missing.join(' and ') + '. You can answer from the review.'
+        : 'That covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.';
+      const text = next < 6 ? ack + '\n\n' + this.topics[next].ask : ack + '\n\n' + end;
       this.setState({ thinking: false, saving: false, transcript: st.transcript.concat([{ who: 'ai', text: text }]) });
     }, 1400);
   }
@@ -628,11 +632,11 @@ class Component extends DCLogic {
       thinkingText: s.lastTurn ? 'Updating your brief…' : 'Preparing your next question…',
       showCard: !ready && !s.thinking, card: card,
       ready: ready && !s.thinking,
-      readyBody: unsure ? 'Every topic has an answer or is kept open. Check the brief, then finish. Open questions stay in the brief for the volunteer.' : 'All six topics are answered. Check the brief, then finish. Finishing is free.',
+      readyBody: missingKey.length > 0 ? 'To finish, answer ' + missingText + '. Open the review and tap Answer in chat.' : unsure ? 'Every topic has an answer or is kept open. Check the brief, then finish. Open questions stay in the brief for the volunteer.' : 'All six topics are answered. Check the brief, then finish. Finishing is free.',
       readyCta: ruled ? 'Finish Discovery' : 'Review your brief',
       showComposer: !ready,
       compactUsage: !ruled && s.freeLeft <= 3, fullUsage: ruled, freeLeft: s.freeLeft,
-      usageLine: s.freeLeft === 0 ? 'No free replies left today. Your draft stays; replies return at midnight.' : 'Only ' + s.freeLeft + (s.freeLeft === 1 ? ' free reply' : ' free replies') + ' left today · no charge',
+      usageLine: s.freeLeft === 0 ? 'No free replies left today. Your draft stays; replies return at 00:00 UTC.' : 'Only ' + s.freeLeft + (s.freeLeft === 1 ? ' free reply' : ' free replies') + ' left today · no charge',
       barStyle: 'display:block;height:10px;background:#166534;width:' + (s.freeLeft * 10) + '%',
       rows: Math.min(8, Math.max(1, lines)),
       draft: s.draft,
