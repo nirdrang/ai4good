@@ -1,8 +1,8 @@
 # Discovery phone redesign: review record
 
 Requirement: REQ-004. Screen: Discovery on a phone (390 by 844), from sign-in to finish.
-Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 16.
-Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 16). The canvas player (`support.js`) is not committed.
+Canvas: https://claude.ai/artifact/GiGBRX1xaDYR1UT6JhCP5p, version 15.
+Copy for screen build: `design/canvas/discovery-phone/project/` (all boards and `canvas.json`, from version 15). The canvas player (`support.js`) is not committed.
 
 ## Why this redesign
 
