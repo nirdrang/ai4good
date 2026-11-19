@@ -68,13 +68,13 @@ fi
 # indented undo lines keep their grok descriptors.
 sheet="$CLAUDE_PROJECT_DIR/.claude/pstack-models.md"
 if grep -qE '^[^[:space:]].*grok:grok-' "$sheet"; then
-  sed -i -E '/^[^[:space:]]/ s/grok:grok-[0-9.]+@[a-z]+/codex:gpt-6.1-sol@max/g' "$sheet"
+  sed -i -E '/^[^[:space:]]/ s/grok:grok-[0-9.]+@[a-z]+/codex:gpt-6.2-sol@max/g' "$sheet"
   git -C "$CLAUDE_PROJECT_DIR" update-index --skip-worktree .claude/pstack-models.md
 fi
 if grep -qE '^[^[:space:]].*grok:grok-' "$sheet"; then
   lines+=("pstack sheet: grok lanes NOT replaced - check .claude/pstack-models.md")
 else
-  lines+=("pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start")
+  lines+=("pstack sheet: every grok lane is codex:gpt-6.2-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
 
 (bunx playwright-core install chromium-headless-shell >/tmp/playwright-install.log 2>&1
