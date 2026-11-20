@@ -34,7 +34,7 @@ Assess the shared process bar separately from those screens.
 ## After Discovery: volunteer matching
 
 After the NGO confirms Discovery, the process bar highlights **Volunteer match**, before PRD.
-The finished screen offers **Find a volunteer**. This action publishes the project at once; only a vetted NGO can publish.
+The finished screen offers **Find a volunteer**. Since 2026-11-18 it first shows what volunteers will see, then **Publish brief** publishes the project at once; only a vetted NGO can publish. See Phone redesign, 2026-11-18.
 The project has been public since intake as an intake card; publishing swaps the intake need for the Discovery document and opens matching. ai4good then coordinates a volunteer match.
 The volunteer must consent, and the NGO must fund kickoff before PRD work begins.
 The matching step covers publishing, finding a volunteer, consent, and funding readiness.
@@ -89,10 +89,10 @@ Optional detail must not delay completion. Unknown facts stay visible; the agent
 
 When required topics are agreed, the AI states that Discovery is ready for review and stops asking questions.
 The interface replaces the composer with a finish invitation. Completion must stop further automatic model calls and charges.
-The **Finish Discovery** action remains enabled and primary throughout, including at zero topic coverage or with no fuel.
-Clicking it opens one review page (revision 12). The open questions come first, each with its importance (Needed before build, A suggestion exists, or Can wait), why it matters, and any suggested answer. The NGO can use the suggestion, answer in the chat, or keep the question open.
+The **Finish Discovery** action stays reachable throughout, also with no fuel. Since 2026-11-18 completion needs an agreed answer to each key topic; see Phone redesign, 2026-11-18. On a phone it is a secondary Review button until every topic is answered or kept open; see Phone redesign, 2026-11-18.
+Clicking it opens one review page (revision 12). On a phone the brief comes first; see Phone redesign, 2026-11-18. Elsewhere the open questions come first, each with its importance (Needed before build, A suggestion exists, or Can wait), why it matters, and any suggested answer. The NGO can use the suggestion, answer in the chat, or keep the question open.
 The NGO can return to the conversation or acknowledge the gaps and finish anyway.
-Unanswered topics, uncertainty, dependent questions, and an empty summary do not block acknowledged completion.
+Unanswered topics, uncertainty, dependent questions, and an empty summary do not block acknowledged completion, except the three key topics (founder 2026-11-18; see Phone redesign, 2026-11-18).
 Existing human review holds and data responsibilities remain separate. A missing answer is not a review hold.
 If a manual edit or AI reply is in progress, the active button explains how to save, cancel, or stop before review.
 
@@ -111,7 +111,7 @@ Verify that the last answer stops questioning, finishing is free, and repeated c
 
 ## Funding panel
 
-Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily turns left of the grant and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. On a phone, the bar sits directly above the message box.
+Keep these values visible together in one Discovery usage card (revision 12). One two-part bar shows free replies first, then paid fuel. One line gives the daily turns left of the grant and fuel values; the reset sits in the card's footer. The card stays visible while the brief is open. Since 2026-11-18, on every screen size, no usage card sits above the message box: a short usage line shows only near the limit, and the card's values move to a Reply limits panel; see Phone redesign, 2026-11-18.
 
 | Value | Example | Rule |
 | --- | --- | --- |
@@ -184,7 +184,7 @@ The rules below stay inside the sections above. They say how the screen presents
 ### Progress and finishing
 
 - Before the first answer, the progress panel lists the open topics and offers review and completion with those topics open.
-- Finish Discovery in the progress panel is always an enabled primary button. Missing information appears in the review instead of disabling it.
+- Finish Discovery in the progress panel opens the review at any time. On the review page Finish stays disabled until the key topics are agreed (founder 2026-11-18); other missing information appears in the review instead of disabling it.
 - A file that is still being read keeps Finish Discovery unavailable on the review page. The page says so. The progress button still opens the review (founder decision 2026-10-01).
 - After the progress panel scrolls out of view, a compact strip stays at the top of the page.
   The strip shows the percentage, the agreed topic count, and the same enabled Finish Discovery action.
@@ -303,6 +303,21 @@ The current application uses the system sans-serif stack supplied by Tailwind.
 Light and dark themes use the existing variables. Do not copy the prototype's independent green page palette.
 Keep visible focus, keyboard answer selection, labeled controls, and accessible progress values.
 At 320 CSS pixels, no required control or amount may be clipped.
+
+## Phone redesign, 2026-11-18
+
+Founder ruling 2026-11-18, after two persona retests of the canvas in `design/canvas/discovery-phone/` (record: `review.md` there). These rules apply at phone width and replace the phone rules above where they differ. The usage rule, the "I'm not sure" rule, the publish preview and the key topics apply on desktop too. The canvas boards hold the detail.
+
+- **Header.** The project name, the NGO and the save state, an Account button (name, email, organisation, Sign out), the topic count with one segment per topic, and Questions, Your brief and Review buttons. Review is secondary until every topic is answered or kept open and the three key topics are agreed, then primary. No primary Finish Discovery button sits in the header before that. Finishing stays available at any coverage, as above.
+- **First screen.** One line says what the answers become. The first AI message, the current question and its answer choices, and the message box fit at 390 by 844.
+- **Answering.** One message box. A tapped answer choice, including "I'm not sure yet. Keep it open.", fills the message box, the NGO can change the words, and Send sends it. Sending "I'm not sure yet. Keep it open." unchanged uses no free reply and no fuel, and the AI's reply to it is free too (founder 2026-11-18); the sent bubble says "Kept open · no charge". If the NGO edits that text, it is an ordinary answer, charged as usual, and the AI decides whether it settles the topic. MARKED: changes the metering rule that one completed reply uses one free turn. After Send the answer shows in the chat with a waiting line: "Preparing your next question…", or "Updating your brief…" after the last topic. The answer card always shows the question the AI just asked.
+- **Usage (founder 2026-11-18, on phone and desktop).** No usage card or bar sits above the message box. A short line above the message box shows only when it matters: when 3 or fewer free replies are left today ("Only 2 free replies left today · no charge"), when none are left, or in paid mode (the fuel left and "paid reply", in the gauge's warning colour at yellow and red). Otherwise the chat shows no usage text. The line carries a Reply limits link, and the Account menu always has Reply limits with today's free count. Reply limits opens a panel (full screen on a phone, beside the chat on desktop) with the bar, the values, the reset, the hold, and Buy fuel when it applies. The usage values and metering rules above are unchanged; only where and when they show changes. MARKED: changes AT-004.46 and AT-004.72.
+- **Questions.** Order: Answer now, then the open questions with Answer, then later topics, then answered topics as one-line rows.
+- **Files.** The first AI message offers "Attach a sample rota (optional)", and a paperclip sits beside the message box. The sample-data advice sits above Choose a file.
+- **Review.** The brief comes first, each section with Edit. A line at the top gives the number of open questions and jumps to them. The open questions follow the brief, each with an amber "Still to decide" label, its importance, why it matters, its suggestion, Use the suggestion (secondary) and Answer in chat. Using a suggestion shows "Added to your brief" with Undo. Any change to an answer clears the acknowledgments.
+- **After finishing.** A status screen shows "Discovery finished" or "Finished with open questions", and offers Find a volunteer and See your brief. Find a volunteer does not publish on its own tap (founder 2026-11-18, on phone and desktop): it shows "What volunteers will see", the brief's sections with open questions marked "Still to decide", and a line with the number of open questions, then **Publish brief** (primary) and **Not yet**, which returns to the status screen unpublished. Publish brief publishes at once, as before. After publishing the screen says what happens next. MARKED: changes the one-tap publish rule above and AT-004.78. A reopened brief keeps its saved or published status and offers Back to project status.
+- **Key topics (founder 2026-11-18, on phone and desktop).** Three topics are key: Main priority, Information handled and Maintenance owner. Finish stays disabled until each has an agreed answer; "I'm not sure" does not settle a key topic, and the chat says so when the NGO picks it there. The review lists the missing key topics first, each with "Needed to finish" and Answer in chat, and the Finish button's note names them. Review in the header turns primary only when the key topics are answered. Every other topic can stay open, as before. The gate is enforced in the finish edge function (`decideFinish` refuses with a new reason), and the UI only mirrors it; the AI cannot change which topics are key, because the key flag is set in code on the topic seed and the reply tool has no field for it. MARKED: changes REQ-004 Discovery completion, AT-004.62 and the zero-coverage rule above.
+- Every control is at least 44 pixels high.
 
 ## Implementation and proof
 

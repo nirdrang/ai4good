@@ -748,3 +748,12 @@ atTest(
     },
   },
 );
+const pendingUntilBuilt = (id: string) => async () => {
+  throw new AtPending(id, 'sut-missing', 'the founder rulings of 2026-11-18 land in screen build and screen wiring');
+};
+atTest('AT-004.76', 'the phone chat shows the first question and one message box', pendingUntilBuilt('AT-004.76'));
+atTest('AT-004.77', 'the usage line shows only near the limit and Reply limits stays one tap away', pendingUntilBuilt('AT-004.77'));
+atTest('AT-004.78', 'the phone review shows the brief first and keeps the status', pendingUntilBuilt('AT-004.78'));
+atTest('AT-004.79', 'the phone Account menu signs out and controls are 44 px', pendingUntilBuilt('AT-004.79'));
+atTest('AT-004.80', 'an I am not sure reply uses no free turn and no fuel', pendingUntilBuilt('AT-004.80'));
+atTest('AT-004.81', 'finish is refused until the key topics have agreed answers', pendingUntilBuilt('AT-004.81'));
