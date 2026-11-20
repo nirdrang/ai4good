@@ -1,17 +1,19 @@
 import { expect, it } from 'vitest';
-import { openingDocument } from '../../../supabase/functions/_shared/discovery-brief.ts';
-import { parseReplyInput, planReplyTurn, replyTool } from '../../../supabase/functions/_shared/discovery-reply.ts';
+import { snapshotOf } from '../../../supabase/functions/_shared/discovery-brief.ts';
+import { planToolInput, TEST_TOPIC_PLAN, testOpening } from './discovery-topic-plan.ts';
+import { parseReplyInput, parseTopicPlan, planReplyTurn, replyTool } from '../../../supabase/functions/_shared/discovery-reply.ts';
+import type { TopicPlan } from '../../../supabase/functions/_shared/discovery-brief.ts';
 
 const TOPICS = ['priority', 'booking', 'measure', 'owner', 'info', 'rules'];
 
 function askedBrief() {
-  const opened = openingDocument({ need: 'Track grants.' });
+  const opened = testOpening('Track grants.');
   const planned = planReplyTurn({
     current: opened, need: 'Track grants.', answers: [], userMessageId: 'open-1', round: 1,
-    topicIds: TOPICS, opening: false, discoveryFileCount: 3,
+    plan: null, topicIds: TOPICS, opening: false, discoveryFileCount: 3,
     toolInput: {
       text: 'What should improve first?',
-      questions: [{ topicId: 'priority', suggestion: 'Less coordination time', suggested: 'time', importance: 'needed', reason: 'A clear priority keeps the first version small.' }],
+      questions: [{ topicId: 'priority', suggestion: 'Less coordination time', suggested: 'o1', importance: 'needed', reason: 'A clear priority keeps the first version small.' }],
       agreed: [], openQuestions: [],
     },
   });
@@ -22,7 +24,7 @@ function askedBrief() {
 it('parses a reply and rejects an unknown topic, a missing field and an extra field', () => {
   const valid = {
     text: 'Noted.',
-    questions: [{ topicId: 'booking', suggestion: 'Volunteers book themselves', suggested: 'self', importance: 'needed', reason: 'This decides who needs access.' }],
+    questions: [{ topicId: 'booking', suggestion: 'Volunteers book themselves', suggested: 'o1', importance: 'needed', reason: 'This decides who needs access.' }],
     agreed: [{ topicId: 'priority', answer: 'Less coordination time' }],
     openQuestions: [{ topicId: 'measure', importance: 'later' }],
   };
@@ -37,8 +39,8 @@ it('parses a reply and rejects an unknown topic, a missing field and an extra fi
 it('applies the answer before the model update and ignores a repeated agreed topic', () => {
   const current = askedBrief();
   const planned = planReplyTurn({
-    current, need: 'Track grants.', userMessageId: 'user-1', round: 2, topicIds: TOPICS, opening: false, discoveryFileCount: 0,
-    answers: [{ questionId: 'priority', choice: 'time', text: 'Less coordination time', certain: true }],
+    current, need: 'Track grants.', userMessageId: 'user-1', round: 2, plan: null, topicIds: TOPICS, opening: false, discoveryFileCount: 0,
+    answers: [{ questionId: 'priority', choice: 'o1', text: 'Less coordination time', certain: true }],
     toolInput: {
       text: 'I recorded a different priority.',
       questions: [],
@@ -53,7 +55,7 @@ it('applies the answer before the model update and ignores a repeated agreed top
   expect(planned.filed).toEqual([{ id: 'priority', title: 'Main priority' }]);
   const repeated = planReplyTurn({
     current: planned.brief, need: 'Track grants.', answers: [], userMessageId: 'user-2', round: 3,
-    topicIds: TOPICS, opening: false, discoveryFileCount: 0,
+    plan: null, topicIds: TOPICS, opening: false, discoveryFileCount: 0,
     toolInput: {
       text: 'Still the same priority.',
       questions: [],
@@ -68,10 +70,10 @@ it('applies the answer before the model update and ignores a repeated agreed top
 });
 
 it('releases the credit when the tool input is invalid', () => {
-  const current = openingDocument({ need: 'Track grants.' });
+  const current = testOpening('Track grants.');
   expect(planReplyTurn({
     current, need: 'Track grants.', answers: [], userMessageId: 'user-3', round: 1,
-    topicIds: TOPICS, opening: false, discoveryFileCount: 0, toolInput: { text: 'No update.' },
+    plan: null, topicIds: TOPICS, opening: false, discoveryFileCount: 0, toolInput: { text: 'No update.' },
   })).toEqual({ ok: false, release: true });
 });
 
@@ -84,10 +86,76 @@ it('bounds, canonicalises and deduplicates labels in the reply tool', () => {
   }
 });
 it('a later reply cannot restore a label the NGO removed', () => {
-  const current = openingDocument({ need: 'Food bank shelf list.' });
+  const current = testOpening('Food bank shelf list.');
   current.document.removedCauseLabels = ['food security'];
   const plan = planReplyTurn({ current, need: current.document.need.text, answers: [], userMessageId: 'turn', round: 2,
-    topicIds: TOPICS, opening: false, discoveryFileCount: 0,
+    plan: null, topicIds: TOPICS, opening: false, discoveryFileCount: 0,
     toolInput: { text: 'Recorded.', questions: [], agreed: [], openQuestions: [], causeLabels: ['food security'] } });
   expect(plan.ok && plan.brief.document.causeLabels).toEqual([]);
+});
+
+const OPENING_TURN = { current: null, need: 'Track donors.', answers: [], userMessageId: 'open', round: 1, opening: true, discoveryFileCount: 0 };
+const OPENING_REPLY = {
+  text: 'Let us start with your main priority.',
+  questions: [{ topicId: 'donors', suggestion: 'A shared donor list', suggested: 'A shared donor list', importance: 'needed', reason: 'The list decides what the tool keeps.' }],
+  agreed: [], openQuestions: [],
+};
+const DONOR_TOPIC = {
+  id: 'donors', title: 'Donor records', why: 'The donor list is what the tool keeps up to date.', dependsOn: ['priority'],
+  question: 'Where do you keep donors today?', options: ['A shared donor list', 'Paper forms'], suggested: 'A shared donor list',
+  recommendation: 'Suggested: a shared donor list.', uncertaintyHelp: 'To find out: ask who records a new gift.',
+};
+const KEY_ENTRIES = planToolInput(TEST_TOPIC_PLAN).topics.slice(0, 3);
+const withTopics = (topics: Record<string, unknown>[]) => ({ topics: [...KEY_ENTRIES, ...topics], fileExamples: ['donor list'] });
+const DONOR_PLAN = parseTopicPlan(withTopics([DONOR_TOPIC]))!;
+const DONOR_IDS = ['priority', 'donors', 'info', 'owner'];
+
+function openingWith(plan: TopicPlan | null, discoveryFileCount = 0, toolInput: unknown = OPENING_REPLY) {
+  return planReplyTurn({ ...OPENING_TURN, discoveryFileCount, plan, topicIds: DONOR_IDS, toolInput });
+}
+
+it('builds the opening brief from the plan, with fixed titles for the key topics', () => {
+  expect(DONOR_PLAN).not.toBeNull();
+  const planned = openingWith(DONOR_PLAN);
+  expect(planned.ok).toBe(true);
+  if (!planned.ok) return;
+  const topics = snapshotOf(planned.brief).topics;
+  expect(topics.map((topic) => [topic.id, topic.title])).toEqual([
+    ['priority', 'Main priority'],
+    ['donors', 'Donor records'],
+    ['info', 'Information handled'],
+    ['owner', 'Maintenance owner'],
+  ]);
+  expect(planned.brief.document.topics.donors?.definition.options.map((option) => option.label)).toEqual(['A shared donor list', 'Paper forms']);
+  expect(planned.brief.document.questions.donors).toBeDefined();
+  expect(planned.brief.document.dependsOn).toEqual({ donors: ['priority'] });
+});
+
+it('rejects a plan with a duplicate id, a key topic twice, a reserved id, too many topics, a stray suggestion, a missing key topic or an unknown dependency', () => {
+  const bad = [
+    withTopics([DONOR_TOPIC, DONOR_TOPIC]),
+    withTopics([{ ...DONOR_TOPIC, id: 'owner' }]),
+    withTopics([{ ...DONOR_TOPIC, id: 'need' }]),
+    withTopics(['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].map((id) => ({ ...DONOR_TOPIC, id, dependsOn: [] }))),
+    withTopics([{ ...DONOR_TOPIC, suggested: 'A spreadsheet' }]),
+    { topics: [...KEY_ENTRIES.slice(0, 2), DONOR_TOPIC], fileExamples: ['donor list'] },
+    withTopics([{ ...DONOR_TOPIC, dependsOn: ['grants'] }]),
+    withTopics([{ ...DONOR_TOPIC, dependsOn: ['donors'] }]),
+    { ...withTopics([DONOR_TOPIC]), fileExamples: [] },
+  ];
+  for (const plan of bad) expect(parseTopicPlan(plan)).toBeNull();
+  expect(parseTopicPlan(withTopics(['a1', 'a2', 'a3', 'a4', 'a5'].map((id) => ({ ...DONOR_TOPIC, id, dependsOn: [] }))))).not.toBeNull();
+});
+
+it('releases the first reply when there is no brief and no plan', () => {
+  expect(openingWith(null)).toEqual({ ok: false, release: true });
+});
+
+it('names the files that would help this need on the opening reply, unless the NGO already has three files', () => {
+  const asked = openingWith(DONOR_PLAN);
+  expect(asked.ok && asked.suffix).toContain('Files that would help this need: donor list.');
+  const full = openingWith(DONOR_PLAN, 3);
+  expect(full.ok).toBe(true);
+  if (!full.ok) return;
+  expect(full.text).not.toContain('Files that would help this need');
 });

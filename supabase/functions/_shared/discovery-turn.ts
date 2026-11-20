@@ -1,6 +1,6 @@
 import { renderDiscoveryAllowance, type Allowance } from './discovery-allowance.ts';
-import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, openingDocument, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine } from './discovery-brief.ts';
-import { DATA_REPORT_REQUEST, DATA_REPORT_TOOL, DISCOVERY_FILE_LIMIT, openQuestions, parseDataReport, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage } from './discovery-reply.ts';
+import { BRIEF_REASONS, briefVersionFrom, briefViewFromRead, plannedOpeningTopics, snapshotOf, type BriefSnapshot, type BriefVersion, type Confirmation, type DeclinedFit, type DiscoveryAnswer, type PersonLine, type TopicPlan } from './discovery-brief.ts';
+import { DATA_REPORT_REQUEST, DATA_REPORT_TOOL, DISCOVERY_FILE_LIMIT, openQuestions, parseDataReport, parseTopicPlan, persistedParts, planReplyTurn, replyCharge, replyPrefix, replySystemPrompt, replyTail, replyTool, screenUsage, TOPIC_PLAN_TOOL, topicPlanSystem } from './discovery-reply.ts';
 import { DISCOVERY_MESSAGE_MAX_CHARS, DISCOVERY_REQUEST_SETTINGS, reserveSettings, type DiscoveryReserveSettings, type ModelUsage } from './discovery-metering.ts';
 import { contextMessagesFrom, type DiscoveryNeed, type SystemBlock } from './discovery-prompt.ts';
 import { renderCopy } from './notification-copy.ts';
@@ -58,6 +58,8 @@ export function turnViewFromSql(row: DiscoveryTurnSqlRow) {
 }
 export type DiscoveryTurnView = ReturnType<typeof turnViewFromSql>;
 const PREPARED_REQUEST = Symbol('discovery prepared request');
+const PREPARED_PLANNING = Symbol('discovery prepared topic planning');
+type TopicPlanning = { request: DiscoveryModelRequest; withTopics(topicIds: readonly string[]): Pick<DiscoveryModelRequest, 'system' | 'tools'> };
 export type ReplyReserveFields = {
   mode: 'answer' | 'opening'; user_message_id: string;
   answers: DiscoveryAnswer[]; expected_charge: 'free' | 'paid'; assistant_message_id: string;
@@ -66,6 +68,7 @@ export type DiscoveryReserveArgs = {
   p_account_id: string; p_organization_id: string; p_project_id: string; p_message: string;
   p_settings: DiscoveryReserveSettings & ReplyReserveFields;
   [PREPARED_REQUEST]?: DiscoveryModelRequest;
+  [PREPARED_PLANNING]?: TopicPlanning;
 };
 export type Reservation = {
   turn: DiscoveryTurnSqlRow; need: DiscoveryNeed; context: DiscoveryModelRequest['messages']; allowance: unknown; brief?: BriefVersion | null; usage?: unknown; replay?: string;
@@ -253,8 +256,6 @@ async function prepareReply(
   if (!briefRead.ok) throw new Error(briefRead.detail);
   const current = isRecord(briefRead.value) ? briefVersionFrom(briefRead.value.revision, briefRead.value.document) : null;
   if (current?.document.fit?.verdict === 'declined') return refuseWrite('discovery-declined', 409, BRIEF_REASONS.declined);
-  const topicIds = current?.document.topicOrder
-    ?? openingDocument({ need: need.body.need.description ?? need.body.need.title }).document.topicOrder;
   const settled = turns.rows.filter((row) => row.status === 'settled').sort((a, b) => a.seq - b.seq);
   const opening = args.p_settings.mode === 'opening';
   const files = reads.discoveryFilesOf ? await reads.discoveryFilesOf(args.p_project_id) : { ok: true as const, rows: [] as FileRow[] };
@@ -262,25 +263,33 @@ async function prepareReply(
   const discoveryFileCount = files.rows.length;
   const shown = settled.map((turn) => turn.assistant_message ?? '').join('\n');
   const fileReports = files.rows.filter((file) => file.status === 'read' && !shown.includes(fileReport(file))).map(fileReport).join('\n\n');
+  const intake: DiscoveryNeed = { title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency };
+  const context = `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}${currentAnswersText(current)}\nThe NGO can add files: ${discoveryFileCount < DISCOVERY_FILE_LIMIT ? 'yes' : 'no'}`;
+  const withTopics = (topicIds: readonly string[]) => {
+    const system = replySystemPrompt(intake, topicIds, skills);
+    system[1].text += context;
+    return { system, tools: [replyTool(topicIds)] };
+  };
+  const messages: DiscoveryModelRequest['messages'] = [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }];
+  const topicIds = current?.document.topicOrder ?? [];
+  const settings = { model: port.model, maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, effort: DISCOVERY_REQUEST_SETTINGS.effort };
   const request: DiscoveryModelRequest = {
-    model: port.model, maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens, effort: DISCOVERY_REQUEST_SETTINGS.effort,
-    system: replySystemPrompt({
-      title: need.body.need.title, description: need.body.need.description, urgency: need.body.need.urgency,
-    }, topicIds, skills),
-    messages: [...contextMessagesFrom(settled), ...fileDigestContext(files.rows), { role: 'user', content: args.p_message }],
-    tools: [replyTool(topicIds)], toolChoice: { type: 'tool', name: 'reply' },
+    ...settings, ...withTopics(topicIds), messages, toolChoice: { type: 'tool', name: 'reply' },
     reply: {
       messageId: args.p_settings.assistant_message_id ?? crypto.randomUUID(),
-      opening, discoveryFileCount, answers: args.p_settings.answers ?? [], topicIds,
+      opening, discoveryFileCount, answers: args.p_settings.answers ?? [], topicIds: [...topicIds],
       userMessageId: args.p_settings.user_message_id ?? '',
       fileReports,
     },
   };
-  request.system[1].text += `\nCause-label vocabulary: ${JSON.stringify(isRecord(briefRead.value) ? briefRead.value.vocabulary ?? [] : [])}\nCurrent brief: ${JSON.stringify(current)}${currentAnswersText(current)}\nThe NGO can add files: ${discoveryFileCount < DISCOVERY_FILE_LIMIT ? 'yes' : 'no'}`;
+  const planning: TopicPlanning | undefined = current === null ? { withTopics, request: {
+    ...settings, system: topicPlanSystem(intake), messages, tools: [TOPIC_PLAN_TOOL], toolChoice: { type: 'tool', name: TOPIC_PLAN_TOOL.name },
+  } } : undefined;
   return { ok: true, args: {
     ...args,
     p_settings: { ...args.p_settings, model: port.model },
     [PREPARED_REQUEST]: request,
+    ...(planning === undefined ? {} : { [PREPARED_PLANNING]: planning }),
   } };
 }
 
@@ -334,10 +343,6 @@ async function actReply(
   const reservation = renderReservation(value);
   const prepared = args[PREPARED_REQUEST];
   if (prepared?.reply === undefined) throw new Error('Discovery has no prepared reply');
-  const request = { ...prepared, maxTokens: reservation.turn.max_output_tokens };
-  const answer = onDelta
-    ? await port.stream(request, onDelta, signal ?? new AbortController().signal)
-    : await port.create(request);
   const failed = (reason: string): { args: DiscoverySettleArgs; failure: string } => ({
     args: {
       p_account_id: args.p_account_id, p_turn_id: reservation.turn.id, p_outcome: 'failed',
@@ -346,20 +351,39 @@ async function actReply(
     },
     failure: reason,
   });
+  const current = briefFromReservation(value);
+  let request = { ...prepared, maxTokens: reservation.turn.max_output_tokens };
+  let topicPlan: TopicPlan | null = null;
+  const planUsage = { inputTokens: 0, outputTokens: 0 };
+  const planning = args[PREPARED_PLANNING];
+  if (current === null && planning !== undefined) {
+    const planned = await port.create({ ...planning.request, maxTokens: reservation.turn.max_output_tokens });
+    if (!planned.ok) return failed(planned.reason);
+    topicPlan = planned.toolUse?.name === TOPIC_PLAN_TOOL.name && isRecord(planned.toolUse.input) ? parseTopicPlan(planned.toolUse.input) : null;
+    if (topicPlan === null) return failed('The model did not plan the Discovery topics.');
+    planUsage.inputTokens = planned.usage.inputTokens;
+    planUsage.outputTokens = planned.usage.outputTokens;
+    const topicIds = plannedOpeningTopics(topicPlan).map((topic) => topic.id);
+    request = { ...request, ...planning.withTopics(topicIds), reply: { ...prepared.reply, topicIds } };
+  }
+  const answer = onDelta
+    ? await port.stream(request, onDelta, signal ?? new AbortController().signal)
+    : await port.create(request);
   if (signal?.aborted) return failed('the client cancelled the reply');
   if (!answer.ok) return failed(answer.reason);
   if (answer.stopReason === 'refusal') return failed('the model refused the request');
-  const current = briefFromReservation(value);
-  const reply = prepared.reply;
+  const reply = request.reply!;
   const planWith = (toolInput: unknown) => planReplyTurn({
     current, need: reservation.need.description ?? reservation.need.title,
     answers: reply.answers, userMessageId: reply.userMessageId, round: reservation.turn.seq,
-    toolInput, topicIds: reply.topicIds, opening: reply.opening, discoveryFileCount: reply.discoveryFileCount,
+    toolInput, plan: topicPlan, topicIds: reply.topicIds, opening: reply.opening, discoveryFileCount: reply.discoveryFileCount,
   });
   const toolInput = answer.toolUse?.name === 'reply' ? answer.toolUse.input : null;
   let plan = planWith(toolInput);
   if (!plan.ok) return failed('The model did not record a valid reply tool answer.');
   const usageTokens = { ...answer.usage };
+  usageTokens.inputTokens += planUsage.inputTokens;
+  usageTokens.outputTokens += planUsage.outputTokens;
   if (plan.dataReportMissing) {
     const followUp = await port.create({
       ...request,

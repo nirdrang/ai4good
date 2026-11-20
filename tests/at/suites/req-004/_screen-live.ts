@@ -1,6 +1,7 @@
 import { authPost, functionPost, stackFromEnv } from '../../harness/live-stack.ts';
 import { seedFileProject } from '../req-032/_files.ts';
-import { openingDocument, snapshotOf, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
+import { testOpening } from '../../harness/discovery-topic-plan.ts';
+import { snapshotOf, type BriefVersion } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { GIVEN, type ScreenScenario } from '../../../../design/astra/src/givens.ts';
 import type { DiscoverySut } from './_contract.ts';
 import { dailyGrantFor, discoveryTier } from '../../../../supabase/functions/_shared/discovery-allowance.ts';
@@ -12,7 +13,7 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
   const first = scenario.startsWith('first-reply') || scenario.startsWith('three-files');
   const confirmed = scenario.startsWith('confirmed');
   const finish = scenario.startsWith('finish') || confirmed;
-  const version: BriefVersion = openingDocument({ need: finish ? given.need : 'We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week.' });
+  const version: BriefVersion = testOpening(finish ? given.need : 'We coordinate 45 volunteers across three kitchens. Scheduling takes four hours each week.');
   const doc = version.document;
   doc.topics.measure!.importance = 'suggested';
   doc.topics.rules!.importance = 'suggested';
