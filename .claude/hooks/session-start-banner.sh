@@ -64,17 +64,27 @@ if command -v codex >/dev/null 2>&1; then
   fi
 fi
 
-# Grok lanes do not run in cloud sessions (founder 2026-10-24); role rows only, so the sheet's
-# indented undo lines keep their grok descriptors.
+# Grok lanes do not run in cloud sessions (founder 2026-10-24). Per row (founder 2026-11-21):
+# no Sol lane, grok becomes Sol at high; a Sol lane and no Astra lane, grok becomes Astra at
+# medium; both, the grok lane is dropped. The Sol and Astra versions come from the sheet.
 sheet="$CLAUDE_PROJECT_DIR/.claude/pstack-models.md"
-if grep -qE '^[^[:space:]].*grok:grok-' "$sheet"; then
-  sed -i -E '/^[^[:space:]]/ s/grok:grok-[0-9.]+@[a-z]+/codex:gpt-6.2-sol@max/g' "$sheet"
+grok='grok:grok-[0-9.]+@[a-z]+'
+sol=$(grep -oE 'codex:gpt-[0-9.]+-sol' "$sheet" | head -1)
+astra=$(grep -oE 'codex:gpt-[0-9.]+-astra' "$sheet" | head -1)
+sol="${sol:-codex:gpt-6.2-sol}@high"
+astra="${astra:-codex:gpt-6.2-astra}@medium"
+if grep -qE "^[^[:space:]].*$grok" "$sheet"; then
+  sed -i -E "/^[^[:space:]].*$grok/ {
+    /-sol@/! { s/$grok/$sol/g; b; }
+    /-astra@/! { s/$grok/$astra/g; b; }
+    s/, *$grok//g; s/$grok, *//g
+  }" "$sheet"
   git -C "$CLAUDE_PROJECT_DIR" update-index --skip-worktree .claude/pstack-models.md
 fi
-if grep -qE '^[^[:space:]].*grok:grok-' "$sheet"; then
+if grep -qE "^[^[:space:]].*$grok" "$sheet"; then
   lines+=("pstack sheet: grok lanes NOT replaced - check .claude/pstack-models.md")
 else
-  lines+=("pstack sheet: every grok lane is codex:gpt-6.2-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start")
+  lines+=("pstack sheet: no grok lane in this session ($sol, or $astra where the row has Sol, or dropped where it has both); re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
 
 (bunx playwright-core install chromium-headless-shell >/tmp/playwright-install.log 2>&1
