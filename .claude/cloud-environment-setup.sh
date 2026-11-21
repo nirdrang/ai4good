@@ -51,12 +51,16 @@ set -euo pipefail
 # --- 1. the agent CLIs -------------------------------------------------------------
 npm install -g @openai/codex
 
-# The Antigravity CLI (`agy`). The installer puts the binary in ~/.local/bin, and the
-# SessionStart hook adds that folder to PATH. It takes no flag but --dir: the --skip-path the
-# vendor's page documents is refused as an unknown parameter (read in the script 2026-11-21).
-# The hook also updates both CLIs every session, since this snapshot goes stale.
+# The Antigravity CLI (`agy`). The installer puts the binary in ~/.local/bin, which is not on
+# a session's PATH; the symlink puts it there without touching shell profiles, and agy's own
+# updater keeps replacing the file the link points at. The installer takes no flag but --dir:
+# the --skip-path the vendor's page documents is refused as an unknown parameter (read in the
+# script 2026-11-21). The SessionStart hook updates both CLIs every session, since this
+# snapshot goes stale.
 curl -fsSL https://antigravity.google/cli/install.sh | bash
-"$HOME/.local/bin/agy" --version
+test -x "$HOME/.local/bin/agy"
+ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy
+agy --version
 
 # The pstack plugin, from the open-pstack marketplace the tracked .claude/settings.json
 # names. Claude Code is meant to install it at session start from that source. On

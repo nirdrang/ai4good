@@ -76,9 +76,12 @@ else
   lines+=("codex: NOT installed - the environment's setup script installs it")
 fi
 
-export PATH="$HOME/.local/bin:$PATH"
+# Safety net for an environment whose setup script predates agy. The symlink is what puts agy
+# on the PATH of the session's own commands; a PATH change here would die with this hook.
 if ! command -v agy >/dev/null 2>&1; then
   timeout 180 bash -c 'curl -fsSL https://antigravity.google/cli/install.sh | bash' >/tmp/agy-install.log 2>&1
+  ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy 2>/dev/null ||
+    sudo -n ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy 2>>/tmp/agy-install.log
 fi
 if command -v agy >/dev/null 2>&1; then
   have=$(agy --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)
