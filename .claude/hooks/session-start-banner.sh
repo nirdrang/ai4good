@@ -56,6 +56,51 @@ else
   lines+=("pstack: marketplace NOT cloned yet - restart this session once")
 fi
 
+# The snapshot freezes both agent CLIs at the version the setup script installed, and the model
+# sheet names models only a current CLI knows. Bring each to the newest version before any lane
+# runs (founder 2026-11-21).
+if command -v codex >/dev/null 2>&1; then
+  have=$(codex --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)
+  want=$(timeout 30 npm view @openai/codex version 2>/dev/null)
+  if [ -z "$want" ]; then
+    lines+=("codex: $have, newest version NOT checked - npm did not answer")
+  elif [ "$have" = "$want" ]; then
+    lines+=("codex: $have, current")
+  elif timeout 180 npm install -g "@openai/codex@$want" >/tmp/codex-update.log 2>&1 ||
+    timeout 180 sudo -n npm install -g "@openai/codex@$want" >>/tmp/codex-update.log 2>&1; then
+    lines+=("codex: updated $have to $want")
+  else
+    lines+=("codex: $have, update to $want FAILED - check /tmp/codex-update.log")
+  fi
+else
+  lines+=("codex: NOT installed - the environment's setup script installs it")
+fi
+
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v agy >/dev/null 2>&1; then
+  timeout 180 bash -c 'curl -fsSL https://antigravity.google/cli/install.sh | bash' >/tmp/agy-install.log 2>&1
+fi
+if command -v agy >/dev/null 2>&1; then
+  have=$(agy --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)
+  if timeout 180 agy update >/tmp/agy-update.log 2>&1; then
+    now=$(agy --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1)
+    if [ "$have" = "$now" ]; then
+      lines+=("agy: $have, current")
+    else
+      lines+=("agy: updated $have to $now")
+    fi
+  else
+    lines+=("agy: $have, update FAILED - check /tmp/agy-update.log")
+  fi
+  if timeout 60 agy models >/dev/null 2>&1; then
+    lines+=("agy: signed in")
+  else
+    lines+=("agy: NOT signed in - run: agy, open the printed link, paste the code")
+  fi
+else
+  lines+=("agy: NOT installed - check /tmp/agy-install.log")
+fi
+
 if command -v codex >/dev/null 2>&1; then
   if out=$(codex login status 2>&1) && grep -qi "logged in" <<<"$out"; then
     lines+=("codex: logged in")

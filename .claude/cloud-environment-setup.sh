@@ -29,7 +29,7 @@
 # ---------------------------------------------------------------------------------------
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
-#   - the codex CLI, and PowerShell
+#   - the codex and agy CLIs, and PowerShell
 #   - the pstack plugin and its marketplace clone, in the home folder
 #   - the docker ulimit shim at /usr/local/bin/docker
 #   - all 12 Supabase images, about 8.4 GB
@@ -50,6 +50,13 @@ set -euo pipefail
 
 # --- 1. the agent CLIs -------------------------------------------------------------
 npm install -g @openai/codex
+
+# The Antigravity CLI (`agy`). The installer puts the binary in ~/.local/bin, and the
+# SessionStart hook adds that folder to PATH. It takes no flag but --dir: the --skip-path the
+# vendor's page documents is refused as an unknown parameter (read in the script 2026-11-21).
+# The hook also updates both CLIs every session, since this snapshot goes stale.
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+"$HOME/.local/bin/agy" --version
 
 # The pstack plugin, from the open-pstack marketplace the tracked .claude/settings.json
 # names. Claude Code is meant to install it at session start from that source. On
