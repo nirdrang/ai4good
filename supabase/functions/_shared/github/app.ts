@@ -194,6 +194,26 @@ export async function githubHttp(
   path: string,
   body?: unknown,
 ): Promise<GithubHttp> {
+  for (let attempt = 1; ; attempt += 1) {
+    const answer = await githubOnce(fetchImpl, bearer, method, path, body);
+    if (answer.ok || attempt === GITHUB_TRIES) return answer;
+    const retryable =
+      (answer.status ?? 0) >= 500 || (method === "GET" && answer.failure.kind === "uncertain");
+    if (!retryable) return answer;
+    await new Promise((resolve) => setTimeout(resolve, GITHUB_RETRY_MS));
+  }
+}
+
+const GITHUB_TRIES = 3;
+const GITHUB_RETRY_MS = 2000;
+
+async function githubOnce(
+  fetchImpl: GithubFetch,
+  bearer: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<GithubHttp> {
   let response: Response;
   try {
     response = await fetchImpl(path.startsWith("https://") ? path : `${API}${path}`, {

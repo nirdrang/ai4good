@@ -237,41 +237,34 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
     async createRepo(name) {
       const auth = await bearer();
       if (!auth.ok) return auth;
-      for (let attempt = 0; ; attempt += 1) {
-        const created = await githubHttp(fetchImpl, auth.token, "POST", `/orgs/${org}/repos`, {
-          name,
-          auto_init: true,
-          visibility: config.visibility,
-          private: config.visibility === "private",
-        });
-        if (created.ok) {
-          const repo = readRepo(created.value);
-          if (repo === null) return uncertain("GitHub created a repository but the response had no id");
-          const protectedBranch = await protectMain(auth.token, name);
-          if (!protectedBranch.ok) return protectedBranch;
-          return { ok: true, result: "created", ...repo };
-        }
-        const raced = (created.status ?? 0) >= 500;
-        if (!(created.status === 422 && nameTaken(created.value)) && !raced) return created.failure;
-        const existing = await githubHttp(
-          fetchImpl,
-          auth.token,
-          "GET",
-          `/repos/${org}/${encodeURIComponent(name)}`,
-        );
-        if (!existing.ok) {
-          if (!raced) return existing.failure;
-          if (attempt >= 2) return created.failure;
-          await pause(2000);
-          continue;
-        }
-        const repo = readRepo(existing.value);
-        if (repo === null)
-          return invalid("GitHub returned an existing repository the client could not read");
-        const protectedExisting = await protectMain(auth.token, name);
-        if (!protectedExisting.ok) return protectedExisting;
-        return { ok: true, result: "exists", ...repo };
+      const created = await githubHttp(fetchImpl, auth.token, "POST", `/orgs/${org}/repos`, {
+        name,
+        auto_init: true,
+        visibility: config.visibility,
+        private: config.visibility === "private",
+      });
+      if (created.ok) {
+        const repo = readRepo(created.value);
+        if (repo === null) return uncertain("GitHub created a repository but the response had no id");
+        const protectedBranch = await protectMain(auth.token, name);
+        if (!protectedBranch.ok) return protectedBranch;
+        return { ok: true, result: "created", ...repo };
       }
+      const raced = (created.status ?? 0) >= 500;
+      if (!(created.status === 422 && nameTaken(created.value)) && !raced) return created.failure;
+      const existing = await githubHttp(
+        fetchImpl,
+        auth.token,
+        "GET",
+        `/repos/${org}/${encodeURIComponent(name)}`,
+      );
+      if (!existing.ok) return raced ? created.failure : existing.failure;
+      const repo = readRepo(existing.value);
+      if (repo === null)
+        return invalid("GitHub returned an existing repository the client could not read");
+      const protectedExisting = await protectMain(auth.token, name);
+      if (!protectedExisting.ok) return protectedExisting;
+      return { ok: true, result: "exists", ...repo };
     },
 
     async protection(repo) {
@@ -414,8 +407,16 @@ export function githubRepo(config: GithubConfig, fetchImpl: GithubFetch): Github
         { sha, force: false },
       );
       if (!response.ok) {
-        if (response.status === 422 && /fast.forward|reference cannot be updated/i.test(response.failure.reason))
+        if (response.status === 422 && /fast.forward|reference cannot be updated/i.test(response.failure.reason)) {
+          const current = await githubHttp(
+            fetchImpl,
+            auth.token,
+            "GET",
+            `/repos/${org}/${encodeURIComponent(repo)}/git/ref/heads/main`,
+          );
+          if (current.ok && refSha(current.value) === sha) return { ok: true, result: "advanced" };
           return { ok: true, result: "rejected", reason: response.failure.reason };
+        }
         return response.failure;
       }
       const moved = refSha(response.value);

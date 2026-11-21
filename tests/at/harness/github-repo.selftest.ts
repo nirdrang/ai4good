@@ -224,8 +224,9 @@ if (!loaded.ok && loaded.skip) {
       visibility: config.visibility,
       private: config.visibility === "private",
     };
-    const fake = (exists: boolean, failingPosts: number) => {
+    const fake = (landsOnFailure: boolean, failingPosts: number) => {
       let posts = 0;
+      let landed = false;
       const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         const method = init?.method ?? "GET";
@@ -236,10 +237,21 @@ if (!loaded.ok && loaded.skip) {
         }
         if (method === "POST" && url.endsWith("/repos")) {
           posts += 1;
-          return posts <= failingPosts ? reply(500, { message: "Server Error" }) : reply(201, repoJson);
+          if (landed) {
+            return reply(422, {
+              message: "Repository creation failed.",
+              errors: [{ message: "name already exists on this account" }],
+            });
+          }
+          if (posts <= failingPosts) {
+            landed = landsOnFailure;
+            return reply(500, { message: "Server Error" });
+          }
+          landed = true;
+          return reply(201, repoJson);
         }
         if (method === "GET" && url.includes(`/repos/${config.org}/${name}`)) {
-          return exists ? reply(200, repoJson) : reply(404, { message: "Not Found" });
+          return landed ? reply(200, repoJson) : reply(404, { message: "Not Found" });
         }
         if (method === "PUT" && url.endsWith("/protection")) return reply(200, {});
         return reply(418, { message: `unexpected ${method} ${url}` });
@@ -252,7 +264,7 @@ if (!loaded.ok && loaded.skip) {
       result: "exists",
       id: 7,
     });
-    expect(raced.posts()).toBe(1);
+    expect(raced.posts()).toBe(2);
     const retried = fake(false, 1);
     expect(await githubRepo(config, retried.fetchImpl).createRepo(name)).toMatchObject({
       ok: true,
@@ -267,6 +279,51 @@ if (!loaded.ok && loaded.skip) {
     expect(down.posts()).toBe(3);
   }, 30_000);
 
+  it("retries GitHub server errors on every call, and dropped connections only on reads", async () => {
+    const sha = "b".repeat(40);
+    const calls: string[] = [];
+    let patches = 0;
+    let heads = 0;
+    const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+      if (url.endsWith("/installation")) return reply(200, { id: 1 });
+      if (url.endsWith("/access_tokens")) {
+        return reply(201, { token: "fake", expires_at: new Date(Date.now() + 3_600_000).toISOString() });
+      }
+      calls.push(`${method} ${url.replace(/^https:\/\/api\.github\.com/, "")}`);
+      if (method === "PATCH") {
+        patches += 1;
+        return patches === 1
+          ? reply(500, { message: "Server Error" })
+          : reply(422, { message: "Update is not a fast forward" });
+      }
+      if (method === "GET" && url.endsWith("/git/ref/heads/main")) {
+        heads += 1;
+        if (heads === 1) throw new Error("connection reset");
+        return reply(200, { object: { sha } });
+      }
+      if (method === "POST" && url.endsWith("/git/refs")) throw new Error("connection reset");
+      return reply(418, { message: `unexpected ${method} ${url}` });
+    };
+    const client = githubRepo(config, fetchImpl);
+
+    expect(await client.advance(repoName, sha)).toEqual({ ok: true, result: "advanced" });
+    expect(patches).toBe(2);
+
+    heads = 0;
+    calls.length = 0;
+    expect(await client.head(repoName)).toEqual({ ok: true, sha });
+    expect(calls.filter((call) => call.startsWith("GET"))).toHaveLength(2);
+
+    calls.length = 0;
+    const tagged = await client.tag(repoName, "prd-r1", sha);
+    expect(tagged.ok).toBe(false);
+    if (!tagged.ok) expect(tagged.kind).toBe("uncertain");
+    expect(calls.filter((call) => call.startsWith("POST"))).toHaveLength(1);
+  }, 30_000);
+
   it("returns uncertain when the request cannot be sent", async () => {
     const offline = githubRepo(config, () => {
       throw new Error("network down");
@@ -277,5 +334,5 @@ if (!loaded.ok && loaded.skip) {
       expect(result.kind).toBe("uncertain");
       expect(result.reason).toContain("network down");
     }
-  });
+  }, 30_000);
 }
