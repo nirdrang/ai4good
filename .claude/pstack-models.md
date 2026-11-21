@@ -3,8 +3,8 @@
 Provider-qualified per-role choices. Read the installed pstack provider-dispatch reference before dispatching a configured role. Every documented role remains present. `inherit-parent` and `auto` use the parent model natively and still count as one panel lane.
 
 feature, refactoring: grok:grok-4.7@xhigh
-bug-fix: codex:gpt-6.1-sol@high
-perf-issue: codex:gpt-6.1-sol@high
+bug-fix: codex:gpt-6.2-sol@high
+perf-issue: codex:gpt-6.2-sol@high
 hillclimb: claude:opus@medium
 judgment and prose: claude:opus@medium
 hardest tasks: claude:fable@medium
@@ -12,11 +12,11 @@ how explorer: grok:grok-4.7@xhigh
 how explainer: claude:opus@medium
 why investigators, synthesizer: inherit-parent
 reflect tooling, judgment, divergent, synthesizer: inherit-parent
-arena runners: codex:gpt-6.1-sol@high, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
-arena cross-judge pool: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
+arena runners: codex:gpt-6.2-sol@high, claude:fable@low, grok:grok-4.7@xhigh, claude:opus@medium
+arena cross-judge pool: codex:gpt-6.2-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 swarm workers: claude:sonnet@high
-architect runners: codex:gpt-6-astra@medium, claude:fable@medium, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.1-sol@high
-interrogate reviewers: codex:gpt-6.1-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
+architect runners: codex:gpt-6.2-astra@medium, claude:fable@medium, grok:grok-4.7@xhigh, claude:opus@medium, codex:gpt-6.2-sol@high
+interrogate reviewers: codex:gpt-6.2-sol@high, grok:grok-4.7@xhigh, claude:opus@medium
 codex writer sandbox: full-access
 opencode writer sandbox: full-access
 agy writer sandbox: full-access
