@@ -142,7 +142,7 @@ fi
   done) &
 lines+=("playwright: installing the pinned headless browser in the background (/tmp/playwright-install.log)")
 
-lines+=("$("$CLAUDE_PROJECT_DIR/scripts/viewer.sh" up)")
+lines+=("viewer: not started; type /viewer to start a Vercel sandbox for this branch")
 
 banner=$(printf '%s\n' "${lines[@]}")
 

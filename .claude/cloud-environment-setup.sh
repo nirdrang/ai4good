@@ -73,6 +73,17 @@ claude plugin marketplace add ericlitman/open-pstack
 claude plugin install pstack@open-pstack
 claude plugin list | grep -q pstack@open-pstack
 
+# The start-of-session hook. Cloud sessions start in /home/user, the folder above the clone,
+# and Claude Code reads .claude/settings.json only from the folder a session starts in, so a
+# hook in the repository's settings never runs (seen 2026-11-21). Settings in the home folder
+# are read wherever a session starts, and the snapshot keeps them.
+user_settings="$HOME/.claude/settings.json"
+[ -f "$user_settings" ] || echo '{}' > "$user_settings"
+jq '.hooks.SessionStart = ([.hooks.SessionStart[]? | select(tostring | contains("session-start-banner") | not)]
+  + [{hooks: [{type: "command", command: "cd /home/user/ai4good && CLAUDE_PROJECT_DIR=/home/user/ai4good .claude/hooks/session-start-banner.sh"}]}])' \
+  "$user_settings" > "$user_settings.new"
+mv "$user_settings.new" "$user_settings"
+
 # --- 2. PowerShell -----------------------------------------------------------------
 # The /controller, /doc-sync and /ui-design skills run PowerShell scripts under loop/, and
 # PowerShell 7 runs them on Linux. The binary here is `pwsh`, not `powershell`.
