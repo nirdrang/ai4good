@@ -58,7 +58,7 @@ it('prepares a forced reply without a provider call and skips an empty assistant
       return { ok: true, text: '', model: 'test-model', stopReason: 'tool_use', usage: { inputTokens: 100, outputTokens: 20 }, toolUse: { name: 'reply', input: {} } };
     } };
   const result = await discoveryAct(invalid)({ turn: { id: 'turn', max_output_tokens: 4096 }, need: {}, context: [] }, prepared.args);
-  expect(seen).toMatchObject([{ toolChoice: { type: 'tool', name: 'reply' }, messages: [{ role: 'user', content: 'Continue.' }] }]);
+  expect(seen).toMatchObject([{ toolChoice: { type: 'tool', name: 'plan_topics' }, messages: [{ role: 'user', content: 'Continue.' }] }]);
   expect(result.args).toMatchObject({ p_outcome: 'failed', p_turn_id: 'turn' });
 });
 

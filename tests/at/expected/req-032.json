@@ -57,7 +57,8 @@
       "green": [
         "AT-032.13",
         "AT-032.02",
-        "AT-032.03"
+        "AT-032.03",
+        "AT-032.04"
       ],
       "red": {
         "AT-032.07": {
@@ -89,10 +90,6 @@
           "phase": "sut-missing"
         },
         "AT-032.09": {
-          "kind": "pending",
-          "phase": "sut-missing"
-        },
-        "AT-032.04": {
           "kind": "pending",
           "phase": "sut-missing"
         },

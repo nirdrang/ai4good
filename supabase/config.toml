@@ -593,6 +593,9 @@ verify_jwt = true
 [functions.discovery-file]
 verify_jwt = true
 
+[functions.project-file]
+verify_jwt = true
+
 [functions.discovery-file-read]
 verify_jwt = false
 

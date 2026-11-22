@@ -3,7 +3,8 @@ import { cleanupReposNamed } from '../../harness/github.ts';
 import { atTest } from './_bind.ts';
 import { scopeMoneySourceProblems } from '../req-004/_source-absences.ts';
 import { TIER } from '../../harness/registry.ts';
-import { openingDocument, decideFinish } from '../../../../supabase/functions/_shared/discovery-brief.ts';
+import { testOpening } from '../../harness/discovery-topic-plan.ts';
+import { decideFinish } from '../../../../supabase/functions/_shared/discovery-brief.ts';
 import { buildScopeRequest, renderScopeMarkdown, scopeMoneyProblems, type Scope, type ConfirmedDiscovery } from '../../../../supabase/functions/_shared/scope.ts';
 import { DISCOVERY_SKILLS } from '../../../../supabase/functions/_shared/discovery-skills/index.ts';
 import { SCOPE_TIER_FIXTURES, GRANT_TRACKER_SCOPE, scopeContractProblems, scopeDocumentProblems } from '../req-004/fixtures/scope-tiers.ts';
@@ -15,7 +16,7 @@ afterAll(async () => {
 });
 
 function confirmed(scope: Scope): ConfirmedDiscovery {
-  const brief = openingDocument({ need: scope.summary });
+  const brief = testOpening(scope.summary);
   const tier = Number(scope.dataSensitivity.tier.at(-1)) as 0 | 1 | 2;
   brief.document.dataTier = { tier, kinds: [(['none', 'ordinary-pii', 'special-category'] as const)[tier]], reason: scope.dataSensitivity.rationale, responsibility: 'ngo' };
   brief.document.fit = { verdict: 'fits', reason: scope.maintainabilityFit.rationale };

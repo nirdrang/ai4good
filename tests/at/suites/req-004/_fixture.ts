@@ -80,7 +80,10 @@ export function createFixtureAdapter(opts: Parameters<typeof createNeedsAdapter>
     }
     const settled = rows.filter((row) => row.status === 'settled');
     const message = args.p_message.trim();
-    const existing = rows.find((row) => row.user_message_id === args.p_settings.user_message_id);
+    const live = (row: DiscoveryTurnSqlRow) => row.status === 'open' || row.status === 'settled';
+    const existing = rows.find((row) => row.user_message_id === args.p_settings.user_message_id
+      && (args.p_settings.mode !== 'opening' || live(row)))
+      ?? (args.p_settings.mode === 'opening' ? rows.find((row) => row.billing === 'opening' && live(row)) : undefined);
     if (existing) return { ok: true, reservation: { turn: structuredClone(existing),
       need: { title: need.title, description: need.description, urgency: need.urgency },
       context: contextMessagesFrom(settled), allowance: null, replay: 'stored',

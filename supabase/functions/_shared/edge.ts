@@ -24,7 +24,7 @@ import { publishCloseTag, syncRepo } from './prd/git.ts';
 import { prdRelayDeps, type PrdRelayDeps } from './prd/relay.ts';
 export { requireEnv } from './env.ts';
 
-const CORS_HEADERS: Record<string, string> = {
+export const CORS_HEADERS: Record<string, string> = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info',
   'access-control-allow-methods': 'POST, OPTIONS',
@@ -473,6 +473,16 @@ export function callerReads(supabaseUrl: string, anonKey: string, authorization:
       const text = await response.text();
       if (!response.ok) return { ok: false, detail: text };
       try { return { ok: true, rows: JSON.parse(text) }; }
+      catch { return { ok: false, detail: text }; }
+    },
+    projectFile: async (fileId) => {
+      const response = await fetch(`${base}/rpc/viewer_project_file`, {
+        method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ p_file_id: fileId }),
+      });
+      const text = await response.text();
+      if (!response.ok) return { ok: false, detail: text };
+      try { return { ok: true, value: JSON.parse(text) }; }
       catch { return { ok: false, detail: text }; }
     },
     discoveryTurnsOf: (projectId) =>

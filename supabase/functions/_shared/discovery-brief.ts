@@ -236,96 +236,61 @@ function definitionOf(
   return { text, options, suggestedId, recommendation, uncertaintyHelp };
 }
 
-const DEFAULT_TOPICS: readonly OpeningTopic[] = [
-  {
-    id: 'priority',
-    title: 'Main priority',
-    why: 'A clear priority keeps the first version small and useful.',
-    suggestion: 'Less coordination time',
-    plannedQuestion: 'What should improve first?',
-    definition: definitionOf(
-      'What should improve first?',
-      [option('time', 'Less coordination time'), option('coverage', 'Fewer unfilled shifts')],
-      'time',
-      'Suggested: less coordination time. Your intake says scheduling takes four hours each week.',
-      'To find out: ask your coordinators which problem causes the most work.',
-    ),
-  },
-  {
-    id: 'booking',
-    title: 'Who books shifts',
-    why: 'This decides who needs access and which rules we ask about next.',
-    suggestion: 'Volunteers book themselves',
-    plannedQuestion: 'Who should book volunteers into shifts?',
-    definition: definitionOf(
-      'Who should book volunteers into shifts?',
-      [option('self', 'Volunteers book themselves'), option('coordinators', 'Coordinators book shifts')],
-      'self',
-      'Suggested: volunteers book themselves, and coordinators handle exceptions.',
-      'To find out: check whether your volunteers can book online.',
-    ),
-    dependsOn: [],
-  },
-  {
-    id: 'measure',
-    title: 'Success measure',
-    why: 'You can use this target to check whether the first version helps.',
-    suggestion: 'Two hours a week, down from four',
-    plannedQuestion: 'What weekly scheduling time would count as success?',
-    definition: definitionOf(
-      'What weekly scheduling time would count as success?',
-      [option('two', 'Two hours a week'), option('one', 'One hour a week')],
-      'two',
-      'Suggested: two hours a week, down from four.',
-      'To find out: ask the people who schedule shifts how long last week took.',
-    ),
-    dependsOn: ['priority'],
-  },
-  {
-    id: 'owner',
-    title: 'Maintenance owner',
-    why: 'Someone must manage access and small changes after handoff.',
-    suggestion: 'Our operations lead',
-    plannedQuestion: 'Who will look after the tool?',
-    definition: definitionOf(
-      'Who will look after the tool?',
-      [option('lead', 'Our operations lead'), option('coordinators', 'Our coordinators')],
-      'lead',
-      'Suggested: your operations lead already handles access.',
-      'To find out: ask who fixes a problem when a coordinator is away.',
-    ),
-  },
-  {
-    id: 'info',
-    title: 'Information handled',
-    why: 'Less personal information means less risk and simpler rules.',
-    suggestion: 'Name and phone only',
-    plannedQuestion: 'What volunteer information will the tool keep?',
-    definition: definitionOf(
-      'What volunteer information will the tool keep?',
-      [option('phone', 'Name and phone only'), option('email', 'Name, phone and email')],
-      'phone',
-      'Suggested: name and phone are enough to fill a shift.',
-      'To find out: list the fields your rota uses today.',
-    ),
-    dependsOn: ['owner'],
-  },
-  {
-    id: 'rules',
-    title: 'Booking rules',
-    why: 'Clear limits keep the rota fair, whoever books the shifts.',
-    suggestion: 'Weekly shift limit',
-    plannedQuestion: 'Which booking rules should the tool enforce?',
-    definition: definitionOf(
-      'Which booking rules should the tool enforce?',
-      [option('weekly', 'Weekly shift limit'), option('none', 'No weekly limit')],
-      'weekly',
-      'Suggested: a weekly shift limit keeps the rota fair.',
-      'To find out: ask how many shifts one volunteer may take.',
-    ),
-    dependsOn: ['booking'],
-  },
-];
+export const KEY_TOPICS = [
+  { id: 'priority', title: 'Main priority', why: 'A clear priority keeps the first version small and useful.' },
+  { id: DATA_TOPIC_ID, title: 'Information handled', why: 'Less personal information means less risk and simpler rules.' },
+  { id: 'owner', title: 'Maintenance owner', why: 'Someone must manage access and small changes after handoff.' },
+] as const;
+export type KeyTopicId = (typeof KEY_TOPICS)[number]['id'];
+export const KEY_TOPIC_IDS: readonly string[] = KEY_TOPICS.map((topic) => topic.id);
+
+export function isKeyTopic(id: string): boolean {
+  return KEY_TOPIC_IDS.includes(id);
+}
+
+export const PLANNED_TOPICS_MAX = 5;
+export const PLAN_OPTIONS_MIN = 2;
+export const PLAN_OPTIONS_MAX = 4;
+export const PLAN_TITLE_MAX_CHARS = 40;
+export const PLAN_TEXT_MAX_CHARS = 240;
+export const PLAN_FILE_EXAMPLES_MAX = 3;
+export const PLANNED_TOPIC_ID = /^[a-z][a-z0-9-]{1,30}$/;
+
+export type TopicWording = {
+  question: string;
+  options: string[];
+  suggested: string;
+  recommendation: string;
+  uncertaintyHelp: string;
+};
+
+export type PlannedTopic = TopicWording & { id: string; title: string; why: string; dependsOn: string[] };
+
+export type TopicPlan = {
+  keyTopics: Record<KeyTopicId, TopicWording>;
+  topics: PlannedTopic[];
+  fileExamples: string[];
+};
+
+function wordedTopic(id: string, title: string, why: string, wording: TopicWording): OpeningTopic {
+  const options = wording.options.map((label, index) => option(`o${index + 1}`, label));
+  const suggested = options.find((item) => item.label === wording.suggested) ?? options[0]!;
+  return {
+    id, title, why,
+    suggestion: suggested.label,
+    plannedQuestion: wording.question,
+    definition: definitionOf(wording.question, options, suggested.id, wording.recommendation, wording.uncertaintyHelp),
+  };
+}
+
+export function plannedOpeningTopics(plan: TopicPlan): OpeningTopic[] {
+  const [priority, ...rest] = KEY_TOPICS.map((key) => wordedTopic(key.id, key.title, key.why, plan.keyTopics[key.id]));
+  return [
+    priority!,
+    ...plan.topics.map((topic) => ({ ...wordedTopic(topic.id, topic.title, topic.why, topic), dependsOn: topic.dependsOn })),
+    ...rest,
+  ];
+}
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -370,8 +335,8 @@ function storedTopic(seed: OpeningTopic): StoredTopic {
   };
 }
 
-export function openingDocument(input: { need: string; topics?: readonly OpeningTopic[] }): BriefVersion {
-  const seeds = input.topics ?? DEFAULT_TOPICS;
+export function openingDocument(input: { need: string; topics: readonly OpeningTopic[] }): BriefVersion {
+  const seeds = input.topics;
   const topics: Record<string, StoredTopic> = {};
   const topicOrder: string[] = [];
   for (const seed of seeds) {

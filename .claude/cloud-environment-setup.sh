@@ -29,7 +29,7 @@
 # ---------------------------------------------------------------------------------------
 #
 # WHAT THE SNAPSHOT KEEPS (so later sessions get it free):
-#   - the codex CLI, and PowerShell
+#   - the codex and agy CLIs, and PowerShell
 #   - the pstack plugin and its marketplace clone, in the home folder
 #   - the docker ulimit shim at /usr/local/bin/docker
 #   - all 12 Supabase images, about 8.4 GB
@@ -51,6 +51,17 @@ set -euo pipefail
 # --- 1. the agent CLIs -------------------------------------------------------------
 npm install -g @openai/codex
 
+# The Antigravity CLI (`agy`). The installer puts the binary in ~/.local/bin, which is not on
+# a session's PATH; the symlink puts it there without touching shell profiles, and agy's own
+# updater keeps replacing the file the link points at. The installer takes no flag but --dir:
+# the --skip-path the vendor's page documents is refused as an unknown parameter (read in the
+# script 2026-11-21). The SessionStart hook updates both CLIs every session, since this
+# snapshot goes stale.
+curl -fsSL https://antigravity.google/cli/install.sh | bash
+test -x "$HOME/.local/bin/agy"
+ln -sf "$HOME/.local/bin/agy" /usr/local/bin/agy
+agy --version
+
 # The pstack plugin, from the open-pstack marketplace the tracked .claude/settings.json
 # names. Claude Code is meant to install it at session start from that source. On
 # 2026-09-05 a whole day of sessions and VM restarts never produced the clone, so every
@@ -61,6 +72,17 @@ npm install -g @openai/codex
 claude plugin marketplace add ericlitman/open-pstack
 claude plugin install pstack@open-pstack
 claude plugin list | grep -q pstack@open-pstack
+
+# The start-of-session hook. Cloud sessions start in /home/user, the folder above the clone,
+# and Claude Code reads .claude/settings.json only from the folder a session starts in, so a
+# hook in the repository's settings never runs (seen 2026-11-21). Settings in the home folder
+# are read wherever a session starts, and the snapshot keeps them.
+user_settings="$HOME/.claude/settings.json"
+[ -f "$user_settings" ] || echo '{}' > "$user_settings"
+jq '.hooks.SessionStart = ([.hooks.SessionStart[]? | select(tostring | contains("session-start-banner") | not)]
+  + [{hooks: [{type: "command", command: "cd /home/user/ai4good && CLAUDE_PROJECT_DIR=/home/user/ai4good .claude/hooks/session-start-banner.sh"}]}])' \
+  "$user_settings" > "$user_settings.new"
+mv "$user_settings.new" "$user_settings"
 
 # --- 2. PowerShell -----------------------------------------------------------------
 # The /controller, /doc-sync and /ui-design skills run PowerShell scripts under loop/, and

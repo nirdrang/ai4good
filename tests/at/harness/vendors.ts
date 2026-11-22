@@ -2,6 +2,8 @@ import type { EmailProviderSim, ProviderAttempt, ProviderOutcome } from './contr
 import { providerForceCountProblem } from './guards.ts';
 import type { AnthropicMessagesPort, AnthropicMessagesSim, ModelRequestRecord, ScriptedReply } from './contracts.ts';
 import { DISCOVERY_REQUEST_SETTINGS } from '../../../supabase/functions/_shared/discovery-metering.ts';
+import { planToolInput, TEST_TOPIC_PLAN } from './discovery-topic-plan.ts';
+import { TOPIC_PLAN_TOOL } from '../../../supabase/functions/_shared/discovery-reply.ts';
 export type { AnthropicMessagesPort } from './contracts.ts';
 
 function foldedInputTokens(usage: {
@@ -40,6 +42,10 @@ export function createAnthropicMessagesSim(): { sim: AnthropicMessagesSim; port:
     port: {
       model: DISCOVERY_REQUEST_SETTINGS.model,
       create: async (request) => {
+        if (request.toolChoice?.name === TOPIC_PLAN_TOOL.name) {
+          return { ok: true, text: '', model: request.model, stopReason: 'tool_use', usage: { inputTokens: 0, outputTokens: 0 },
+            toolUse: { name: TOPIC_PLAN_TOOL.name, input: planToolInput(TEST_TOPIC_PLAN) } };
+        }
         const reply = replies.shift();
         if (reply === undefined) throw new Error('Anthropic Messages request exceeded its scripted replies');
         requests.push(structuredClone(request));

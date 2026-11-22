@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Discovery chat on a phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0f172a}a:hover{color:#334155}
+button{font-family:inherit}
+textarea{font-family:inherit}
+.dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:#64748b;margin-right:4px;animation:dcdot 1s infinite ease-in-out}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes dcdot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.dots span{animation:none}}
+</style>
+</helmet>
+<div style="width:390px;height:844px;position:relative;overflow:hidden;background:#ffffff;color:#0f172a;font-family:Inter,system-ui,-apple-system,sans-serif;display:flex;flex-direction:column">
+
+<sc-if value="{{chatView}}" hint-placeholder-val="{{ true }}">
+  <header style="flex:0 0 auto;padding:12px 16px 10px;border-bottom:1px solid #e2e8f0;display:flex;flex-direction:column;gap:10px;background:#ffffff">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+        <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:700">Volunteer scheduling</h1>
+        <p style="margin:0;font-size:13px;line-height:18px;color:#475569">Harbor Community Kitchen · {{saveState}}</p>
+      </div>
+      <sc-if value="{{finishPrimary}}" hint-placeholder-val="{{ false }}">
+        <button type="button" data-testid="header-finish" onClick="{{toReview}}" style="flex:0 0 auto;height:44px;padding:0 14px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Finish Discovery</button>
+      </sc-if>
+      <button type="button" data-testid="account-button" onClick="{{openAccount}}" style="flex:0 0 auto;height:44px;padding:0 12px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+        Account
+      </button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+        <span data-testid="progress-label" style="font-size:14px;line-height:20px;font-weight:600">{{progressLabel}}</span>
+        <span style="font-size:13px;color:#475569">{{progressHint}}</span>
+      </div>
+      <div aria-hidden="true" style="display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:4px">
+        <sc-for list="{{segments}}" as="seg" hint-placeholder-count="6">
+          <span style="{{seg.style}}"></span>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button type="button" data-testid="open-questions" onClick="{{openQuestions}}" style="flex:1;height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:14px;font-weight:500;cursor:pointer">Questions</button>
+      <button type="button" data-testid="open-brief" onClick="{{openBrief}}" style="flex:1;height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:14px;font-weight:500;cursor:pointer">Your brief</button>
+      <sc-if value="{{reviewSecondary}}" hint-placeholder-val="{{ true }}">
+        <button type="button" data-testid="header-review" onClick="{{toReview}}" style="{{reviewStyle}}">Review</button>
+      </sc-if>
+    </div>
+  </header>
+
+  <main ref="{{setBody}}" style="flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;background:#f8fafc">
+    <sc-if value="{{showIntro}}" hint-placeholder-val="{{ true }}">
+      <p data-testid="intro" style="margin:0;font-size:14px;line-height:20px;color:#334155">Answer six short questions. Your answers become a brief a volunteer can build from.</p>
+    </sc-if>
+
+    <sc-for list="{{transcript}}" as="m" hint-placeholder-count="2">
+      <sc-if value="{{m.ai}}" hint-placeholder-val="{{ true }}">
+        <div style="align-self:flex-start;max-width:320px;display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:12px;font-weight:600;color:#475569">ai4good AI</span>
+          <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:16px;line-height:24px;white-space:pre-line">{{m.text}}</div>
+          <sc-if value="{{m.fileHint}}" hint-placeholder-val="{{ false }}">
+            <button type="button" data-testid="intro-attach" onClick="{{openFiles}}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 12px;border-radius:10px;border:1px dashed #94a3b8;background:#ffffff;color:#0f172a;font-size:14px;cursor:pointer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>
+              Attach a sample rota (optional)
+            </button>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{m.me}}" hint-placeholder-val="{{ false }}">
+        <div style="align-self:flex-end;max-width:300px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div style="background:#0f172a;color:#ffffff;border-radius:16px 4px 16px 16px;padding:10px 14px;font-size:16px;line-height:24px">{{m.text}}</div>
+          <span style="font-size:12px;color:#475569">{{m.meta}}</span>
+        </div>
+      </sc-if>
+    </sc-for>
+
+    <sc-if value="{{thinking}}" hint-placeholder-val="{{ false }}">
+      <div data-testid="thinking" role="status" style="align-self:flex-start;display:flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8f0;border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:15px;color:#334155">
+        <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+        {{thinkingText}}
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showCard}}" hint-placeholder-val="{{ true }}">
+      <section data-testid="answer-card" aria-label="{{card.title}}" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#475569">Topic {{card.num}} of 6</span>
+          <h2 style="margin:0;font-size:17px;line-height:24px;font-weight:700">{{card.title}}</h2>
+        </div>
+        <div role="radiogroup" aria-label="{{card.title}}" style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{card.options}}" as="o" hint-placeholder-count="4">
+            <button type="button" role="radio" aria-checked="{{o.checked}}" data-testid="{{o.testid}}" onClick="{{o.pick}}" style="{{o.style}}">
+              <span aria-hidden="true" style="{{o.dot}}"></span>
+              <span style="flex:1;min-width:0;text-align:left">{{o.label}}</span>
+              <sc-if value="{{o.suggested}}" hint-placeholder-val="{{ false }}">
+                <span style="flex:0 0 auto;font-size:12px;font-weight:600;color:#166534;background:#dcfce7;border-radius:999px;padding:2px 8px">Suggested</span>
+              </sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:20px;color:#475569">Your choice goes into the reply box below. Change the words if you like, then press Send.</p>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ready}}" hint-placeholder-val="{{ false }}">
+      <section data-testid="ready-card" style="background:#ffffff;border:1px solid #86efac;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:17px;font-weight:700">Your brief is ready to review</h2>
+        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">{{readyBody}}</p>
+        <button type="button" data-testid="ready-review" onClick="{{toReview}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{readyCta}}</button>
+      </section>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{showComposer}}" hint-placeholder-val="{{ true }}">
+    <footer style="flex:0 0 auto;border-top:1px solid #e2e8f0;background:#ffffff;padding:6px 12px 12px;display:flex;flex-direction:column;gap:6px">
+      <sc-if value="{{compactUsage}}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;line-height:18px;color:#334155">
+          <span data-testid="usage-line">{{usageLine}}</span>
+          <button type="button" data-testid="open-limits" onClick="{{openLimits}}" style="height:44px;border:none;background:none;color:#0f172a;font-size:14px;font-weight:600;text-decoration:underline;cursor:pointer;padding:0 4px">Reply limits</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{fullUsage}}" hint-placeholder-val="{{ false }}">
+        <div data-testid="usage-card" style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:15px;font-weight:600">Next reply is free · {{freeLeft}} left today</span>
+          <div aria-hidden="true" style="height:10px;border-radius:5px;background:#f1f5f9;overflow:hidden;display:flex"><span style="{{barStyle}}"></span></div>
+          <div style="display:flex;gap:14px;font-size:13px"><span>Free today {{freeLeft}} of 10</span><span>Fuel $0.00</span></div>
+          <span style="font-size:12px;color:#475569">Free replies are used first, then fuel. Resets at 00:00.</span>
+        </div>
+      </sc-if>
+      <div style="display:flex;align-items:flex-end;gap:8px">
+        <button type="button" data-testid="attach" aria-label="Attach a file" onClick="{{openFiles}}" style="flex:0 0 auto;width:44px;height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;cursor:pointer;display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.5l-8.6 8.6a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>
+        </button>
+        <label for="reply" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Your answer</label>
+        <textarea id="reply" data-testid="reply" rows="{{rows}}" placeholder="Or type your own answer" value="{{draft}}" onChange="{{onDraft}}" disabled="{{thinking}}" style="flex:1;min-width:0;min-height:44px;resize:none;border-radius:10px;border:1px solid #94a3b8;padding:10px 12px;font-size:16px;line-height:22px;color:#0f172a;background:#ffffff;box-sizing:border-box;overflow-y:auto"></textarea>
+        <button type="button" data-testid="send" onClick="{{send}}" disabled="{{sendDisabled}}" style="{{sendStyle}}">Send</button>
+      </div>
+    </footer>
+  </sc-if>
+</sc-if>
+
+<sc-if value="{{reviewView}}" hint-placeholder-val="{{ false }}">
+  <header style="flex:0 0 auto;padding:10px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px">
+    <button type="button" data-testid="review-back" onClick="{{backToChat}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">← Back to chat</button>
+    <div style="min-width:0;display:flex;flex-direction:column">
+      <h1 style="margin:0;font-size:17px;font-weight:700">Review your brief</h1>
+      <span style="font-size:13px;color:#475569">Volunteer scheduling</span>
+    </div>
+  </header>
+  <main ref="{{setReview}}" style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px;background:#f8fafc">
+    <sc-if value="{{finishedBanner}}" hint-placeholder-val="{{ false }}">
+      <div data-testid="saved-banner" style="background:#dcfce7;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
+        <p style="margin:0;font-size:15px;line-height:22px;color:#166534">{{finishedText}}</p>
+        <button type="button" data-testid="back-to-status" onClick="{{backToStatus}}" style="align-self:flex-start;height:44px;padding:0 14px;border-radius:10px;border:1px solid #166534;background:#ffffff;color:#166534;font-size:15px;font-weight:600;cursor:pointer">Back to project status</button>
+      </div>
+    </sc-if>
+    <p style="margin:0;font-size:15px;line-height:22px;color:#334155">This is your brief in your words. A volunteer reads it before they agree to build. Editing is free, and the AI does not rewrite it.</p>
+    <sc-if value="{{openJump}}" hint-placeholder-val="{{ false }}">
+      <button type="button" data-testid="open-jump" onClick="{{jumpOpen}}" style="min-height:44px;border-radius:10px;border:1px solid #fcd34d;background:#fffbeb;color:#0f172a;font-size:15px;font-weight:600;text-align:left;padding:10px 14px;cursor:pointer">{{openTitle}} · see them ↓</button>
+    </sc-if>
+
+    <sc-if value="{{openFirst}}" hint-placeholder-val="{{ false }}">
+      <section aria-label="Questions still open" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">{{openTitle}}</h2>
+        <p style="margin:0;font-size:14px;line-height:20px;color:#475569">You can finish with them open. They stay in this document for the ai4good team and the volunteer.</p>
+        <sc-for list="{{openItems}}" as="q" hint-placeholder-count="2">
+          <div style="border-top:1px solid #fde68a;padding-top:10px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="flex:1;font-size:15px;font-weight:600">{{q.title}}</span>
+              <span style="font-size:12px;font-weight:600;color:#b91c1c;background:#fee2e2;border-radius:999px;padding:2px 8px">Needed before build</span>
+            </div>
+            <span style="font-size:14px;line-height:20px;color:#475569">{{q.why}}</span>
+            <span style="font-size:14px;line-height:20px">Suggested: {{q.suggestion}}</span>
+            <button type="button" onClick="{{q.use}}" style="height:44px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer">Use the suggestion</button>
+            <button type="button" onClick="{{q.answer}}" style="height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:14px;cursor:pointer">Answer in the chat</button>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+
+    <section aria-label="Your brief" style="display:flex;flex-direction:column;gap:10px">
+      <sc-for list="{{reviewSections}}" as="b" hint-placeholder-count="6">
+        <article style="{{b.cardStyle}}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <h3 style="margin:0;flex:1;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#475569">{{b.title}}</h3>
+            <sc-if value="{{b.showEdit}}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{b.edit}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:14px;cursor:pointer">Edit</button>
+            </sc-if>
+          </div>
+          <sc-if value="{{b.editing}}" hint-placeholder-val="{{ false }}">
+            <label for="review-edit" style="font-size:13px;color:#475569">Change the answer</label>
+            <textarea id="review-edit" rows="4" value="{{editText}}" onChange="{{onEditText}}" style="border-radius:10px;border:1px solid #94a3b8;padding:10px 12px;font-size:16px;line-height:22px;resize:vertical"></textarea>
+            <div style="display:flex;gap:8px">
+              <button type="button" onClick="{{saveEdit}}" style="height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Save</button>
+              <button type="button" onClick="{{cancelEdit}}" style="height:44px;padding:0 16px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;cursor:pointer">Cancel</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{b.showText}}" hint-placeholder-val="{{ true }}">
+            <p style="{{b.textStyle}}">{{b.text}}</p>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <sc-if value="{{b.hasChip}}" hint-placeholder-val="{{ false }}"><span style="{{b.chipStyle}}">{{b.chip}}</span></sc-if>
+              <span style="font-size:13px;color:#475569">{{b.source}}</span>
+            </div>
+          </sc-if>
+        </article>
+      </sc-for>
+    </section>
+
+    <sc-if value="{{openAfter}}" hint-placeholder-val="{{ true }}">
+      <section ref="{{setOpenPanel}}" aria-label="Questions still open" style="background:#ffffff;border:1px solid #fcd34d;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">{{openTitle}}</h2>
+        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">{{openIntro}}</p>
+        <sc-for list="{{openItems}}" as="q" hint-placeholder-count="2">
+          <div style="border-top:1px solid #e2e8f0;padding-top:10px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="flex:1;font-size:15px;font-weight:600">{{q.title}}</span>
+              <span style="{{q.chipStyle}}">{{q.chip}}</span>
+            </div>
+            <span style="font-size:14px;line-height:20px;color:#475569">{{q.why}}</span>
+            <span style="font-size:14px;line-height:20px">Suggested: {{q.suggestion}}</span>
+            <div style="display:flex;gap:8px">
+              <button type="button" onClick="{{q.use}}" style="flex:1;height:44px;border-radius:10px;border:1px solid #0f172a;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">Use the suggestion</button>
+              <button type="button" onClick="{{q.answer}}" style="flex:1;height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:14px;cursor:pointer">Answer in chat</button>
+            </div>
+          </div>
+        </sc-for>
+      </section>
+    </sc-if>
+    <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display:flex;align-items:center;gap:10px;background:#0f172a;color:#ffffff;border-radius:10px;padding:6px 6px 6px 14px;font-size:14px">
+        <span style="flex:1">{{toast}}</span>
+        <button type="button" onClick="{{undoUse}}" style="height:40px;padding:0 12px;border-radius:8px;border:none;background:#334155;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer">Undo</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{showFinishBox}}" hint-placeholder-val="{{ true }}">
+      <section aria-label="Finish" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px">
+        <h2 style="margin:0;font-size:16px;font-weight:700">{{finishHeading}}</h2>
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:22px;cursor:pointer">
+          <input type="checkbox" data-testid="ack-reviewed" checked="{{ackReviewed}}" onChange="{{toggleReviewed}}" style="width:22px;height:22px;margin:0;flex:0 0 auto">
+          <span>I have read this brief. It describes the first version we need.</span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:22px;cursor:pointer">
+          <input type="checkbox" data-testid="ack-data" checked="{{ackData}}" onChange="{{toggleData}}" style="width:22px;height:22px;margin:0;flex:0 0 auto">
+          <span>Our charity decides who can see volunteer details, and the tool keeps only what we need for scheduling.</span>
+        </label>
+        <sc-if value="{{hasOpen}}" hint-placeholder-val="{{ true }}">
+          <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:22px;cursor:pointer">
+            <input type="checkbox" data-testid="ack-gaps" checked="{{ackGaps}}" onChange="{{toggleGaps}}" style="width:22px;height:22px;margin:0;flex:0 0 auto">
+            <span>{{gapsLabel}}</span>
+          </label>
+        </sc-if>
+        <button type="button" data-testid="finish" onClick="{{finish}}" disabled="{{finishDisabled}}" style="{{finishStyle}}">{{finishLabel}}</button>
+        <span style="font-size:13px;color:#475569">{{finishNote}}</span>
+      </section>
+    </sc-if>
+  </main>
+</sc-if>
+
+<sc-if value="{{doneView}}" hint-placeholder-val="{{ false }}">
+  <header style="flex:0 0 auto;padding:12px 16px;border-bottom:1px solid #e2e8f0;display:flex;flex-direction:column">
+    <h1 style="margin:0;font-size:18px;font-weight:700">Volunteer scheduling</h1>
+    <span style="font-size:13px;color:#475569">Harbor Community Kitchen</span>
+  </header>
+  <main style="flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:14px">
+    <span style="align-self:flex-start;font-size:13px;font-weight:600;color:#166534;background:#dcfce7;border-radius:999px;padding:4px 10px">{{statusChip}}</span>
+    <h2 style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{doneTitle}}</h2>
+    <p style="margin:0;font-size:16px;line-height:24px;color:#334155">{{doneBody}}</p>
+    <sc-if value="{{showNext}}" hint-placeholder-val="{{ true }}">
+      <section style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <h3 style="margin:0;font-size:15px;font-weight:700">Next: find a volunteer</h3>
+        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Find a volunteer shows you what volunteers will see, then you publish. Once published, volunteers on ai4good can see it straight away, and ai4good helps you match with one. You can still edit the brief until a volunteer starts work.</p>
+      </section>
+      <button type="button" data-testid="find-volunteer" onClick="{{askPublish}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Find a volunteer</button>
+    </sc-if>
+    <sc-if value="{{confirming}}" hint-placeholder-val="{{ false }}">
+      <section data-testid="publish-preview" style="flex:0 0 auto;border:1px solid #cbd5e1;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <h3 style="margin:0;font-size:17px;font-weight:700">What volunteers will see</h3>
+        <p style="margin:0;font-size:14px;line-height:20px;color:#475569">Volunteer scheduling · Harbor Community Kitchen.</p>
+        <sc-for list="{{previewRows}}" as="r" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:2px;border-top:1px solid #e2e8f0;padding-top:8px">
+            <span style="font-size:14px;font-weight:600">{{r.title}}</span>
+            <span style="{{r.style}}">{{r.text}}</span>
+          </div>
+        </sc-for>
+      </section>
+      <p style="margin:0;font-size:15px;line-height:22px;color:#334155">{{publishNote}}</p>
+      <button type="button" data-testid="publish-confirm" onClick="{{publish}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Publish brief</button>
+      <button type="button" data-testid="publish-back" onClick="{{cancelPublish}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Not yet</button>
+    </sc-if>
+    <sc-if value="{{published}}" hint-placeholder-val="{{ false }}">
+      <section data-testid="published" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <h3 style="margin:0;font-size:15px;font-weight:700">What happens now</h3>
+        <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Volunteers can now see your brief, and ai4good is looking for a match. We will email dana@harborkitchen.org when a volunteer is interested. Nothing else is needed from you today.</p>
+      </section>
+    </sc-if>
+    <button type="button" data-testid="see-brief" onClick="{{seeBrief}}" style="flex:0 0 auto;height:48px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;font-weight:600;cursor:pointer">See your brief</button>
+  </main>
+</sc-if>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:#ffffff;display:flex;flex-direction:column;z-index:5">
+      <div style="flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #e2e8f0">
+        <button type="button" data-testid="back-to-chat" onClick="{{closeSheet}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">← Back to chat</button>
+        <h2 style="margin:0;font-size:17px;font-weight:700">{{sheetTitle}}</h2>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px">
+
+        <sc-if value="{{sheetQuestions}}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{questionGroups}}" as="g" hint-placeholder-count="3">
+            <section style="display:flex;flex-direction:column;gap:8px">
+              <h3 style="margin:0;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#475569">{{g.title}}</h3>
+              <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+                <div style="{{r.style}}">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:15px;font-weight:600">{{r.title}}</span>
+                    <sc-if value="{{r.hasSub}}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#475569">{{r.sub}}</span></sc-if>
+                  </div>
+                  <sc-if value="{{r.canAnswer}}" hint-placeholder-val="{{ false }}">
+                    <button type="button" onClick="{{r.answer}}" style="flex:0 0 auto;height:44px;padding:0 14px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer">Answer</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </section>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{sheetBrief}}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0;font-size:14px;line-height:20px;color:#334155">This is what a volunteer will read. It fills in as you answer. Editing here is free.</p>
+          <sc-for list="{{briefRows}}" as="b" hint-placeholder-count="6">
+            <section style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <h3 style="margin:0;flex:1;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#475569">{{b.title}}</h3>
+                <sc-if value="{{b.canEdit}}" hint-placeholder-val="{{ false }}">
+                  <button type="button" onClick="{{b.edit}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:14px;cursor:pointer">Edit</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{b.editing}}" hint-placeholder-val="{{ false }}">
+                <label for="brief-edit" style="font-size:13px;color:#475569">Change the answer</label>
+                <textarea id="brief-edit" rows="4" value="{{editText}}" onChange="{{onEditText}}" style="border-radius:10px;border:1px solid #94a3b8;padding:10px 12px;font-size:16px;line-height:22px;resize:vertical"></textarea>
+                <div style="display:flex;gap:8px">
+                  <button type="button" onClick="{{saveEdit}}" style="height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Save</button>
+                  <button type="button" onClick="{{cancelEdit}}" style="height:44px;padding:0 16px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;font-size:15px;cursor:pointer">Cancel</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{b.showText}}" hint-placeholder-val="{{ true }}">
+                <p style="{{b.textStyle}}">{{b.text}}</p>
+                <sc-if value="{{b.hasChip}}" hint-placeholder-val="{{ false }}"><span style="{{b.chipStyle}}">{{b.chip}}</span></sc-if>
+              </sc-if>
+            </section>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{sheetFiles}}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">A rota, a sign-up sheet or your volunteer rules help the AI ask better questions. Adding a file is optional and free. Free projects can add 3 files.</p>
+          <p style="margin:0;font-size:14px;line-height:20px;color:#92400e;background:#fef3c7;border-radius:10px;padding:10px 12px">Use a sample, or remove real names and phone numbers before you add the file.</p>
+          <sc-for list="{{files}}" as="f" hint-placeholder-count="1">
+            <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:15px;font-weight:600">{{f.name}}</span>
+              <span style="font-size:14px;line-height:20px;color:#475569">{{f.took}}</span>
+            </div>
+          </sc-for>
+          <button type="button" data-testid="choose-file" onClick="{{chooseFile}}" disabled="{{filesFull}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{chooseLabel}}</button>
+          <span style="font-size:13px;color:#475569">In this preview the button adds a sample file. The real button opens your phone's file picker.</span>
+        </sc-if>
+
+        <sc-if value="{{sheetLimits}}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{freeLeft}} free replies left today</p>
+          <div data-testid="limits-bar" aria-hidden="true" style="height:10px;border-radius:5px;background:#f1f5f9;overflow:hidden;display:flex"><span style="{{barStyle}}"></span></div>
+          <p data-testid="limits-values" style="margin:0;font-size:15px;line-height:22px;color:#334155">Free today: {{freeLeft}} of 10. Paid fuel: $0.00, none held for the next reply. Resets at 00:00 UTC.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Each answer you send, and the AI's reply to it, uses one free reply. Keeping a question open with “I’m not sure” is free. You get 10 a day. They renew at 00:00 UTC.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">You have no paid balance, so you will not be charged. If the free replies run out, Discovery waits until 00:00 UTC. Everything you wrote stays saved.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">Reading files, editing your brief, keeping a question open with “I’m not sure”, and finishing are always free.</p>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#334155">When 3 or fewer free replies are left, a short line above the message box tells you.</p>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{accountOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:6;background:rgba(15,23,42,.25)">
+      <div role="dialog" aria-label="Account" style="position:absolute;top:64px;right:12px;width:260px;background:#ffffff;border-radius:14px;border:1px solid #e2e8f0;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;font-weight:600">Dana Okonkwo (sample account)</span>
+          <span style="font-size:13px;color:#475569">dana@harborkitchen.org</span>
+          <span style="font-size:13px;color:#475569">Harbor Community Kitchen</span>
+        </div>
+        <button type="button" data-testid="account-limits" onClick="{{accountLimits}}" style="height:44px;border-radius:10px;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Reply limits · {{freeLeft}} free today</button>
+        <a href="SignIn.dc.html" data-testid="sign-out" style="display:flex;align-items:center;justify-content:center;height:44px;border-radius:10px;border:1px solid #cbd5e1;color:#0f172a;text-decoration:none;font-size:15px;font-weight:600">Sign out</a>
+        <button type="button" onClick="{{closeAccount}}" style="height:44px;border-radius:10px;border:none;background:#f1f5f9;color:#0f172a;font-size:15px;cursor:pointer">Close</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"variant":{"editor":"enum","options":["proposed","ruled"],"default":"proposed"},"start":{"editor":"enum","options":["chat","review"],"default":"chat"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.topics = [
+      { title: 'What should improve first?', ask: 'Which part of scheduling should the new tool make easier first?',
+        why: 'The first version can only do a few things well.',
+        options: ['Filling last-minute gaps when someone cancels', 'Collecting everyone’s availability each week', 'Sending out the weekly rota'], suggested: 0 },
+      { title: 'How volunteers get shifts', ask: 'How should volunteers get their shifts in the new tool?',
+        why: 'This decides most of what the tool has to do.',
+        options: ['Volunteers pick open shifts themselves', 'The coordinator assigns every shift', 'Volunteers pick, the coordinator approves'], suggested: 2 },
+      { title: 'Who looks after the tool', ask: 'After the volunteer hands the tool over, who at the kitchen will look after it? For example, add a new kitchen or reset a password.',
+        why: 'Someone at the kitchen must add kitchens and reset passwords after handoff.',
+        options: ['Our operations lead', 'Me, the volunteer coordinator', 'A board member'], suggested: 0 },
+      { title: 'What success looks like', ask: 'What would tell you the tool works, three months from now?',
+        why: 'The volunteer checks the build against this.',
+        options: ['Scheduling takes under one hour a week', 'No shift is left empty on weekends', 'Volunteers stop texting me to swap shifts'], suggested: 0 },
+      { title: 'Rules for booking shifts', ask: 'Are there rules about who can take which shift?',
+        why: 'Clear limits keep the rota fair, whoever books the shifts.',
+        options: ['Kitchen shifts need food safety training', 'No more than three shifts a week per volunteer', 'No rules'], suggested: 0 },
+      { title: 'Volunteer details kept', ask: 'Which volunteer details does the tool need to keep? Only list what you need for scheduling.',
+        why: 'Fewer personal details mean less risk and simpler rules.',
+        options: ['Name, mobile number and usual availability', 'Name and email only', 'Name, mobile, availability and training date'], suggested: 0 }
+    ];
+    this.keyTopics = [0, 2, 5];
+    this.unsureText = 'I’m not sure yet. Keep it open.';
+    const startReview = (props.start ?? 'chat') === 'review';
+    const answers = startReview
+      ? [{ text: 'Filling last-minute gaps when someone cancels', status: 'agreed', source: 'From your chat, reply 1' },
+         { text: 'Volunteers pick open shifts themselves', status: 'agreed', source: 'From your chat, reply 2' },
+         { text: this.unsureText, status: 'unsure', source: 'Kept open in reply 3' },
+         { text: 'Scheduling takes under one hour a week', status: 'agreed', source: 'From your chat, reply 4' },
+         { text: 'Kitchen shifts need food safety training', status: 'agreed', source: 'From your chat and volunteer-rules.pdf' },
+         { text: this.unsureText, status: 'unsure', source: 'Kept open in reply 6' }]
+      : [null, null, null, null, null, null];
+    const first = { who: 'ai', fileHint: true, text: 'Scheduling 45 volunteers across three kitchens takes about four hours a week. ' + this.topics[0].ask };
+    this.state = {
+      view: startReview ? 'review' : 'chat', focus: null, answers: answers, draft: '', selected: null, thinking: false, lastTurn: false,
+      sheet: null, account: false, freeLeft: startReview ? 4 : 5, files: [], editing: null, editText: '', saving: false,
+      ackReviewed: false, ackData: false, ackGaps: false, finished: false, published: false, confirming: false, lastUse: null,
+      transcript: startReview ? [first, { who: 'ai', text: 'That covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.' }] : [first]
+    };
+    this.setBody = (el) => { this.body = el; };
+    this.setReview = (el) => { this.reviewEl = el; };
+    this.setOpenPanel = (el) => { this.openPanel = el; };
+    this.lastKey = this.state.transcript.length + ':false:' + this.state.view + ':' + this.current();
+  }
+  componentDidUpdate() {
+    const key = this.state.transcript.length + ':' + this.state.thinking + ':' + this.state.view + ':' + this.current();
+    if (this.body && key !== this.lastKey) {
+      this.lastKey = key;
+      this.body.scrollTop = this.body.scrollHeight;
+    }
+  }
+  componentWillUnmount() { clearTimeout(this.timer); }
+  ruled() { return (this.props.variant ?? 'proposed') === 'ruled'; }
+  current() {
+    const s = this.state;
+    if (s.focus !== null) return s.focus;
+    const i = s.answers.findIndex((a) => !a);
+    return i === -1 ? 6 : i;
+  }
+  submit(text, unsure) {
+    const s = this.state;
+    const cur = this.current();
+    if (s.thinking || cur >= 6) return;
+    const answers = s.answers.slice();
+    answers[cur] = { text: text, status: unsure ? 'unsure' : 'agreed', source: unsure ? 'Kept open in the chat' : 'From your chat' };
+    const remaining = answers.findIndex((a) => !a);
+    const transcript = s.transcript.concat([{ who: 'me', text: text, meta: unsure ? 'Kept open · no charge' : 'Sent · free reply' }]);
+    this.setState({ answers: answers, transcript: transcript, draft: '', selected: null, thinking: true, lastTurn: remaining === -1,
+      freeLeft: unsure ? s.freeLeft : Math.max(0, s.freeLeft - 1), saving: true, focus: null, finished: false, ackReviewed: false, ackData: false, ackGaps: false });
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      const st = this.state;
+      const next = this.current();
+      const label = this.ruled() ? 'needed before build' : 'still to decide';
+      const ack = unsure && !this.ruled() && this.keyTopics.includes(cur)
+        ? 'That’s fine for now. “' + this.topics[cur].title + '” is one of the three answers needed to finish, so I’ll come back to it before the review.'
+        : unsure
+        ? 'That’s fine. I’ve marked “' + this.topics[cur].title + '” as ' + label + '. It stays in your brief, and a volunteer will ask about it before building.'
+        : 'Thanks, I’ve added that to your brief under “' + this.topics[cur].title + '”.';
+      const missing = this.ruled() ? [] : this.keyTopics.filter((k) => !answers[k] || answers[k].status !== 'agreed').map((k) => '“' + this.topics[k].title + '”');
+      const end = missing.length > 0
+        ? 'That covers all six topics. To finish, I still need an answer to ' + missing.join(' and ') + '. You can answer from the review.'
+        : 'That covers all six topics. Discovery is ready for review, and I’ve stopped asking questions.';
+      const text = next < 6 ? ack + '\n\n' + this.topics[next].ask : ack + '\n\n' + end;
+      this.setState({ thinking: false, saving: false, transcript: st.transcript.concat([{ who: 'ai', text: text }]) });
+    }, 1400);
+  }
+  focusTopic(i) {
+    const st = this.state;
+    const t = this.topics[i];
+    this.setState({ view: 'chat', sheet: null, focus: i, draft: '', selected: null,
+      transcript: st.transcript.concat([{ who: 'ai', text: 'Let’s come back to “' + t.title + '”. ' + t.ask }]) });
+  }
+  renderVals() {
+    const s = this.state;
+    const ruled = this.ruled();
+    const t = this.topics;
+    const cur = this.current();
+    const ready = cur >= 6;
+    const agreed = s.answers.filter((a) => a && a.status === 'agreed').length;
+    const unsure = s.answers.filter((a) => a && a.status === 'unsure').length;
+    const openLabel = ruled ? 'Needed before build' : 'Still to decide';
+    const openChip = ruled
+      ? 'font-size:12px;font-weight:600;color:#b91c1c;background:#fee2e2;border-radius:999px;padding:2px 8px'
+      : 'font-size:12px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 8px';
+
+    const segments = t.map((_, i) => {
+      const a = s.answers[i];
+      let bg = '#e2e8f0';
+      if (i === cur && !ready) bg = '#64748b';
+      else if (a && a.status === 'agreed') bg = '#16a34a';
+      else if (a && a.status === 'unsure') bg = ruled ? '#dc2626' : '#d97706';
+      return { style: 'display:block;height:6px;border-radius:3px;background:' + bg };
+    });
+
+    const transcript = s.transcript.map((m) => ({ ai: m.who === 'ai', me: m.who === 'me', text: m.text, meta: m.meta || '', fileHint: !!m.fileHint && !ruled && s.files.length === 0 }));
+
+    let card = { title: '', num: 0, options: [] };
+    if (!ready) {
+      const topic = t[cur];
+      const labels = topic.options.concat([this.unsureText]);
+      card = {
+        title: topic.title, num: cur + 1,
+        options: labels.map((label, i) => {
+          const on = s.selected === i;
+          const isUnsure = i === labels.length - 1;
+          return {
+            label: label, suggested: i === topic.suggested, checked: on ? 'true' : 'false', testid: isUnsure ? 'not-sure' : 'option-' + (i + 1),
+            pick: () => this.setState({ selected: i, draft: label }),
+            style: 'min-height:48px;display:flex;align-items:center;gap:10px;border-radius:10px;padding:10px 12px;font-size:15px;line-height:21px;cursor:pointer;color:' + (isUnsure && !on ? '#334155' : '#0f172a') + ';border:' + (on ? '2px solid #0f172a;background:#f1f5f9' : '1px solid #cbd5e1;background:' + (isUnsure ? '#f8fafc' : '#ffffff')),
+            dot: 'flex:0 0 auto;width:18px;height:18px;border-radius:9px;box-sizing:border-box;' + (on ? 'border:6px solid #0f172a' : 'border:2px solid #94a3b8')
+          };
+        })
+      };
+    }
+
+    const groups = [];
+    const rowBase = 'display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px';
+    if (!ready) groups.push({ title: 'Answer now', rows: [{ title: t[cur].title, hasSub: true, sub: t[cur].ask, canAnswer: true, answer: () => this.setState({ sheet: null }),
+      style: 'display:flex;align-items:center;gap:10px;border:2px solid #0f172a;border-radius:12px;padding:12px' }] });
+    const openRows = [], laterRows = [], doneRows = [];
+    t.forEach((topic, i) => {
+      if (i === cur) return;
+      const a = s.answers[i];
+      if (a && a.status === 'unsure') openRows.push({ title: topic.title, hasSub: false, sub: '', canAnswer: true, answer: () => this.focusTopic(i), style: rowBase + ';border-color:#fcd34d;background:#fffbeb' });
+      else if (!a) laterRows.push({ title: topic.title, hasSub: false, sub: '', canAnswer: false, answer: null, style: rowBase + ';color:#475569' });
+      else doneRows.push({ title: topic.title, hasSub: false, sub: '', canAnswer: false, answer: null, style: rowBase });
+    });
+    if (openRows.length) groups.push({ title: openLabel, rows: openRows });
+    if (laterRows.length) groups.push({ title: 'Later', rows: laterRows });
+    if (doneRows.length) groups.push({ title: 'Answered · see Your brief', rows: doneRows });
+
+    const editFor = (i) => () => this.setState({ editing: i, editText: s.answers[i] && s.answers[i].status === 'agreed' ? s.answers[i].text : '' });
+    const briefRows = t.map((topic, i) => {
+      const a = s.answers[i];
+      const editing = s.editing === i;
+      return {
+        title: topic.title, editing: editing, showText: !editing, canEdit: !!a && !editing,
+        text: a ? (a.status === 'unsure' ? 'Not decided yet.' : a.text) : 'Not answered yet.',
+        textStyle: a && a.status === 'agreed' ? 'margin:0;font-size:16px;line-height:23px;font-weight:600;color:#0f172a' : 'margin:0;font-size:15px;line-height:22px;color:#475569',
+        hasChip: !!a && a.status === 'unsure', chip: openLabel, chipStyle: openChip + ';align-self:flex-start',
+        edit: editFor(i)
+      };
+    });
+
+    const isKey = (i) => !ruled && this.keyTopics.includes(i);
+    const open = s.answers.map((a, i) => ({ a: a, i: i })).filter((x) => !x.a || x.a.status === 'unsure')
+      .sort((x, y) => (isKey(y.i) ? 1 : 0) - (isKey(x.i) ? 1 : 0));
+    const missingKey = open.filter((x) => isKey(x.i)).map((x) => t[x.i].title);
+    const openItems = open.map((x) => {
+      const topic = t[x.i];
+      const suggestion = topic.options[topic.suggested];
+      return {
+        title: topic.title, why: topic.why, suggestion: suggestion,
+        chip: isKey(x.i) ? 'Needed to finish' : 'Still to decide',
+        chipStyle: isKey(x.i) ? 'font-size:12px;font-weight:600;color:#ffffff;background:#b45309;border-radius:999px;padding:2px 8px' : 'font-size:12px;font-weight:600;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 8px',
+        use: () => {
+          const answers = this.state.answers.slice();
+          const before = answers[x.i];
+          answers[x.i] = { text: suggestion, status: 'agreed', source: 'You used the suggestion' };
+          this.setState({ answers: answers, ackReviewed: false, ackData: false, ackGaps: false, finished: false, lastUse: { i: x.i, before: before, title: topic.title } });
+        },
+        answer: () => this.focusTopic(x.i)
+      };
+    });
+    const reviewSections = t.map((topic, i) => {
+      const a = s.answers[i];
+      const editing = s.editing === i;
+      const isOpen = !a || a.status === 'unsure';
+      return {
+        title: topic.title, editing: editing, showText: !editing, showEdit: !editing,
+        text: isOpen ? 'Not decided yet.' : a.text,
+        textStyle: isOpen ? 'margin:0;font-size:15px;line-height:22px;color:#475569' : 'margin:0;font-size:16px;line-height:23px;font-weight:600',
+        source: a ? a.source : 'Not answered yet',
+        hasChip: isOpen, chip: openLabel, chipStyle: openChip,
+        cardStyle: 'background:#ffffff;border:1px solid ' + (isOpen ? '#fcd34d' : '#e2e8f0') + ';border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px',
+        edit: editFor(i)
+      };
+    });
+    const hasOpen = open.length > 0;
+    const canFinish = s.editing === null && missingKey.length === 0 && s.ackReviewed && s.ackData && (!hasOpen || s.ackGaps);
+    const missingText = missingKey.map((k) => '“' + k + '”').join(', ');
+    const openIntro = missingKey.length > 0
+      ? 'To finish, answer ' + missingText + '. The other open questions can stay open: a volunteer will ask about them before building starts.'
+      : 'You can finish now. A volunteer will need these answers before building starts, and they stay in your brief.';
+    const openTitle = open.length === 1 ? '1 question is still open' : open.length + ' questions are still open';
+
+    const sheetTitles = { questions: 'Questions', brief: 'Your brief', files: 'Your files', limits: 'Reply limits' };
+    const sendDisabled = s.thinking || s.draft.trim() === '' || (s.freeLeft === 0 && s.draft.trim() !== this.unsureText);
+    const lines = Math.ceil((s.draft.length || 1) / 22);
+    return {
+      setBody: this.setBody, setReview: this.setReview, setOpenPanel: this.setOpenPanel,
+      chatView: s.view === 'chat', reviewView: s.view === 'review', doneView: s.view === 'done',
+      saveState: s.saving ? 'Saving…' : 'All changes saved',
+      finishPrimary: ruled,
+      toReview: () => this.setState({ view: 'review', sheet: null }),
+      backToChat: () => this.setState({ view: 'chat', editing: null }),
+      reviewSecondary: !ruled,
+      reviewStyle: 'height:44px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;' + (ready && missingKey.length === 0 ? 'background:#0f172a;color:#ffffff;border:1px solid #0f172a' : 'background:#ffffff;color:#0f172a;border:1px solid #cbd5e1'),
+      progressLabel: agreed + ' of 6 topics answered',
+      progressHint: ready ? 'Ready to review' : (unsure ? unsure + ' kept open' : 'About 6 replies'),
+      segments: segments,
+      showIntro: s.answers.every((a) => !a) && !s.thinking,
+      transcript: transcript, thinking: s.thinking,
+      thinkingText: s.lastTurn ? 'Updating your brief…' : 'Preparing your next question…',
+      showCard: !ready && !s.thinking, card: card,
+      ready: ready && !s.thinking,
+      readyBody: missingKey.length > 0 ? 'To finish, answer ' + missingText + '. Open the review and tap Answer in chat.' : unsure ? 'Every topic has an answer or is kept open. Check the brief, then finish. Open questions stay in the brief for the volunteer.' : 'All six topics are answered. Check the brief, then finish. Finishing is free.',
+      readyCta: ruled ? 'Finish Discovery' : 'Review your brief',
+      showComposer: !ready,
+      compactUsage: !ruled && s.freeLeft <= 3, fullUsage: ruled, freeLeft: s.freeLeft,
+      usageLine: s.freeLeft === 0 ? 'No free replies left today. Your draft stays; replies return at 00:00 UTC.' : 'Only ' + s.freeLeft + (s.freeLeft === 1 ? ' free reply' : ' free replies') + ' left today · no charge',
+      barStyle: 'display:block;height:10px;background:#166534;width:' + (s.freeLeft * 10) + '%',
+      rows: Math.min(8, Math.max(1, lines)),
+      draft: s.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      send: () => { const v = this.state.draft.trim(); if (v) this.submit(v, v === this.unsureText); },
+      sendDisabled: sendDisabled,
+      sendStyle: 'flex:0 0 auto;height:44px;padding:0 18px;border-radius:10px;border:none;font-size:16px;font-weight:600;cursor:pointer;' + (sendDisabled ? 'background:#e2e8f0;color:#64748b' : 'background:#0f172a;color:#ffffff'),
+      sheetOpen: !!s.sheet, sheetTitle: sheetTitles[s.sheet] || '',
+      sheetQuestions: s.sheet === 'questions', sheetBrief: s.sheet === 'brief', sheetFiles: s.sheet === 'files', sheetLimits: s.sheet === 'limits',
+      questionGroups: groups, briefRows: briefRows,
+      editText: s.editText,
+      onEditText: (e) => this.setState({ editText: e.target.value }),
+      saveEdit: () => {
+        const st = this.state; const answers = st.answers.slice();
+        if (st.editText.trim()) answers[st.editing] = { text: st.editText.trim(), status: 'agreed', source: 'You edited this' };
+        this.setState({ answers: answers, editing: null, editText: '', ackReviewed: false, ackData: false, ackGaps: false, finished: false, lastUse: null });
+      },
+      cancelEdit: () => this.setState({ editing: null, editText: '' }),
+      files: s.files.map((f) => ({ name: f.name, took: f.took })),
+      filesFull: s.files.length >= 3,
+      chooseLabel: s.files.length ? 'Add another file' : 'Choose a file',
+      chooseFile: () => {
+        const n = this.state.files.length;
+        if (n >= 3) return;
+        const samples = [
+          { name: 'volunteer-rota-sample.csv', took: 'The AI read it: three kitchens, morning and afternoon shifts, 12 shifts a week.' },
+          { name: 'volunteer-rules.pdf', took: 'The AI read it: kitchen shifts need food safety training.' },
+          { name: 'signup-sheet.xlsx', took: 'The AI read it: 45 volunteers, availability by weekday.' }
+        ];
+        this.setState({ files: this.state.files.concat([samples[n]]) });
+      },
+      openQuestions: () => this.setState({ sheet: 'questions' }),
+      openBrief: () => this.setState({ sheet: 'brief' }),
+      openFiles: () => this.setState({ sheet: 'files' }),
+      openLimits: () => this.setState({ sheet: 'limits' }),
+      closeSheet: () => this.setState({ sheet: null, editing: null }),
+      accountOpen: s.account,
+      openAccount: () => this.setState({ account: true }),
+      accountLimits: () => this.setState({ account: false, sheet: 'limits' }),
+      closeAccount: () => this.setState({ account: false }),
+
+      finishedBanner: s.finished, finishedText: s.published ? 'Published. Volunteers can see this brief. Editing a section reopens it, and you confirm again.' : 'Brief saved, not yet published. Editing a section reopens it, and you confirm again.',
+      backToStatus: () => this.setState({ view: 'done' }),
+      openJump: !ruled && hasOpen, jumpOpen: () => { if (this.openPanel) this.openPanel.scrollIntoView({ block: 'start' }); },
+      openFirst: ruled && hasOpen, openAfter: !ruled && hasOpen,
+      openItems: openItems, openTitle: openTitle, openIntro: openIntro,
+      reviewSections: reviewSections,
+      hasToast: !!s.lastUse, toast: s.lastUse ? 'Added to your brief: ' + s.lastUse.title : '',
+      undoUse: () => { const lu = this.state.lastUse; if (!lu) return; const answers = this.state.answers.slice(); answers[lu.i] = lu.before; this.setState({ answers: answers, lastUse: null, ackReviewed: false, ackData: false, ackGaps: false, finished: false }); },
+      showFinishBox: !s.finished,
+      finishHeading: ruled ? 'Finish Discovery' : 'Ready to finish?',
+      hasOpen: hasOpen,
+      gapsLabel: open.length === 1 ? 'I understand 1 question is still open. We finish anyway and keep it in the brief.' : 'I understand ' + open.length + ' questions are still open. We finish anyway and keep them in the brief.',
+      ackReviewed: s.ackReviewed, ackData: s.ackData, ackGaps: s.ackGaps,
+      toggleReviewed: () => this.setState({ ackReviewed: !this.state.ackReviewed }),
+      toggleData: () => this.setState({ ackData: !this.state.ackData }),
+      toggleGaps: () => this.setState({ ackGaps: !this.state.ackGaps }),
+      finishLabel: ruled ? 'Finish Discovery' : 'Finish and save brief',
+      finishDisabled: !canFinish,
+      finishStyle: 'height:48px;border-radius:10px;border:none;font-size:16px;font-weight:600;cursor:pointer;' + (canFinish ? 'background:#0f172a;color:#ffffff' : 'background:#e2e8f0;color:#64748b'),
+      finishNote: s.editing !== null ? 'Save or cancel your edit first.' : missingKey.length > 0 ? 'To finish, answer ' + missingText + ' first. Finishing is free.' : (canFinish ? 'Finishing is free. It records your name and the time.' : 'Tick the boxes above to finish. Finishing is free.'),
+      finish: () => { if (canFinish) this.setState({ finished: true, view: 'done', lastUse: null }); },
+
+      statusChip: s.published ? 'Published · volunteers can see it' : (hasOpen ? 'Finished with open questions' : 'Discovery finished'),
+      doneTitle: s.published ? 'Your project is published' : 'Your brief is saved',
+      doneBody: hasOpen ? open.length + (open.length === 1 ? ' question stays' : ' questions stay') + ' open in it for the volunteer.' : 'Every question has an answer.',
+      notPublished: !s.published, published: s.published,
+      showNext: !s.published && !s.confirming, confirming: !s.published && !!s.confirming,
+      previewRows: this.topics.map((t, i) => {
+        const a = s.answers[i];
+        const kept = !a || a.status === 'unsure';
+        return { title: t.title, text: kept ? 'Still to decide. The volunteer will ask you.' : a.text,
+          style: 'font-size:14px;line-height:20px;' + (kept ? 'color:#92400e' : 'color:#334155') };
+      }),
+      publishNote: hasOpen ? open.length + (open.length === 1 ? ' question is' : ' questions are') + ' still open. Volunteers see them as still to decide. You can still edit the brief until a volunteer starts work.' : 'You can still edit the brief until a volunteer starts work.',
+      askPublish: () => this.setState({ confirming: true }),
+      cancelPublish: () => this.setState({ confirming: false }),
+      publish: () => this.setState({ published: true, confirming: false }),
+      seeBrief: () => this.setState({ view: 'review' })
+    };
+  }
+}
+</script>
+</body>
+</html>

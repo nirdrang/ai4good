@@ -222,9 +222,8 @@ atTest('AT-004.65', 'the first reply asks for files while fewer than three exist
     await withDiscovery(ctx, { scenario: 'first-reply', viewport: 'desktop' }, async (screen) => {
       const text = await screen.chat.lastAssistantText();
       expect(text, 'the first reply asks for files that show how you work today').toContain(given.filePhrase);
-      for (const kind of given.fileKinds) {
-        expect(text, `the first reply names ${kind}`).toContain(kind);
-      }
+      if (screen.backend) expect(text, 'the first reply names files that fit this need').toMatch(/Files that would help this need: \S/);
+      else for (const kind of given.fileKinds) expect(text, `the first reply names ${kind}`).toContain(kind);
       expect(text, 'the first reply points to Add a file').toContain('Add a file');
       expect(await screen.files.addVisible(), 'Add a file is on the screen').toBe(true);
       if (screen.backend) {
@@ -749,3 +748,12 @@ atTest(
     },
   },
 );
+const pendingUntilBuilt = (id: string) => async () => {
+  throw new AtPending(id, 'sut-missing', 'the founder rulings of 2026-11-18 land in screen build and screen wiring');
+};
+atTest('AT-004.76', 'the phone chat shows the first question and one message box', pendingUntilBuilt('AT-004.76'));
+atTest('AT-004.77', 'the usage line shows only near the limit and Reply limits stays one tap away', pendingUntilBuilt('AT-004.77'));
+atTest('AT-004.78', 'the phone review shows the brief first and keeps the status', pendingUntilBuilt('AT-004.78'));
+atTest('AT-004.79', 'the phone Account menu signs out and controls are 44 px', pendingUntilBuilt('AT-004.79'));
+atTest('AT-004.80', 'an I am not sure reply uses no free turn and no fuel', pendingUntilBuilt('AT-004.80'));
+atTest('AT-004.81', 'finish is refused until the key topics have agreed answers', pendingUntilBuilt('AT-004.81'));

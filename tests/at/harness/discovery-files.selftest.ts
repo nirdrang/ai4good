@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { evolveBrief, openingDocument } from '../../../supabase/functions/_shared/discovery-brief.ts';
+import { evolveBrief } from '../../../supabase/functions/_shared/discovery-brief.ts';
+import { testOpening } from './discovery-topic-plan.ts';
 import { fileDigestContext, fileLimitReached, fileReport, mergeFileDigests, parseFileDigest, screenFile, splitFileText, type FileRow } from '../../../supabase/functions/_shared/discovery-files.ts';
 import { decideDiscoveryFile } from '../../../supabase/functions/_shared/discovery-file-write.ts';
 import type { AccountWriteRouteInput } from '../../../supabase/functions/_shared/write-routes.ts';
@@ -36,7 +37,7 @@ it('accepts facts only for known sections and retains questions as digest data',
 });
 
 it('publishes file facts with provenance while every required topic remains open', () => {
-  const version = openingDocument({ need: 'Coordinate kitchens' });
+  const version = testOpening('Coordinate kitchens');
   const result = evolveBrief(version, { kind: 'apply-file-facts', fileId: 'file', fileName: 'rota.txt', facts: [
     { sectionId: 'usersToday', text: '45 volunteers across three kitchens' },
     { sectionId: 'measure', text: 'Two hours' },
