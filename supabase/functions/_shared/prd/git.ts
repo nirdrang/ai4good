@@ -1,5 +1,5 @@
 import { githubConfig, type GithubFetch } from "../github/app.ts";
-import { githubRepo, type GithubCommit, type GithubRepo } from "../github/repo.ts";
+import { githubRepo, type GithubRepo } from "../github/repo.ts";
 import type { SettleActResult, SettleDatabase } from "../write-routes.ts";
 import { parseSection, parseSectionDocument, renderSection, type SectionDocument } from "./file.ts";
 import type { PrdOpenArgs } from "./routes.ts";
@@ -56,8 +56,11 @@ type FileChange = {
     | { variant: "unreadable"; raw: string; error: string };
 };
 
+type TreeFiles = { path: string; sha: string }[];
+
 const SHA = /^[0-9a-f]{40}$/i;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DIVERGED = "the repository diverged and an operator has to repair it";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -251,19 +254,11 @@ async function onMain(
 async function diffPrd(
   github: GithubRepo,
   repo: string,
-  commit: GithubCommit,
+  previous: TreeFiles,
+  next: TreeFiles,
 ): Promise<{ ok: true; changes: FileChange[] } | { ok: false; reason: string }> {
-  const next = await github.prdTree(repo, commit.sha);
-  if (!next.ok) return { ok: false, reason: next.reason };
-  let previous: { path: string; sha: string }[] = [];
-  const parent = commit.parents[0];
-  if (parent !== undefined) {
-    const prior = await github.prdTree(repo, parent);
-    if (!prior.ok) return { ok: false, reason: prior.reason };
-    previous = prior.files;
-  }
   const before = new Map(previous.map((file) => [file.path, file.sha]));
-  const after = new Map(next.files.map((file) => [file.path, file.sha]));
+  const after = new Map(next.map((file) => [file.path, file.sha]));
   const paths = [...new Set([...before.keys(), ...after.keys()])].sort();
   const pending: FileChange[] = [];
   const needed: string[] = [];
@@ -300,6 +295,28 @@ async function diffPrd(
   return { ok: true, changes: pending };
 }
 
+async function markDiverged(
+  project: string,
+  deps: GitDeps,
+  reason: string,
+): Promise<{ ok: false; reason: string }> {
+  const marked = await called(deps, "prd_mark_diverged", { p_project: project, p_reason: reason });
+  return marked.ok ? { ok: false, reason: DIVERGED } : marked;
+}
+
+async function checkMainProtection(
+  project: string,
+  repo: string,
+  deps: GitDeps,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const protection = await deps.github.protection(repo);
+  if (!protection.ok) return { ok: false, reason: protection.reason };
+  if (!protection.forbidsForcePushes || !protection.forbidsDeletion) {
+    return markDiverged(project, deps, "main no longer forbids force pushes and deletion");
+  }
+  return { ok: true };
+}
+
 async function syncOnce(
   project: string,
   deps: GitDeps,
@@ -308,13 +325,15 @@ async function syncOnce(
   const state = await loadState(project, deps);
   if (!state.ok) return state;
   if (state.state === "diverged") {
-    return { ok: false, reason: "the repository diverged and an operator has to repair it" };
+    return { ok: false, reason: DIVERGED };
   }
   if (state.repoId === null) return { ok: false, reason: "the repository is not bound" };
   if (state.headCommit === null) return { ok: false, reason: "the read copy has no commit" };
   const head = await deps.github.head(state.repoName);
   if (!head.ok) return { ok: false, reason: head.reason };
-  if ("missing" in head) return { ok: false, reason: "main is not a branch" };
+  if ("missing" in head) return markDiverged(project, deps, "main is not a branch");
+  const protection = await checkMainProtection(project, state.repoName, deps);
+  if (!protection.ok) return protection;
   let end = head.sha;
   if (known !== undefined && known !== end) {
     // GitHub's read of a branch can lag the move advance just confirmed.
@@ -322,20 +341,20 @@ async function syncOnce(
     if (!between.ok) return { ok: false, reason: between.reason };
     if (between.result !== "commits") end = known;
   }
-  let commits: Record<string, unknown>[] = [];
+  const commits: Record<string, unknown>[] = [];
   if (state.headCommit !== end) {
     const range = await deps.github.commitsSince(state.repoName, state.headCommit, end);
     if (!range.ok) return { ok: false, reason: range.reason };
     if (range.result === "diverged") {
-      const marked = await called(deps, "prd_mark_diverged", {
-        p_project: project,
-        p_reason: "the repository left the fast-forward line",
-      });
-      if (!marked.ok) return marked;
-      return { ok: false, reason: "the repository diverged and an operator has to repair it" };
+      return markDiverged(project, deps, "the repository left the fast-forward line");
     }
+    const base = await deps.github.prdTree(state.repoName, state.headCommit);
+    if (!base.ok) return { ok: false, reason: base.reason };
+    let previous = base.files;
     for (const commit of range.commits) {
-      const changes = await diffPrd(deps.github, state.repoName, commit);
+      const next = await deps.github.prdTree(state.repoName, commit.sha);
+      if (!next.ok) return { ok: false, reason: next.reason };
+      const changes = await diffPrd(deps.github, state.repoName, previous, next.files);
       if (!changes.ok) return changes;
       commits.push({
         sha: commit.sha,
@@ -344,6 +363,7 @@ async function syncOnce(
         message: commit.message,
         changes: changes.changes,
       });
+      previous = next.files;
     }
   }
   const reconciled = await called(deps, "prd_reconcile", {
@@ -666,8 +686,8 @@ function again(): Flow {
   return { kind: "again" };
 }
 
-function commitFailed(): CommitTurnResult {
-  return { ok: false, reason: "commit-failed" };
+function commitFailed(reason = "commit-failed"): CommitTurnResult {
+  return { ok: false, reason };
 }
 
 function sameSha(left: string, right: string): boolean {
@@ -790,7 +810,7 @@ async function dropAttempt(
   attempt: WrittenAttempt,
   syncAfter: boolean,
 ): Promise<Flow> {
-  if (attempt.status === "published") return done(commitFailed());
+  if (attempt.status === "published") return done(commitFailed("commit-uncertain"));
   if (!(await failOp(deps, attempt.op))) return done(commitFailed());
   if (syncAfter && !(await synced(project, deps))) return done(commitFailed());
   return again();
@@ -804,7 +824,7 @@ async function resume(
   allowRetry: boolean,
 ): Promise<Flow> {
   if (attempt.sha === null) return done(commitFailed());
-  if (!(await synced(project, deps))) return done(commitFailed());
+  if (!(await synced(project, deps))) return done(commitFailed("commit-uncertain"));
   const probe = await readPrepare(deps, grant);
   if (probe.kind === "done") return probe;
   if (probe.kind === "prepared") {
@@ -812,20 +832,27 @@ async function resume(
     return done(commitFailed());
   }
   const head = await mainSha(deps.github, attempt.repo);
-  if (head === null) return done(commitFailed());
+  if (head === null) return done(commitFailed("commit-uncertain"));
   if (sameSha(head, attempt.sha)) {
-    if (!(await synced(project, deps))) return done(commitFailed());
-    const seen = await readPrepare(deps, grant);
-    if (seen.kind === "done" && seen.result.ok && seen.result.result === "committed") return seen;
-    return done(commitFailed());
+    return confirmAdvance(project, grant, deps, attempt.sha);
   }
   if (sameSha(head, attempt.base)) {
-    if (!allowRetry) return done({ ok: true, result: "busy" });
+    if (!allowRetry) return done(commitFailed("commit-uncertain"));
     const moved = await deps.github.advance(attempt.repo, attempt.sha);
     if (!moved.ok && moved.kind === "uncertain") return resume(project, grant, deps, attempt, false);
     return settleAdvance(project, grant, deps, attempt, moved);
   }
   return dropAttempt(project, deps, attempt, false);
+}
+
+async function confirmAdvance(project: string, grant: string, deps: GitDeps, sha: string): Promise<Flow> {
+  if (!(await synced(project, deps, sha))) return done(commitFailed("commit-uncertain"));
+  const seen = await readPrepare(deps, grant);
+  if (seen.kind === "done") {
+    if (!seen.result.ok && seen.result.reason === "outcome-failed") return seen;
+    if (seen.result.ok && seen.result.result === "committed" && sameSha(seen.result.sha, sha)) return seen;
+  }
+  return done(commitFailed("commit-uncertain"));
 }
 
 async function settleAdvance(
@@ -841,8 +868,7 @@ async function settleAdvance(
     return resume(project, grant, deps, attempt, true);
   }
   if (moved.result === "rejected") return dropAttempt(project, deps, attempt, true);
-  if (!(await synced(project, deps, attempt.sha))) return done(commitFailed());
-  return done({ ok: true, result: "committed", sha: attempt.sha });
+  return confirmAdvance(project, grant, deps, attempt.sha);
 }
 
 async function publishPrepared(
@@ -853,6 +879,8 @@ async function publishPrepared(
 ): Promise<Flow> {
   const files = rendered(prepared.sections);
   if (!files.ok) return done(commitFailed());
+  const protection = await checkMainProtection(project, prepared.repo, deps);
+  if (!protection.ok) return done(commitFailed(protection.reason === DIVERGED ? "not-yet" : "commit-failed"));
   const written = await deps.github.writeCommit(
     prepared.repo,
     prepared.base,

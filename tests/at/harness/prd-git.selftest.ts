@@ -5,6 +5,9 @@ import {
   sectionPath,
 } from "../../../supabase/functions/_shared/prd/file.ts";
 import type { SectionDocument } from "../../../supabase/functions/_shared/prd/file.ts";
+import type { GithubRepo } from "../../../supabase/functions/_shared/github/repo.ts";
+import { syncRepo } from "../../../supabase/functions/_shared/prd/git.ts";
+import type { SettleDatabase } from "../../../supabase/functions/_shared/write-routes.ts";
 import { STACK_ENV, sqlClient, stackFromEnv, type Stack } from "./live-stack.ts";
 import { madeSha, openWithoutGithub } from "./prd-git.ts";
 
@@ -307,6 +310,62 @@ describe.skipIf(!live)("PRD git on the local stack", () => {
     expect(stored["a-b"]).toBe("prd/a-b-2.md");
     expect(stored["a--b"]).toBe("prd/a-b-3.md");
     expect(stored["technical-scope"]).toBe(sectionPath("technical-scope"));
+  });
+
+  it("imports the merge tree after a side branch changed the same file", async () => {
+    const { dev, org, project } = await seed(stack, sql, schedulingBrief());
+    await openWithoutGithub(sql, dev, org, project);
+    const base = madeSha(`${project}:open`);
+    const main = madeSha(`${project}:main`);
+    const side = madeSha(`${project}:side`);
+    const merge = madeSha(`${project}:merge`);
+    const path = (await paths(sql, project)).booking;
+    const title = "Who books shifts";
+    const mainText = "Keep coordinator approval from main.";
+    const sideText = "Discarded side-branch rule.";
+    const document = (text: string) => ({ statements: [{ text, sources: [] }], decisions: [] });
+    const mainChange = readableChange(path, "booking", title, document(mainText), main, "modified");
+    await reconcile(sql, project, base, [commit(main, base, "reviewer", [mainChange])]);
+    const sideBlob = madeSha(`${side}:booking`);
+    const baseBlob = madeSha(`${base}:booking`);
+    const rpc: SettleDatabase = async (name, args) => {
+      if (name === "prd_git_sync_state") {
+        const rows = await sql`select public.prd_git_sync_state(${project}::uuid) as result` as Array<{ result: unknown }>;
+        return { ok: true, value: jsonValue(rows[0].result) };
+      }
+      if (name === "prd_reconcile") {
+        return { ok: true, value: await reconcile(sql, project, String(args.p_expected_head), args.p_commits as unknown[]) };
+      }
+      throw new Error(`unexpected RPC ${name}`);
+    };
+    const github = {
+      async protection() { return { ok: true, forbidsForcePushes: true, forbidsDeletion: true }; },
+      async head() { return { ok: true, sha: merge }; },
+      async commitsSince() {
+        return { ok: true, result: "commits", commits: [
+          { sha: side, parents: [base], committerLogin: "reviewer", message: "Side branch" },
+          { sha: merge, parents: [main, side], committerLogin: "reviewer", message: "Keep main's text" },
+        ] };
+      },
+      async prdTree(_repo: string, sha: string) {
+        return { ok: true, files: [{ path, sha: sha === side ? sideBlob : sha === base ? baseBlob : mainChange.blobSha }] };
+      },
+      async readBlobs(_repo: string, shas: string[]) {
+        return { ok: true, blobs: shas.map((sha) => ({
+          sha, text: renderSection({ key: "booking", title, document: document(sha === sideBlob ? sideText : mainText) }),
+        })) };
+      },
+    } satisfies Pick<GithubRepo, "protection" | "head" | "commitsSince" | "prdTree" | "readBlobs">;
+    expect(await syncRepo(project, { github: github as unknown as GithubRepo, rpc })).toEqual({ ok: true });
+    const texts = section(await facts(sql, dev, project), "booking").document.statements.map((item) => item.text);
+    const stored = await sql`select v.blob_sha from public.prd_records r
+      join public.prd_revisions rev on rev.project_id = r.project_id and rev.revision = r.current_revision
+      join public.prd_section_versions v on v.id = (rev.manifest->>'booking')::uuid
+      where r.project_id = ${project}::uuid` as Array<{ blob_sha: string }>;
+    console.log("merge read copy", { texts, blobMatches: stored[0]?.blob_sha === mainChange.blobSha, headMatches: (await stamp(sql, project)).head === merge });
+    expect((await stamp(sql, project)).head).toBe(merge);
+    expect(texts).toEqual([mainText]);
+    expect(stored[0]?.blob_sha).toBe(mainChange.blobSha);
   });
 
   it("finalizes the open once and applies repository edits", async () => {

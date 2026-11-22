@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { GithubCommit, GithubRepo } from "../../../supabase/functions/_shared/github/repo.ts";
 import { renderSection } from "../../../supabase/functions/_shared/prd/file.ts";
-import { commitTurn, type GitDeps } from "../../../supabase/functions/_shared/prd/git.ts";
+import { commitTurn, syncRepo, type GitDeps } from "../../../supabase/functions/_shared/prd/git.ts";
 import type { SettleDatabase } from "../../../supabase/functions/_shared/write-routes.ts";
 
 const PROJECT = "55555555-5555-4555-8555-555555555555";
@@ -29,7 +29,7 @@ function hex(n: number): string {
   return n.toString(16).padStart(40, "0");
 }
 
-function drive(script: { seed?: Seed; plans?: Array<"ok" | "stale">; advances?: Advance[]; stale?: unknown } = {}) {
+function drive(script: { seed?: Seed; plans?: Array<"ok" | "stale">; advances?: Advance[]; stale?: unknown; unprotected?: boolean } = {}) {
   const calls: string[] = [];
   const writes: { parent: string; message: string; files: { path: string; content: string | null }[] }[] = [];
   const advances: { sha: string; landed: boolean }[] = [];
@@ -63,6 +63,7 @@ function drive(script: { seed?: Seed; plans?: Array<"ok" | "stale">; advances?: 
 
   const rpc: SettleDatabase = async (name, args) => {
     calls.push(name);
+    if (name === "prd_mark_diverged") return { ok: true, value: null };
     if (name === "commit_prepare") {
       if (op !== null && op.status === "finalized") {
         return refusal("turn-committed", { turn: TURN, repo: REPO, sha: op.sha, status: "finalized" });
@@ -207,7 +208,8 @@ function drive(script: { seed?: Seed; plans?: Array<"ok" | "stale">; advances?: 
       throw new Error("createRepo");
     },
     async protection() {
-      throw new Error("protection");
+      calls.push("protection");
+      return { ok: true, forbidsForcePushes: !script.unprotected, forbidsDeletion: true };
     },
     async readCommit() {
       throw new Error("readCommit");
@@ -226,18 +228,22 @@ function drive(script: { seed?: Seed; plans?: Array<"ok" | "stale">; advances?: 
   };
 }
 
-const HAPPY = [
+const PUBLISH = [
   "commit_prepare",
+  "protection",
   "writeCommit",
   "prd_git_op_written",
   "advance",
-  "prd_git_sync_state",
-  "head",
+];
+const SYNC = ["prd_git_sync_state", "head", "protection"];
+const IMPORT = [
+  ...SYNC,
   "commitsSince",
   "prdTree",
   "prdTree",
   "prd_reconcile",
 ];
+const HAPPY = [...PUBLISH, ...IMPORT, "commit_prepare"];
 
 it("advances a prepared turn and syncs that sha once", async () => {
   const world = drive();
@@ -258,14 +264,9 @@ it("commits on the second round after a rejected advance", async () => {
   const world = drive({ advances: ["rejected", "advanced"] });
   const result = await world.run();
   expect(world.calls).toEqual([
-    ...HAPPY.slice(0, 4),
+    ...PUBLISH,
     "prd_git_op_fail",
-    "prd_git_sync_state",
-    "head",
-    "commitsSince",
-    "prdTree",
-    "prdTree",
-    "prd_reconcile",
+    ...IMPORT,
     ...HAPPY,
   ]);
   expect(world.writes[1]?.parent).toBe(OTHER);
@@ -286,7 +287,7 @@ it("returns the current sections when the second prepare is stale", async () => 
 it("returns committed when an uncertain advance has already landed", async () => {
   const world = drive({ advances: ["uncertain-land"] });
   const result = await world.run();
-  expect(world.calls).toEqual([...HAPPY, "commit_prepare"]);
+  expect(world.calls).toEqual(HAPPY);
   const sha = world.advances[0]?.sha;
   expect(result).toEqual({ ok: true, result: "committed", sha });
   expect(world.advances).toEqual([{ sha, landed: true }]);
@@ -296,22 +297,14 @@ it("advances the same sha again when main is still the base", async () => {
   const world = drive({ advances: ["uncertain", "advanced"] });
   const result = await world.run();
   expect(world.calls).toEqual([
-    "commit_prepare",
-    "writeCommit",
-    "prd_git_op_written",
-    "advance",
-    "prd_git_sync_state",
-    "head",
+    ...PUBLISH,
+    ...SYNC,
     "prd_reconcile",
     "commit_prepare",
     "head",
     "advance",
-    "prd_git_sync_state",
-    "head",
-    "commitsSince",
-    "prdTree",
-    "prdTree",
-    "prd_reconcile",
+    ...IMPORT,
+    "commit_prepare",
   ]);
   const sha = world.writes[0] ? world.advances[0]?.sha : "";
   expect(world.advances.map((item) => item.sha)).toEqual([sha, sha]);
@@ -323,29 +316,12 @@ it("fails the attempt and prepares again when main moved during an uncertain adv
   const world = drive({ advances: ["uncertain-move", "advanced"] });
   const result = await world.run();
   expect(world.calls).toEqual([
-    "commit_prepare",
-    "writeCommit",
-    "prd_git_op_written",
-    "advance",
-    "prd_git_sync_state",
-    "head",
-    "commitsSince",
-    "prdTree",
-    "prdTree",
-    "prd_reconcile",
+    ...PUBLISH,
+    ...IMPORT,
     "commit_prepare",
     "head",
     "prd_git_op_fail",
-    "commit_prepare",
-    "writeCommit",
-    "prd_git_op_written",
-    "advance",
-    "prd_git_sync_state",
-    "head",
-    "commitsSince",
-    "prdTree",
-    "prdTree",
-    "prd_reconcile",
+    ...HAPPY,
   ]);
   expect(world.writes[1]?.parent).toBe(OTHER);
   expect(result).toEqual({ ok: true, result: "committed", sha: world.advances[1]?.sha });
@@ -356,7 +332,7 @@ it("fails the attempt and prepares again when main moved during an uncertain adv
 it("fails a prepared attempt left by an earlier call and prepares again", async () => {
   const world = drive({ seed: "prepared" });
   const result = await world.run();
-  expect(world.calls.slice(0, 4)).toEqual(["commit_prepare", "prd_git_op_fail", "commit_prepare", "writeCommit"]);
+  expect(world.calls).toEqual(["commit_prepare", "prd_git_op_fail", ...HAPPY]);
   expect(result).toEqual({ ok: true, result: "committed", sha: world.advances[0]?.sha });
 });
 
@@ -365,18 +341,13 @@ it("syncs a written attempt before advancing its sha", async () => {
   const result = await world.run();
   expect(world.calls).toEqual([
     "commit_prepare",
-    "prd_git_sync_state",
-    "head",
+    ...SYNC,
     "prd_reconcile",
     "commit_prepare",
     "head",
     "advance",
-    "prd_git_sync_state",
-    "head",
-    "commitsSince",
-    "prdTree",
-    "prdTree",
-    "prd_reconcile",
+    ...IMPORT,
+    "commit_prepare",
   ]);
   expect(world.writes).toHaveLength(0);
   expect(world.advances).toEqual([{ sha: SEEDED, landed: true }]);
@@ -390,4 +361,46 @@ it("returns the committed sha when the turn is already committed", async () => {
   expect(world.writes).toHaveLength(0);
   expect(world.advances).toHaveLength(0);
   expect(result).toEqual({ ok: true, result: "committed", sha: SEEDED });
+});
+
+it("stops publication before writing when main allows force pushes", async () => {
+  const world = drive({ unprotected: true });
+  expect(await world.run()).toMatchObject({ ok: false });
+  expect(world.calls).toEqual(["commit_prepare", "protection", "prd_mark_diverged"]);
+  expect(world.writes).toHaveLength(0);
+  expect(world.advances).toHaveLength(0);
+});
+
+it.each([
+  { mode: "removed", expected: "diverged" },
+  { mode: "network failure", expected: "open" },
+])("sync stops when protection is $mode", async ({ mode, expected }) => {
+  const calls: string[] = [];
+  let state = "open";
+  const rpc: SettleDatabase = async (name) => {
+    calls.push(name);
+    if (name === "prd_git_sync_state") {
+      return { ok: true, value: { state, repoName: REPO, repoId: 1, headCommit: BASE, sections: [] } };
+    }
+    if (name === "prd_mark_diverged") state = "diverged";
+    return { ok: true, value: { stale: false } };
+  };
+  const github = {
+    async head() { return { ok: true, sha: BASE }; },
+    async protection() {
+      calls.push("protection");
+      if (mode === "network failure") return { ok: false, kind: "uncertain", reason: "network unavailable" };
+      return { ok: true, forbidsForcePushes: false, forbidsDeletion: false };
+    },
+  } satisfies Pick<GithubRepo, "head" | "protection">;
+  const result = await syncRepo(PROJECT, { github: github as unknown as GithubRepo, rpc });
+  console.log("protection", { mode, state, calls, result });
+  expect(state).toBe(expected);
+  expect(result.ok).toBe(false);
+  expect(calls).toContain("protection");
+  expect(calls).not.toContain("prd_reconcile");
+  if (mode === "network failure") {
+    expect(calls).not.toContain("prd_mark_diverged");
+    expect(result).toEqual({ ok: false, reason: "network unavailable" });
+  }
 });

@@ -698,6 +698,28 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect((await stamp(sql, project)).revision).toBe(2);
   });
 
+  it("refuses writes to the staging area after preparing the turn commit", async () => {
+    const { dev, project } = await world(stack, sql);
+    const reply = await reserve(sql, project, dev, "main", "late-stage", "Change booking");
+    const grant = await grantOf(issue(sql, reply.turnId, "reply"));
+    const booking = await objectOf(read(sql, grant, "booking"));
+    const rules = await objectOf(read(sql, grant, "rules"));
+    await stage(sql, grant, String(booking.receipt), drafted("Book one shift at a time."));
+    const prepared = await objectOf(prepare(sql, grant));
+    expect(asArray(prepared.sections).map((item) => record(item).key)).toEqual(["booking"]);
+    const results = await Promise.all([
+      refusal(stage(sql, grant, String(rules.receipt), drafted("A late edit."))),
+      refusal(sql`select public.propose_ready(${grant}::uuid, 'booking')`),
+      refusal(sql`select public.suggest_ngo_question(${grant}::uuid,
+        ${JSON.stringify(ngoQuestion("A late question?"))}::text::jsonb)`),
+    ]);
+    const staged = await counted(sql`select count(*)::int as n from public.prd_staged_sections
+      where turn_id = ${reply.turnId}::uuid`);
+    console.log("late staging", { results, staged });
+    expect(results).toEqual(["turn-prepared", "turn-prepared", "turn-prepared"]);
+    expect(staged).toBe(1);
+  });
+
   it("refuses the whole commit when a staged section changed, and registers nothing", async () => {
     const opened = await world(stack, sql);
     const project = opened.project;
@@ -739,6 +761,30 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect(statementText((await factSection(sql, opened.dev, project, "rules")).document)).toEqual(
       [],
     );
+  });
+
+  it("allows an admitted turn to settle its usage and fail when publication marks the PRD diverged", async () => {
+    const { dev, project } = await world(stack, sql);
+    const reply = await reserve(sql, project, dev, "main", "diverged", "Change booking");
+    const grant = await grantOf(issue(sql, reply.turnId, "reply"));
+    const booking = await objectOf(read(sql, grant, "booking"));
+    await stage(sql, grant, String(booking.receipt), drafted("Book one shift at a time."));
+    await prepare(sql, grant);
+    const eventId = `${reply.turnId}:0`;
+    await sql`select public.prd_turn_ingest(${reply.turnId}::uuid,
+      ${JSON.stringify({ kind: "model-start", eventId })}::text::jsonb)`;
+    await sql`select public.prd_mark_diverged(${project}::uuid, 'main is unprotected')`;
+    expect(await refusal(prepare(sql, grant))).toBe("not-yet");
+    const usage = { input: 10, output: 5, cacheRead: 0, cacheWrite: 0 };
+    const charged = await objectOf(sql`select public.prd_turn_ingest(${reply.turnId}::uuid,
+      ${JSON.stringify({ kind: "model-end", eventId, usage })}::text::jsonb) as r`);
+    expect(charged.state).toBe("settled");
+    await sql`select public.prd_turn_ingest(${reply.turnId}::uuid, '{"kind":"end","outcome":"rejected"}'::jsonb)`;
+    const turn = (await sql`select t.state, r.released_at is not null as released
+      from public.prd_turns t join public.prd_reservations r on r.turn_id = t.id
+      where t.id = ${reply.turnId}::uuid`) as Array<{ state: string; released: boolean }>;
+    console.log("diverged turn", turn[0]);
+    expect(turn[0]).toEqual({ state: "rejected", released: true });
   });
 
   it("lets two chats commit different sections in turn", async () => {
@@ -1316,6 +1362,11 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
       where turn_id = ${side.turnId}::uuid`) as Array<{ payload: unknown }>;
     expect(record(staged[0].payload).message).toBe(side.messageId);
     const followed = await objectOf(prepare(sql, sideGrant));
+    const lateOutcome = await refusal(
+      sql`select public.record_outcome(${sideGrant}::uuid, '{"kind":"follow-up-open"}'::jsonb)`,
+    );
+    console.log("late outcome staging", lateOutcome);
+    expect(lateOutcome).toBe("turn-prepared");
     const followSha = madeSha(`${project}:follow-up`);
     await sql`select public.prd_git_op_written(${String(followed.op)}::uuid, ${String(followed.base)}, ${followSha})`;
     await reconcile(sql, project, String(followed.base), [
@@ -1492,7 +1543,44 @@ describe.skipIf(!live)("PRD tools on the local stack", () => {
     expect(String(replayed.head)).toBe(replaySha);
     expect(await answerCount(sql, project)).toBe(1);
     expect(await questionCount(sql, project)).toBe(2);
-    expect(await toolCommits(sql, replay.turnId)).toBe(1);
+    expect(await opStatus(sql, String(replayPrepared.op))).toBe("failed");
+    expect(await toolCommits(sql, replay.turnId)).toBe(0);
+  });
+
+  it("keeps a refused outcome in the operation after importing its commit", async () => {
+    const { dev, ngo, project } = await world(stack, sql);
+    const intro = await objectOf(sql`select public.prd_append_message(${project}::uuid, 'main',
+      'ai', 'ai4good AI', '[{"type":"text","text":"One question"}]'::jsonb) as r`);
+    const questions = await sql`select public.prd_question_insert(${project}::uuid, 'ngo',
+      ${JSON.stringify(ngoQuestion("Who covers Saturday?"))}::text::jsonb, ${String(intro.id)}::uuid) as id` as Array<{ id: string }>;
+    const question = (await questionRows(sql, dev, project))[0];
+    await act(sql, dev, project, "post-question", String(record(question.post).token), "post-outcome");
+    const side = await reserve(sql, project, ngo, `side:${questions[0].id}`, "refused-outcome", "Volunteers do.");
+    const grant = await grantOf(issue(sql, side.turnId, "answer-write"));
+    await sql`select public.record_outcome(${grant}::uuid, '{"kind":"follow-up-open"}'::jsonb)`;
+    const prepared = await objectOf(prepare(sql, grant));
+    const op = String(prepared.op);
+    const base = String(prepared.base);
+    const sha = madeSha(`${project}:refused-outcome`);
+    await sql`select public.prd_git_op_written(${op}::uuid, ${base}, ${sha})`;
+    await sql`update public.prd_questions set status = 'suggested' where id = ${questions[0].id}::uuid`;
+    const imported = await reconcile(sql, project, base, [
+      { sha, parents: [base], login: null, message: "Staged outcome", changes: [] },
+    ]);
+    const status = await opStatus(sql, op);
+    const retry = await refusal(prepare(sql, grant));
+    const commits = await toolCommits(sql, side.turnId);
+    const operation = (await sql`select outcome_failure from public.prd_git_ops where id = ${op}::uuid`) as Array<{
+      outcome_failure: string | null;
+    }>;
+    console.log("refused outcome", { imported: imported.head === sha, status, retry, commits, reason: operation[0]?.outcome_failure });
+    expect(imported.head).toBe(sha);
+    expect(status).toBe("failed");
+    expect(retry).toBe("outcome-failed");
+    expect(commits).toBe(0);
+    expect(operation[0]?.outcome_failure).toBe("stale");
+    expect(await counted(sql`select count(*)::int as n from public.prd_followups
+      where question_id = ${questions[0].id}::uuid`)).toBe(0);
   });
 
   it("fails a prepared attempt and prepares the turn again", async () => {

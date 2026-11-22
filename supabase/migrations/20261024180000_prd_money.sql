@@ -647,14 +647,15 @@ begin
     from public.prd_records
    where project_id = v_project
      for update;
-  perform public.prd_refuse_unready(v_record_state);
+  v_kind := p_event->>'kind';
+  if v_record_state is distinct from 'diverged' or coalesce(v_kind, '') not in ('model-end', 'end') then
+    perform public.prd_refuse_unready(v_record_state);
+  end if;
   select * into v_turn from public.prd_turns where id = p_turn for update;
   select * into v_res from public.prd_reservations where turn_id = p_turn for update;
   if not found then
     raise exception 'that turn holds no reservation' using errcode = '22023', detail = 'invalid-request';
   end if;
-  v_kind := p_event->>'kind';
-
   if v_kind in ('model-start', 'model-end') then
     v_event_id := public.prd_event_text(p_event, 'eventId');
     if v_res.released_at is not null then
@@ -1248,7 +1249,9 @@ begin
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
-  perform public.prd_refuse_unready(v_record_state);
+  if v_record_state is distinct from 'diverged' then
+    perform public.prd_refuse_unready(v_record_state);
+  end if;
   select state into v_state
     from public.prd_turns
    where id = p_turn

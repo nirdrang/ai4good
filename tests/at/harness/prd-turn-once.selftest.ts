@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
+import type { GithubRepo } from "../../../supabase/functions/_shared/github/repo.ts";
 import { usageOf, runPrdTurn } from "../../../supabase/functions/_shared/prd/turn.ts";
 import { runCompletionCheck } from "../../../supabase/functions/_shared/prd/check.ts";
 import {
@@ -19,6 +20,8 @@ const CHAT = "66666666-6666-4666-8666-666666666666";
 const TURN = "33333333-3333-4333-8333-333333333333";
 const GRANT = "44444444-4444-4444-8444-444444444444";
 const OP = "77777777-7777-4777-8777-777777777777";
+const BASE = "a".repeat(40);
+const SHA = "b".repeat(40);
 const tokens = {
   inputTokens: { total: 1000, noCache: 100, cacheRead: 900, cacheWrite: 0 },
   outputTokens: { total: 10, text: 10, reasoning: 0 },
@@ -43,7 +46,9 @@ function stream(text: string, tool?: string) {
             type: "tool-call",
             toolCallId: "call-1",
             toolName: tool,
-            input: JSON.stringify({ receipt: GRANT, document: { statements: [], decisions: [] } }),
+            input: JSON.stringify(tool === "record_outcome"
+              ? { outcome: { kind: "final-answer", answer: "Volunteers cover Saturday." } }
+              : { receipt: GRANT, document: { statements: [], decisions: [] } }),
           });
         else {
           c.enqueue({ type: "text-start", id: "text" });
@@ -61,7 +66,7 @@ function stream(text: string, tool?: string) {
   };
 }
 
-function fakeDb(options: { uncertain?: boolean } = {}) {
+function fakeDb(options: { uncertain?: boolean; commitPrepare?: SettleDatabase; answer?: boolean } = {}) {
   const calls: Array<{ name: string; args: any }> = [];
   const charged = new Set<string>();
   let claimed = false;
@@ -82,7 +87,7 @@ function fakeDb(options: { uncertain?: boolean } = {}) {
             chatId: CHAT,
             turn: {
               id: TURN,
-              kind: "reply",
+              kind: options.answer ? "answer-write" : "reply",
               state: options.uncertain ? "uncertain" : "admitted",
               ageSeconds: 1,
               parts: [{ type: "text", text: "Update this section" }],
@@ -97,7 +102,7 @@ function fakeDb(options: { uncertain?: boolean } = {}) {
       case "prd_grant_issue":
         return { ok: true, value: GRANT };
       case "prd_grant_tools":
-        return { ok: true, value: ["stage_section", "commit_prepare"] };
+        return { ok: true, value: [options.answer ? "record_outcome" : "stage_section", "commit_prepare"] };
       case "prd_chat_transcript":
         return { ok: true, value: [] };
       case "prd_turn_ingest": {
@@ -106,6 +111,7 @@ function fakeDb(options: { uncertain?: boolean } = {}) {
         return { ok: true, value: { providerMicros: 100, feeMicros: 10 } };
       }
       case "commit_prepare":
+        if (options.commitPrepare) return options.commitPrepare(name, args);
         return { ok: false, message: "nothing staged", details: "nothing-staged" };
       case "prd_check_source":
         return {
@@ -129,6 +135,92 @@ function fakeDb(options: { uncertain?: boolean } = {}) {
   };
   return { rpc, calls, charged };
 }
+
+it.each([
+  { label: "refusal", outcome: "rejected", lands: false, failure: /could not be written/i },
+  { label: "uncertain advance", outcome: "uncertain", lands: false, failure: /confirm/i },
+  { label: "refused outcome", outcome: "rejected", lands: true, failure: /answer could not be saved/i },
+  { label: "refused complete-answer action", outcome: "rejected", lands: true, failure: /answer could not be saved/i },
+])("reports a $label without showing a successful reply", async ({ outcome, lands, failure, label }) => {
+  const action = label === "refused complete-answer action";
+  let written = false;
+  let reconciled = false;
+  let head = BASE;
+  let advances = 0;
+  const db = fakeDb({
+    answer: lands,
+    commitPrepare: async () => {
+      if (reconciled && lands) return { ok: false, message: "Outcome refused", details: "outcome-failed" };
+      if (written) {
+        return { ok: false, message: "Already written", details: "attempt-written", hint: JSON.stringify({
+          op: OP, attempt: 1, base: BASE, sha: SHA, turn: TURN, repo: "offline-repo",
+        }) };
+      }
+      return { ok: true, value: {
+        ok: true, op: OP, attempt: 1, base: BASE, turn: TURN, repo: "offline-repo",
+        sections: lands ? [] : [{ key: "booking", title: "Booking", path: "prd/booking.md", document: { statements: [], decisions: [] } }],
+      } };
+    },
+  });
+  const rpc: SettleDatabase = async (name, args) => {
+    if (name === "prd_git_op_written") {
+      written = true;
+      return { ok: true, value: SHA };
+    }
+    if (name === "prd_git_sync_state") {
+      return { ok: true, value: { state: "open", repoName: "offline-repo", repoId: 1, headCommit: BASE, sections: [] } };
+    }
+    if (name === "prd_reconcile") {
+      reconciled = true;
+      return { ok: true, value: { stale: false } };
+    }
+    if (name === "prd_git_op_fail") throw new Error("the uncertain operation should be kept");
+    return db.rpc(name, args);
+  };
+  const github = {
+    async protection() { return { ok: true, forbidsForcePushes: true, forbidsDeletion: true }; },
+    async head() { return { ok: true, sha: head }; },
+    async writeCommit() {
+      return label === "refusal" ? { ok: false, kind: "auth", reason: "GitHub refused the write" } : { ok: true, sha: SHA };
+    },
+    async advance() {
+      advances++;
+      if (!lands) return { ok: false, kind: "uncertain", reason: "GitHub lost the response" };
+      head = SHA;
+      return { ok: true, result: "advanced" };
+    },
+    async commitsSince() {
+      return { ok: true, result: "commits", commits: [{ sha: SHA, parents: [BASE], committerLogin: null, message: "Edit" }] };
+    },
+    async prdTree() { return { ok: true, files: [] }; },
+  } satisfies Pick<GithubRepo, "protection" | "head" | "writeCommit" | "advance" | "commitsSince" | "prdTree">;
+  let step = 0;
+  const claim = lands ? "I saved the final answer." : "I updated the PRD.";
+  const model = new MockLanguageModelV4({
+    doStream: async () => step++ === 0 ? stream("", lands ? "record_outcome" : "stage_section") : stream(claim),
+  });
+  const chunks: unknown[] = [];
+  const deps = prdRelayDeps({ rpc, fetch: noNetwork, env, model, github: github as unknown as GithubRepo });
+  const result = action
+    ? await prdActionSettle(deps).act({ turnId: TURN }, {
+        p_actor: GRANT, p_project: PROJECT, p_kind: "complete-answer",
+        p_token: `complete-answer|question:${OP}|3|2`, p_request_id: "complete",
+      })
+    : await runPrdTurn(deps, PROJECT, lands ? `side:${OP}` : "main", TURN, {
+        emit: (chunk) => chunks.push(chunk), closed: () => false,
+      });
+  const end = db.calls.find((call) => call.name === "prd_turn_ingest" && call.args.p_event.kind === "end")?.args.p_event;
+  const reply = db.calls.find((call) => call.name === "prd_append_message")?.args.p_parts;
+  const screenClaimsSuccess = JSON.stringify(chunks).includes(claim);
+  console.log(label, { headMoved: head === SHA, written, advances, failure: result.failure, end, reply, screenClaimsSuccess });
+  expect(result.failure).toMatch(failure);
+  if (action) expect(result).toMatchObject({ skipSettle: false, status: 502 });
+  expect(end).toEqual({ kind: "end", outcome });
+  expect(head === SHA).toBe(lands);
+  expect(written).toBe(label !== "refusal");
+  expect(reply).toBeUndefined();
+  expect(screenClaimsSuccess).toBe(false);
+});
 
 it("cached input must not also be billed as ordinary input", () => {
   const actual = usageOf({

@@ -859,6 +859,7 @@ as $$
       on o.project_id = r.project_id
      and o.kind = 'close-tag'
      and o.status = 'written'
+     and r.state <> 'diverged'
     left join public.prd_closes c on c.project_id = r.project_id
    where r.project_id = p_project;
 $$;

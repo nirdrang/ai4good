@@ -9,7 +9,7 @@ import {
 import { createOpenAI } from "npm:@ai-sdk/openai@4.0.67";
 import { briefVersionFrom } from "../discovery-brief.ts";
 import { isRecord, type SettleActResult, type SettleDatabase } from "../write-routes.ts";
-import { finishStagedTurn, prdTools, type PrdToolDeps, type PrdToolScope } from "./tools.ts";
+import { commitFailureText, finishStagedTurn, prdTools, type PrdToolDeps, type PrdToolScope } from "./tools.ts";
 
 export const OPENCODE_GO_URL = "https://opencode.ai/zen/go/v1";
 export const PRD_MODEL_UNAVAILABLE = "AI replies are not set up on this server yet.";
@@ -26,8 +26,8 @@ const PRD_SYSTEM = [
   "Before you change a section, read it with read_section, then stage the new document with stage_section and the receipt from that read.",
   "Stage state changes with propose_ready and suggest_ngo_question.",
   "In an NGO side chat, call record_outcome only to open a follow-up when your reply asks the NGO one, or to write the final answer after the NGO marked the answer complete.",
-  "Call commit_turn once per reply, after you staged everything.",
-  "If commit_turn says a staged section changed since you read it, use the current sections it returns, redo your work, stage again, and commit again.",
+  "Call commit_turn in a separate step, after all staging tools have finished.",
+  "If commit_turn reports a stale section before the commit was prepared, use the current sections it returns to redo and stage your edits.",
   "Answer in plain, short sentences.",
 ].join(" ");
 
@@ -348,7 +348,7 @@ function namesOf(value: unknown): string[] | null {
 
 async function readUiStream(
   stream: ReadableStream<unknown>,
-  sink: PrdTurnSink,
+  chunks: unknown[],
   text: string[],
 ): Promise<void> {
   const reader = stream.getReader();
@@ -356,7 +356,7 @@ async function readUiStream(
     while (true) {
       const next = await reader.read();
       if (next.done) return;
-      if (!sink.closed()) sink.emit(next.value);
+      chunks.push(next.value);
       if (isRecord(next.value) && next.value.type === "text-delta" && typeof next.value.delta === "string") {
         text.push(next.value.delta);
       }
@@ -420,6 +420,7 @@ export async function runPrdTurn(
   let ingestFailed = false;
   let providerFailed = false;
   const text: string[] = [];
+  const chunks: unknown[] = [];
   const model = deps.model ?? prdModel(turn.chatId, deps.settings);
 
   if (!capped) {
@@ -454,7 +455,7 @@ export async function runPrdTurn(
           if (spent >= turn.reservationMicros) capped = true;
         },
       });
-      await readUiStream(toUIMessageStream({ stream: result.stream }), sink, text);
+      await readUiStream(toUIMessageStream({ stream: result.stream }), chunks, text);
     } catch {
       providerFailed = true;
     }
@@ -465,8 +466,16 @@ export async function runPrdTurn(
       await ingestModelStep(database, turnId, stepNumber, null, seen);
     }
   }
-  await finishStagedTurn(toolDeps, scope);
+  const commit = await finishStagedTurn(toolDeps, scope);
+  if ((!commit.ok || commit.result !== "committed") && (commit.ok || commit.reason !== "nothing-staged")) {
+    const outcome = !commit.ok && commit.reason === "commit-uncertain" ? "uncertain" : "rejected";
+    return endTurn(database, turnId, outcome, commitFailureText(commit));
+  }
   const saved = await appendReply(database, project, chatKey, text.join(""));
+  for (const chunk of chunks) {
+    if (sink.closed()) break;
+    sink.emit(chunk);
+  }
   let outcome: Outcome = "answered";
   let failure: string | null = saved ? null : UNSAVED;
   if (providerFailed || ingestFailed) {

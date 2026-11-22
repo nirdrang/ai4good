@@ -58,6 +58,7 @@ if (!loaded.ok && loaded.skip) {
   const { client, config } = loaded;
   const prefix = runPrefix();
   const repoName = `${prefix}-repo`;
+  let ranLiveTest = false;
 
   async function expectHead(sha: string): Promise<void> {
     let saw = "";
@@ -72,10 +73,11 @@ if (!loaded.ok && loaded.skip) {
   }
 
   afterAll(async () => {
-    await cleanupRepos(prefix);
+    if (ranLiveTest) await cleanupRepos(prefix);
   }, 180_000);
 
   it("creates, protects, commits, and reads a repository", async () => {
+    ranLiveTest = true;
     const created = await client.createRepo(repoName);
     if (!created.ok || created.result !== "created") stop("createRepo", created);
     expect(created.visibility).toBe(config.visibility);

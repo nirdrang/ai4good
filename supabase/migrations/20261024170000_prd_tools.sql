@@ -67,7 +67,8 @@ create table public.prd_tool_commits (
 alter table public.prd_git_ops
   add column turn_id uuid references public.prd_turns (id) on delete cascade,
   add column attempt integer,
-  add column effects jsonb;
+  add column effects jsonb,
+  add column outcome_failure text;
 
 alter table public.prd_git_ops
   add constraint prd_git_ops_turn_shape check (
@@ -288,6 +289,14 @@ begin
   v_grant := public.prd_grant_row(p_grant);
   if p_tool is null or p_tool <> all (public.prd_mode_tools(v_grant.mode)) then
     raise exception 'that tool is not allowed' using errcode = '22023', detail = 'tool-denied';
+  end if;
+  if p_tool in ('stage_section', 'propose_ready', 'suggest_ngo_question', 'record_outcome')
+     and exists (
+       select 1 from public.prd_git_ops
+        where turn_id = v_grant.turn_id and kind = 'turn'
+     ) then
+    raise exception 'the turn commit has already been prepared'
+      using errcode = '22023', detail = 'turn-prepared';
   end if;
   return v_grant;
 end;
@@ -722,6 +731,7 @@ declare
   v_grant public.prd_grants%rowtype;
   v_existing public.prd_git_ops%rowtype;
   v_repo text;
+  v_state text;
   v_head text;
   v_sha text;
   v_hint text;
@@ -736,7 +746,7 @@ declare
   v_op uuid;
 begin
   v_grant := public.prd_grant_check(p_grant, 'commit_prepare');
-  select repo_name into v_repo
+  select repo_name, state into v_repo, v_state
     from public.prd_records
    where project_id = v_grant.project_id;
   if exists (
@@ -771,6 +781,14 @@ begin
               'status', 'finalized'
             )::text;
   end if;
+  if exists (
+    select 1 from public.prd_git_ops
+     where turn_id = v_grant.turn_id and kind = 'turn' and outcome_failure is not null
+  ) then
+    raise exception 'the staged answer could not be saved'
+      using errcode = '22023', detail = 'outcome-failed';
+  end if;
+  perform public.prd_refuse_unready(v_state);
   select * into v_existing
     from public.prd_git_ops
    where turn_id = v_grant.turn_id
@@ -1228,6 +1246,7 @@ declare
   v_effect jsonb;
   v_message uuid;
   v_chat uuid;
+  v_outcome_failure text;
 begin
   select * into v_op
     from public.prd_git_ops
@@ -1282,17 +1301,21 @@ begin
         perform public.prd_question_outcome_write(p_project, v_chat, v_effect->'payload');
       exception
         when sqlstate '22023' or sqlstate '42501' then
-          null;
+          get stacked diagnostics v_outcome_failure = pg_exception_detail;
+          v_outcome_failure := coalesce(nullif(v_outcome_failure, ''), 'invalid-request');
       end;
     end if;
   end loop;
 
   update public.prd_git_ops
-     set status = 'finalized',
+     set status = case when v_outcome_failure is null then 'finalized' else 'failed' end,
+         outcome_failure = v_outcome_failure,
          updated_at = clock_timestamp()
    where id = v_op.id;
-  insert into public.prd_tool_commits (turn_id, project_id, op_id, commit_sha)
-  values (v_op.turn_id, p_project, v_op.id, p_sha);
+  if v_outcome_failure is null then
+    insert into public.prd_tool_commits (turn_id, project_id, op_id, commit_sha)
+    values (v_op.turn_id, p_project, v_op.id, p_sha);
+  end if;
   return true;
 end;
 $$;
@@ -1466,15 +1489,20 @@ begin
   if v_record.head_commit is distinct from lower(p_expected_head) then
     return jsonb_build_object('stale', true);
   end if;
+  if v_record.state = 'diverged' then
+    perform public.prd_refuse_unready(v_record.state);
+  end if;
 
   v_state := v_record.state;
   v_revision := v_record.current_revision;
   v_frozen := v_record.closed_revision is not null;
   if v_revision >= 1 then
-    select manifest into v_manifest
+    select manifest, revision into v_manifest, v_history
       from public.prd_revisions
      where project_id = p_project
-       and revision = v_revision;
+       and (v_frozen or revision = v_revision)
+     order by revision desc
+     limit 1;
   end if;
 
   for v_commit in select value from jsonb_array_elements(p_commits) as value
@@ -1768,25 +1796,21 @@ begin
       end if;
     end loop;
 
-    if v_changed then
-      if v_frozen then
-        select coalesce(max(revision), 0) + 1 into v_history
-          from public.prd_revisions
-         where project_id = p_project;
-        insert into public.prd_revisions (
-          project_id, revision, discovery_revision, manifest, commit_sha
-        ) values (
-          p_project, v_history, v_record.discovery_revision, v_manifest, v_sha
-        );
-      else
-        v_revision := v_revision + 1;
-        insert into public.prd_revisions (
-          project_id, revision, discovery_revision, manifest, commit_sha
-        ) values (
-          p_project, v_revision, v_record.discovery_revision, v_manifest, v_sha
-        );
-        v_visible := true;
-      end if;
+    if v_frozen then
+      v_history := v_history + 1;
+      insert into public.prd_revisions (
+        project_id, revision, discovery_revision, manifest, commit_sha
+      ) values (
+        p_project, v_history, v_record.discovery_revision, v_manifest, v_sha
+      );
+    elsif v_changed then
+      v_revision := v_revision + 1;
+      insert into public.prd_revisions (
+        project_id, revision, discovery_revision, manifest, commit_sha
+      ) values (
+        p_project, v_revision, v_record.discovery_revision, v_manifest, v_sha
+      );
+      v_visible := true;
     end if;
     if not v_frozen then
       if v_turn then

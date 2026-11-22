@@ -720,7 +720,7 @@ describe.skipIf(!live)("close PRD rows on the local stack", () => {
     await finish(sql, String(started.turnId));
   });
 
-  it("records each open point on close anyway, refuses a stale token, and keeps a later push out of the closed view", async () => {
+  it("records each open point on close anyway, refuses a stale token, and keeps two pushes in history only", async () => {
     const opened = await world(stack, sql);
     await credit(sql, opened.project);
     const question = "Which Saturday shortage should the kitchen count?";
@@ -921,11 +921,39 @@ describe.skipIf(!live)("close PRD rows on the local stack", () => {
           where project_id = ${opened.project}::uuid`) as Array<{ n: unknown }>)[0].n,
       ),
     ).toBeGreaterThan(revision);
+    const secondSha = madeSha(`${opened.project}:second-after-close`);
+    const bookingFiles = (await sql`select title, file_path from public.prd_sections
+      where project_id = ${opened.project}::uuid and stable_key = 'booking'`) as Array<{ title: string; file_path: string }>;
+    const second = await objectOf(sql`select public.prd_reconcile(
+      ${opened.project}::uuid, ${sha}, ${JSON.stringify([{
+        sha: secondSha, parents: [sha], login: "octocat", message: "A second push after close",
+        changes: [{
+          path: bookingFiles[0].file_path, change: "modified", blobSha: secondSha,
+          file: { variant: "readable", key: "booking", title: bookingFiles[0].title,
+            document: { statements: [{ text: "The second push changes booking.", sources: [] }], decisions: [] } },
+        }],
+      }])}::text::jsonb) as r`);
+    const history = await sql`select rules.blob_sha as rules, booking.blob_sha as booking
+      from public.prd_revisions rev
+      join public.prd_section_versions rules on rules.id = (rev.manifest->>'rules')::uuid
+      join public.prd_section_versions booking on booking.id = (rev.manifest->>'booking')::uuid
+      where rev.project_id = ${opened.project}::uuid and rev.commit_sha = ${secondSha}` as Array<{ rules: string; booking: string }>;
+    console.log("second post-close push", {
+      headMoved: second.head === secondSha,
+      keepsFirstEdit: history[0]?.rules === sha,
+      keepsSecondEdit: history[0]?.booking === secondSha,
+    });
+    expect(second).toMatchObject({ head: secondSha, revision, sequence });
+    expect(history).toHaveLength(1);
+    expect(history[0]).toEqual({ rules: sha, booking: secondSha });
     const afterFacts = await objectOf(sql`select public.prd_facts(${opened.dev}::uuid, ${opened.project}::uuid) as r`);
     expect(record(afterFacts.close)).toMatchObject({ kind: "closed", revision, openPoints: points.length });
     expect(
       JSON.stringify((afterFacts.sections as Array<Record<string, unknown>>).find((item) => item.key === "rules")?.document),
     ).toBe(beforeDocument);
+    expect((afterFacts.sections as Array<Record<string, unknown>>).find((item) => item.key === "booking")?.document).toEqual(
+      (beforeFacts.sections as Array<Record<string, unknown>>).find((item) => item.key === "booking")?.document,
+    );
     expect(await statesOf(sql, opened.project)).toEqual(beforeStates);
     expect(await boardTables(sql)).toBe(0);
   });

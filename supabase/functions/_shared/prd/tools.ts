@@ -2,7 +2,7 @@ import { jsonSchema, tool, type ToolSet } from "npm:ai@7.0.102";
 import { githubConfig, type GithubFailure, type GithubFetch } from "../github/app.ts";
 import { githubRepo, type GithubRepo } from "../github/repo.ts";
 import type { SettleDatabase } from "../write-routes.ts";
-import { commitTurn, type GitDeps } from "./git.ts";
+import { commitTurn, type CommitTurnResult, type GitDeps } from "./git.ts";
 
 const REFUSAL: Record<string, string> = {
   "tool-denied": "That tool is not available in this turn.",
@@ -20,6 +20,10 @@ const REFUSAL: Record<string, string> = {
   busy: "The commit is busy. Try again.",
   closed: "The PRD is closed.",
   "commit-failed": "The commit could not be written.",
+  "commit-uncertain": "The commit could not be confirmed. It may still appear after sync.",
+  "outcome-failed": "The staged answer could not be saved.",
+  "turn-prepared": "This turn already prepared its commit. Stage all changes before calling commit_turn.",
+  "not-yet": "The PRD repository is not ready for publication.",
   "unknown-grant": "That grant does not exist.",
   revoked: "That grant was revoked.",
   expired: "That grant has expired.",
@@ -215,15 +219,19 @@ function sameScope(bound: PrdToolScope, grant: PrdToolScope): boolean {
 
 async function commitResult(deps: PrdToolDeps, scope: PrdToolScope): Promise<string> {
   const outcome = await commitTurn(scope.projectId, scope.grantId, deps);
-  if (!outcome.ok) return sentence(outcome.reason);
-  if (outcome.result === "busy") return sentence("busy");
-  if (outcome.result === "stale") {
-    return [
-      "A staged section changed since it was read. Use the current sections and redo the work.",
-      JSON.stringify(outcome.sections),
-    ].join("\n");
+  if (!outcome.ok || outcome.result !== "committed") {
+    const failure = commitFailureText(outcome);
+    return outcome.ok && outcome.result === "stale"
+      ? `${failure} Use the current sections and redo the work.\n${JSON.stringify(outcome.sections)}`
+      : failure;
   }
   return JSON.stringify({ sha: outcome.sha });
+}
+
+export function commitFailureText(outcome: Exclude<CommitTurnResult, { result: "committed" }>): string {
+  if (!outcome.ok) return sentence(outcome.reason);
+  if (outcome.result === "stale") return "A staged section changed since it was read.";
+  return sentence("busy");
 }
 
 /** Runs one PRD tool. A refusal is the tool result the model reads. */
@@ -259,6 +267,6 @@ export function prdTools(deps: PrdToolDeps, scope: PrdToolScope, allowed: Readon
   return set;
 }
 
-export async function finishStagedTurn(deps: PrdToolDeps, scope: PrdToolScope): Promise<void> {
-  await commitTurn(scope.projectId, scope.grantId, deps);
+export function finishStagedTurn(deps: PrdToolDeps, scope: PrdToolScope): Promise<CommitTurnResult> {
+  return commitTurn(scope.projectId, scope.grantId, deps);
 }
