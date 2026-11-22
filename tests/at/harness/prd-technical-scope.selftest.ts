@@ -1,8 +1,6 @@
 import { expect, it } from "vitest";
-import {
-  decideFinish,
-  openingDocument,
-} from "../../../supabase/functions/_shared/discovery-brief.ts";
+import { decideFinish } from "../../../supabase/functions/_shared/discovery-brief.ts";
+import { testOpening } from "./discovery-topic-plan.ts";
 import type { ConfirmedDiscovery, Scope } from "../../../supabase/functions/_shared/scope.ts";
 import { parseTechnicalScope } from "../../../supabase/functions/_shared/prd/technical-scope.ts";
 import { GRANT_TRACKER_SCOPE } from "../suites/req-004/fixtures/scope-tiers.ts";
@@ -16,7 +14,7 @@ const SCOPE: Scope = {
 };
 
 function confirmed(scope: Scope): ConfirmedDiscovery {
-  const brief = openingDocument({ need: scope.summary });
+  const brief = testOpening(scope.summary);
   brief.document.dataTier = {
     tier: 1,
     kinds: ["ordinary-pii"],
