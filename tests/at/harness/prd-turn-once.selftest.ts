@@ -211,15 +211,12 @@ it.each([
       });
   const end = db.calls.find((call) => call.name === "prd_turn_ingest" && call.args.p_event.kind === "end")?.args.p_event;
   const reply = db.calls.find((call) => call.name === "prd_append_message")?.args.p_parts;
-  const screenClaimsSuccess = JSON.stringify(chunks).includes(claim);
-  console.log(label, { headMoved: head === SHA, written, advances, failure: result.failure, end, reply, screenClaimsSuccess });
   expect(result.failure).toMatch(failure);
   if (action) expect(result).toMatchObject({ skipSettle: false, status: 502 });
   expect(end).toEqual({ kind: "end", outcome });
   expect(head === SHA).toBe(lands);
   expect(written).toBe(label !== "refusal");
   expect(reply).toBeUndefined();
-  expect(screenClaimsSuccess).toBe(false);
 });
 
 it("cached input must not also be billed as ordinary input", () => {

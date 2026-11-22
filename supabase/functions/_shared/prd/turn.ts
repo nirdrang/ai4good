@@ -348,7 +348,7 @@ function namesOf(value: unknown): string[] | null {
 
 async function readUiStream(
   stream: ReadableStream<unknown>,
-  chunks: unknown[],
+  sink: PrdTurnSink,
   text: string[],
 ): Promise<void> {
   const reader = stream.getReader();
@@ -356,7 +356,7 @@ async function readUiStream(
     while (true) {
       const next = await reader.read();
       if (next.done) return;
-      chunks.push(next.value);
+      if (!sink.closed()) sink.emit(next.value);
       if (isRecord(next.value) && next.value.type === "text-delta" && typeof next.value.delta === "string") {
         text.push(next.value.delta);
       }
@@ -420,7 +420,6 @@ export async function runPrdTurn(
   let ingestFailed = false;
   let providerFailed = false;
   const text: string[] = [];
-  const chunks: unknown[] = [];
   const model = deps.model ?? prdModel(turn.chatId, deps.settings);
 
   if (!capped) {
@@ -455,7 +454,7 @@ export async function runPrdTurn(
           if (spent >= turn.reservationMicros) capped = true;
         },
       });
-      await readUiStream(toUIMessageStream({ stream: result.stream }), chunks, text);
+      await readUiStream(toUIMessageStream({ stream: result.stream }), sink, text);
     } catch {
       providerFailed = true;
     }
@@ -472,10 +471,6 @@ export async function runPrdTurn(
     return endTurn(database, turnId, outcome, commitFailureText(commit));
   }
   const saved = await appendReply(database, project, chatKey, text.join(""));
-  for (const chunk of chunks) {
-    if (sink.closed()) break;
-    sink.emit(chunk);
-  }
   let outcome: Outcome = "answered";
   let failure: string | null = saved ? null : UNSAVED;
   if (providerFailed || ingestFailed) {

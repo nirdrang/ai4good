@@ -1796,7 +1796,7 @@ begin
       end if;
     end loop;
 
-    if v_frozen then
+    if v_frozen and v_changed then
       v_history := v_history + 1;
       insert into public.prd_revisions (
         project_id, revision, discovery_revision, manifest, commit_sha
