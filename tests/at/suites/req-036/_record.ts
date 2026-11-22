@@ -1676,7 +1676,7 @@ export async function proveRolesAndPermissions(): Promise<void> {
         revision,
         crypto.randomUUID(),
       ),
-      "forbidden",
+      "not-ready",
       "the NGO is refused in a question still suggested",
     );
     expectRefusal(

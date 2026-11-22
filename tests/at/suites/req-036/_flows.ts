@@ -536,7 +536,7 @@ export async function useAnswerFlowLive(prd: PrdPage): Promise<void> {
     0,
   );
   await prd.questions.toggleAnswered();
-  await prd.questions.openAnswered(RETENTION_ANSWER);
+  await prd.questions.openAnswered(EDITED_ANSWER);
   const brief = await eventually(
     "opening Answered shows Dev's brief",
     () => prd.chat.briefText().catch(() => ""),
@@ -556,8 +556,8 @@ export async function useAnswerFlowLive(prd: PrdPage): Promise<void> {
   expect(maya, "Maya sees that the wording changed").toContain(CHANGED_ROW);
   await prd.phone.tab("questions");
   await prd.questions.expandAnswered();
-  expect(await prd.questions.text(), "Maya's list keeps the answer she sent").toContain(
-    RETENTION_ANSWER,
+  expect(await prd.questions.text(), "Maya's question names who changed the wording").toContain(
+    `${WORDING_CHANGED} ${EDITED_ANSWER}`,
   );
 }
 
