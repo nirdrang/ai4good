@@ -84,6 +84,11 @@ jq '.hooks.SessionStart = ([.hooks.SessionStart[]? | select(tostring | contains(
   "$user_settings" > "$user_settings.new"
 mv "$user_settings.new" "$user_settings"
 
+jq '.extraKnownMarketplaces["ai4good-local"].source = {source: "directory", path: "/home/user/ai4good/loop/work"}
+  | .enabledPlugins["self-compact-gate@ai4good-local"] = true' \
+  "$user_settings" > "$user_settings.new"
+mv "$user_settings.new" "$user_settings"
+
 # --- 2. PowerShell -----------------------------------------------------------------
 # The /controller, /doc-sync and /ui-design skills run PowerShell scripts under loop/, and
 # PowerShell 7 runs them on Linux. The binary here is `pwsh`, not `powershell`.
