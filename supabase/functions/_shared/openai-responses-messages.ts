@@ -1,25 +1,19 @@
-import { requireEnv } from './env.ts';
 import { conversationId, responsesBody } from './openai-responses-request.ts';
 import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
-const responsesUrl = (): string => {
-  const base = requireEnv('DISCOVERY_BASE_URL').replace(/\/$/, '');
-  return base.endsWith('/responses') ? base : `${base}/responses`;
-};
+type ResponsesSettings = { url: string; apiKey: string; model: string; effort?: string };
 
-const servedModel = (): string => requireEnv('DISCOVERY_MODEL');
-
-async function post(request: DiscoveryModelRequest, stream: boolean, signal?: AbortSignal): Promise<Response> {
-  return fetch(responsesUrl(), {
+async function post(settings: ResponsesSettings, request: DiscoveryModelRequest, stream: boolean, signal?: AbortSignal): Promise<Response> {
+  return fetch(settings.url, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${requireEnv('DISCOVERY_API_KEY')}`,
+      authorization: `Bearer ${settings.apiKey}`,
       'content-type': 'application/json',
       'user-agent': 'ai4good-discovery/1.0',
       'x-opencode-session': await conversationId(request),
     },
-    body: JSON.stringify(responsesBody(request, stream, servedModel(), Deno.env.get('DISCOVERY_REASONING_EFFORT') || request.effort)),
+    body: JSON.stringify(responsesBody(request, stream, settings.model, settings.effort || request.effort)),
     signal: signal ?? AbortSignal.timeout(120_000),
   });
 }
@@ -49,12 +43,12 @@ function answerFrom(body: ResponseBody, fallbackModel: string): DiscoveryModelAn
   };
 }
 
-export function openaiResponsesPort(): MessagesPort {
+export function openaiResponsesPort(settings: ResponsesSettings): MessagesPort {
   return {
-    model: servedModel(),
+    model: settings.model,
     create: async (request) => {
       try {
-        const response = await post(request, false);
+        const response = await post(settings, request, false);
         if (!response.ok) return { ok: false, status: response.status, reason: `the provider answered ${response.status}` };
         return answerFrom(await response.json() as ResponseBody, request.model);
       } catch (error) {
@@ -68,7 +62,7 @@ export function openaiResponsesPort(): MessagesPort {
       const failed = (status: number | null, reason: string): DiscoveryModelAnswer => ({ ok: false, status, reason });
       try {
         if (signal.aborted) return failed(499, 'the client cancelled before the provider answered');
-        const response = await post(request, true, signal);
+        const response = await post(settings, request, true, signal);
         if (!response.ok || response.body === null) return failed(response.status, `the provider answered ${response.status}`);
         const reader = response.body.getReader();
         const textDecoder = new TextDecoder();

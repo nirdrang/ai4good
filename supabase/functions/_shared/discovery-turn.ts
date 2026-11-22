@@ -24,6 +24,7 @@ export type DiscoveryModelRequest = {
   model: string; maxTokens: number; effort: 'low'; system: SystemBlock[];
   tools: readonly { name: string; description: string; strict?: boolean; input_schema: { type: 'object'; [key: string]: unknown } }[];
   images?: { mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string }[];
+  files?: { name: string; mediaType: 'application/pdf'; data: string }[];
   toolChoice?: { type: 'tool'; name: string };
   messages: { role: 'user' | 'assistant'; content: string }[];
   reply?: {

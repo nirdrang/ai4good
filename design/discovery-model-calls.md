@@ -38,7 +38,7 @@ The PRD workspace is not built yet. The acceptance tests drive this shared gener
 
 ## Model adapters
 
-Every model caller obtains its adapter from `discoveryModelPort()` and uses that port's model. `DISCOVERY_PROVIDER` selects:
+Every Discovery model caller obtains its adapter from `discoveryModelPort()` and uses that port's model. File reads do not use it. `fileReadModelPort()` always uses the Responses adapter on OpenAI with `OPENAI_API_KEY` and `FILE_READ_MODEL`, and sends a PDF whole as a file input. `DISCOVERY_PROVIDER` selects:
 
 | Value | Adapter | Settings |
 | --- | --- | --- |

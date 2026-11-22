@@ -19,7 +19,7 @@ const name = `viewer-${branch.replace(/[^a-zA-Z0-9_-]/g, "-")}`.slice(-128);
 const credentials = { token, teamId: TEAM_ID, projectId: PROJECT_ID };
 
 const modelEnv = Object.fromEntries(
-  ["DISCOVERY_API_KEY", "DISCOVERY_BASE_URL", "DISCOVERY_MODEL", "DISCOVERY_PROVIDER", "DISCOVERY_REASONING_EFFORT", "ANTHROPIC_API_KEY", "VIEWER_NGO_PASSWORD"]
+  ["DISCOVERY_API_KEY", "DISCOVERY_BASE_URL", "DISCOVERY_MODEL", "DISCOVERY_PROVIDER", "DISCOVERY_REASONING_EFFORT", "OPENAI_API_KEY", "FILE_READ_MODEL", "ANTHROPIC_API_KEY", "VIEWER_NGO_PASSWORD"]
     .filter((key) => process.env[key])
     .map((key) => [key, process.env[key] as string]),
 );

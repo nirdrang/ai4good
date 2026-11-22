@@ -33,7 +33,8 @@ case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-resp
   printf 'DISCOVERY_MODEL=%s\n' "${DISCOVERY_MODEL:-deepseek-v4.1-flash}"
   printf 'DISCOVERY_BASE_URL=%s\n' "${DISCOVERY_BASE_URL:-https://opencode.ai/zen/go/v1}"
   printf 'DISCOVERY_REASONING_EFFORT=%s\n' "${DISCOVERY_REASONING_EFFORT:-low}"
-  for name in DISCOVERY_API_KEY ANTHROPIC_API_KEY; do
+  printf 'FILE_READ_MODEL=%s\n' "${FILE_READ_MODEL:-gpt-6-luna}"
+  for name in DISCOVERY_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY; do
     if [ -n "${!name:-}" ]; then printf '%s=%s\n' "$name" "${!name}"; fi
   done
 } > supabase/functions/.env

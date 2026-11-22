@@ -58,9 +58,11 @@ jobs:
           DISCOVERY_MODEL: deepseek-v4.1-flash
           DISCOVERY_BASE_URL: https://opencode.ai/zen/go/v1
           DISCOVERY_REASONING_EFFORT: low
+          OPENAI_API_KEY: ${{ secrets.PREVIEW_OPENAI_API_KEY }}
+          FILE_READ_MODEL: gpt-6-luna
         run: |
           : > "$RUNNER_TEMP/functions.env"
-          for name in ANTHROPIC_API_KEY DISCOVERY_API_KEY DISCOVERY_PROVIDER DISCOVERY_MODEL DISCOVERY_BASE_URL DISCOVERY_REASONING_EFFORT; do
+          for name in ANTHROPIC_API_KEY DISCOVERY_API_KEY DISCOVERY_PROVIDER DISCOVERY_MODEL DISCOVERY_BASE_URL DISCOVERY_REASONING_EFFORT OPENAI_API_KEY FILE_READ_MODEL; do
             if [ -n "${!name}" ]; then printf '%s=%s\n' "$name" "${!name}" >> "$RUNNER_TEMP/functions.env"; fi
           done
           bunx supabase secrets set --env-file "$RUNNER_TEMP/functions.env"

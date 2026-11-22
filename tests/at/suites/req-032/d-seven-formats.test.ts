@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect } from 'vitest';
 import { atTest, AtPending } from './_bind.ts';
 import { functionPost, stackFromEnv, type Stack } from '../../harness/live-stack.ts';
-import { openingDocument } from '../../../../supabase/functions/_shared/discovery-brief.ts';
+import { testOpening } from '../../harness/discovery-topic-plan.ts';
 import { fileReport, type FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
 import type { NeedsSut } from '../req-003/_contract.ts';
 import { seedFileProject, uploadFile, waitForFile } from './_files.ts';
@@ -16,7 +16,7 @@ type Seeded = { stack: Stack; bearer: () => Promise<string>; organizationId: str
 
 async function seedSevenFiles(email: string, sut: NeedsSut): Promise<Seeded> {
   const stack = stackFromEnv();
-  const seed = await seedFileProject(stack, sut, email, { title: 'Kitchen volunteer rota', description: NEED, brief: openingDocument({ need: NEED }) });
+  const seed = await seedFileProject(stack, sut, email, { title: 'Kitchen volunteer rota', description: NEED, brief: testOpening(NEED) });
   try {
     await seed.sql`update public.projects set funded_at = clock_timestamp() where id = ${seed.projectId}::uuid`;
     const added = [];
