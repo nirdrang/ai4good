@@ -2,13 +2,13 @@ import { conversationId, responsesBody } from './openai-responses-request.ts';
 import { JsonTextFieldDecoder } from './json-text-decoder.ts';
 import type { DiscoveryModelAnswer, DiscoveryModelRequest, MessagesPort } from './discovery-turn.ts';
 
-type ResponsesSettings = { url: string; apiKey: string; model: string; effort?: string };
+type ResponsesSettings = { url: () => string; apiKey: () => string; model: string; effort?: string };
 
 async function post(settings: ResponsesSettings, request: DiscoveryModelRequest, stream: boolean, signal?: AbortSignal): Promise<Response> {
-  return fetch(settings.url, {
+  return fetch(settings.url(), {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${settings.apiKey}`,
+      authorization: `Bearer ${settings.apiKey()}`,
       'content-type': 'application/json',
       'user-agent': 'ai4good-discovery/1.0',
       'x-opencode-session': await conversationId(request),

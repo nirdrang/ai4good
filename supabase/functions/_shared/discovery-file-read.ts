@@ -55,7 +55,7 @@ export async function readDiscoveryFile(row: FileRow): Promise<void> {
             }, required: ['facts', 'questions'],
           } }], toolChoice: { type: 'tool', name: 'file_digest' },
         });
-        if (!answer.ok) throw new Error(answer.reason);
+        if (!answer.ok) throw new Error(pdf && answer.status === 400 ? 'This PDF could not be read. It may be password-protected, damaged or too long. Add an unlocked or shorter copy.' : answer.reason);
         digest = answer.toolUse?.name === 'file_digest' ? parseFileDigest(answer.toolUse.input, sectionIds) : null;
       }
       if (digest === null) throw new Error('The file read returned an unreadable digest.');

@@ -27,7 +27,7 @@ echo "viewer: waiting for docker"
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
 if [ -z "${VIEWER_KEEP_ENV:-}" ] || [ ! -f supabase/functions/.env ]; then
-case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses ;; *) provider=openai-compatible ;; esac
+case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses; : "${OPENAI_API_KEY:=${DISCOVERY_API_KEY:-}}" ;; *) provider=openai-compatible ;; esac
 {
   printf 'DISCOVERY_PROVIDER=%s\n' "${DISCOVERY_PROVIDER:-$provider}"
   printf 'DISCOVERY_MODEL=%s\n' "${DISCOVERY_MODEL:-deepseek-v4.1-flash}"
