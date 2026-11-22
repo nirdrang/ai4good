@@ -65,8 +65,14 @@ function sourceBody(extra: Record<string, unknown> = {}) {
 
 function database(source: Record<string, unknown>) {
   const calls: Call[] = [];
+  let claimed = false;
   const rpc: SettleDatabase = async (name, args) => {
     calls.push({ name, args });
+    if (name === "prd_turn_claim") {
+      const won = !claimed;
+      claimed = true;
+      return { ok: true, value: won };
+    }
     if (name === "prd_check_source") return { ok: true, value: source };
     if (name === "prd_turn_settings_record") return { ok: true, value: {} };
     if (name === "prd_turn_ingest") return { ok: true, value: { providerMicros: 12, feeMicros: 1 } };
@@ -257,7 +263,7 @@ describe("completion check offline", () => {
     expect(language.calls()).toBe(1);
     expect(recordCall(db.calls)).toBeNull();
     expect(db.calls.some((call) => call.name === "prd_check_revert")).toBe(true);
-    expect(events(db.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
+    expect(events(db.calls).map(event => event.kind)).toEqual(["model-end", "end"]);
   });
 
   it("rejects a gap whose section key is blank after it settles the model request", async () => {

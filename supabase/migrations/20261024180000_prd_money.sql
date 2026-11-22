@@ -47,7 +47,7 @@ create table public.prd_provider_events (
   turn_id uuid not null references public.prd_turns (id) on delete cascade,
   event_id text not null check (length(btrim(event_id)) > 0),
   kind text not null check (kind in ('model-request')),
-  state text not null check (state in ('pending', 'settled')),
+  state text not null check (state in ('pending', 'settled', 'estimated')),
   input_tokens bigint,
   output_tokens bigint,
   cache_read_tokens bigint,
@@ -62,6 +62,9 @@ create table public.prd_provider_events (
       and cache_read_tokens is null
       and cache_write_tokens is null
       and settled_at is null)
+    or (state = 'estimated'
+      and num_nonnulls(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) = 0
+      and settled_at is not null)
     or (state = 'settled'
       and num_nonnulls(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) = 4
       and least(input_tokens, output_tokens, cache_read_tokens, cache_write_tokens) >= 0
@@ -229,6 +232,38 @@ begin
 end;
 $$;
 
+create function public.prd_turn_claim(p_turn uuid)
+returns boolean
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_project uuid;
+  v_turn public.prd_turns%rowtype;
+  v_role text;
+begin
+  select project_id into v_project from public.prd_turns where id = p_turn;
+  perform 1 from public.prd_records where project_id = v_project for update;
+  select * into v_turn from public.prd_turns where id = p_turn for update;
+  if not found or v_turn.state <> 'admitted' or v_turn.dispatched_at is not null then
+    return false;
+  end if;
+  perform public.assert_account_active(v_turn.actor_id);
+  v_role := public.prd_role(v_project, v_turn.actor_id);
+  if v_role is null then
+    raise exception 'this account has no role on the PRD'
+      using errcode = '42501', detail = 'forbidden';
+  end if;
+  update public.prd_turns set dispatched_at = clock_timestamp() where id = p_turn;
+  return true;
+end;
+$$;
+
+revoke execute on function public.prd_turn_claim(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.prd_turn_claim(uuid) to service_role;
+
 create function public.prd_turn_spend(p_turn uuid)
 returns numeric
 language sql
@@ -239,7 +274,8 @@ as $$
   select coalesce(sum(amount), 0)
     from public.prd_ledger_entries
    where turn_id = p_turn
-     and component in ('provider', 'fee');
+     and (component in ('provider', 'fee')
+        or (component = 'adjustment' and source_key like 'estimate:%'));
 $$;
 
 create function public.prd_funds(p_project uuid)
@@ -261,8 +297,9 @@ begin
     from public.prd_fund_credits
    where project_id = p_project;
   select
-      coalesce(sum(amount) filter (where component in ('provider', 'fee')), 0),
-      coalesce(sum(amount) filter (where component = 'adjustment'), 0)
+      coalesce(sum(amount) filter (where component in ('provider', 'fee')
+        or (component = 'adjustment' and source_key like 'estimate:%')), 0),
+      coalesce(sum(amount) filter (where component = 'adjustment' and source_key not like 'estimate:%'), 0)
     into v_settled, v_overrun
     from public.prd_ledger_entries
    where project_id = p_project;
@@ -364,21 +401,27 @@ set search_path = ''
 as $$
 declare
   v_res public.prd_reservations%rowtype;
-  v_state text;
+  v_turn public.prd_turns%rowtype;
 begin
   select * into v_res from public.prd_reservations where turn_id = p_turn for update;
   if not found or v_res.released_at is not null then
     return false;
   end if;
-  select state into v_state from public.prd_turns where id = p_turn;
-  if v_state is null or v_state not in ('answered', 'rejected') then
+  select * into v_turn from public.prd_turns where id = p_turn;
+  if v_turn.state is null or v_turn.state not in ('answered', 'rejected', 'uncertain') then
     return false;
   end if;
-  if exists (
-    select 1 from public.prd_provider_events where turn_id = p_turn and state = 'pending'
+  if v_turn.dispatched_at is not null and (
+    not exists (select 1 from public.prd_provider_events where turn_id = p_turn)
+    or exists (select 1 from public.prd_provider_events where turn_id = p_turn and state = 'pending')
   ) then
-    return false;
+    insert into public.prd_ledger_entries (project_id, turn_id, component, source_key, amount)
+    values (v_res.project_id, p_turn, 'adjustment', 'estimate:' || p_turn::text,
+      greatest(v_res.amount - public.prd_turn_spend(p_turn), 0));
   end if;
+  update public.prd_provider_events
+     set state = 'estimated', settled_at = clock_timestamp()
+   where turn_id = p_turn and state = 'pending';
   insert into public.prd_ledger_entries (project_id, turn_id, component, source_key, amount)
   values (
     v_res.project_id,
@@ -615,10 +658,21 @@ begin
   end if;
   v_kind := p_event->>'kind';
 
-  if v_kind = 'model-end' then
+  if v_kind in ('model-start', 'model-end') then
     v_event_id := public.prd_event_text(p_event, 'eventId');
+    if v_res.released_at is not null then
+      select id, turn_id into v_event, v_event_turn
+        from public.prd_provider_events where event_id = v_event_id;
+      if found and v_event_turn is distinct from p_turn then
+        raise exception 'that event belongs to another turn' using errcode = '22023', detail = 'invalid-request';
+      end if;
+      return coalesce(public.prd_event_result(v_event), jsonb_build_object(
+        'turnId', p_turn, 'kind', 'model-end', 'eventId', v_event_id,
+        'state', 'ignored', 'providerMicros', 0, 'feeMicros', 0
+      ));
+    end if;
     v_usage := p_event->'usage';
-    v_has_usage := v_usage is not null and jsonb_typeof(v_usage) is distinct from 'null';
+    v_has_usage := v_kind = 'model-end' and v_usage is not null and jsonb_typeof(v_usage) is distinct from 'null';
     if v_has_usage then
       if jsonb_typeof(v_usage) is distinct from 'object' then
         raise exception 'usage is a record' using errcode = '22023', detail = 'invalid-request';
@@ -664,6 +718,12 @@ begin
       raise exception 'a turn ends as answered, rejected, or uncertain'
         using errcode = '22023', detail = 'invalid-request';
     end if;
+    if p_event ? 'deadlineSeconds' and v_turn.state = 'admitted' and greatest(
+      v_turn.created_at, v_turn.dispatched_at,
+      (select max(created_at) from public.prd_grants where turn_id = p_turn)
+    ) > clock_timestamp() - make_interval(secs => (p_event->>'deadlineSeconds')::integer) then
+      return public.prd_end_result(p_turn);
+    end if;
     if v_turn.state = v_outcome then
       return public.prd_end_result(p_turn);
     end if;
@@ -689,6 +749,7 @@ declare
   v_tokens numeric;
   v_fee numeric;
   v_overrun numeric;
+  v_estimated numeric;
   v_released numeric;
   v_held numeric;
   v_input bigint;
@@ -705,13 +766,14 @@ begin
   select
       coalesce(sum(amount) filter (where component = 'provider'), 0),
       coalesce(sum(amount) filter (where component = 'fee'), 0),
-      coalesce(sum(amount) filter (where component = 'adjustment'), 0),
+      coalesce(sum(amount) filter (where component = 'adjustment' and source_key not like 'estimate:%'), 0),
+      coalesce(sum(amount) filter (where component = 'adjustment' and source_key like 'estimate:%'), 0),
       coalesce(sum(amount) filter (where component = 'release'), 0),
       coalesce(sum(input_tokens), 0),
       coalesce(sum(output_tokens), 0),
       coalesce(sum(cache_read_tokens), 0),
       coalesce(sum(cache_write_tokens), 0)
-    into v_tokens, v_fee, v_overrun, v_released, v_input, v_output, v_read, v_write
+    into v_tokens, v_fee, v_overrun, v_estimated, v_released, v_input, v_output, v_read, v_write
     from public.prd_ledger_entries
    where project_id = p_project
      and (p_turn is null or turn_id = p_turn);
@@ -735,7 +797,8 @@ begin
     'providerMicros', public.prd_micros(v_tokens),
     'tokenMicros', public.prd_micros(v_tokens),
     'feeMicros', public.prd_micros(v_fee),
-    'deductedMicros', public.prd_micros(v_tokens + v_fee),
+    'deductedMicros', public.prd_micros(v_tokens + v_fee + v_estimated),
+    'estimatedMicros', public.prd_micros(v_estimated),
     'overrunMicros', public.prd_micros(v_overrun),
     'releasedMicros', public.prd_micros(v_released),
     'heldMicros', public.prd_micros(v_held),
@@ -852,6 +915,12 @@ begin
   if not found then
     raise exception 'the PRD is not open' using errcode = '22023', detail = 'invalid-request';
   end if;
+  v_role := public.prd_role(p_project, p_actor);
+  if v_role is null then
+    raise exception 'this account has no role on the PRD'
+      using errcode = '42501', detail = 'forbidden';
+  end if;
+
   perform public.prd_refuse_unready(v_record.state);
 
   select * into v_existing
@@ -860,6 +929,13 @@ begin
      and request_id = v_request;
   if found then
     if v_existing.actor_id = p_actor and v_existing.body_hash = v_hash then
+      if v_role is distinct from (
+        select case when kind = 'side' then 'ngo' else 'dev' end
+          from public.prd_chats where id = v_existing.chat_id
+      ) then
+        raise exception 'this account cannot send in this chat'
+          using errcode = '42501', detail = 'forbidden';
+      end if;
       if v_existing.close_check and v_existing.kind = 'check' and v_existing.state in ('admitted', 'uncertain') then
         return jsonb_build_object(
           'turnId', v_existing.id,
@@ -908,12 +984,6 @@ begin
       return v_prior.result - 'bodyHash';
     end if;
     raise exception 'that request was already used' using errcode = '22023', detail = 'invalid-request';
-  end if;
-
-  v_role := public.prd_role(p_project, p_actor);
-  if v_role is null then
-    raise exception 'this account has no role on the PRD'
-      using errcode = '42501', detail = 'forbidden';
   end if;
 
   v_gate := public.prd_send_gate(p_project, v_role, p_chat_key);
@@ -1694,7 +1764,9 @@ as $$
        t.state = 'uncertain'
        or (
          t.state = 'admitted'
-         and t.created_at < clock_timestamp() - make_interval(secs => greatest(coalesce(p_seconds, 0), 0))
+         and greatest(t.created_at, t.dispatched_at,
+            (select max(created_at) from public.prd_grants where turn_id = t.id)
+          ) < clock_timestamp() - make_interval(secs => greatest(coalesce(p_seconds, 0), 0))
        )
      );
 $$;

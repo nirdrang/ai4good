@@ -3,6 +3,7 @@ import type { Caller } from "../caller.ts";
 import type { CallerReads } from "../tenant-reads.ts";
 import {
   catchUpChat,
+  prdHasRole,
   prdModelReady,
   PRD_MODEL_UNAVAILABLE,
   runPrdTurn,
@@ -267,6 +268,9 @@ export function prdMessagePrepare(deps: PrdRelayDeps) {
     _reads: CallerReads,
     stream: boolean,
   ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
+    if (!(await prdHasRole(deps, args.p_project, _caller.id))) {
+      return refuseWrite("forbidden", 403, "this account has no role on the PRD");
+    }
     await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
     if (args.p_intent.kind === "close-check") {
       if (deps.settings === null) return { ok: true, args };

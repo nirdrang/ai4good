@@ -13,13 +13,12 @@ import { finishStagedTurn, prdTools, type PrdToolDeps, type PrdToolScope } from 
 
 export const OPENCODE_GO_URL = "https://opencode.ai/zen/go/v1";
 export const PRD_MODEL_UNAVAILABLE = "AI replies are not set up on this server yet.";
-const GRANT_TTL_SECONDS = 900;
+export const PRD_GRANT_TTL_SECONDS = 900;
+export const PRD_TURN_DEADLINE_SECONDS = PRD_GRANT_TTL_SECONDS + 60;
 const PRD_STEP_LIMIT = 8;
 const AI_NAME = "ai4good AI";
 
-const REPLAYED = "This message was already sent.";
-const REJECTED = "The AI could not take this message. Nothing was charged for it.";
-const UNCERTAIN = "The AI's reply was interrupted. It appears here once the AI finishes.";
+const UNCERTAIN = "The AI's reply was interrupted. Any saved text is shown here. Calls with unknown cost are charged the reserved amount as an estimate.";
 const UNSAVED = "The AI's reply could not be saved.";
 
 const PRD_SYSTEM = [
@@ -107,11 +106,13 @@ export function prdGrantMode(chatKey: string, kind: "reply" | "answer-write"): "
 
 export function usageOf(usage: LanguageModelUsage): PrdUsage | null {
   if (usage.inputTokens === undefined && usage.outputTokens === undefined) return null;
+  const cacheRead = usage.inputTokenDetails.cacheReadTokens ?? 0;
+  const cacheWrite = usage.inputTokenDetails.cacheWriteTokens ?? 0;
   return {
-    input: usage.inputTokens ?? 0,
+    input: Math.max(usage.inputTokenDetails.noCacheTokens ?? (usage.inputTokens ?? 0) - cacheRead - cacheWrite, 0),
     output: usage.outputTokens ?? 0,
-    cacheRead: usage.inputTokenDetails.cacheReadTokens ?? 0,
-    cacheWrite: usage.inputTokenDetails.cacheWriteTokens ?? 0,
+    cacheRead,
+    cacheWrite,
   };
 }
 
@@ -376,18 +377,22 @@ export async function runPrdTurn(
   if (turnId === null) return skipped("The turn could not be read.");
   const database = deps.rpc;
   const opened = await readOpen(database, project, chatKey);
-  if (!opened.ok) return endTurn(database, turnId, "rejected", REJECTED);
+  if (!opened.ok) return skipped("The turn could not be read.");
   const turn = opened.turn;
-  if (turn === null || turn.id !== turnId) return skipped(REPLAYED, 409);
-  if (deps.settings === null) return endTurn(database, turnId, "rejected", REJECTED);
+  if (turn === null || turn.id !== turnId) return { args: null, failure: null, skipSettle: true };
+  const claim = await database("prd_turn_claim", { p_turn: turnId });
+  if (!claim.ok) return skipped("The turn could not be claimed.");
+  if (claim.value !== true) return { args: null, failure: null, skipSettle: true };
+  const abortSignal = AbortSignal.timeout(PRD_GRANT_TTL_SECONDS * 1000);
+  if (deps.settings === null) return endTurn(database, turnId, "uncertain", UNCERTAIN);
 
   const mode = prdGrantMode(chatKey, turn.kind);
   const issued = await database("prd_grant_issue", {
     p_turn: turnId,
     p_mode: mode,
-    p_ttl_seconds: GRANT_TTL_SECONDS,
+    p_ttl_seconds: PRD_GRANT_TTL_SECONDS,
   });
-  if (!issued.ok || typeof issued.value !== "string") return endTurn(database, turnId, "rejected", REJECTED);
+  if (!issued.ok || typeof issued.value !== "string") return endTurn(database, turnId, "uncertain", UNCERTAIN);
   const scope: PrdToolScope = {
     grantId: issued.value,
     projectId: project,
@@ -399,19 +404,19 @@ export async function runPrdTurn(
     p_model: deps.settings.modelId,
     p_settings: { baseURL: normalizeBase(deps.settings.baseURL), model: deps.settings.modelId },
   });
-  if (!recorded.ok) return endTurn(database, turnId, "rejected", REJECTED);
+  if (!recorded.ok) return endTurn(database, turnId, "uncertain", UNCERTAIN);
   const history = await database("prd_chat_transcript", { p_project: project, p_chat_key: chatKey });
-  if (!history.ok) return endTurn(database, turnId, "rejected", REJECTED);
+  if (!history.ok) return endTurn(database, turnId, "uncertain", UNCERTAIN);
   const listed = await database("prd_grant_tools", { p_grant: scope.grantId });
   const names = listed.ok ? namesOf(listed.value) : null;
-  if (names === null) return endTurn(database, turnId, "rejected", REJECTED);
+  if (names === null) return endTurn(database, turnId, "uncertain", UNCERTAIN);
 
   const toolDeps: PrdToolDeps = { rpc: database, github: deps.github };
   const tools = prdTools(toolDeps, scope, new Set(names));
   const seen = new Set<string>();
   let spent = turn.spentMicros;
   let capped = spent >= turn.reservationMicros;
-  let modelEnds = 0;
+  const startedSteps = new Set<number>();
   let ingestFailed = false;
   let providerFailed = false;
   const text: string[] = [];
@@ -426,6 +431,15 @@ export async function runPrdTurn(
         tools,
         stopWhen: [isStepCount(PRD_STEP_LIMIT), () => capped],
         maxRetries: 0,
+        abortSignal,
+        onStepStart: async ({ stepNumber }) => {
+          startedSteps.add(stepNumber);
+          const started = await database("prd_turn_ingest", {
+            p_turn: turnId,
+            p_event: { kind: "model-start", eventId: `${turnId}:${stepNumber}` },
+          });
+          if (!started.ok) throw new Error("The model call could not be recorded.");
+        },
         onError: () => {
           providerFailed = true;
         },
@@ -436,7 +450,6 @@ export async function runPrdTurn(
             return;
           }
           if (settled === "duplicate") return;
-          modelEnds += 1;
           spent += settled.providerMicros + settled.feeMicros;
           if (spent >= turn.reservationMicros) capped = true;
         },
@@ -447,14 +460,16 @@ export async function runPrdTurn(
     }
   }
 
+  for (const stepNumber of startedSteps) {
+    if (!seen.has(`${turnId}:${stepNumber}`)) {
+      await ingestModelStep(database, turnId, stepNumber, null, seen);
+    }
+  }
   await finishStagedTurn(toolDeps, scope);
   const saved = await appendReply(database, project, chatKey, text.join(""));
   let outcome: Outcome = "answered";
   let failure: string | null = saved ? null : UNSAVED;
-  if (providerFailed && modelEnds === 0) {
-    outcome = "rejected";
-    failure = REJECTED;
-  } else if (ingestFailed) {
+  if (providerFailed || ingestFailed) {
     outcome = "uncertain";
     failure = UNCERTAIN;
   }

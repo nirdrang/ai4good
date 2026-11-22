@@ -186,9 +186,17 @@ function database(state: {
   readDetail?: string;
 }) {
   const calls: Call[] = [];
+  let claimed = false;
   const rpc: SettleDatabase = async (name, args) => {
     calls.push({ name, args });
     switch (name) {
+      case "prd_role":
+        return { ok: true, value: "dev" };
+      case "prd_turn_claim": {
+        const won = !claimed;
+        claimed = true;
+        return { ok: true, value: won };
+      }
       case "prd_turn_open":
         return { ok: true, value: { chatId: state.turn?.chatId ?? CHAT, turn: state.turn } };
       case "prd_grant_issue":
@@ -287,7 +295,8 @@ async function run(input: {
 function ingests(calls: Call[]): Array<Record<string, unknown>> {
   return calls
     .filter((call) => call.name === "prd_turn_ingest")
-    .map((call) => call.args.p_event as Record<string, unknown>);
+    .map((call) => call.args.p_event as Record<string, unknown>)
+    .filter((event) => event.kind !== "model-start");
 }
 
 function named(calls: Call[], name: string): Call[] {
@@ -442,10 +451,13 @@ describe("PRD turn on a mock model", () => {
     expect(named(ran.calls, "prd_append_message")).toEqual([]);
   });
 
-  it("releases a provider rejection that lands before any model request", async () => {
+  it("estimates a dispatched model call that fails without usage", async () => {
     const ran = await run({ streams: "throw" });
-    expect(ingests(ran.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
-    expect(ran.result.failure).toBe("The AI could not take this message. Nothing was charged for it.");
+    expect(ingests(ran.calls)).toEqual([
+      { kind: "model-end", eventId: `${TURN}:0`, usage: null },
+      { kind: "end", outcome: "uncertain" },
+    ]);
+    expect(ran.result.failure).toContain("charged the reserved amount as an estimate");
     expect(named(ran.calls, "prd_append_message")).toEqual([]);
     expect(ran.streamCalls).toBe(1);
   });
@@ -525,7 +537,7 @@ describe("PRD turn on a mock model", () => {
     });
     const refused = await prdMessagePrepare(missing)(CALLER, messageArgs(), READS, true);
     expect(refused).toEqual({ ok: false, kind: "refused", status: 503, reason: PRD_MODEL_UNAVAILABLE });
-    expect(missingDb.calls.map((call) => call.name)).toEqual(["prd_turn_open"]);
+    expect(missingDb.calls.map((call) => call.name)).toEqual(["prd_role", "prd_turn_open"]);
 
     const unpricedDb = database({ turn: freshTurn(), priced: false });
     const unpriced = prdRelayDeps({
@@ -535,7 +547,7 @@ describe("PRD turn on a mock model", () => {
     });
     const noRate = await prdMessagePrepare(unpriced)(CALLER, messageArgs(), READS, true);
     expect(noRate).toEqual({ ok: false, kind: "refused", status: 503, reason: PRD_MODEL_UNAVAILABLE });
-    expect(unpricedDb.calls.map((call) => call.name)).toEqual(["prd_turn_open", "prd_model_priced"]);
+    expect(unpricedDb.calls.map((call) => call.name)).toEqual(["prd_role", "prd_turn_open", "prd_model_priced"]);
 
     const jsonDb = database({ turn: freshTurn() });
     const json = prdRelayDeps({
@@ -638,7 +650,7 @@ describe("PRD turn on a mock model", () => {
       PROJECT,
       "main",
     );
-    expect(ingests(old.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
+    expect(ingests(old.calls)).toEqual([{ kind: "end", outcome: "answered", deadlineSeconds: PRD_TURN_DEADLINE_SECONDS }]);
 
     const uncertain = database({
       turn: freshTurn({ state: "uncertain", ageSeconds: 1, modelRequests: 2 }),
@@ -652,7 +664,7 @@ describe("PRD turn on a mock model", () => {
       PROJECT,
       "main",
     );
-    expect(ingests(uncertain.calls)).toEqual([{ kind: "end", outcome: "answered" }]);
+    expect(ingests(uncertain.calls)).toEqual([{ kind: "end", outcome: "answered", deadlineSeconds: PRD_TURN_DEADLINE_SECONDS }]);
 
     const listed = database({
       turn: freshTurn({ ageSeconds: PRD_TURN_DEADLINE_SECONDS + 5 }),
@@ -670,12 +682,12 @@ describe("PRD turn on a mock model", () => {
       p_project: PROJECT,
       p_seconds: PRD_TURN_DEADLINE_SECONDS,
     });
-    expect(ingests(listed.calls)).toEqual([{ kind: "end", outcome: "rejected" }]);
+    expect(ingests(listed.calls)).toEqual([{ kind: "end", outcome: "answered", deadlineSeconds: PRD_TURN_DEADLINE_SECONDS }]);
   });
 
   it("does not end a turn whose open row is a different turn", async () => {
     const ran = await run({ streams: [() => textStream("no")], turnId: "22222222-2222-4222-8222-222222222222" });
-    expect(ran.result).toMatchObject({ failure: "This message was already sent.", status: 409, skipSettle: true });
+    expect(ran.result).toMatchObject({ failure: null, skipSettle: true });
     expect(ingests(ran.calls)).toEqual([]);
     expect(ran.streamCalls).toBe(0);
   });
@@ -698,7 +710,7 @@ describe("PRD turn on a mock model", () => {
         outputTokenDetails: { textTokens: 3, reasoningTokens: 0 },
         totalTokens: 12,
       }),
-    ).toEqual({ input: 9, output: 3, cacheRead: 3, cacheWrite: 2 });
+    ).toEqual({ input: 4, output: 3, cacheRead: 3, cacheWrite: 2 });
   });
 });
 

@@ -1,6 +1,6 @@
-import { generateText, jsonSchema, Output, type LanguageModelUsage } from "npm:ai@7.0.102";
+import { generateText, jsonSchema, NoObjectGeneratedError, Output, type LanguageModelUsage } from "npm:ai@7.0.102";
 import { isRecord, type SettleActResult, type SettleDatabase } from "../write-routes.ts";
-import { ingestModelStep, prdModel, usageOf, type PrdTurnDeps } from "./turn.ts";
+import { ingestModelStep, prdModel, PRD_GRANT_TTL_SECONDS, usageOf, type PrdTurnDeps } from "./turn.ts";
 
 export const CHECK_FAILED = "The completion check could not be read. Nothing was recorded, and the section is back where it was.";
 const AI_NAME = "ai4good AI";
@@ -287,7 +287,6 @@ async function settleSteps(
     const step = steps[index];
     if (step === undefined) continue;
     const usage = usageOf(step.usage);
-    if (usage === null) continue;
     const settled = await ingestModelStep(
       database,
       turnId,
@@ -325,6 +324,10 @@ export async function runCompletionCheck(
   if (source === null) return undo(database, started);
   const model = deps.model ?? (deps.settings === null ? null : prdModel(source.chatId, deps.settings));
   if (model === null) return undo(database, started);
+  const claim = await database("prd_turn_claim", { p_turn: started.turnId });
+  if (!claim.ok) return { args: null, failure: CHECK_FAILED, status: 502 };
+  if (claim.value !== true) return { args: null, failure: null, skipSettle: true };
+  const abortSignal = AbortSignal.timeout(PRD_GRANT_TTL_SECONDS * 1000);
   if (deps.settings !== null) {
     const recorded = await database("prd_turn_settings_record", {
       p_turn: started.turnId,
@@ -349,11 +352,14 @@ export async function runCompletionCheck(
       }),
       prompt: promptOf(source),
       maxRetries: 0,
+      abortSignal,
     });
     steps = result.steps.map((step) => ({ stepNumber: step.stepNumber, usage: step.usage }));
     scored = scoredOf(result.output);
-  } catch {
-    return undo(database, started);
+  } catch (error) {
+    if (steps.length === 0 && NoObjectGeneratedError.isInstance(error) && error.usage !== undefined) {
+      steps = [{ usage: error.usage }];
+    }
   }
   const settled = await settleSteps(database, started.turnId, steps);
   if (!settled || scored === null) return undo(database, started);

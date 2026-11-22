@@ -91,8 +91,14 @@ function harness(options: {
 }) {
   const calls: Call[] = [];
   const tags: TagCall[] = [];
+  let claimed = false;
   const rpc: SettleDatabase = async (name, args) => {
     calls.push({ name, args });
+    if (name === "prd_turn_claim") {
+      const won = !claimed;
+      claimed = true;
+      return { ok: true, value: won };
+    }
     if (name === "prd_check_source") return { ok: true, value: sourceBody() };
     if (name === "prd_turn_settings_record") return { ok: true, value: {} };
     if (name === "prd_turn_ingest") return { ok: true, value: { providerMicros: 12, feeMicros: 1 } };

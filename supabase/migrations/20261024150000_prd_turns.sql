@@ -11,6 +11,7 @@ create table public.prd_turns (
   kind text not null check (kind in ('reply', 'answer-write')),
   state text not null check (state in ('admitted', 'answered', 'rejected', 'uncertain')),
   message_id uuid references public.prd_messages (id) on delete cascade,
+  dispatched_at timestamptz,
   created_at timestamptz not null default clock_timestamp(),
   updated_at timestamptz not null default clock_timestamp(),
   constraint prd_turns_request_id unique (project_id, request_id),

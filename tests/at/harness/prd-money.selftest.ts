@@ -259,6 +259,102 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     return roundedDivide(cost * feeBps, 10_000n * 1_000_000n);
   }
 
+  it("admits only one dispatcher and preserves its grant on a duplicate claim", async () => {
+    const w = await world(stack, sql);
+    await credit(w.project, 1_000_000n);
+    const turn = await reserveIn(w, w.dev, "main");
+    const claims = await Promise.all([
+      sql`select public.prd_turn_claim(${turn}::uuid) as won`,
+      sql`select public.prd_turn_claim(${turn}::uuid) as won`,
+    ]);
+    expect((claims as Array<Array<{ won: boolean }>>).map(rows => rows[0].won).sort()).toEqual([false, true]);
+    const grants = await sql`select public.prd_grant_issue(${turn}::uuid, 'reply', 900) as id` as Array<{ id: string }>;
+    const duplicate = await sql`select public.prd_turn_claim(${turn}::uuid) as won` as Array<{ won: boolean }>;
+    expect(duplicate[0].won).toBe(false);
+    const kept = await sql`select revoked from public.prd_grants where id = ${grants[0].id}::uuid` as Array<{ revoked: boolean }>;
+    expect(kept[0].revoked).toBe(false);
+  });
+
+  for (const missing of ["no model-end", "no usage", "partly priced", "lost later model-end", "uncertain"]) {
+    it(`charges the reservation estimate and releases the hold for ${missing}`, async () => {
+      const w = await world(stack, sql);
+      await credit(w.project, 1_000_000n);
+      const turn = await reserveIn(w, w.dev, "main");
+      await sql`select public.prd_turn_claim(${turn}::uuid)`;
+      if (missing === "partly priced" || missing === "lost later model-end") {
+        await ingest(turn, modelEnd("partial", `${turn}:0`, { input: 1000, output: 10, cacheRead: 0, cacheWrite: 0 }));
+      }
+      if (missing === "lost later model-end") {
+        await ingest(turn, { kind: "model-start", eventId: `${turn}:1` });
+      } else if (missing !== "no model-end") {
+        await ingest(turn, modelEnd("unknown", `${turn}:1`, null));
+      }
+      const priced = BigInt(whole((await ledger(w, turn)).deductedMicros));
+      const outcome = missing === "uncertain" ? "uncertain" : "answered";
+      const ended = await ingest(turn, { kind: "end", outcome });
+      expect(ended).toMatchObject({ released: true, releasedMicros: 0, pendingEvents: 0 });
+      expect(await entries(turn, "adjustment")).toEqual([hold - priced]);
+      expect(await ledger(w, turn)).toMatchObject({ deductedMicros: Number(hold), heldMicros: 0, pending: [] });
+      expect(await funds(w)).toMatchObject({ settledMicros: Number(hold), pendingMicros: 0, availableMicros: Number(1_000_000n - hold) });
+      const before = await entryCount(w.project);
+      const balance = await funds(w);
+      const next = await reserveIn(w, w.dev, "topic:booking");
+      const afterNext = await funds(w);
+      await ingest(turn, modelEnd("late", `${turn}:1`, { input: 9_000_000, output: 3_000_000, cacheRead: 0, cacheWrite: 0 }));
+      await ingest(turn, { kind: "end", outcome });
+      expect(await entryCount(w.project)).toBe(before);
+      expect(await funds(w)).toEqual(afterNext);
+      expect(balance.availableMicros).toBe(Number(1_000_000n - hold));
+      await ingest(next, { kind: "end", outcome: "rejected" });
+    });
+  }
+
+  it("refuses a removed developer's replay before returning the admitted turn", async () => {
+    const w = await world(stack, sql);
+    await credit(w.project, 1_000_000n);
+    const rev = await revision(w.project);
+    const reserve = () => sql`select public.prd_turn_reserve(${w.dev}::uuid, ${w.project}::uuid,
+      'main', 'removed-replay', ${rev}, '{"kind":"text","text":"Hello"}'::jsonb, 'same') as r`;
+    await reserve();
+    await sql`update public.projects set assigned_volunteer_id = null where id = ${w.project}::uuid`;
+    expect(await refusal(reserve())).toBe("forbidden");
+  });
+
+  it("rechecks a catch-up deadline under the lock and estimates an expired run", async () => {
+    const w = await world(stack, sql);
+    await credit(w.project, 1_000_000n);
+    const turn = await reserveIn(w, w.dev, "main");
+    await sql`update public.prd_turns set created_at = clock_timestamp() - interval '20 minutes'
+      where id = ${turn}::uuid`;
+    await sql`select public.prd_turn_claim(${turn}::uuid)`;
+    const event = { kind: "end", outcome: "answered", deadlineSeconds: 960 };
+    expect(await ingest(turn, event)).toMatchObject({ state: "admitted", released: false });
+    expect(await funds(w)).toMatchObject({ settledMicros: 0, pendingMicros: Number(hold) });
+    await sql`update public.prd_turns set dispatched_at = clock_timestamp() - interval '20 minutes'
+      where id = ${turn}::uuid`;
+    await sql`select public.prd_grant_issue(${turn}::uuid, 'reply', 900)`;
+    expect(await ingest(turn, event)).toMatchObject({ state: "admitted", released: false });
+    await sql`update public.prd_grants set created_at = clock_timestamp() - interval '20 minutes',
+      expires_at = clock_timestamp() - interval '5 minutes' where turn_id = ${turn}::uuid`;
+    expect(await ingest(turn, event)).toMatchObject({ state: "answered", released: true, releasedMicros: 0 });
+    expect(await funds(w)).toMatchObject({ settledMicros: Number(hold), pendingMicros: 0 });
+  });
+
+  it("releases the remainder when an uncertain run has priced every call", async () => {
+    const w = await world(stack, sql);
+    await credit(w.project, 1_000_000n);
+    const turn = await reserveIn(w, w.dev, "main");
+    await sql`select public.prd_turn_claim(${turn}::uuid)`;
+    await ingest(turn, { kind: "model-start", eventId: `${turn}:0` });
+    await ingest(turn, modelEnd("known", `${turn}:0`, { input: 1000, output: 10, cacheRead: 0, cacheWrite: 0 }));
+    const spent = whole((await ledger(w, turn)).deductedMicros);
+    expect(await ingest(turn, { kind: "end", outcome: "uncertain" })).toMatchObject({
+      released: true, releasedMicros: Number(hold) - spent, pendingEvents: 0,
+    });
+    expect(await entries(turn, "adjustment")).toEqual([]);
+    expect(await funds(w)).toMatchObject({ pendingMicros: 0, settledMicros: spent });
+  });
+
   it("refuses an unfunded reply, credits funds, holds a reply, and releases it when the turn ends", async () => {
     const w = await world(stack, sql);
     const empty = await funds(w);
@@ -428,11 +524,11 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     expect(cards.map((row) => row.rate_card)).toEqual(["up-to-100k", "over-100k"]);
   });
 
-  it("keeps missing usage pending with the hold, then settles it once when it arrives", async () => {
+  it("keeps missing usage pending during the run, then estimates it at end and ignores late usage", async () => {
     const w = await world(stack, sql);
     await credit(w.project, 1_000_000n);
     const turn = await reserveIn(w, w.dev, "main");
-    const table = await rates(turn);
+    await sql`select public.prd_turn_claim(${turn}::uuid)`;
     const before = await entryCount(w.project);
     const pending = await ingest(turn, modelEnd("sesn_gap", "evt_gap", null));
     expect(pending).toMatchObject({
@@ -448,28 +544,21 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     expect((await ledger(w, turn)).pending).toEqual([{ turnId: turn, eventId: "evt_gap" }]);
 
     const ended = await ingest(turn, { kind: "end", outcome: "answered" });
-    expect(ended).toMatchObject({ state: "answered", released: false, pendingEvents: 1 });
-    expect(await funds(w)).toMatchObject({ pendingMicros: Number(hold) });
-    const band = (await funds(w)).band;
+    expect(ended).toMatchObject({ state: "answered", released: true, pendingEvents: 0 });
+    expect(await funds(w)).toMatchObject({ pendingMicros: 0, settledMicros: Number(hold) });
+    const balance = await funds(w);
 
     const usage: Usage = { input: 2_000, output: 300, cacheRead: 0, cacheWrite: 0 };
-    const cost = tokenCost(table, usage);
     const filled = await ingest(turn, modelEnd("sesn_gap", "evt_gap", usage));
-    expect(filled).toMatchObject({ state: "settled", providerMicros: Number(cost) });
+    expect(filled).toMatchObject({ state: "estimated", providerMicros: 0 });
     expect(await ingest(turn, modelEnd("sesn_gap", "evt_gap", usage))).toEqual(filled);
     expect(await ingest(turn, modelEnd("sesn_gap", "evt_gap", null))).toEqual(filled);
-    expect(await entries(turn, "provider")).toEqual([cost]);
-    expect(await entries(turn, "fee")).toEqual([feeOf(cost)]);
-    const spent = cost + feeOf(cost);
-    const released = spent > hold ? 0n : hold - spent;
-    expect(await entries(turn, "release")).toEqual([released]);
+    expect(await entries(turn, "provider")).toEqual([]);
+    expect(await entries(turn, "fee")).toEqual([]);
+    expect(await entries(turn, "adjustment")).toEqual([hold]);
+    expect(await entries(turn, "release")).toEqual([0n]);
     expect((await ledger(w, turn)).pending).toEqual([]);
-    expect(await funds(w)).toMatchObject({
-      pendingMicros: 0,
-      settledMicros: Number(spent),
-      availableMicros: Number(1_000_000n - spent),
-      band,
-    });
+    expect(await funds(w)).toEqual(balance);
   });
 
   it("prices a turn with a second model's rate, not the Haiku seed", async () => {
@@ -515,7 +604,7 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     expect(pinned[0]).toEqual({ model, version: 1 });
   });
 
-  it("releases the whole hold of a turn rejected before any model request, and keeps an uncertain hold", async () => {
+  it("releases the whole hold for undispatched turns, including an uncertain one", async () => {
     const w = await world(stack, sql);
     await credit(w.project, 1_000_000n);
     const rejected = await reserveIn(w, w.dev, "main");
@@ -528,11 +617,11 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
 
     const uncertain = await reserveIn(w, w.dev, "topic:booking");
     const unsure = await ingest(uncertain, { kind: "end", outcome: "uncertain" });
-    expect(unsure).toMatchObject({ state: "uncertain", released: false, releasedMicros: 0 });
+    expect(unsure).toMatchObject({ state: "uncertain", released: true, releasedMicros: Number(hold) });
     expect(await ingest(uncertain, { kind: "end", outcome: "uncertain" })).toEqual(unsure);
-    expect(await funds(w)).toMatchObject({ pendingMicros: Number(hold) });
+    expect(await funds(w)).toMatchObject({ pendingMicros: 0, settledMicros: 0 });
     expect(await reserveRefusal(w, w.dev, "topic:booking")).toBe("busy");
-    expect(await entries(uncertain, "release")).toEqual([]);
+    expect(await entries(uncertain, "release")).toEqual([hold]);
     expect(await ingest(uncertain, { kind: "end", outcome: "answered" })).toMatchObject({
       state: "answered",
       released: true,

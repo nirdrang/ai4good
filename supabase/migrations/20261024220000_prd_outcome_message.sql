@@ -129,7 +129,10 @@ begin
       'id', v_turn.id,
       'kind', v_turn.kind,
       'state', v_turn.state,
-      'ageSeconds', extract(epoch from (clock_timestamp() - v_turn.created_at)),
+      'ageSeconds', extract(epoch from (clock_timestamp() - greatest(
+        v_turn.created_at, v_turn.dispatched_at,
+        (select max(created_at) from public.prd_grants where turn_id = v_turn.id)
+      ))),
       'parts', coalesce(
         (select parts from public.prd_messages where id = v_turn.message_id),
         '[]'::jsonb

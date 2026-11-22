@@ -6,6 +6,7 @@ import {
   prdModelSettings,
   runPrdTurn,
   PRD_MODEL_UNAVAILABLE,
+  PRD_TURN_DEADLINE_SECONDS,
   type PrdTurnDeps,
   type PrdTurnSink,
 } from "./turn.ts";
@@ -13,9 +14,7 @@ import {
 export { PRD_MODEL_UNAVAILABLE, runPrdTurn };
 export type { PrdTurnDeps as PrdRelayDeps, PrdTurnSink };
 
-export const PRD_TURN_DEADLINE_SECONDS = 600;
-
-type Outcome = "answered" | "rejected";
+export { PRD_TURN_DEADLINE_SECONDS };
 
 type OpenTurn = {
   id: string;
@@ -63,8 +62,10 @@ export async function catchUpChat(deps: PrdTurnDeps, project: string, chatKey: s
   const turn = openTurn(read.value);
   if (turn === null) return;
   if (turn.state !== "uncertain" && turn.ageSeconds < PRD_TURN_DEADLINE_SECONDS) return;
-  const outcome: Outcome = turn.modelRequests > 0 ? "answered" : "rejected";
-  await database("prd_turn_ingest", { p_turn: turn.id, p_event: { kind: "end", outcome } });
+  await database("prd_turn_ingest", {
+    p_turn: turn.id,
+    p_event: { kind: "end", outcome: "answered", deadlineSeconds: PRD_TURN_DEADLINE_SECONDS },
+  });
 }
 
 export async function catchUpOverdue(deps: PrdTurnDeps, project: string): Promise<void> {
@@ -82,4 +83,10 @@ export async function catchUpOverdue(deps: PrdTurnDeps, project: string): Promis
 export async function prdModelReady(deps: PrdTurnDeps): Promise<boolean> {
   if (deps.settings === null) return false;
   return modelPriced(deps.rpc, deps.settings.modelId);
+}
+
+export async function prdHasRole(deps: PrdTurnDeps, project: string, actor: string): Promise<boolean> {
+  const database = deps.rpc;
+  const role = await database("prd_role", { p_project: project, p_account: actor });
+  return role.ok && (role.value === "dev" || role.value === "ngo");
 }

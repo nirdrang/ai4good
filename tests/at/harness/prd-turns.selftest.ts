@@ -744,6 +744,15 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     const readyToken = tokenOf(ready, "complete");
     const admitted = await one(action(ngo, "complete-answer", readyToken, "complete-retention"));
     expect(admitted.messageId).toBeNull();
+    const currentProject = await sql`select org_id from public.projects where id = ${project}::uuid` as Array<{ org_id: string }>;
+    const org = currentProject[0].org_id;
+    const replacement = await sql`insert into public.organizations (name)
+      values ('Other organisation') returning id` as Array<{ id: string }>;
+    await sql`update public.org_memberships set org_id = ${replacement[0].id}::uuid
+      where org_id = ${org}::uuid and account_id = ${ngo}::uuid`;
+    expect(await refusal(action(ngo, "complete-answer", readyToken, "complete-retention"))).toBe("forbidden");
+    await sql`update public.org_memberships set org_id = ${org}::uuid
+      where org_id = ${replacement[0].id}::uuid and account_id = ${ngo}::uuid`;
     const answerTurn = String(admitted.turnId);
     const turn = (await sql`select kind, state, message_id, chat_id from public.prd_turns
       where id = ${answerTurn}::uuid`) as Array<{
