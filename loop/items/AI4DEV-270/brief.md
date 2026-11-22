@@ -1,7 +1,7 @@
 # Brief for AI4DEV-270 (Discovery reads all seven formats)
 
 Chain: AI4DEV-258 (project need attachments root) > AI4DEV-262 (Discovery and build use of files) > AI4DEV-270 (Discovery reads all seven formats)
-Branch: claude/project-thread-q6fpxo (a cloud thread branch with no item id; the pull request body carries `Closes AI4DEV-270`)
+Branch: claude/project-thread-i4q9ha, which carries the first run's branch claude/project-thread-q6fpxo (a cloud thread branch with no item id; the pull request body carries `Closes AI4DEV-270`)
 Base: origin/main at 79db31e
 
 PRD slice: loop/out/pure-s6-req-027-036.md, REQ-032, the bullet:
@@ -12,7 +12,7 @@ Item text: File names and one-line descriptions ride the agent's context, with o
 **Verify:** AT-032.08, .12
 Acceptance tests: AT-032.08 and AT-032.12, today pending stubs in tests/at/suites/req-032/z-pending.test.ts.
 
-Reader: the founder asked the thread to push forward with the Claude reader. The cloud environment has no Anthropic API key, so that reader cannot run or be proven here. The thread builds on the reader that exists (text extraction for PDF, DOCX, XLSX, CSV, TSV and TXT, and the model's own image input). That reader runs through the provider-neutral model port, so a later switch to Claude is a configuration change plus a key. The thread tells the founder this.
+Reader (second run, 2026-11-22): the founder ruled "no haiku i want to use openAI since i have allowance for free API credit". The reader gets its own OpenAI setting (`OPENAI_API_KEY`, `FILE_READ_MODEL`) and no longer follows the Discovery provider. A PDF goes to OpenAI whole. Word, Excel, CSV, TSV and text keep the converters. Files stay in the private bucket. Reads meter no fuel.
 
 ## The ask
 Run this item in poteto-mode and open one pull request from this branch. Name no item id in the pull request title or body except the line `Closes AI4DEV-270`.
