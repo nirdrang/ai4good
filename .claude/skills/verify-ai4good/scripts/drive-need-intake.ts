@@ -308,7 +308,7 @@ let firstSaveUpdatedAt = '';
   const r = await functionPost(
     stack,
     'project-need',
-    { organizationId, action: 'attach', projectId, file: { fileName: 'grants-tracker.csv', mediaType: 'text/csv', byteSize: 4096 } },
+    { organizationId, action: 'attach', projectId, file: { fileName: 'grants-tracker.pdf', mediaType: 'application/pdf', byteSize: 4096 } },
     ngoAccessToken,
   );
   recordHttp('project-need-attach-refused', 'POST', r.url, r.status, r.json);

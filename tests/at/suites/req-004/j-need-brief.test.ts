@@ -329,8 +329,8 @@ atTest(
           expect(await screen.modelCalls(), 'the read is one file-read and no turn').toEqual(['file-read']);
           if (screen.backend) {
             await screen.files.openAdd();
-            await screen.files.choose({ name: 'second-rota.txt', mimeType: 'text/plain', base64: Buffer.from('Kitchen coordinators fill Sunday shifts by phone.').toString('base64') });
-            await fileReady(screen, 'second-rota.txt');
+            await screen.files.choose({ name: 'second-rota.pdf', mimeType: 'application/pdf', base64: Buffer.from(pdfFromText('Kitchen coordinators fill Sunday shifts by phone.')).toString('base64') });
+            await fileReady(screen, 'second-rota.pdf');
             expect((await screen.backend.read()).usage).toEqual(saved!.usage);
             const turns = await screen.backend.sql`select charged_credits, actual_micros from public.discovery_turns where project_id = ${screen.backend.projectId}::uuid` as { charged_credits: number; actual_micros: number }[];
             expect(turns).toHaveLength(4);

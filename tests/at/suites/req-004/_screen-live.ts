@@ -67,7 +67,7 @@ export async function seedDiscoveryScreen(sut: DiscoverySut, email: string, scen
       for (const file of files) {
         const id = crypto.randomUUID();
         await seed.sql`insert into public.discovery_files(id, project_id, name, media_type, size_bytes, content_hash, status, facts_count,
-          total_parts, completed_parts, created_by, digest) values (${id}::uuid, ${seed.projectId}::uuid, ${file.name}, 'text/plain', 100,
+          total_parts, completed_parts, created_by, digest) values (${id}::uuid, ${seed.projectId}::uuid, ${file.name}, 'application/pdf', 100,
           ${id.replaceAll('-', '').repeat(2)}, 'read', 1, 1, 1, ${seed.ngo.accountId}::uuid, ${JSON.stringify({ facts: [{ sectionId: 'need', text: file.took }], questions: [] })}::text::jsonb)`;
       }
     }

@@ -33,12 +33,12 @@ export async function seedFileProject(stack: Stack, needs: NeedsSut, email: stri
   return { ngo, projectId, bearer, freshBearer, sql, authSession: login.json };
 }
 
-export async function uploadFile(stack: Stack, bearer: string, organizationId: string, projectId: string, name: string, text: string | Uint8Array<ArrayBuffer>, mediaType = 'text/plain') {
+export async function uploadFile(stack: Stack, bearer: string, organizationId: string, projectId: string, name: string, content: string | Uint8Array<ArrayBuffer>, mediaType = 'application/pdf') {
   const form = new FormData();
   form.append('action', 'add');
   form.append('organizationId', organizationId);
   form.append('projectId', projectId);
-  form.append('file', new Blob([text], { type: mediaType }), name);
+  form.append('file', new Blob([content], { type: mediaType }), name);
   const response = await fetch(`${stack.apiUrl}/functions/v1/discovery-file`, {
     method: 'POST', headers: { apikey: stack.anonKey, Authorization: `Bearer ${bearer}` }, body: form,
   });

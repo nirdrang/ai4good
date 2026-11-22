@@ -6,7 +6,7 @@ import { testOpening } from '../../harness/discovery-topic-plan.ts';
 import { fileReport, type FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
 import type { NeedsSut } from '../req-003/_contract.ts';
 import { seedFileProject, uploadFile, waitForFile } from './_files.ts';
-import { SEVEN_FORMATS, fixtureUrl, type FormatFixture } from './fixtures/seven-formats.ts';
+import { FILE_FORMATS, fixtureUrl, type FormatFixture } from './fixtures/file-formats.ts';
 
 const NEED = 'Coordinate volunteers across our community kitchens.';
 const noStack = (id: string) => async () => { throw new AtPending(id, 'sut-missing', 'The loop tier has no stack to read files from.'); };
@@ -14,13 +14,13 @@ const noStack = (id: string) => async () => { throw new AtPending(id, 'sut-missi
 type Uploaded = { fixture: FormatFixture; row: FileRow };
 type Seeded = { stack: Stack; bearer: () => Promise<string>; organizationId: string; projectId: string; files: Uploaded[] };
 
-async function seedSevenFiles(email: string, sut: NeedsSut): Promise<Seeded> {
+async function seedFormatFiles(email: string, sut: NeedsSut): Promise<Seeded> {
   const stack = stackFromEnv();
   const seed = await seedFileProject(stack, sut, email, { title: 'Kitchen volunteer rota', description: NEED, brief: testOpening(NEED) });
   try {
     await seed.sql`update public.projects set funded_at = clock_timestamp() where id = ${seed.projectId}::uuid`;
     const added = [];
-    for (const fixture of SEVEN_FORMATS) {
+    for (const fixture of FILE_FORMATS) {
       const name = `rota-${crypto.randomUUID().slice(0, 8)}.${fixture.file.split('.').pop()}`;
       const bytes = new Uint8Array(readFileSync(fixtureUrl(fixture)));
       const upload = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, name, bytes, fixture.mediaType);
@@ -45,12 +45,12 @@ async function ask(seed: Seeded, message: string): Promise<string> {
 const derives = (fixture: FormatFixture, text: string) =>
   new RegExp(`${fixture.kitchen}[^\\n]{0,120}\\b${fixture.volunteers}\\b|\\b${fixture.volunteers}\\b[^\\n]{0,120}${fixture.kitchen}`, 'i').test(text);
 
-const EVERY_FORMAT = Object.fromEntries(SEVEN_FORMATS.map((fixture) => [fixture.format, true]));
+const EVERY_FORMAT = Object.fromEntries(FILE_FORMATS.map((fixture) => [fixture.format, true]));
 
-atTest('AT-032.12', 'reads derive content from all seven formats', { timeoutMs: { integration: 900_000 } }, {
+atTest('AT-032.12', 'reads derive content from a PDF, an image and a scanned PDF', { timeoutMs: { integration: 900_000 } }, {
   integration: async ({ open }) => {
     const { w, sut } = await open();
-    const seed = await seedSevenFiles(w.email('seven-formats'), sut);
+    const seed = await seedFormatFiles(w.email('file-formats'), sut);
     const reply = await ask(seed, 'Before your next question, list every kitchen my files mention, one line per kitchen, giving on that line the kitchen name, its shift and how many volunteers it needs.');
     const derived = Object.fromEntries(seed.files.map(({ fixture }) => [fixture.format, derives(fixture, reply)]));
     expect(derived, `reply: ${reply}`).toEqual(EVERY_FORMAT);

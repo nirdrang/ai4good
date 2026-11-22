@@ -3,6 +3,7 @@ import { eventually } from '../../harness/screen.ts';
 import { SCREEN, TEXT } from '../../../../src/components/discovery/a11y.ts';
 import { GIVEN } from '../../../../design/astra/src/givens.ts';
 import type { DiscoveryPage } from './_screen.ts';
+import { pdfFromText } from '../../harness/pdf.ts';
 
 export async function fileReady(screen: DiscoveryPage, name: string): Promise<void> {
   if (!screen.backend) throw new Error('A backend file check needs the real route.');
@@ -44,7 +45,7 @@ export async function answerWhenAsked(screen: DiscoveryPage, question: string, l
 
 function sampleFile(name: string, real = false): { name: string; mimeType: string; base64: string } {
   const text = real ? 'The kitchen has 45 volunteers. Last month 38 volunteers booked a shift. Shifts last four hours. Coordinators schedule Sunday shifts by phone.' : name;
-  return { name, mimeType: 'text/plain', base64: Buffer.from(text).toString('base64') };
+  return { name, mimeType: 'application/pdf', base64: Buffer.from(pdfFromText(text)).toString('base64') };
 }
 
 export async function addRota(screen: DiscoveryPage): Promise<void> {
@@ -287,10 +288,10 @@ export async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIV
   const usageBefore = await screen.usage.text();
   const callsBefore = await screen.modelCalls();
   await screen.files.openAdd();
-  await screen.files.choose(sampleFile('shift-notes.txt', !!screen.backend));
+  await screen.files.choose(sampleFile('shift-notes.pdf', !!screen.backend));
   await eventually(
     'the new file shows Reading',
-    () => screen.files.row('shift-notes.txt'),
+    () => screen.files.row('shift-notes.pdf'),
     (text) => /Reading… \d+%/.test(text),
   );
   await screen.review.open();
@@ -300,7 +301,7 @@ export async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIV
   await screen.review.tick(TEXT.ack.gaps(given.open.length - 1));
   await screen.review.tick(TEXT.ack.data);
   if (screen.backend) {
-    await fileReady(screen, 'shift-notes.txt');
+    await fileReady(screen, 'shift-notes.pdf');
     await screen.review.back();
     await screen.review.open();
     const current = await screen.backend.read();
@@ -310,7 +311,7 @@ export async function expectFinishFlow(screen: DiscoveryPage, given: (typeof GIV
   } else await eventually(
     'the read is ready and the hint is gone',
     () => screen.review.text(),
-    (text) => text.includes('I found three facts in shift-notes.txt') && !text.includes(TEXT.fileStillReading),
+    (text) => text.includes('I found three facts in shift-notes.pdf') && !text.includes(TEXT.fileStillReading),
     8_000,
   );
   expect(await screen.review.finishDisabled(), 'Finish Discovery is available when the read is ready').toBe(false);

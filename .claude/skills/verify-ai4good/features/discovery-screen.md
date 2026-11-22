@@ -16,7 +16,7 @@ Run `bun .claude/skills/verify-ai4good/scripts/drive-discovery-screen.ts [outDir
 
 1. Sign in. The first AI reply and answerable question cards appear. The live brief exists. Daily replies equal the grant: the opening was free.
 2. Select a Suggested answer and Send. The answer is agreed in the stored brief, the brief revision rises, and exactly one daily reply is used. Each question retains its reason, options and importance.
-3. Add a sample text file through the file chooser. Reading progresses to Ready with facts. Its digest is stored, its facts reach the brief marked with the file source, and usage stays unchanged.
+3. Add a sample PDF through the file chooser. Reading progresses to Ready with facts. Its digest is stored, its facts reach the brief marked with the file source, and usage stays unchanged.
 4. Reload and select Finish Discovery. One review page shows open questions before the brief. Reading and review cause no model call or charge.
 5. Acknowledge the current revision, remaining gaps and data responsibility where shown. Finish records the current revision, approver, time and accepted gaps. Reload preserves Discovery finished. Usage stays unchanged.
 6. Inspect exact refusal kinds through the same edge functions: `finished` for a further reply, `stale-revision` for an edit against an old revision, `invalid-request` for missing finish acknowledgements, and `no-such-project` for a project outside the named organisation. Each refusal has an error HTTP status.

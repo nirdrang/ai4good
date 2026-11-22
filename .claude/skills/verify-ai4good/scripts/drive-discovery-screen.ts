@@ -4,10 +4,12 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prepareDiscovery, repoRoot } from './prepare-chat-page.ts';
 import { redactValue, sqlClient } from '../../../../tests/at/harness/live-stack.ts';
+import { pdfFromText } from '../../../../tests/at/harness/pdf.ts';
 
 const outDir = resolve(repoRoot, process.argv[2] ?? `loop/verify-evidence/discovery-screen-${Date.now()}`);
 mkdirSync(outDir, { recursive: true });
 const evidence: unknown[] = [];
+const rotaPdf = Buffer.from(pdfFromText('The kitchen has 45 volunteers. Shifts last four hours. Coordinators schedule Sunday shifts by phone. Last month 38 volunteers booked a shift.')).toString('base64');
 let app: ReturnType<typeof spawn> | null = null;
 try {
   const desktop = await prepareDiscovery(join(outDir, 'desktop'));
@@ -32,7 +34,7 @@ try {
   for (const [viewport, setup] of [['desktop', desktop], ['phone', phone]] as const) {
     const run = spawnSync('node', [fileURLToPath(new URL('./drive-discovery-screen.mjs', import.meta.url))], {
       cwd: repoRoot, windowsHide: true, encoding: 'utf8', timeout: 600_000,
-      input: JSON.stringify({ ...setup, viewport, baseUrl, outDir }),
+      input: JSON.stringify({ ...setup, viewport, baseUrl, outDir, rotaPdf }),
     });
     const stdout = run.stdout.replaceAll(setup.password, '[REDACTED]');
     const stderr = run.stderr.replaceAll(setup.password, '[REDACTED]');
