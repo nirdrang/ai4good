@@ -269,7 +269,7 @@ export function prdMessagePrepare(deps: PrdRelayDeps) {
     stream: boolean,
   ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
     if (!(await prdHasRole(deps, args.p_project, _caller.id))) {
-      return refuseWrite("forbidden", 403, "this account has no role on the PRD");
+      return refuseWrite("forbidden", 409, "this account has no role on the PRD");
     }
     await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
     if (args.p_intent.kind === "close-check") {

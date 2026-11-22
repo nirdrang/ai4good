@@ -293,7 +293,7 @@ it("an unrelated caller must not finish another projects uncertain turn before a
     JSON.stringify({ requestAdmitted: prepared.ok, otherProjectsTurnWrites: ends }),
   );
   expect(ends).toHaveLength(0);
-  expect(prepared).toMatchObject({ ok: false, kind: "forbidden", status: 403 });
+  expect(prepared).toMatchObject({ ok: false, kind: "forbidden", status: 409 });
 });
 
 it("malformed completion output still incurs provider usage", async () => {
