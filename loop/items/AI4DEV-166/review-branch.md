@@ -122,6 +122,60 @@ The intent requires that the message is refused once or sent with a new id, and 
 
 The intent requires that a refusal leaks nothing and gives the real reason.
 
+## Findings from the Codex rerun
+
+The founder asked for a second Codex Sol run with a gentler correctness brief that lists findings 1 to 12 as known (`units/review2.prompt.md` in the scratchpad). The run completed in 10 minutes with `pinned-argv` evidence and found seven new problems. The lead reran each command in `rv-codex` and saw the same output.
+
+### 13. A merge can leave text in the read copy that the merge discarded
+
+`git.ts:259` compares each imported commit with its own first parent. A side-branch edit, then a merge that keeps `main`'s text, leaves the side-branch text in the database.
+
+- `bun --no-env-file node_modules/vitest/vitest.mjs run --config review-repros/vitest.config.ts review-repros/merge-tree.test.ts` printed `"databaseText":"Discarded side-branch rule","repositoryText":"Keep coordinator approval from main"`.
+
+The intent requires that the read copy matches the tree of the head commit.
+
+### 14. A completion check of an older revision blocks the newer revision
+
+`20261024200000_prd_checks.sql:470` writes the check's gaps onto the current section state without checking that the scored revision is still current.
+
+- `Get-Content review-repros/seed.sql, review-repros/check-race.sql | docker exec -i supabase_db_poancmeitlmxejofwzuu psql -X -U postgres` printed `checked_revision=1, current_revision=2, ... current_gap=Add coordinator approval, confirm_allowed=false, confirm_reason=gap`.
+
+The intent requires that a check of revision 1 is kept as history and does not block revision 2.
+
+### 15. The automatic close after a passing check can close while an NGO side-chat turn is running
+
+`prd_close_after_check` (`20261024210000_prd_close.sql:697`) does not check again for active turns.
+
+- `Get-Content review-repros/seed.sql, review-repros/close-race.sql | docker exec ...` printed `close race: closed=true, record_state=closed, active_ngo_turns=1`.
+
+The intent requires that close is refused or waits until that turn ends.
+
+### 16. The next AI turn loses the Use answer brief
+
+`textOfParts` (`turn.ts:287`) drops `data-brief` parts from the chat history, so the model sees only the "Brief:" line.
+
+- `review-repros/history.test.ts` printed `{"storedBrief":true,"promptHasOriginalAnswer":false,"promptHasEditedAnswer":false,"promptHasDeveloperNote":false}`.
+
+The intent requires that the answer, the edited wording and Dev's note reach the next prompt.
+
+### 17. The NGO is not told that Dev changed the answer's wording
+
+`snapshot.ts:469` sets `changed: false` for every answer. `design/prd-ui-contract.md` line 102 says "If the developer changed the wording, the AI tells the NGO the final wording".
+
+- `review-repros/answer-edit.test.ts` printed `{"original":"Two hours","edited":"Four hours","changed":false,"wordingChanged":null}`.
+
+### 18. An answered question links to the suggestion, not to its Use answer brief
+
+`snapshot.ts:468` points `briefTurn` at the question's introduction message.
+
+- `review-repros/answer-edit.test.ts` printed `{"pointsAtSuggestion":true,"pointsAtUseAnswerBrief":false,"targetText":["Ask about shift length"]}`.
+
+### 19. Removed branch protection is never detected
+
+Design line 80 says: "If protection is found off ... the record goes to `diverged`. Publication stops". Sync never reads the protection (`git.ts:313`).
+
+- `review-repros/protection.test.ts` printed `{"result":{"ok":true},"state":"open","protectionReads":0,"reconciled":true}`.
+
 ## Dropped
 
 - Codex: the fund going below zero after one request that overran its reservation (`availableMicros=-5029`). Design line 62 accepts that overrun while the request is in flight. Finding 3 keeps the case the design does not accept.
