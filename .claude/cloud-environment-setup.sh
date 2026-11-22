@@ -79,7 +79,8 @@ claude plugin list | grep -q pstack@open-pstack
 # are read wherever a session starts, and the snapshot keeps them.
 user_settings="$HOME/.claude/settings.json"
 [ -f "$user_settings" ] || echo '{}' > "$user_settings"
-jq '.hooks.SessionStart = [{hooks: [{type: "command", command: "cd /home/user/ai4good && CLAUDE_PROJECT_DIR=/home/user/ai4good .claude/hooks/session-start-banner.sh"}]}]' \
+jq '.hooks.SessionStart = ([.hooks.SessionStart[]? | select(tostring | contains("session-start-banner") | not)]
+  + [{hooks: [{type: "command", command: "cd /home/user/ai4good && CLAUDE_PROJECT_DIR=/home/user/ai4good .claude/hooks/session-start-banner.sh"}]}])' \
   "$user_settings" > "$user_settings.new"
 mv "$user_settings.new" "$user_settings"
 
