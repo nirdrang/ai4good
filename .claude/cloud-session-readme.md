@@ -109,6 +109,20 @@ The way of work runs on the pstack plugin. Four facts decide how it reaches a cl
   `/setup-pstack-project`, the tracked wrapper that runs the plugin's setup skill and
   redirects its two writes into the tree. The home `CLAUDE.md` must not include a sheet as
   well: two live includes make duplicate role rows, and the setup skill stops on those.
+- **A lane that fails on sign-in halts the work** (founder 2026-11-22: "i want that in case you
+  run a lane and it fails in codex or agy you halt and ask me to do the auth"). The codex and
+  agy sign-ins are files in the VM's home folder, so a new VM starts signed out. When a codex
+  or agy lane ends with receipt status `unauthenticated` (runner exit 77), the session stops,
+  starts that sign-in, and asks the founder: `codex login --device-auth` gives a code and a
+  URL; `agy` in tmux with Google OAuth gives a link, and the founder's code is pasted back.
+  A sign-in that expired or was revoked can end as `child-failed` (exit 70) instead, with the
+  sign-in error (401, token could not be refreshed) in the receipt evidence or stderr. The
+  rule covers that case too. agy skips its sign-in screen while a stale token file is in
+  place, so the session moves `~/.gemini/antigravity-cli/antigravity-oauth-token` aside first.
+  The runner also reports a malformed codex `config.toml` as `unauthenticated`, so the session
+  reads the evidence first and reports any other cause instead of asking for a sign-in.
+  The session reruns the lane after the sign-in. It does not count the lane as a dropout,
+  continue without it, or switch its model. The banner prints this rule at every start.
 - **Grok does not run in cloud sessions** (founder 2026-10-24), and the setup script does not
   install it. At every session start the
   SessionStart hook replaces each grok descriptor on the sheet's role rows with

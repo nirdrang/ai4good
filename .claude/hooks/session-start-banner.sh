@@ -129,6 +129,8 @@ else
   lines+=("pstack sheet: every grok lane is $neon in this session (needs agy signed in); re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
 
+lines+=("sign-in rule: when a codex or agy lane ends with receipt status unauthenticated (runner exit 77), or with child-failed (exit 70) and a sign-in error in its evidence or stderr (401, token could not be refreshed, sign in again), halt the work and ask the founder to sign in: for codex run 'codex login --device-auth' and give them the code and its URL; for agy move ~/.gemini/antigravity-cli/antigravity-oauth-token aside if it exists (agy skips the sign-in while a stale token is there), run 'agy' in tmux, choose Google OAuth, give them the link, and paste back their code. If the receipt evidence names another cause, such as a config error, report that cause instead. Rerun the lane after the sign-in. Never count it as a dropout, never continue without the lane, never switch its model.")
+
 (bunx playwright-core install chromium-headless-shell >/tmp/playwright-install.log 2>&1
   mkdir -p "$HOME/.cache/ms-playwright"
   for dir in "${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"/chromium_headless_shell-*; do
