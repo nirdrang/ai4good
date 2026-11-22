@@ -12,7 +12,7 @@ Item text: File names and one-line descriptions ride the agent's context, with o
 **Verify:** AT-032.08, .12
 Acceptance tests: AT-032.08 and AT-032.12, today pending stubs in tests/at/suites/req-032/z-pending.test.ts.
 
-Reader (second run, 2026-11-22): the founder ruled "no haiku i want to use openAI since i have allowance for free API credit". The reader gets its own OpenAI setting (`OPENAI_API_KEY`, `FILE_READ_MODEL`) and no longer follows the Discovery provider. A PDF goes to OpenAI whole. Word, Excel, CSV, TSV and text keep the converters. Files stay in the private bucket. Reads meter no fuel.
+Reader (second run, 2026-11-22): the founder ruled "no haiku i want to use openAI since i have allowance for free API credit". The reader gets its own OpenAI setting (`OPENAI_API_KEY`, `FILE_READ_MODEL`) and no longer follows the Discovery provider. A PDF goes to OpenAI whole. Word, Excel, CSV, TSV and text keep the converters. Files stay in the private bucket. Reads meter no fuel. A later ruling the same day (d105) replaces the converters: "well at this stage drop this complication and have only images and pdf allowed without other formats", so only PDFs and images are accepted, each is sent to OpenAI whole, and the converter path is deleted.
 
 ## The ask
 Run this item in poteto-mode and open one pull request from this branch. Name no item id in the pull request title or body except the line `Closes AI4DEV-270`.

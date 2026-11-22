@@ -6,7 +6,7 @@ This records the wired Discovery implementation. Sources are `discovery-turn.ts`
 | --- | --- | --- | --- |
 | Opening reply | First load of a submitted project's empty conversation | One `reply` tool answer | Zero; idempotent opening |
 | Answer or note | NGO selects answers or submits a note | One `reply` tool answer | One completed free reply, or funded paid USD usage |
-| File read | File upload starts automatic background ingestion | `record_file_digest` per part | Zero replies and zero fuel |
+| File read | File upload starts automatic background ingestion | One `file_digest` tool answer per file | Zero replies and zero fuel |
 | Review, edit, accept, remove label, finish | NGO uses the brief or review | No model call | Zero |
 | Technical scope in the PRD step | Confirmed Discovery document | One `record_scope` tool answer | No Discovery credit |
 
@@ -22,7 +22,7 @@ Cause labels stay in the live brief. The model reuses a matching vocabulary labe
 
 ## Files
 
-Choosing a file uploads it and starts its read immediately. There is no file conversation or question before ingestion. The background job reads large content in bounded parts, validates each digest tool answer, stores the part results and joins their facts into one digest. Progress reaches Ready with the number of facts.
+Choosing a file uploads it and starts its read immediately. There is no file conversation or question before ingestion. Only PDFs and images (PNG, JPEG, GIF, WebP) are accepted; another type is refused at upload with a message that names them. The background job sends the whole file to the model in one request, validates the digest tool answer and stores it as the file's digest. Progress reaches Ready with the number of facts.
 
 Facts enter a new brief revision marked with their file source. They do not agree a required topic. Later chat turns carry only the digest, never the original file. The next main-chat reply reports what the file showed in one sentence. Reading consumes no Discovery reply or fuel. Closing a panel does not stop the read. Finish waits for reads to complete.
 
