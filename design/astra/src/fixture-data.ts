@@ -19,7 +19,7 @@ const THANKS =
   "Thanks, I read your intake. We need to agree six topics before a volunteer developer can start. I will ask the questions that do not depend on each other together.";
 
 const FILE_KINDS = GIVEN["first-reply"].fileKinds;
-const FILE_REQUEST = `Before we start: do you have ${GIVEN["first-reply"].filePhrase}? A ${FILE_KINDS[0]}, a ${FILE_KINDS[1]}, or your ${FILE_KINDS[2]} would help this need. Add a file in Your files. Attaching is free, and you can also add files later.`;
+const FILE_REQUEST = `Before we start: do you have ${GIVEN["first-reply"].filePhrase}? A ${FILE_KINDS[0]}, a ${FILE_KINDS[1]}, or your ${FILE_KINDS[2]} would help this need. Add a file in Your files, as a PDF or a picture. Attaching is free, and you can also add files later.`;
 
 const QUESTIONS_INTRO = "Here are the first two questions. Each has my suggestion, but you decide.";
 

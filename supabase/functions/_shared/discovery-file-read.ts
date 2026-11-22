@@ -31,7 +31,8 @@ export async function readDiscoveryFile(row: FileRow): Promise<void> {
     if (await fileReadCommit(row.id, 'parts', { total: 1 }) === null) return;
     const port = fileReadModelPort();
     const sectionIds = ['usersToday', 'successMeasure', ...(brief?.document.topicOrder ?? [])];
-    let digest: FileDigest | null = null;
+    const saved = Array.isArray(claimed.parts) ? claimed.parts.find((part) => isRecord(part) && part.part_index === 0) : undefined;
+    let digest: FileDigest | null = isRecord(saved) ? saved.digest as FileDigest : null;
     for (let attempt = 0; attempt < FILE_READ_ATTEMPTS && digest === null; attempt++) {
       const answer = await port.create({
         model: port.model, maxTokens: 4096, effort: 'low',
@@ -48,7 +49,7 @@ export async function readDiscoveryFile(row: FileRow): Promise<void> {
           }, required: ['facts', 'questions'],
         } }], toolChoice: { type: 'tool', name: 'file_digest' },
       });
-      if (!answer.ok) throw new Error(pdf && answer.status === 400 ? 'This PDF could not be read. It may be password-protected, damaged or too long. Add an unlocked or shorter copy.' : answer.reason);
+      if (!answer.ok) throw new Error(answer.status === 400 ? 'This file could not be read. It may be damaged, password-protected or too long. Add another copy.' : answer.reason);
       digest = answer.toolUse?.name === 'file_digest' ? parseFileDigest(answer.toolUse.input, sectionIds) : null;
     }
     if (digest === null) throw new Error('The file read returned an unreadable digest.');

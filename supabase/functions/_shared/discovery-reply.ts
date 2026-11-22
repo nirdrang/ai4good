@@ -42,7 +42,7 @@ import { DECLINE_COPY, SCOPE_COPY } from './scope-copy.ts';
 import { isRecord } from './write-routes.ts';
 
 export const DISCOVERY_FILE_REQUEST =
-  'Before we start: do you have files that show how you work today? Add a file in Your files. Attaching is free, and you can also add files later.';
+  'Before we start: do you have files that show how you work today? Add a file in Your files, as a PDF or a picture. Attaching is free, and you can also add files later.';
 
 export function fileExamplesSentence(examples: readonly string[]): string {
   if (examples.length === 0) return '';
