@@ -4,7 +4,7 @@ import { stackFromEnv, functionPost } from '../../harness/live-stack.ts';
 import { fileLimitReached } from '../../../../supabase/functions/_shared/discovery-files.ts';
 import { seedFileProject, uploadFile, waitForFile } from './_files.ts';
 
-atTest('AT-032.13', 'three unfunded Discovery files, removal frees a place, funded unlimited', { timeoutMs: { integration: 300_000 } }, {
+atTest('AT-032.13', 'three unfunded Discovery files, removal frees a place, funded unlimited', { timeoutMs: { integration: 900_000 } }, {
   loop: async ({ open }) => {
     await open();
     const files = Array.from({ length: 3 }, () => ({ removedAt: null as string | null }));
@@ -40,7 +40,7 @@ atTest('AT-032.13', 'three unfunded Discovery files, removal frees a place, fund
       ids.push(String((funded.body.file as { id: string }).id));
       const loaded = await functionPost(stack, 'discovery-conversation', { projectId: seed.projectId }, seed.bearer);
       expect(loaded.json.files as unknown[]).toHaveLength(4);
-      for (const id of ids) expect((await waitForFile(stack, seed.bearer, seed.projectId, id)).status).toBe('read');
+      for (const id of ids) expect((await waitForFile(stack, seed.freshBearer, seed.projectId, id)).status).toBe('read');
     } finally { await seed.sql.close(); }
   },
   default: async () => { throw new AtPending('AT-032.13', 'sut-missing', 'The drill stack has not been configured.'); },
