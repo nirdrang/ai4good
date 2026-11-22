@@ -112,28 +112,24 @@ if command -v codex >/dev/null 2>&1; then
   fi
 fi
 
-# Grok lanes do not run in cloud sessions (founder 2026-10-24). Per row (founder 2026-11-21):
-# no Sol lane, grok becomes Sol at high; a Sol lane and no Astra lane, grok becomes Astra at
-# medium; both, the grok lane is dropped. The Sol and Astra versions come from the sheet.
+# pstack 1.21.0 does not register Neon, so it takes effort default only.
 sheet="$CLAUDE_PROJECT_DIR/.claude/pstack-models.md"
 grok='grok:grok-[0-9.]+@[a-z]+'
-sol=$(grep -oE 'codex:gpt-[0-9.]+-sol' "$sheet" | head -1)
-astra=$(grep -oE 'codex:gpt-[0-9.]+-astra' "$sheet" | head -1)
-sol="${sol:-codex:gpt-6.2-sol}@high"
-astra="${astra:-codex:gpt-6.2-astra}@medium"
+neon='agy:gemini-4-neon-high@default'
+if git -C "$CLAUDE_PROJECT_DIR" ls-files -v .claude/pstack-models.md | grep -q '^S'; then
+  git -C "$CLAUDE_PROJECT_DIR" show :.claude/pstack-models.md >"$sheet"
+fi
 if grep -qE "^[^[:space:]].*$grok" "$sheet"; then
-  sed -i -E "/^[^[:space:]].*$grok/ {
-    /-sol@/! { s/$grok/$sol/g; b; }
-    /-astra@/! { s/$grok/$astra/g; b; }
-    s/, *$grok//g; s/$grok, *//g
-  }" "$sheet"
+  sed -i -E "/^[^[:space:]]/ s/$grok/$neon/g" "$sheet"
   git -C "$CLAUDE_PROJECT_DIR" update-index --skip-worktree .claude/pstack-models.md
 fi
 if grep -qE "^[^[:space:]].*$grok" "$sheet"; then
   lines+=("pstack sheet: grok lanes NOT replaced - check .claude/pstack-models.md")
 else
-  lines+=("pstack sheet: no grok lane in this session ($sol, or $astra where the row has Sol, or dropped where it has both); re-read .claude/pstack-models.md, it overrides the copy loaded at start")
+  lines+=("pstack sheet: every grok lane is $neon in this session (needs agy signed in); re-read .claude/pstack-models.md, it overrides the copy loaded at start")
 fi
+
+lines+=("sign-in rule: when a codex or agy lane ends with receipt status unauthenticated (runner exit 77), or with child-failed (exit 70) and a sign-in error in its evidence or stderr (401, token could not be refreshed, sign in again), halt the work and ask the founder to sign in: for codex run 'codex login --device-auth' and give them the code and its URL; for agy move ~/.gemini/antigravity-cli/antigravity-oauth-token aside if it exists (agy skips the sign-in while a stale token is there), run 'agy' in tmux, choose Google OAuth, give them the link, and paste back their code. If the receipt evidence names another cause, such as a config error, report that cause instead. Rerun the lane after the sign-in. Never count it as a dropout, never continue without the lane, never switch its model.")
 
 (bunx playwright-core install chromium-headless-shell >/tmp/playwright-install.log 2>&1
   mkdir -p "$HOME/.cache/ms-playwright"

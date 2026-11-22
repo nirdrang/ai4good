@@ -12,7 +12,7 @@ A cloud environment has three places to put things, and they do not overlap:
 |---|---|---|
 | **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: the codex CLI, PowerShell, the docker shim, image and package caches |
 | **Environment variables** (web form) | copied into every SESSION at start | nothing today; the harness reads no environment variable for the database |
-| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, reports codex login state, and replaces every grok lane on the pstack sheet with `codex:gpt-6.1-sol@max` (see "pstack, in cloud") |
+| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, reports codex login state, and replaces every grok lane on the pstack sheet with `agy:gemini-4-neon-high@default` (see "pstack, in cloud") |
 | **Tracked project files** (`.claude/settings.json`, `.claude/pstack-models.md`, `CLAUDE.md`) | read by Claude Code inside every session | the pstack plugin and where to fetch it, the model sheet, the way of work |
 
 Two boundaries explain the split, both learned by watching the wrong version fail:
@@ -63,7 +63,7 @@ The SessionStart hook prints a banner on every start and resume:
 docker: daemon started
 pstack: marketplace present
 codex: NOT logged in - run: codex login --device-auth
-pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start
+pstack sheet: every grok lane is agy:gemini-4-neon-high@default in this session (needs agy signed in); re-read .claude/pstack-models.md, it overrides the copy loaded at start
 ```
 
 - `docker: daemon started` is normal - a snapshot keeps files, never running processes, so
@@ -109,11 +109,26 @@ The way of work runs on the pstack plugin. Four facts decide how it reaches a cl
   `/setup-pstack-project`, the tracked wrapper that runs the plugin's setup skill and
   redirects its two writes into the tree. The home `CLAUDE.md` must not include a sheet as
   well: two live includes make duplicate role rows, and the setup skill stops on those.
+- **A lane that fails on sign-in halts the work** (founder 2026-11-22: "i want that in case you
+  run a lane and it fails in codex or agy you halt and ask me to do the auth"). The codex and
+  agy sign-ins are files in the VM's home folder, so a new VM starts signed out. When a codex
+  or agy lane ends with receipt status `unauthenticated` (runner exit 77), the session stops,
+  starts that sign-in, and asks the founder: `codex login --device-auth` gives a code and a
+  URL; `agy` in tmux with Google OAuth gives a link, and the founder's code is pasted back.
+  A sign-in that expired or was revoked can end as `child-failed` (exit 70) instead, with the
+  sign-in error (401, token could not be refreshed) in the receipt evidence or stderr. The
+  rule covers that case too. agy skips its sign-in screen while a stale token file is in
+  place, so the session moves `~/.gemini/antigravity-cli/antigravity-oauth-token` aside first.
+  The runner also reports a malformed codex `config.toml` as `unauthenticated`, so the session
+  reads the evidence first and reports any other cause instead of asking for a sign-in.
+  The session reruns the lane after the sign-in. It does not count the lane as a dropout,
+  continue without it, or switch its model. The banner prints this rule at every start.
 - **Grok does not run in cloud sessions** (founder 2026-10-24), and the setup script does not
   install it. At every session start the
   SessionStart hook replaces each grok descriptor on the sheet's role rows with
-  `codex:gpt-6.1-sol@max`, and marks the file `skip-worktree` so the rewrite never reaches a
-  commit. The indented undo lines keep their grok descriptors. A sheet change made in a cloud
+  `agy:gemini-4-neon-high@default` (Gemini 4 Neon through agy; sign agy in per VM), and
+  marks the file `skip-worktree` so the rewrite never reaches a commit. A file already marked
+  is first restored from the index, so a rewrite from an older hook is replaced. The indented undo lines keep their grok descriptors. A sheet change made in a cloud
   session must first run `git update-index --no-skip-worktree .claude/pstack-models.md` and
   restore the grok rows, or it commits the cloud values.
 
