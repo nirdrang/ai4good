@@ -284,9 +284,9 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
       if (missing === "partly priced" || missing === "lost later model-end") {
         await ingest(turn, modelEnd("partial", `${turn}:0`, { input: 1000, output: 10, cacheRead: 0, cacheWrite: 0 }));
       }
-      if (missing === "lost later model-end") {
+      if (missing === "lost later model-end" || missing === "no model-end" || missing === "uncertain") {
         await ingest(turn, { kind: "model-start", eventId: `${turn}:1` });
-      } else if (missing !== "no model-end") {
+      } else {
         await ingest(turn, modelEnd("unknown", `${turn}:1`, null));
       }
       const priced = BigInt(whole((await ledger(w, turn)).deductedMicros));
@@ -309,6 +309,20 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     });
   }
 
+  for (const outcome of ["answered", "uncertain"]) {
+    it(`releases the whole hold for a claimed turn that never started the model (${outcome})`, async () => {
+      const w = await world(stack, sql);
+      await credit(w.project, 1_000_000n);
+      const turn = await reserveIn(w, w.dev, "main");
+      await sql`select public.prd_turn_claim(${turn}::uuid)`;
+      expect(await ingest(turn, { kind: "end", outcome })).toMatchObject({
+        released: true, releasedMicros: Number(hold), pendingEvents: 0,
+      });
+      expect(await entries(turn, "adjustment")).toEqual([]);
+      expect(await funds(w)).toMatchObject({ settledMicros: 0, pendingMicros: 0, availableMicros: 1_000_000 });
+    });
+  }
+
   it("refuses a removed developer's replay before returning the admitted turn", async () => {
     const w = await world(stack, sql);
     await credit(w.project, 1_000_000n);
@@ -327,6 +341,7 @@ describe.skipIf(!live)("PRD money on the local stack", () => {
     await sql`update public.prd_turns set created_at = clock_timestamp() - interval '20 minutes'
       where id = ${turn}::uuid`;
     await sql`select public.prd_turn_claim(${turn}::uuid)`;
+    await ingest(turn, { kind: "model-start", eventId: `${turn}:0` });
     const event = { kind: "end", outcome: "answered", deadlineSeconds: 960 };
     expect(await ingest(turn, event)).toMatchObject({ state: "admitted", released: false });
     expect(await funds(w)).toMatchObject({ settledMicros: 0, pendingMicros: Number(hold) });

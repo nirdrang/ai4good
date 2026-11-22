@@ -353,6 +353,13 @@ export async function runCompletionCheck(
       prompt: promptOf(source),
       maxRetries: 0,
       abortSignal,
+      onStepStart: async ({ stepNumber }) => {
+        const recorded = await database("prd_turn_ingest", {
+          p_turn: started.turnId,
+          p_event: { kind: "model-start", eventId: `${started.turnId}:${stepNumber}` },
+        });
+        if (!recorded.ok) throw new Error("The model call could not be recorded.");
+      },
     });
     steps = result.steps.map((step) => ({ stepNumber: step.stepNumber, usage: step.usage }));
     scored = scoredOf(result.output);

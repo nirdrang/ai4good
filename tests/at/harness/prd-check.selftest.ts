@@ -193,12 +193,13 @@ describe("completion check offline", () => {
     const check = message.parts.find((part) => part.type === "data-check");
     expect(check?.data).toEqual({ checkId: recorded.p_check, gaps: [] });
     const ingested = events(db.calls);
-    expect(ingested.map((event) => event.kind)).toEqual(["model-end", "end"]);
-    expect(ingested[0]).toMatchObject({
+    expect(ingested.map((event) => event.kind)).toEqual(["model-start", "model-end", "end"]);
+    expect(ingested[0]).toEqual({ kind: "model-start", eventId: `${TURN}:0` });
+    expect(ingested[1]).toMatchObject({
       eventId: `${TURN}:0`,
       usage: { input: 11, output: 7, cacheRead: 0, cacheWrite: 0 },
     });
-    expect(ingested[1]).toEqual({ kind: "end", outcome: "answered" });
+    expect(ingested[2]).toEqual({ kind: "end", outcome: "answered" });
     const settings = db.calls.find((call) => call.name === "prd_turn_settings_record");
     expect(settings?.args.p_settings).toMatchObject({ baseURL: "https://model.example/v1", model: "selftest-model" });
     expect(db.calls.some((call) => call.name === "prd_check_revert")).toBe(false);
@@ -226,7 +227,7 @@ describe("completion check offline", () => {
       { topicId: "technical-scope", title: "Technical scope", text: "No user story is written.", fixed: false },
       { topicId: "technical-scope", title: "Technical scope", text: "No acceptance criterion is written.", fixed: false },
     ]);
-    expect(events(db.calls).map((event) => event.kind)).toEqual(["model-end", "end"]);
+    expect(events(db.calls).map((event) => event.kind)).toEqual(["model-start", "model-end", "end"]);
   });
 
   it("drops a gap whose section key is not in the PRD and says so", async () => {
@@ -263,7 +264,7 @@ describe("completion check offline", () => {
     expect(language.calls()).toBe(1);
     expect(recordCall(db.calls)).toBeNull();
     expect(db.calls.some((call) => call.name === "prd_check_revert")).toBe(true);
-    expect(events(db.calls).map(event => event.kind)).toEqual(["model-end", "end"]);
+    expect(events(db.calls).map(event => event.kind)).toEqual(["model-start", "model-end", "end"]);
   });
 
   it("rejects a gap whose section key is blank after it settles the model request", async () => {
@@ -274,7 +275,7 @@ describe("completion check offline", () => {
     const result = await runCompletionCheck(depsFor(db.rpc, language.model, false), PROJECT, STARTED);
     expect(result.status).toBe(502);
     expect(recordCall(db.calls)).toBeNull();
-    expect(events(db.calls).map((event) => event.kind)).toEqual(["model-end", "end"]);
+    expect(events(db.calls).map((event) => event.kind)).toEqual(["model-start", "model-end", "end"]);
     expect(events(db.calls).at(-1)).toEqual({ kind: "end", outcome: "rejected" });
     expect(db.calls.some((call) => call.name === "prd_check_revert")).toBe(true);
   });

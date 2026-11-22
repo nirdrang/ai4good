@@ -411,10 +411,7 @@ begin
   if v_turn.state is null or v_turn.state not in ('answered', 'rejected', 'uncertain') then
     return false;
   end if;
-  if v_turn.dispatched_at is not null and (
-    not exists (select 1 from public.prd_provider_events where turn_id = p_turn)
-    or exists (select 1 from public.prd_provider_events where turn_id = p_turn and state = 'pending')
-  ) then
+  if exists (select 1 from public.prd_provider_events where turn_id = p_turn and state = 'pending') then
     insert into public.prd_ledger_entries (project_id, turn_id, component, source_key, amount)
     values (v_res.project_id, p_turn, 'adjustment', 'estimate:' || p_turn::text,
       greatest(v_res.amount - public.prd_turn_spend(p_turn), 0));
