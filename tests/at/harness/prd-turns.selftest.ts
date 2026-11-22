@@ -439,7 +439,7 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
     expect(answersAfter.active).toBe(0);
   });
 
-  it("refuses the NGO outside a posted side chat, and an unrelated account for every send and the snapshot", async () => {
+  it("explains why an unposted question cannot be answered and refuses accounts without the right role", async () => {
     const rev = await revision();
     const mainChat = main;
     [ids.retention] = await outcome(mainChat, {
@@ -473,18 +473,19 @@ describe.skipIf(!live)("PRD turns on the local stack", () => {
         ),
       ),
     ).toBe("forbidden");
-    expect(
-      await refusal(
-        reserve(
-          ngo,
-          `side:${ids.retention}`,
-          "ngo-suggested",
-          "hash-ngo-suggested",
-          { kind: "text", text: "Hello" },
-          rev,
-        ),
+    await expect(
+      reserve(
+        ngo,
+        `side:${ids.retention}`,
+        "ngo-suggested",
+        "hash-ngo-suggested",
+        { kind: "text", text: "Hello" },
+        rev,
       ),
-    ).toBe("forbidden");
+    ).rejects.toMatchObject({
+      detail: "not-ready",
+      message: "This question is not open for answers yet.",
+    });
     expect(
       await refusal(
         reserve(

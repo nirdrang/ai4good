@@ -356,7 +356,7 @@ const snapshotSchemaObject: z.ZodType<PrdSnapshot, z.ZodTypeDef, unknown> = z.ob
 });
 
 const refusalSchema = z.object({
-  kind: z.enum(["forbidden", "stale", "funds", "closed", "busy", "follow-up-open", "invalid"]),
+  kind: z.enum(["forbidden", "stale", "funds", "closed", "busy", "follow-up-open", "not-ready", "invalid"]),
   reason: z.string(),
 });
 

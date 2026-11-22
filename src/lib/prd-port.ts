@@ -248,14 +248,37 @@ export function prdPort(projectId: string): PrdPort {
       let stopped = false;
       let teardown = () => {};
       let chain = Promise.resolve();
+      const browser = typeof window === "undefined" ? null : window;
+      const page = typeof document === "undefined" ? null : document;
+      browser?.addEventListener("focus", catchUp);
+      page?.addEventListener("visibilitychange", onVisibilityChange);
       void listen();
       return () => {
         stopped = true;
+        browser?.removeEventListener("focus", catchUp);
+        page?.removeEventListener("visibilitychange", onVisibilityChange);
         teardown();
       };
 
-      async function deliver(sequence: number) {
-        if (stopped || sequence <= installed) return;
+      function catchUp() {
+        void enqueue();
+      }
+
+      function onVisibilityChange() {
+        if (page?.visibilityState === "visible") catchUp();
+      }
+
+      function enqueue(sequence?: number) {
+        const run = chain.then(() => deliver(sequence));
+        chain = run.then(
+          () => undefined,
+          () => undefined,
+        );
+        return run;
+      }
+
+      async function deliver(sequence?: number) {
+        if (stopped || (sequence !== undefined && sequence <= installed)) return;
         const read = await readSnapshot(installed < 0 ? undefined : installed);
         if (stopped || read.kind !== "snapshot" || read.snapshot.sequence <= installed) return;
         installed = read.snapshot.sequence;
@@ -274,13 +297,7 @@ export function prdPort(projectId: string): PrdPort {
         const channel = client.channel(`prd:${projectId}`, { config: { private: true } });
         channel.on("broadcast", { event: "sequence" }, (message) => {
           const sequence = sequenceOf(payloadSequence(message));
-          if (sequence === null) return undefined;
-          const run = chain.then(() => deliver(sequence));
-          chain = run.then(
-            () => undefined,
-            () => undefined,
-          );
-          return run;
+          return sequence === null ? undefined : enqueue(sequence);
         });
         teardown = () => {
           auth.subscription.unsubscribe();
@@ -290,7 +307,9 @@ export function prdPort(projectId: string): PrdPort {
           teardown();
           return;
         }
-        channel.subscribe();
+        channel.subscribe((status) => {
+          if (status === "SUBSCRIBED") catchUp();
+        });
       }
     },
   };

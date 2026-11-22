@@ -68,7 +68,40 @@ describe("the PRD main-chat outbox", () => {
     expect(toComposer.box.queue.map((queued) => queued.id)).toEqual(["second"]);
     const toQueue = refuse(box, "first" as RequestId, BUSY, 5, false);
     expect(toQueue.composer).toBeNull();
-    expect(toQueue.box.queue.map((queued) => queued.id)).toEqual(["first", "second"]);
+    expect(toQueue.box.queue.map((queued) => queued.text)).toEqual(["first", "second"]);
+  });
+
+  it("retries a refused text with a fresh request id and then sends the next text", () => {
+    const first = text("first");
+    const second = text("second");
+    const seen = new Set<RequestId>();
+    const sent: RequestId[] = [];
+    const delivered: string[] = [];
+    function send(entry: QueuedItem): PrdRefusal | null {
+      sent.push(entry.id);
+      if (seen.has(entry.id)) return { kind: "invalid", reason: "This message was already sent." };
+      seen.add(entry.id);
+      if (sent.length === 1) return { kind: "invalid", reason: "The AI's reply was interrupted." };
+      delivered.push(entry.text);
+      return null;
+    }
+
+    let box = offer(offer(EMPTY_OUTBOX, first), second);
+    box = start(box, first.id);
+    const failure = send(first);
+    expect(failure).not.toBeNull();
+    box = refuse(box, first.id, failure!, 10, false).box;
+    expect(settle(box, true, 10)).toBeNull();
+    expect(settle(offer(box, text("third")), true, 10)?.text).toBe("first");
+    for (const sequence of [11, 12]) {
+      const head = settle(box, true, sequence)!;
+      box = start(box, head.id);
+      const refusal = send(head);
+      box = refusal ? refuse(box, head.id, refusal, sequence, false).box : finish(box, head.id).box;
+    }
+    expect(sent).toEqual([first.id, expect.stringMatching(/^[0-9a-f-]{36}$/), second.id]);
+    expect(delivered).toEqual(["first", "second"]);
+    expect(settle(box, true, 13)).toBeNull();
   });
 
   it("reopens the review of a refused use, and clears the review drafts only when a use is accepted", () => {

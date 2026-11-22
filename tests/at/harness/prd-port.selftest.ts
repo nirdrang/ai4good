@@ -18,9 +18,10 @@ const fake = vi.hoisted(() => {
     name: string;
     options: unknown;
     handler: SequenceHandler | null;
+    status: ((status: string) => void) | null;
     removed: boolean;
     on: (type: string, filter: { event?: string }, handler: SequenceHandler) => Channel;
-    subscribe: () => Channel;
+    subscribe: (callback?: (status: string) => void) => Channel;
   };
   const channels: Channel[] = [];
   const authTokens: Array<string | null> = [];
@@ -55,12 +56,14 @@ const fake = vi.hoisted(() => {
         name,
         options,
         handler: null,
+        status: null,
         removed: false,
         on(type, filter, handler) {
           if (type === "broadcast" && filter.event === "sequence") channel.handler = handler;
           return channel;
         },
-        subscribe() {
+        subscribe(callback) {
+          channel.status = callback ?? null;
           return channel;
         },
       };
@@ -330,12 +333,13 @@ describe("PRD port", () => {
     expect(types.indexOf("data-snapshot")).toBeLessThan(types.indexOf("finish"));
   });
 
-  it("surfaces a refused send as a refusal the screen can parse", async () => {
+  it.each([
+    { kind: "forbidden", reason: "Not allowed.", status: 403 },
+    { kind: "not-ready", reason: "This question is not open for answers yet.", status: 409 },
+  ])("surfaces a $kind send refusal the screen can parse", async ({ kind, reason, status }) => {
     const fetcher = vi.fn(
       async () =>
-        new Response(JSON.stringify({ ok: false, kind: "forbidden", reason: "Not allowed." }), {
-          status: 403,
-        }),
+        new Response(JSON.stringify({ ok: false, kind, reason }), { status }),
     );
     vi.stubGlobal("fetch", fetcher);
     const transport = prdPort(PROJECT).chat({ kind: "main" });
@@ -358,10 +362,7 @@ describe("PRD port", () => {
         (caught: unknown) => caught,
       );
     expect(error).toBeInstanceOf(Error);
-    expect(parseRefusal(JSON.parse((error as Error).message))).toEqual({
-      kind: "forbidden",
-      reason: "Not allowed.",
-    });
+    expect(parseRefusal(JSON.parse((error as Error).message))).toEqual({ kind, reason });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
@@ -405,6 +406,62 @@ describe("PRD port", () => {
     fake.authListeners[0]?.("TOKEN_REFRESHED", { access_token: "next-token" });
     await vi.waitFor(() => expect(fake.authTokens).toContain("next-token"));
     unsubscribe();
+    expect(channel.removed).toBe(true);
+    expect(fake.authListeners).toHaveLength(0);
+  });
+
+  it("installs missed snapshots on join, rejoin, focus and visibility", async () => {
+    let sequence = 1;
+    const browser = new EventTarget();
+    const page = Object.assign(new EventTarget(), { visibilityState: "visible" });
+    const removeFocus = vi.spyOn(browser, "removeEventListener");
+    const removeVisibility = vi.spyOn(page, "removeEventListener");
+    vi.stubGlobal("window", browser);
+    vi.stubGlobal("document", page);
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { sinceSequence?: number };
+      return body.sinceSequence === sequence
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify(snapshot(sequence)));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const port = prdPort(PROJECT);
+    const installed: number[] = [];
+    const initial = await port.load();
+    if (initial.ok) installed.push(initial.value.sequence);
+    const stop = port.subscribe((next) => installed.push(next.sequence));
+    await vi.waitFor(() => expect(fake.channels).toHaveLength(1));
+    const channel = fake.channels[0]!;
+
+    sequence = 2;
+    channel.status?.("SUBSCRIBED");
+    await vi.waitFor(() => expect(installed).toEqual([1, 2]));
+
+    channel.status?.("CHANNEL_ERROR");
+    sequence = 3;
+    channel.status?.("SUBSCRIBED");
+    await vi.waitFor(() => expect(installed).toEqual([1, 2, 3]));
+
+    sequence = 4;
+    browser.dispatchEvent(new Event("focus"));
+    await vi.waitFor(() => expect(installed).toEqual([1, 2, 3, 4]));
+    await channel.handler?.({ payload: { sequence: 4 } });
+
+    sequence = 5;
+    page.visibilityState = "hidden";
+    page.dispatchEvent(new Event("visibilitychange"));
+    await channel.handler?.({ payload: { sequence: 4 } });
+    expect(installed).toEqual([1, 2, 3, 4]);
+    page.visibilityState = "visible";
+    page.dispatchEvent(new Event("visibilitychange"));
+    await vi.waitFor(() => expect(installed).toEqual([1, 2, 3, 4, 5]));
+    expect(fetcher.mock.calls.map((call) => posted(call).body.sinceSequence)).toEqual([
+      undefined, 1, 2, 3, 4,
+    ]);
+
+    stop();
+    expect(removeFocus).toHaveBeenCalledWith("focus", expect.any(Function));
+    expect(removeVisibility).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
     expect(channel.removed).toBe(true);
     expect(fake.authListeners).toHaveLength(0);
   });

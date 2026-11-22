@@ -194,7 +194,7 @@ export type PrdSendBody = Readonly<{
 }>;
 
 export type PrdRefusal = Readonly<{
-  kind: "forbidden" | "stale" | "funds" | "closed" | "busy" | "follow-up-open" | "invalid";
+  kind: "forbidden" | "stale" | "funds" | "closed" | "busy" | "follow-up-open" | "not-ready" | "invalid";
   reason: string;
 }>;
 export type Result<T> = { ok: true; value: T } | { ok: false; refusal: PrdRefusal };

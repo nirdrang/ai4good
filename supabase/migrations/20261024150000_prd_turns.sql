@@ -172,6 +172,9 @@ begin
     if p_role is distinct from 'ngo' then
       return jsonb_build_object('ok', false, 'detail', 'forbidden', 'reason', 'only-ngo');
     end if;
+    if v_status = 'suggested' then
+      return jsonb_build_object('ok', false, 'detail', 'not-ready', 'reason', 'not-open');
+    end if;
     if v_status not in ('posted', 'answering') then
       return jsonb_build_object('ok', false, 'detail', 'forbidden', 'reason', 'not-open');
     end if;
@@ -400,6 +403,10 @@ begin
 
   v_gate := public.prd_send_gate(p_project, v_role, p_chat_key);
   if not coalesce((v_gate->>'ok')::boolean, false) then
+    if v_gate->>'detail' = 'not-ready' then
+      raise exception 'This question is not open for answers yet.'
+        using errcode = '22023', detail = 'not-ready';
+    end if;
     if v_gate->>'detail' = 'forbidden' then
       raise exception 'this account cannot send in this chat'
         using errcode = '42501', detail = 'forbidden';
