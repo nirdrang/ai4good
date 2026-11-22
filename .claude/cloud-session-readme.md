@@ -12,7 +12,7 @@ A cloud environment has three places to put things, and they do not overlap:
 |---|---|---|
 | **Setup script** (web form) | once per environment, BEFORE Claude Code launches; the filesystem is then snapshotted | VM provisioning: the codex CLI, PowerShell, the docker shim, image and package caches |
 | **Environment variables** (web form) | copied into every SESSION at start | nothing today; the harness reads no environment variable for the database |
-| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, reports codex login state, and replaces every grok lane on the pstack sheet with `codex:gpt-6.1-sol@max` (see "pstack, in cloud") |
+| **SessionStart hook** (tracked, `.claude/hooks/session-start-banner.sh`) | every session start and resume, inside the session | per-session processes and status: starts dockerd, installs node_modules if missing, reports whether the pstack marketplace is present, reports codex login state, and replaces every grok lane on the pstack sheet with `agy:gemini-4-neon-high@default` (see "pstack, in cloud") |
 | **Tracked project files** (`.claude/settings.json`, `.claude/pstack-models.md`, `CLAUDE.md`) | read by Claude Code inside every session | the pstack plugin and where to fetch it, the model sheet, the way of work |
 
 Two boundaries explain the split, both learned by watching the wrong version fail:
@@ -63,7 +63,7 @@ The SessionStart hook prints a banner on every start and resume:
 docker: daemon started
 pstack: marketplace present
 codex: NOT logged in - run: codex login --device-auth
-pstack sheet: every grok lane is codex:gpt-6.1-sol@max in this session; re-read .claude/pstack-models.md, it overrides the copy loaded at start
+pstack sheet: every grok lane is agy:gemini-4-neon-high@default in this session (needs agy signed in); re-read .claude/pstack-models.md, it overrides the copy loaded at start
 ```
 
 - `docker: daemon started` is normal - a snapshot keeps files, never running processes, so
@@ -112,8 +112,9 @@ The way of work runs on the pstack plugin. Four facts decide how it reaches a cl
 - **Grok does not run in cloud sessions** (founder 2026-10-24), and the setup script does not
   install it. At every session start the
   SessionStart hook replaces each grok descriptor on the sheet's role rows with
-  `codex:gpt-6.1-sol@max`, and marks the file `skip-worktree` so the rewrite never reaches a
-  commit. The indented undo lines keep their grok descriptors. A sheet change made in a cloud
+  `agy:gemini-4-neon-high@default` (Gemini 4 Neon through agy; sign agy in per VM), and
+  marks the file `skip-worktree` so the rewrite never reaches a commit. A file already marked
+  is first restored from the index, so a rewrite from an older hook is replaced. The indented undo lines keep their grok descriptors. A sheet change made in a cloud
   session must first run `git update-index --no-skip-worktree .claude/pstack-models.md` and
   restore the grok rows, or it commits the cloud values.
 
