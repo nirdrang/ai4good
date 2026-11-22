@@ -49,10 +49,10 @@ function sampleFile(name: string, real = false): { name: string; mimeType: strin
 
 export async function addRota(screen: DiscoveryPage): Promise<void> {
   await screen.files.openAdd();
-  await screen.files.choose(sampleFile('volunteer-rota.xlsx', !!screen.backend));
+  await screen.files.choose(sampleFile('volunteer-rota.pdf', !!screen.backend));
   await eventually(
     'choosing the file starts the read',
-    () => screen.files.row('volunteer-rota.xlsx'),
+    () => screen.files.row('volunteer-rota.pdf'),
     (text) => /Reading… \d+%/.test(text),
   );
   expect(await screen.chooser.visible(), 'the chooser closes when the read starts').toBe(false);
@@ -71,27 +71,27 @@ export async function expectChooser(screen: DiscoveryPage, finePointer: boolean)
 export async function readRotaUntilReady(screen: DiscoveryPage): Promise<void> {
   await addRota(screen);
   if (!screen.backend) expect(await screen.modelCalls(), 'choosing the file is one file-read and no question').toEqual(['file-read']);
-  const panel = screen.filePanel('volunteer-rota.xlsx');
-  await screen.files.reopen('volunteer-rota.xlsx');
+  const panel = screen.filePanel('volunteer-rota.pdf');
+  await screen.files.reopen('volunteer-rota.pdf');
   await eventually('selecting the file opens its panel', () => panel.visible(), (open) => open);
   const openText = await panel.text();
-  expect(openText, 'the panel shows the file name').toContain('volunteer-rota.xlsx');
+  expect(openText, 'the panel shows the file name').toContain('volunteer-rota.pdf');
   expect(await panel.answerCount(), 'the file panel has no answer box').toBe(0);
   expect(await panel.sendCount(), 'the file panel has no Send').toBe(0);
   await panel.close();
-  if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+  if (screen.backend) await fileReady(screen, 'volunteer-rota.pdf');
   else await eventually(
     'closing the panel does not stop the read',
-    () => screen.files.row('volunteer-rota.xlsx'),
+    () => screen.files.row('volunteer-rota.pdf'),
     (text) => text.includes('Ready · 4 facts'),
     8_000,
   );
   expect(await screen.modelCalls(), 'Ready adds no model call').toEqual(['file-read']);
-  await screen.files.reopen('volunteer-rota.xlsx');
+  await screen.files.reopen('volunteer-rota.pdf');
   await eventually('the ready file opens again', () => panel.visible(), (open) => open);
   const readyText = await panel.text();
   if (screen.backend) {
-    const file = (await screen.backend.read()).files.find((item) => item.name === 'volunteer-rota.xlsx');
+    const file = (await screen.backend.read()).files.find((item) => item.name === 'volunteer-rota.pdf');
     expect(file?.tookFromIt).toBeTruthy();
     expect(readyText).toContain(file!.tookFromIt!);
   } else {
@@ -113,14 +113,14 @@ export async function expectFileControlsFit(screen: DiscoveryPage): Promise<void
   await expectFullyVisible(screen, 'the accepted types', await screen.chooser.textBox(TEXT.acceptedTypes));
   await expectFullyVisible(screen, 'the sample-data sentence', await screen.chooser.textBox(TEXT.sampleData));
   await expectFullyVisible(screen, 'Back to chat', await screen.chooser.buttonBox(SCREEN.backToChat.name));
-  await screen.files.choose(sampleFile('volunteer-rota.xlsx', !!screen.backend));
+  await screen.files.choose(sampleFile('volunteer-rota.pdf', !!screen.backend));
   await eventually(
     'choosing the file closes the chooser',
     () => screen.chooser.visible(),
     (open) => open === false,
   );
-  await screen.files.reopen('volunteer-rota.xlsx');
-  const panel = screen.filePanel('volunteer-rota.xlsx');
+  await screen.files.reopen('volunteer-rota.pdf');
+  const panel = screen.filePanel('volunteer-rota.pdf');
   await eventually('the file panel opens at 320 px', () => panel.visible(), (open) => open);
   expect(await panel.answerCount(), 'the file panel has no answer box').toBe(0);
   expect(await panel.sendCount(), 'the file panel has no Send').toBe(0);

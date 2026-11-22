@@ -293,7 +293,7 @@ atTest(
           await expectChooser(screen, viewport === 'desktop');
           await screen.chooser.cancel();
           expect(await screen.files.text(), 'Cancel adds nothing: the count stays 0 of 3 added').toContain('0 of 3 added');
-          expect(await screen.files.has('volunteer-rota.xlsx'), 'Cancel adds nothing: volunteer-rota.xlsx is not listed').toBe(false);
+          expect(await screen.files.has('volunteer-rota.pdf'), 'Cancel adds nothing: volunteer-rota.pdf is not listed').toBe(false);
           await readRotaUntilReady(screen);
         });
       }
@@ -318,10 +318,10 @@ atTest(
           const saved = screen.backend ? await screen.backend.read() : null;
           expect(before, 'Free today starts at 3 left today').toContain('3 left today');
           await addRota(screen);
-          if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+          if (screen.backend) await fileReady(screen, 'volunteer-rota.pdf');
           else await eventually(
             'the read reaches Ready · 4 facts',
-            () => screen.files.row('volunteer-rota.xlsx'),
+            () => screen.files.row('volunteer-rota.pdf'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
@@ -344,7 +344,7 @@ atTest(
           await addRota(screen);
           await eventually(
             'the paid read reaches Ready · 4 facts',
-            () => screen.files.row('volunteer-rota.xlsx'),
+            () => screen.files.row('volunteer-rota.pdf'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
@@ -379,10 +379,10 @@ atTest(
           if (!screen.backend) expect(during, 'a main-chat reply during the read does not report 38 of your 45').not.toContain('38 of your 45');
           const duringCalls = await screen.modelCalls();
           if (!screen.backend) expect(duringCalls, 'the read is one file-read and the reply is one turn').toEqual(['file-read', 'chat-turn']);
-          if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+          if (screen.backend) await fileReady(screen, 'volunteer-rota.pdf');
           else await eventually(
             'the row shows Ready · 4 facts',
-            () => screen.files.row('volunteer-rota.xlsx'),
+            () => screen.files.row('volunteer-rota.pdf'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
@@ -410,7 +410,7 @@ atTest(
             expect(brief).toContain(state.files[0]!.tookFromIt!);
             expect(await screen.modelCalls()).toEqual(['file-read', 'chat-turn', 'chat-turn']);
           } else {
-          const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.xlsx'));
+          const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.pdf'));
           const tookAt = brief.indexOf('The AI took from it:');
           const factAt = brief.indexOf(fact);
           expect(fromAt, 'the brief marks the fact as from the file').toBeGreaterThan(-1);

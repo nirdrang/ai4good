@@ -234,7 +234,7 @@ it('records file facts without agreeing any topic, and a later file never replac
   const applied = evolveBrief(version, {
     kind: 'apply-file-facts',
     fileId: 'rota',
-    fileName: 'volunteer-rota.xlsx',
+    fileName: 'volunteer-rota.pdf',
     facts: [
       { sectionId: 'need', text: 'replaced intake' },
       { sectionId: 'priority', text: 'Less waiting' },
@@ -257,7 +257,7 @@ it('records file facts without agreeing any topic, and a later file never replac
   ]);
   expect(document.successMeasure).toEqual({
     text: 'Scheduling takes 45 minutes. Checked after four weeks.',
-    source: { kind: 'file', fileId: 'rota', fileName: 'volunteer-rota.xlsx' },
+    source: { kind: 'file', fileId: 'rota', fileName: 'volunteer-rota.pdf' },
   });
   expect(applied.personLine).toBeNull();
   const later = evolveBrief(applied.brief, {

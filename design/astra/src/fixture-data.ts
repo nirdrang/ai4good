@@ -40,27 +40,27 @@ const KITCHEN_FACT = "volunteers must be 16 or older and finish a hygiene course
 const FILE_SCRIPTS: readonly FileScript[] = [
   {
     id: "volunteer-rota",
-    name: "volunteer-rota.xlsx",
+    name: "volunteer-rota.pdf",
     size: "48 KB",
     facts: 4,
     fact: ROTA_FACT,
-    report: `I finished reading volunteer-rota.xlsx, and it shows that ${ROTA_FACT}.`,
+    report: `I finished reading volunteer-rota.pdf, and it shows that ${ROTA_FACT}.`,
   },
   {
     id: "sunday-gaps",
-    name: "sunday-gaps.csv",
+    name: "sunday-gaps.pdf",
     size: "6 KB",
     facts: 3,
     fact: SUNDAY_FACT,
-    report: `I finished reading sunday-gaps.csv, and it shows that ${SUNDAY_FACT}.`,
+    report: `I finished reading sunday-gaps.pdf, and it shows that ${SUNDAY_FACT}.`,
   },
   {
     id: "kitchen-rules",
-    name: "kitchen-rules.docx",
+    name: "kitchen-rules.pdf",
     size: "31 KB",
     facts: 5,
     fact: KITCHEN_FACT,
-    report: `I finished reading kitchen-rules.docx, and it shows that ${KITCHEN_FACT}.`,
+    report: `I finished reading kitchen-rules.pdf, and it shows that ${KITCHEN_FACT}.`,
   },
 ];
 
