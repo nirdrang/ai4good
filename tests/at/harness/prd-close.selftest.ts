@@ -720,6 +720,33 @@ describe.skipIf(!live)("close PRD rows on the local stack", () => {
     await finish(sql, String(started.turnId));
   });
 
+  it("keeps a passing check and waits for an NGO side-chat reply before Dev can close", async () => {
+    const { dev, ngo, project } = await world(stack, sql);
+    await credit(sql, project);
+    await sql`update public.prd_sections set state = 'confirmed'
+      where project_id = ${project}::uuid and required = true`;
+    const question = await suggestQuestion(sql, project, "Any optional wording preference?");
+    await sql`update public.prd_questions set blocking = false where id = ${question}::uuid`;
+    const revision = await revisionOf(sql, project);
+    const started = await objectOf(closeCheck(sql, dev, project, crypto.randomUUID(), revision));
+    const turnId = String(started.turnId);
+    const side = await objectOf(reserve(sql, ngo, project, `side:${question}`, crypto.randomUUID(), revision, {
+      kind: "text", text: "Yes, call them coordinators.",
+    }));
+    await recordCheck(sql, project, turnId, 100, []);
+    await finish(sql, turnId);
+    const token = `close|close|${revision}|0`;
+    expect((await refused(act(sql, dev, project, "close", token, crypto.randomUUID()))).detail).toBe("busy");
+    expect(await refused(sql`select public.prd_close_after_check(${project}::uuid, ${turnId}::uuid) as r`))
+      .toEqual({ detail: "busy", message: "Wait for the AI to finish." });
+    expect(await passedOf(sql, project)).toBe(true);
+    expect(await counted(sql`select count(*) as n from public.prd_closes where project_id = ${project}::uuid`)).toBe(0);
+
+    await finish(sql, String(side.turnId));
+    const closed = await objectOf(act(sql, dev, project, "close", token, crypto.randomUUID()));
+    expect(closed).toMatchObject({ closed: true, openPoints: 0 });
+  });
+
   it("records each open point on close anyway, refuses a stale token, and keeps two pushes in history only", async () => {
     const opened = await world(stack, sql);
     await credit(sql, opened.project);

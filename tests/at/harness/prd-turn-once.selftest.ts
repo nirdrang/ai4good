@@ -219,6 +219,40 @@ it.each([
   expect(reply).toBeUndefined();
 });
 
+it("includes the stored Use answer brief in the next main-chat prompt", async () => {
+  const lines = [
+    ["Question", "How long are shifts?"],
+    ["Maya’s answer", "Two hours"],
+    ["I changed it to", "Four hours"],
+    ["How the answer was reached", "Settled with the AI in 1 message, then marked complete."],
+    ["What it changes", "The volunteer schedule"],
+    ["To discuss", "Whether weekend shifts differ"],
+    ["My note", "Use the updated schedule"],
+  ];
+  const { rpc: fakeRpc } = fakeDb();
+  const rpc: SettleDatabase = async (name, args) => name === "prd_chat_transcript"
+    ? { ok: true, value: [{
+        role: "user",
+        parts: [
+          { type: "text", text: "I’m using Maya’s answer for Booking. Brief:" },
+          { type: "data-brief", data: { questionId: OP, rows: lines.map(([label, text]) => ({ label, text })) } },
+        ],
+      }] }
+    : fakeRpc(name, args);
+  const model = new MockLanguageModelV4({ doStream: async () => stream("I will continue.") });
+  const deps = prdRelayDeps({ rpc, fetch: noNetwork, env, model });
+  const result = await runPrdTurn(deps, PROJECT, "main", TURN, sink);
+
+  expect(result.failure).toBeNull();
+  expect(model.doStreamCalls[0]?.prompt).toContainEqual(expect.objectContaining({
+    role: "user",
+    content: [{
+      type: "text",
+      text: ["I’m using Maya’s answer for Booking. Brief:", ...lines.map(([label, text]) => `${label}: ${text}`)].join("\n"),
+    }],
+  }));
+});
+
 it("cached input must not also be billed as ordinary input", () => {
   const actual = usageOf({
     inputTokens: 1000,

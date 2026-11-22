@@ -224,9 +224,7 @@ function questionOf(value: unknown): OpenTurn["question"] {
 
 function textOfParts(parts: unknown): string {
   if (!Array.isArray(parts)) return "";
-  return parts
-    .flatMap((part) => (isRecord(part) && part.type === "text" && typeof part.text === "string" ? [part.text] : []))
-    .join("\n");
+  return parts.flatMap(partLines).join("\n");
 }
 
 function partLines(part: unknown): string[] {

@@ -1,5 +1,7 @@
 import { expect, it } from "vitest";
 import { snapshotFromRecord } from "../../../supabase/functions/_shared/prd/snapshot.ts";
+import { parsePrdSnapshot } from "../../../src/lib/prd-stream.ts";
+import { present } from "../../../src/components/prd-workspace/model.ts";
 
 const QUESTION = {
   id: "q1",
@@ -62,6 +64,48 @@ function record(questions: unknown[]) {
 
 const DEV = { role: "dev", name: "Priya Shah" } as const;
 const NGO = { role: "ngo", name: "Maya Levi" } as const;
+
+function usedAnswerSnapshot(finalWording = "Four hours") {
+  const intro = { id: "m1", role: "assistant", parts: [{ type: "text", text: "Ask about shift length" }] };
+  const brief = {
+    id: "m2",
+    role: "user",
+    parts: [{
+      type: "data-brief",
+      data: { questionId: QUESTION.id, rows: [
+        { label: "Question", text: "How long are shifts?" },
+        { label: "Maya’s answer", text: "Two hours" },
+        { label: "I changed it to", text: finalWording },
+      ] },
+    }],
+  };
+  return parsePrdSnapshot(snapshotFromRecord({
+    ...record([{ ...QUESTION, text: "How long are shifts?", status: "used", answer: "Two hours", answerVersion: 1 }]),
+    chats: [{ key: "main", canWrite: false, send: { allowed: false, block: "role" }, messages: [intro, brief] }],
+  }, NGO));
+}
+
+it("shows the NGO the developer’s changed answer wording", () => {
+  const snapshot = usedAnswerSnapshot();
+  expect(present(snapshot).answered[0]).toMatchObject({
+    question: { kind: "used", changed: true, answer: "Four hours" },
+    wordingChanged: "Priya changed the wording:",
+  });
+  expect(present(usedAnswerSnapshot("Two hours")).answered[0]).toMatchObject({
+    question: { kind: "used", changed: false, answer: "Two hours" },
+    wordingChanged: null,
+  });
+});
+
+it("links an answered question to its Use answer brief in the main chat", () => {
+  const snapshot = usedAnswerSnapshot();
+  const question = snapshot.questions[0];
+  if (question.kind !== "used") throw new Error("expected a used answer");
+  expect(question.briefTurn).toBe("m2");
+  expect(snapshot.chats.main.find((message) => message.id === question.briefTurn)?.parts).toEqual([
+    expect.objectContaining({ type: "data-brief", data: expect.objectContaining({ questionId: question.id }) }),
+  ]);
+});
 
 it("maps the developer questions as the facts give them", () => {
   expect(snapshotFromRecord(record([]), DEV).devQuestions).toEqual([

@@ -174,6 +174,67 @@ describe.skipIf(!live)("completion check rows on the local stack", () => {
     await sql?.close();
   });
 
+  it("keeps a stale check in history without blocking confirm or close on the current revision", async () => {
+    const { dev, project } = await world(stack, sql);
+    await credit(sql, project);
+    const before = await revisionOf(sql, project);
+    const started = await objectOf(sql`select public.prd_turn_reserve(
+      ${dev}::uuid, ${project}::uuid, 'main', ${crypto.randomUUID()}, ${before},
+      '{"kind":"close-check"}'::jsonb, 'hash-close-check'
+    ) as r`);
+    const turnId = String(started.turnId);
+    await objectOf(sql`select public.prd_check_source(${project}::uuid, ${turnId}::uuid) as r`);
+
+    const head = await headOf(sql, project);
+    const sha = madeSha(`${project}:booking-approval`);
+    const commits = [{
+      sha, parents: [head], message: "Add coordinator approval", changes: [{
+        path: "prd/booking.md", change: "modified", blobSha: sha, file: {
+          variant: "readable", key: "booking", title: "Who books shifts",
+          document: { statements: [{ text: "Coordinators approve every booking.", sources: ["Developer"] }], decisions: [] },
+        },
+      }],
+    }];
+    await objectOf(sql`select public.prd_reconcile(${project}::uuid, ${head}, ${JSON.stringify(commits)}::text::jsonb) as r`);
+    const current = await revisionOf(sql, project);
+    expect(current).toBe(before + 1);
+    await sql`update public.prd_sections s
+      set state = case when s.stable_key = 'booking' then 'ready' else 'confirmed' end,
+          confirmed_version = case when s.stable_key = 'booking' then null else (r.manifest->>s.stable_key)::uuid end
+      from public.prd_revisions r
+      where s.project_id = ${project}::uuid and s.required
+        and r.project_id = s.project_id and r.revision = ${current}`;
+
+    const oldCheck = crypto.randomUUID();
+    const gap = "Add coordinator approval.";
+    await objectOf(sql`select public.prd_check_record(
+      ${project}::uuid, ${turnId}::uuid, ${oldCheck}::uuid, 50, 'Old revision is missing approval',
+      ${JSON.stringify([{ sectionKey: "booking", text: gap }])}::text::jsonb, '[]'::jsonb
+    ) as r`);
+    await sql`select public.prd_turn_finish(${turnId}::uuid, 'answered')`;
+    expect(await counted(sql`select count(*) as n from public.prd_checks c
+      join public.prd_check_gaps g on g.check_id = c.id
+      where c.id = ${oldCheck}::uuid and c.revision = ${before} and g.text = ${gap}`)).toBe(1);
+
+    const facts = await objectOf(sql`select public.prd_snapshot(${dev}::uuid, ${project}::uuid, null) as r`);
+    expect(facts.check).toBeNull();
+    expect(facts.sections).toContainEqual(expect.objectContaining({
+      key: "booking", state: "ready", gap: null, confirm: expect.objectContaining({ allowed: true, reason: null }),
+    }));
+    const confirmed = await objectOf(confirm(sql, dev, project, "booking", current, crypto.randomUUID()));
+    expect(confirmed.state).toBe("confirmed");
+    const newTurn = String(record(confirmed.check).turnId);
+    await objectOf(sql`select public.prd_check_record(
+      ${project}::uuid, ${newTurn}::uuid, ${crypto.randomUUID()}::uuid, 100, 'Current revision is complete',
+      '[]'::jsonb, '[]'::jsonb
+    ) as r`);
+    await sql`select public.prd_turn_finish(${newTurn}::uuid, 'answered')`;
+    const closed = await objectOf(sql`select public.prd_action(
+      ${dev}::uuid, ${project}::uuid, 'close', ${`close|close|${current}|0`}, ${crypto.randomUUID()}
+    ) as r`);
+    expect(closed).toMatchObject({ closed: true, openPoints: 0 });
+  });
+
   it("reuses one check, refuses a confirm that cannot run, and closes a gap when the section changes", async () => {
     const opened = await world(stack, sql);
     const { dev, ngo, project } = opened;

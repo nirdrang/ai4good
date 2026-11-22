@@ -394,7 +394,26 @@ function fact(value: unknown, label: string): Record<string, unknown> {
   return value;
 }
 
-function ngoQuestionOf(value: unknown, names: Names): NgoQuestion {
+type AnswerBrief = { messageId: TurnId; editedAnswer: string | null };
+
+function answerBriefsOf(messages: readonly PrdWireMessage[]): Map<string, AnswerBrief> {
+  const briefs = new Map<string, AnswerBrief>();
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (!isRecord(part) || part.type !== "data-brief" || !isRecord(part.data)) continue;
+      const { questionId, rows } = part.data;
+      if (typeof questionId !== "string" || !Array.isArray(rows)) continue;
+      const edit: unknown = rows.find((row: unknown) => isRecord(row) && row.label === "I changed it to");
+      briefs.set(questionId, {
+        messageId: message.id as TurnId,
+        editedAnswer: isRecord(edit) && typeof edit.text === "string" ? edit.text : null,
+      });
+    }
+  }
+  return briefs;
+}
+
+function ngoQuestionOf(value: unknown, names: Names, briefs: ReadonlyMap<string, AnswerBrief>): NgoQuestion {
   if (!isRecord(value)) fail("a question for the NGO is a record");
   const status = value.status as (typeof QUESTION_STATES)[number];
   if (!QUESTION_STATES.includes(status)) fail("a question for the NGO names its status");
@@ -460,14 +479,18 @@ function ngoQuestionOf(value: unknown, names: Names): NgoQuestion {
         answer: text(value.answer, "answer"),
         canUse: fact(value.use, "use").allowed === true,
       };
-    case "used":
+    case "used": {
+      const original = text(value.answer, "answer");
+      const brief = briefs.get(common.id);
+      const answer = brief?.editedAnswer ?? original;
       return {
         ...common,
         kind: "used",
-        answer: text(value.answer, "answer"),
-        briefTurn: intro,
-        changed: false,
+        answer,
+        briefTurn: brief?.messageId ?? intro,
+        changed: answer !== original,
       };
+    }
   }
 }
 
@@ -725,6 +748,7 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
     names,
     closeFacts === null ? undefined : (part) => keepClosePart(part, closeFacts),
   );
+  const answerBriefs = answerBriefsOf(presented.chats.main ?? []);
   return {
     sequence: wholeNumber(record.sequence, "sequence"),
     revision: wholeNumber(record.revision, "revision"),
@@ -737,7 +761,7 @@ export function snapshotFromRecord(record: unknown, viewer: Viewer): PrdWireSnap
     discoveryRevision: wholeNumber(record.discoveryRevision, "discovery revision"),
     topics: record.sections.map((section) => topicOf(section, names, viewer.role)),
     devQuestions: record.devQuestions.map(devQuestionOf),
-    questions: record.questions.map((question) => ngoQuestionOf(question, names)),
+    questions: record.questions.map((question) => ngoQuestionOf(question, names, answerBriefs)),
     chats: presented.chats,
     canWrite: presented.canWrite,
     send: presented.send,
