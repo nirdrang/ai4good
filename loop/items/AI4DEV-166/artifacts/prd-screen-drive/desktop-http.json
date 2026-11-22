@@ -3,7 +3,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b"
     },
     "status": 200,
     "response": {
@@ -14,18 +14,13 @@
           "state": "open"
         },
         {
-          "id": "booking",
-          "title": "Who books shifts",
+          "id": "rota-access",
+          "title": "Who can edit",
           "state": "open"
         },
         {
-          "id": "measure",
-          "title": "Success measure",
-          "state": "open"
-        },
-        {
-          "id": "owner",
-          "title": "Maintenance owner",
+          "id": "rota-sharing",
+          "title": "How to share",
           "state": "open"
         },
         {
@@ -34,8 +29,8 @@
           "state": "open"
         },
         {
-          "id": "rules",
-          "title": "Booking rules",
+          "id": "owner",
+          "title": "Maintenance owner",
           "state": "open"
         },
         {
@@ -60,7 +55,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b"
     },
     "status": 200,
     "response": {
@@ -71,18 +66,13 @@
           "state": "draft"
         },
         {
-          "id": "booking",
-          "title": "Who books shifts",
+          "id": "rota-access",
+          "title": "Who can edit",
           "state": "open"
         },
         {
-          "id": "measure",
-          "title": "Success measure",
-          "state": "open"
-        },
-        {
-          "id": "owner",
-          "title": "Maintenance owner",
+          "id": "rota-sharing",
+          "title": "How to share",
           "state": "open"
         },
         {
@@ -91,8 +81,8 @@
           "state": "open"
         },
         {
-          "id": "rules",
-          "title": "Booking rules",
+          "id": "owner",
+          "title": "Maintenance owner",
           "state": "open"
         },
         {
@@ -103,8 +93,8 @@
       ],
       "funds": {
         "allocationMicros": 5000000,
-        "settledMicros": 349,
-        "pendingMicros": 49651,
+        "settledMicros": 366,
+        "pendingMicros": 49634,
         "replyHoldMicros": 50000,
         "availableMicros": 4950000,
         "band": "green",
@@ -117,7 +107,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b"
     },
     "status": 200,
     "response": {
@@ -128,18 +118,13 @@
           "state": "draft"
         },
         {
-          "id": "booking",
-          "title": "Who books shifts",
+          "id": "rota-access",
+          "title": "Who can edit",
           "state": "open"
         },
         {
-          "id": "measure",
-          "title": "Success measure",
-          "state": "open"
-        },
-        {
-          "id": "owner",
-          "title": "Maintenance owner",
+          "id": "rota-sharing",
+          "title": "How to share",
           "state": "open"
         },
         {
@@ -148,8 +133,8 @@
           "state": "open"
         },
         {
-          "id": "rules",
-          "title": "Booking rules",
+          "id": "owner",
+          "title": "Maintenance owner",
           "state": "open"
         },
         {
@@ -160,67 +145,10 @@
       ],
       "funds": {
         "allocationMicros": 5000000,
-        "settledMicros": 463,
-        "pendingMicros": 49537,
-        "replyHoldMicros": 50000,
-        "availableMicros": 4950000,
-        "band": "green",
-        "replyFunded": true
-      },
-      "close": "open"
-    }
-  },
-  {
-    "as": "dev",
-    "name": "prd-snapshot",
-    "request": {
-      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d"
-    },
-    "status": 200,
-    "response": {
-      "topics": [
-        {
-          "id": "priority",
-          "title": "Main priority",
-          "state": "draft"
-        },
-        {
-          "id": "booking",
-          "title": "Who books shifts",
-          "state": "open"
-        },
-        {
-          "id": "measure",
-          "title": "Success measure",
-          "state": "open"
-        },
-        {
-          "id": "owner",
-          "title": "Maintenance owner",
-          "state": "open"
-        },
-        {
-          "id": "info",
-          "title": "Information handled",
-          "state": "open"
-        },
-        {
-          "id": "rules",
-          "title": "Booking rules",
-          "state": "open"
-        },
-        {
-          "id": "technical-scope",
-          "title": "Technical scope",
-          "state": "open"
-        }
-      ],
-      "funds": {
-        "allocationMicros": 5000000,
-        "settledMicros": 463,
+        "settledMicros": 487,
         "pendingMicros": 0,
         "replyHoldMicros": 50000,
-        "availableMicros": 4999537,
+        "availableMicros": 4999513,
         "band": "green",
         "replyFunded": true
       },
@@ -231,7 +159,7 @@
     "as": "dev",
     "name": "prd-snapshot",
     "request": {
-      "projectId": "4aac6cd6-0d04-47ef-aa4d-cc01d6a9fbe2"
+      "projectId": "6bd22aa3-c417-4b60-aaa6-7c9e6c6f974e"
     },
     "status": 409,
     "response": {
@@ -244,10 +172,10 @@
     "as": "dev",
     "name": "prd-action",
     "request": {
-      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d",
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b",
       "kind": "close",
       "token": "made-up",
-      "requestId": "410f0dba-535c-49b9-a1f3-d7b54d4be972"
+      "requestId": "2288a1ea-0ee2-4322-ae62-756a7163c77f"
     },
     "status": 409,
     "response": {
@@ -260,11 +188,11 @@
     "as": "dev",
     "name": "prd-message",
     "request": {
-      "projectId": "816452d6-9b03-402b-9196-6d5967c7d43d",
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b",
       "scope": {
         "kind": "main"
       },
-      "requestId": "dbb9e7e3-0224-4c27-b565-0e289bef78d8",
+      "requestId": "6840a0c5-5b57-405e-8c84-cf124533ae17",
       "baseRevision": 0,
       "intent": {
         "kind": "text",
@@ -282,7 +210,7 @@
     "as": "dev",
     "name": "prd-draft",
     "request": {
-      "projectId": "3faacabf-dc43-48b6-a631-6426e7c9f50a",
+      "projectId": "993bb461-9270-4bef-9f2c-dcbeff2b2619",
       "key": "main",
       "text": "no"
     },

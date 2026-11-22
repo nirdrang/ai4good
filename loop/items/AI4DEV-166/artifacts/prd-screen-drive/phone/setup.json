@@ -1,14 +1,14 @@
 {
-  "organizationId": "a45a18c7-230d-4637-8c65-bd88ea5b9d8d",
-  "projectId": "913845ba-627b-4b1c-b6f8-e5e5a0a699fa",
-  "repoName": "volunteer-scheduling-913845ba627b",
-  "pageUrl": "http://localhost:8080/prd/a45a18c7-230d-4637-8c65-bd88ea5b9d8d/913845ba-627b-4b1c-b6f8-e5e5a0a699fa",
+  "organizationId": "3c5ee8fc-2609-4fd1-b31c-beac73415512",
+  "projectId": "9068496f-927d-4529-a0e6-d57b56360d0b",
+  "repoName": "volunteer-scheduling-9068496f927d",
+  "pageUrl": "http://localhost:8080/prd/3c5ee8fc-2609-4fd1-b31c-beac73415512/9068496f-927d-4529-a0e6-d57b56360d0b",
   "steps": [
     {
       "step": "discovery-prepare",
       "path": "product",
-      "organizationId": "a45a18c7-230d-4637-8c65-bd88ea5b9d8d",
-      "projectId": "913845ba-627b-4b1c-b6f8-e5e5a0a699fa",
+      "organizationId": "3c5ee8fc-2609-4fd1-b31c-beac73415512",
+      "projectId": "9068496f-927d-4529-a0e6-d57b56360d0b",
       "why": "Email signup, confirmation, NGO completion, need start, and need submit."
     },
     {
@@ -63,7 +63,7 @@
     {
       "step": "read repo_name",
       "path": "operator-read",
-      "repoName": "volunteer-scheduling-913845ba627b"
+      "repoName": "volunteer-scheduling-9068496f927d"
     }
   ]
 }
