@@ -42,7 +42,15 @@
         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.30": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-revocation"] },
         "AT-001.31": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-reissue"] },
-        "AT-001.34": { "kind": "capability-pending", "capabilities": ["vendors.gotrue-sign-in-rate-limit"] }
+        "AT-001.34": { "kind": "capability-pending", "capabilities": ["vendors.gotrue-sign-in-rate-limit"] },
+        "AT-001.42": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.43": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.44": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.45": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.46": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.47": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.48": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.49": { "kind": "pending", "phase": "sut-missing" }
       }
     },
     "integration": {
@@ -86,7 +94,15 @@
         "AT-001.18": { "kind": "pending", "phase": "sut-missing" },
         "AT-001.30": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-revocation"] },
         "AT-001.31": { "kind": "capability-pending", "capabilities": ["gateway.virtual-key-reissue"] },
-        "AT-001.34": { "kind": "capability-pending", "capabilities": ["vendors.gotrue-sign-in-rate-limit"] }
+        "AT-001.34": { "kind": "capability-pending", "capabilities": ["vendors.gotrue-sign-in-rate-limit"] },
+        "AT-001.42": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.43": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.44": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.45": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.46": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.47": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.48": { "kind": "pending", "phase": "sut-missing" },
+        "AT-001.49": { "kind": "pending", "phase": "sut-missing" }
       }
     }
   }
