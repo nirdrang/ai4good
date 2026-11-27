@@ -125,4 +125,15 @@ Lead calls under the founder's delegation, for the founder's review on the pull 
 - The PRD gets one REQ-001 bullet and decision d107: account type first, passwords of at least 8 characters, a confirmed email before sign-in, sign-up complete only after its finish step, a sign-in to an unfinished account returns to that step, and one reset answer for any email. Smaller details stay on the boards.
 - Acceptance tests AT-001.42 to AT-001.49 bind the screens; they are pending until screen build and screen wiring, and the wiring leaf of the verification deliverable in `loop/decomp/req-001.md` lists them.
 
-Canvas copy: `design/canvas/sign-in/project/`, from canvas version 9 (version id 1795813593-0a49).
+Canvas copy: `design/canvas/sign-in/project/`, from canvas version 10 (version id 1795814528-cdd5), which adds the adversarial review fixes below to version 9.
+
+## Adversarial review (Codex gpt-6.2-sol, high effort, read-only)
+
+One Codex reviewer read the diff, ran the board's script in Node and called the complete-signup validator. Eleven findings; what was done:
+
+- Fixed on the board: Google sign-in after a volunteer Google sign-up opened the NGO sample; "Create an account" kept the earlier sign-up's organisation, ticks and GitHub link; editing the email under an unconfirmed sign-in kept the resend button for another address; unticked consent boxes got no focus on a failed submit; a failed submit left a shown password visible; the Show buttons were 40 px high; a malformed email with no password got the wrong message; "Use a different email" cleared the password; the 8-character count used code units, not characters.
+- Fixed on the board and in d107: the NGO authority tick now shows the shipped authority statement word for word, which complete-signup requires.
+- Fixed in the tests: AT-001.42 names `intro-sign-in` for desktop and says which submit shows only the type error; AT-001.44 and .45 name the authority statement and the volunteer terms tick.
+- Known gap, moved to screen wiring (in d107 "open"): complete-signup asks a volunteer for a signer title and the organisation authority statement. The volunteer finish step gives the acceptance and the GitHub link only.
+- Preview limit, kept: the reset board's "Design preview only" box differs for a known and an unknown email; the visible `reset-sent` words are the same, and the app sends nothing to show. AT-001.48 says so.
+- Already declared: the local config's 6-character minimum changes to 8 in screen wiring (d107).

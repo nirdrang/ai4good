@@ -124,7 +124,7 @@ h1:focus{outline:none}
               <label for="signup-password" style="font-size:15px;font-weight:600">Password</label>
               <div style="position:relative">
                 <input id="signup-password" data-testid="signup-password" type="{{pwType}}" autocomplete="new-password" value="{{password}}" onInput="{{typePassword}}" aria-invalid="{{passwordInvalid}}" aria-describedby="signup-password-help" style="{{passwordStyle}}">
-                <button type="button" data-testid="signup-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:4px;height:40px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
+                <button type="button" data-testid="signup-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:2px;height:44px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
               </div>
               <p id="signup-password-help" style="{{passwordHelpStyle}}">{{passwordHelp}}</p>
             </div>
@@ -202,14 +202,14 @@ h1:focus{outline:none}
               <p role="status" data-testid="consent-reset" style="margin:0;font-size:14px;line-height:20px;color:#9a3412">You changed the organisation name, so tick both boxes again for {{orgNameShown}}.</p>
             </sc-if>
             <label data-testid="finish-authority" style="{{authorityStyle}}">
-              <input type="checkbox" checked="{{authority}}" onChange="{{toggleAuthority}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
-              <span style="font-size:15px;line-height:22px">I am authorised to act for <strong>{{orgNameShown}}</strong>, including agreeing to terms on its behalf.</span>
+              <input type="checkbox" checked="{{authority}}" onChange="{{toggleAuthority}}" aria-invalid="{{authorityInvalid}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+              <span style="font-size:15px;line-height:22px">For <strong>{{orgNameShown}}</strong>: I attest that I have the authority to make this acknowledgment for my organisation — to bind it, to fund non-refundable model-fuel purchases, and to accept services that carry no SLA.</span>
             </label>
             <sc-if value="{{authorityError}}" hint-placeholder-val="{{ false }}">
               <p style="margin:-12px 0 0;font-size:14px;color:#b91c1c">Confirm you may act for the organisation.</p>
             </sc-if>
             <label data-testid="finish-terms" style="{{termsStyle}}">
-              <input type="checkbox" checked="{{terms}}" onChange="{{toggleTerms}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+              <input type="checkbox" checked="{{terms}}" onChange="{{toggleTerms}}" aria-invalid="{{termsInvalid}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
               <span style="font-size:15px;line-height:22px">I have read and agree to the Terms and the Platform Promise for {{orgNameShown}}.</span>
             </label>
             <sc-if value="{{termsError}}" hint-placeholder-val="{{ false }}">
@@ -268,7 +268,7 @@ h1:focus{outline:none}
               </div>
             </details>
             <label data-testid="finish-terms" style="{{termsStyle}}">
-              <input type="checkbox" checked="{{terms}}" onChange="{{toggleTerms}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+              <input type="checkbox" checked="{{terms}}" onChange="{{toggleTerms}}" aria-invalid="{{termsInvalid}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
               <span style="font-size:15px;line-height:22px">I agree to the Terms and the Platform Promise: I donate my time, nothing I build is paid work, and all code is open source (MIT).</span>
             </label>
             <sc-if value="{{termsError}}" hint-placeholder-val="{{ false }}">
@@ -326,7 +326,7 @@ h1:focus{outline:none}
               </div>
               <div style="position:relative">
                 <input id="signin-password" data-testid="signin-password" type="{{pwType}}" autocomplete="current-password" value="{{password}}" onInput="{{typePassword}}" style="{{plainInputStyle}}">
-                <button type="button" data-testid="signin-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:4px;height:40px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
+                <button type="button" data-testid="signin-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:2px;height:44px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
               </div>
             </div>
             <button type="submit" data-testid="signin-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{signinLabel}}</button>
@@ -385,7 +385,7 @@ h1:focus{outline:none}
               <label for="new-password" style="font-size:15px;font-weight:600">New password</label>
               <div style="position:relative">
                 <input id="new-password" data-testid="new-password" type="{{pwType}}" autocomplete="new-password" value="{{password}}" onInput="{{typePassword}}" aria-invalid="{{passwordInvalid}}" aria-describedby="new-password-help" style="{{passwordStyle}}">
-                <button type="button" data-testid="new-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:4px;height:40px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
+                <button type="button" data-testid="new-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:2px;height:44px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
               </div>
               <p id="new-password-help" style="{{passwordHelpStyle}}">{{passwordHelp}}</p>
             </div>
@@ -487,7 +487,8 @@ class Component extends DCLogic {
   }
   passwordProblem(pw) {
     if (!pw) return 'Choose a password.';
-    if (pw.length < 8) return 'Use at least 8 characters. It has ' + pw.length + '.';
+    const n = Array.from(pw).length;
+    if (n < 8) return 'Use at least 8 characters. It has ' + n + '.';
     return '';
   }
   finishFor(type, via) { return type === 'volunteer' ? 'finish-volunteer' : 'finish-ngo'; }
@@ -555,7 +556,7 @@ class Component extends DCLogic {
       isVolunteer: s.type === 'volunteer',
       isNgoType: isNgo,
       email: s.email,
-      typeEmail: (e) => self.setState({ email: e.target.value }),
+      typeEmail: (e) => self.setState({ email: e.target.value, unconfirmed: false }),
       emailError: tried && !!emailProblem,
       emailErrorText: emailProblem,
       emailInvalid: tried && !!emailProblem ? 'true' : 'false',
@@ -576,7 +577,7 @@ class Component extends DCLogic {
       signupLabel: s.busy && view === 'signup' ? 'Creating your account…' : 'Create account',
       submitSignup: (e) => {
         e.preventDefault();
-        if (!s.type || emailProblem || passwordProblem) { self.focusInvalid = true; self.setState({ tried: true }); return; }
+        if (!s.type || emailProblem || passwordProblem) { self.focusInvalid = true; self.setState({ tried: true, showPw: false }); return; }
         self.setState({ busy: true });
         const accounts = Object.assign({}, s.accounts);
         accounts[s.email.trim().toLowerCase()] = { password: s.password, confirmed: false, type: s.type };
@@ -588,7 +589,7 @@ class Component extends DCLogic {
         const email = s.type === 'volunteer' ? self.sam.email : self.dana.email;
         const accounts = Object.assign({}, s.accounts);
         accounts[email] = { password: '', confirmed: true, type: s.type };
-        self.later(() => self.go(self.finishFor(s.type), { via: 'google', email: email, accounts: accounts, history: [], fullName: s.type === 'ngo' ? self.dana.name : '' }));
+        self.later(() => self.go(self.finishFor(s.type), { via: 'google', googleEmail: email, email: email, accounts: accounts, history: [], fullName: s.type === 'ngo' ? self.dana.name : '' }));
       },
       githubSignup: () => {
         self.setState({ busy: true, busyVia: 'github' });
@@ -597,12 +598,12 @@ class Component extends DCLogic {
         self.later(() => self.go('finish-volunteer', { via: 'github', email: self.sam.email, linked: true, accounts: accounts, history: [] }));
       },
       toSignIn: (e) => { if (e) e.preventDefault(); self.go('signin', { password: '', notice: '' }); },
-      toSignup: (e) => { if (e) e.preventDefault(); self.go('signup', { email: '', password: '', type: null, submittedEmail: '' }); },
+      toSignup: (e) => { if (e) e.preventDefault(); self.go('signup', { email: '', password: '', type: null, submittedEmail: '', orgName: '', fullName: '', title: '', authority: false, terms: false, linked: false, consentReset: false, via: 'email' }); },
       resendLabel: s.resent ? 'Sent again' : 'Resend the email',
       resendDisabled: s.resent,
       resent: s.resent,
       resend: () => self.setState({ resent: true }),
-      changeEmail: () => self.go('signup', { password: '', submittedEmail: s.email }),
+      changeEmail: () => self.go('signup', { submittedEmail: s.email }),
       confirmEmail: () => {
         const accounts = Object.assign({}, s.accounts);
         const key = s.email.trim().toLowerCase();
@@ -620,10 +621,12 @@ class Component extends DCLogic {
       toggleAuthority: () => self.setState({ authority: !s.authority }),
       authorityStyle: checkBox(tried && !s.authority),
       authorityError: tried && !s.authority,
+      authorityInvalid: tried && !s.authority ? 'true' : 'false',
       terms: s.terms,
       toggleTerms: () => self.setState({ terms: !s.terms }),
       termsStyle: checkBox(tried && !s.terms),
       termsError: tried && !s.terms,
+      termsInvalid: tried && !s.terms ? 'true' : 'false',
       finishLabel: s.busy ? 'Finishing…' : 'Finish sign-up',
       submitNgo: (e) => {
         e.preventDefault();
@@ -670,8 +673,8 @@ class Component extends DCLogic {
       submitSignin: (e) => {
         e.preventDefault();
         const email = s.email.trim().toLowerCase();
-        if (!email || !s.password) { self.setState({ signinError: 'Enter your email and password.', unconfirmed: false, notice: '' }); return; }
-        if (emailProblem) { self.setState({ signinError: 'Check the email address: ' + emailProblem, unconfirmed: false, notice: '' }); return; }
+        if (email && emailProblem) { self.setState({ signinError: 'Check the email address: ' + emailProblem, showPw: false, unconfirmed: false, notice: '' }); return; }
+        if (!email || !s.password) { self.setState({ signinError: 'Enter your email and password.', showPw: false, unconfirmed: false, notice: '' }); return; }
         self.setState({ busy: true, notice: '' });
         self.later(() => {
           const acct = s.accounts[email];
@@ -687,7 +690,7 @@ class Component extends DCLogic {
           }
         });
       },
-      googleSignin: () => { self.setState({ busy: true }); self.later(() => self.oauthSignin(self.dana.email, 'google')); },
+      googleSignin: () => { self.setState({ busy: true }); self.later(() => self.oauthSignin(s.googleEmail || self.dana.email, 'google')); },
       githubSignin: () => { self.setState({ busy: true }); self.later(() => self.oauthSignin(self.sam.email, 'github')); },
       toForgot: (e) => { e.preventDefault(); self.go('forgot', { password: '' }); },
       forgotLabel: s.busy ? 'Sending…' : 'Send reset link',
@@ -706,7 +709,7 @@ class Component extends DCLogic {
       resetLabel: s.busy ? 'Saving…' : 'Save new password',
       submitReset: (e) => {
         e.preventDefault();
-        if (passwordProblem) { self.focusInvalid = true; self.setState({ tried: true }); return; }
+        if (passwordProblem) { self.focusInvalid = true; self.setState({ tried: true, showPw: false }); return; }
         self.setState({ busy: true });
         const key = s.email.trim().toLowerCase();
         const accounts = Object.assign({}, s.accounts);
