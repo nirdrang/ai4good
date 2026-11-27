@@ -10,6 +10,7 @@ import {
   rpcRefusalStatus,
   writePipeline,
   WRITE_ROUTES,
+  type SettleDatabase,
   type WriteRouteInput,
   type WriteRouteSpec,
   type WriteStanding,
@@ -17,6 +18,10 @@ import {
 
 import type { FileRow } from './discovery-files.ts';
 import { requireEnv } from './env.ts';
+import { githubConfig } from './github/app.ts';
+import { githubRepo } from './github/repo.ts';
+import { publishCloseTag, syncRepo } from './prd/git.ts';
+import { prdRelayDeps, type PrdRelayDeps } from './prd/relay.ts';
 export { requireEnv } from './env.ts';
 
 export const CORS_HEADERS: Record<string, string> = {
@@ -30,6 +35,10 @@ export function json(body: unknown, status: number): Response {
     status,
     headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
   });
+}
+
+export function empty(status: number): Response {
+  return new Response(null, { status, headers: CORS_HEADERS });
 }
 
 export function refusal(reason: string, status: number): Response {
@@ -98,7 +107,7 @@ export function callerIp(request: Request): string | null {
   return isIpv4(candidate) || isIpv6(candidate) ? candidate : null;
 }
 
-type RpcOutcome =
+export type RpcOutcome =
   | { ok: true; value: unknown }
   | { ok: false; status: number; message: string; details: string | null; hint: string | null; code: string | null };
 
@@ -135,6 +144,98 @@ async function callDatabaseFunction(name: string, args: Record<string, unknown>)
   }
 
   return { ok: true, value: text === '' ? null : (JSON.parse(text) as unknown) };
+}
+
+export function prdServiceRpc(): SettleDatabase {
+  return async (name, args) => {
+    const outcome = await callDatabaseFunction(name, args);
+    if (!outcome.ok) {
+      return {
+        ok: false,
+        message: outcome.message,
+        details: outcome.details,
+        hint: outcome.hint,
+        code: outcome.code,
+      };
+    }
+    return { ok: true, value: outcome.value };
+  };
+}
+
+export function prdRelay(): PrdRelayDeps {
+  return prdRelayDeps({
+    rpc: prdServiceRpc(),
+    fetch,
+    env: {
+      PRD_MODEL_BASE_URL: Deno.env.get('PRD_MODEL_BASE_URL'),
+      PRD_MODEL: Deno.env.get('PRD_MODEL'),
+      PRD_MODEL_API_KEY: Deno.env.get('PRD_MODEL_API_KEY'),
+      PRD_GITHUB_ORG: Deno.env.get('PRD_GITHUB_ORG'),
+      GITHUB_APP_ID: Deno.env.get('GITHUB_APP_ID'),
+      GITHUB_APP_PRIVATE_KEY: Deno.env.get('GITHUB_APP_PRIVATE_KEY'),
+      PRD_GITHUB_REPO_VISIBILITY: Deno.env.get('PRD_GITHUB_REPO_VISIBILITY'),
+    },
+  });
+}
+
+/** The PRD tables are closed to the browser, so the snapshot read is this service-role call. */
+export function readPrdSnapshot(
+  actorId: string,
+  projectId: string,
+  sinceSequence: number | null,
+): Promise<RpcOutcome> {
+  return callDatabaseFunction('prd_snapshot', {
+    p_actor: actorId,
+    p_project: projectId,
+    p_since_sequence: sinceSequence,
+  });
+}
+
+const PROJECT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The repository id is GitHub's. The bound project, if any, is a service-role lookup. */
+export async function prdProjectForRepo(repoId: number): Promise<string | null> {
+  const outcome = await callDatabaseFunction('prd_project_for_repo', { p_repo_id: repoId });
+  if (!outcome.ok) throw new Error(outcome.message);
+  if (typeof outcome.value !== 'string' || !PROJECT_UUID.test(outcome.value)) return null;
+  return outcome.value;
+}
+
+/** Reads the bound repository and folds it into the record. A failure is the caller's to log. */
+export async function syncPrdFromGithub(
+  projectId: string,
+): Promise<{ ok: true } | { ok: false; reason: string; status: number }> {
+  const configured = githubConfig({
+    PRD_GITHUB_ORG: Deno.env.get('PRD_GITHUB_ORG'),
+    GITHUB_APP_ID: Deno.env.get('GITHUB_APP_ID'),
+    GITHUB_APP_PRIVATE_KEY: Deno.env.get('GITHUB_APP_PRIVATE_KEY'),
+    PRD_GITHUB_REPO_VISIBILITY: Deno.env.get('PRD_GITHUB_REPO_VISIBILITY'),
+  });
+  if (!configured.ok) return { ok: false, reason: configured.reason, status: 503 };
+  const synced = await syncRepo(projectId, {
+    github: githubRepo(configured.config, fetch),
+    rpc: callDatabaseFunction,
+  });
+  if (!synced.ok) return { ok: false, reason: synced.reason, status: 502 };
+  return { ok: true };
+}
+
+export async function publishPrdCloseTag(projectId: string): Promise<void> {
+  const configured = githubConfig({
+    PRD_GITHUB_ORG: Deno.env.get('PRD_GITHUB_ORG'),
+    GITHUB_APP_ID: Deno.env.get('GITHUB_APP_ID'),
+    GITHUB_APP_PRIVATE_KEY: Deno.env.get('GITHUB_APP_PRIVATE_KEY'),
+    PRD_GITHUB_REPO_VISIBILITY: Deno.env.get('PRD_GITHUB_REPO_VISIBILITY'),
+  });
+  if (!configured.ok) {
+    console.error(`prd close tag: ${configured.reason}`);
+    return;
+  }
+  const published = await publishCloseTag(projectId, {
+    github: githubRepo(configured.config, fetch),
+    rpc: callDatabaseFunction,
+  });
+  if (!published.ok) console.error(`prd close tag: ${published.reason}`);
 }
 
 function settledRefusal(value: unknown): string | null {
@@ -218,7 +319,12 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     const standing = await loadWriteStanding(caller.id, target, subject);
     let decision = writePipeline(spec, { caller, standing, body: body.value, target, subject, ip: callerIp(request) });
     if (decision.ok && spec.prepare) {
-      decision = await spec.prepare(caller, decision.args, callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!));
+      decision = await spec.prepare(
+        caller,
+        decision.args,
+        callerReads(SUPABASE_URL, ANON_KEY, request.headers.get('Authorization')!),
+        discoveryStream.wantsEventStream(request.headers.get('Accept')),
+      );
     }
     if (!decision.ok) {
       return json({ ok: false, kind: decision.kind, reason: decision.reason }, decision.status);
@@ -228,6 +334,42 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
     if (!outcome.ok) {
       await spec.commitRefused?.(decision.args);
       return rpcRefusal(outcome);
+    }
+
+    if (spec.settle?.uiStream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {
+      const settle = spec.settle;
+      const uiStream = settle.uiStream!;
+      const reserved = outcome.value;
+      const args = decision.args;
+      let cancelled = false;
+      let work: Promise<void> = Promise.resolve();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const encoder = new TextEncoder();
+          const emit = (chunk: unknown) => {
+            if (cancelled) return;
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+          };
+          work = (async () => {
+            try {
+              const acted = await uiStream(reserved, args, emit, () => cancelled);
+              if (acted.failure !== null && !cancelled) emit({ type: 'error', errorText: acted.failure });
+            } catch (error) {
+              if (!cancelled) emit({ type: 'error', errorText: error instanceof Error ? error.message : String(error) });
+            } finally {
+              if (!cancelled) {
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
+              }
+            }
+          })();
+        },
+        cancel() {
+          cancelled = true;
+          EdgeRuntime.waitUntil(work);
+        },
+      });
+      return new Response(body, { headers: { ...CORS_HEADERS, ...discoveryStream.DISCOVERY_STREAM_HEADERS } });
     }
 
     if (spec.settle?.stream && discoveryStream.wantsEventStream(request.headers.get('Accept'))) {
@@ -289,15 +431,15 @@ export function writeRoute<Args extends Record<string, unknown>, Input extends W
       return new Response(body, { headers: { ...CORS_HEADERS, ...discoveryStream.DISCOVERY_STREAM_HEADERS } });
     }
     if (spec.settle) {
-      const acted = await spec.settle.act(outcome.value, decision.args);
+      const acted = await spec.settle.act(outcome.value, decision.args, callDatabaseFunction);
       if (acted.skipSettle) {
         const reserved = isRecord(outcome.value) ? { ...outcome.value, allowance: outcome.value.allowance ?? null } : {};
         return json({ ok: true, ...(spec.render ? spec.render(reserved) : {}) }, 200);
       }
-      if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', 502);
+      if (acted.args === null) return refusal(acted.failure ?? 'the provider outcome is uncertain', acted.status ?? 502);
       outcome = await callDatabaseFunction(spec.settle.rpc, acted.args);
       if (!outcome.ok) return rpcRefusal(outcome);
-      if (acted.failure !== null) return refusal(acted.failure, 502);
+      if (acted.failure !== null) return refusal(acted.failure, acted.status ?? 502);
     }
     return json({ ok: true, ...(spec.render ? spec.render(outcome.value) : {}) }, 200);
   });

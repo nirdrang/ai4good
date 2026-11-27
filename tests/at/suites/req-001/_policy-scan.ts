@@ -32,6 +32,39 @@ export const TENANT_CATALOG: { readonly [table: string]: TenantPosture } = {
   notification_deliveries: 'tenant-isolated',
   notification_ops_items: 'unreachable-by-client-roles',
   notification_fixture_transitions: 'unreachable-by-client-roles',
+  prd_records: 'unreachable-by-client-roles',
+  prd_revisions: 'unreachable-by-client-roles',
+  prd_sections: 'unreachable-by-client-roles',
+  prd_section_versions: 'unreachable-by-client-roles',
+  prd_chats: 'unreachable-by-client-roles',
+  prd_messages: 'unreachable-by-client-roles',
+  prd_drafts: 'unreachable-by-client-roles',
+  prd_questions: 'unreachable-by-client-roles',
+  prd_question_prerequisites: 'unreachable-by-client-roles',
+  prd_followups: 'unreachable-by-client-roles',
+  prd_answers: 'unreachable-by-client-roles',
+  prd_answer_uses: 'unreachable-by-client-roles',
+  prd_turns: 'unreachable-by-client-roles',
+  prd_actions: 'unreachable-by-client-roles',
+  prd_git_ops: 'unreachable-by-client-roles',
+  prd_unknown_files: 'unreachable-by-client-roles',
+  prd_grants: 'unreachable-by-client-roles',
+  prd_tool_reads: 'unreachable-by-client-roles',
+  prd_staged_sections: 'unreachable-by-client-roles',
+  prd_staged_effects: 'unreachable-by-client-roles',
+  prd_tool_commits: 'unreachable-by-client-roles',
+  prd_money_config: 'unreachable-by-client-roles',
+  prd_rate_versions: 'unreachable-by-client-roles',
+  prd_fund_credits: 'unreachable-by-client-roles',
+  prd_reservations: 'unreachable-by-client-roles',
+  prd_provider_events: 'unreachable-by-client-roles',
+  prd_ledger_entries: 'unreachable-by-client-roles',
+  prd_turn_settings: 'unreachable-by-client-roles',
+  prd_check_config: 'unreachable-by-client-roles',
+  prd_checks: 'unreachable-by-client-roles',
+  prd_check_gaps: 'unreachable-by-client-roles',
+  prd_closes: 'unreachable-by-client-roles',
+  prd_close_points: 'unreachable-by-client-roles',
 };
 
 export type PolicyProblem = { code: string; detail: string };
@@ -42,6 +75,50 @@ export const WRITE_GATE_EXEMPT: Readonly<Record<string, string>> = {
   complete_signup:
     'the caller holds no account row when this runs; a second completion is refused by the accounts ' +
     'primary key, and the TypeScript gate refuses a deactivated account before the call is made',
+  prd_question_outcome:
+    'the PRD tools write the structured outcome of the AI for a turn that prd_turn_reserve already admitted ' +
+    'behind the account gate; no account acts in this call',
+  prd_turn_finish:
+    'the relay closes a turn that prd_turn_reserve or prd_action already admitted behind the account gate; ' +
+    'no account acts in this call',
+  prd_git_bind_repo:
+    'the edge binds the repository after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_git_op_written:
+    'the edge records the commit sha after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_git_op_pushed:
+    'the edge records that main moved after prd_open_begin already admitted the developer; no account acts in this call',
+  prd_git_op_fail:
+    'the edge ends a turn attempt that did not land, after a turn that was already admitted; no account acts in this call',
+  prd_reconcile:
+    'sync applies repository history after an admitted open; no account acts in this call',
+  prd_mark_diverged:
+    'sync records that the repository left the fast-forward line; no account acts in this call',
+  prd_grant_issue:
+    'the edge issues a grant for a turn that prd_turn_reserve or prd_action already admitted; no account acts in this call',
+  prd_grant_check:
+    'every PRD tool checks a grant for a turn that was already admitted; no account acts in this call',
+  prd_grant_tools:
+    'the edge lists the tools a grant allows for a turn that was already admitted; no account acts in this call',
+  read_section:
+    'the PRD tools read one section for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  stage_section:
+    'the PRD tools stage one section for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  propose_ready:
+    'the PRD tools stage Ready to confirm for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  suggest_ngo_question:
+    'the PRD tools stage a question for the NGO for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  record_outcome:
+    'the PRD tools stage a side-chat outcome for a turn that prd_action already admitted; the grant is the gate and no account acts in this call',
+  commit_prepare:
+    'the PRD tools register one commit for a turn that was already admitted; the grant is the gate and no account acts in this call',
+  prd_fund_credit:
+    'an operator credits a project with funds; it changes no account, and no account acts in this call',
+  prd_turn_ingest:
+    'the relay records what the provider reported for a turn that prd_turn_reserve or prd_action already admitted; ' +
+    'no account acts in this call',
+  prd_turn_settings_record:
+    'the relay records the provider settings of a turn that prd_turn_reserve or prd_action already admitted; ' +
+    'no account acts in this call',
 };
 
 function matchDollarTag(sql: string, i: number): string | null {
@@ -536,12 +613,21 @@ export function scanTenantMigrations(files: readonly MigrationFile[]): PolicyPro
     }
     if (fn.definer && !fn.viewer) {
       for (const role of fn.executeRoles) {
-        if (CLIENT_EXECUTE_ROLES.has(role)) {
-          problems.push({
-            code: 'definer-client-execute',
-            detail: `${name} grants execute to ${role}; non-viewer definers stay service_role only`,
-          });
+        if (!CLIENT_EXECUTE_ROLES.has(role)) continue;
+        // Realtime evaluates this as the signed-in caller. It is the only such definer.
+        if (
+          name === 'public.prd_can_listen' &&
+          role === 'authenticated' &&
+          fn.searchPath &&
+          fn.revokedPublic &&
+          fn.executeRoles.size === 1
+        ) {
+          continue;
         }
+        problems.push({
+          code: 'definer-client-execute',
+          detail: `${name} grants execute to ${role}; non-viewer definers stay service_role only`,
+        });
       }
     }
   }

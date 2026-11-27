@@ -7,6 +7,8 @@ description: Drive the real ai4good surface on the local Supabase stack (auth, e
 
 The real Discovery route `/discovery/:organizationId/:projectId` mounts the shared Discovery screen and review behind an edge-function port. Its live recipe is [features/discovery-screen.md](features/discovery-screen.md), driven by `scripts/drive-discovery-screen.ts` on desktop and phone. Setup uses email signup and confirmation, NGO completion, then project need start and submit. The screen calls conversation, message, brief, file and allowance functions; it never accesses the database directly. The retained scope entry belongs to the PRD step and requires a confirmed Discovery revision.
 
+The real PRD route `/prd/:organizationId/:projectId` mounts the PRD workspace behind an edge-function port. The assigned volunteer, the Dev, writes. The NGO administrator reads along and answers questions in side chats. Its live recipe is [features/prd-screen.md](features/prd-screen.md), driven by `scripts/drive-prd-screen.ts` on desktop and phone.
+
 All model calls go through `discoveryModelPort()`. `DISCOVERY_PROVIDER` selects Anthropic, OpenAI-compatible Chat Completions, or OpenAI Responses. The chosen adapter reads its model and credential settings from `supabase/functions/.env`. Never print or commit those settings. The write-route registry remains the authority for admission. Acceptance execution and the live screen drive are separate checks.
 
 **One stack per machine.** The stack on the 44321 block is THE stack, the one
@@ -92,6 +94,7 @@ bun .claude/skills/verify-ai4good/scripts/drive-access-and-admin.ts [outDir] # v
 bun .claude/skills/verify-ai4good/scripts/drive-discovery-refusals.ts [outDir] # Discovery read, refusals, scope refusals, the switch; no provider key
 bun .claude/skills/verify-ai4good/scripts/drive-discovery-screen.ts [outDir] # wired screen, desktop and phone
 bun .claude/skills/verify-ai4good/scripts/drive-discovery.ts [outDir]        # Discovery sends, stream, cancel, switch, fuel, drain; NEEDS the provider key
+bun .claude/skills/verify-ai4good/scripts/drive-prd-screen.ts [outDir]   # PRD workspace, desktop and phone; NEEDS the provider key and GitHub
 ```
 
 `drive-discovery.ts` spends real provider credits. Run it only when
@@ -124,7 +127,9 @@ The recipe the first one implements, for custom drives. `live-stack.ts` sends th
    `acknowledgments`, `volunteer_profiles`, `projects`, `audit_events`,
    `org_escalation_contacts`, `org_vetting`, `discovery_spend`, `need_intakes`,
    `notification_events`, `notification_deliveries`, `discovery_turns`, `discovery_scopes`,
-   `cause_labels`. The audit table is append-only by
+   `cause_labels`, `prd_records`, `prd_sections`, `prd_chats`, `prd_messages`, `prd_drafts`,
+   `prd_turns`, `prd_git_ops`, `prd_ledger_entries`, `prd_provider_events`, `prd_fund_credits`,
+   `prd_closes`, `prd_close_points`. The audit table is append-only by
    trigger: an update, delete or truncate raises SQLSTATE 42501.
 
 Per-feature recipes and refusal cases are in [`features/`](features/README.md).
@@ -143,7 +148,11 @@ it; pass `outDir` to redirect, e.g. into `loop/items/<item>/artifacts/`). Standa
   admin users API), and a project with no need row (needed to reach the public project page,
   since every product-created project starts with a draft need). Volunteer seating on a
   project is operator SQL too, and a linked GitHub identity cannot be produced at all, so the
-  volunteer happy path stays unproved live.
+  volunteer happy path stays unproved live. For the same reason a PRD drive makes its Dev with
+  two operator inserts after product email signup and confirmation: the volunteer `accounts`
+  row and the `platform_tos_and_promise` acknowledgment row (founder, 2026-11-17). PRD funds
+  have no product path either: no edge function credits them, so a drive calls
+  `prd_fund_credit` with the service role, and the transcript names it.
 - Capture the action AND the resulting state: the HTTP request/response pair and the rows
   read back, not just a final 200.
 - REDACT before writing. Any value under a credential-shaped key (`token|secret|password|
@@ -159,7 +168,7 @@ this stack. Evidence is never cleanup's to delete — `loop/verify-evidence/` su
 
 ## Helpers
 
-All six drives run with `bun` from the repo root. The optional first argument is the evidence
+The drives run with `bun` from the repo root. The optional first argument is the evidence
 directory, resolved against the repo root. Exit 0 with every check PASS, exit 1 otherwise; the
 redacted `transcript.json` is written either way. Each one runs the Doctor checks first and
 stops with exit 1 when the stack is down, the mail catcher is unreachable, or the edge runtime
@@ -188,3 +197,9 @@ on PATH.
 - [`scripts/prepare-chat-page.ts`](scripts/prepare-chat-page.ts) — email signup, confirmation,
   NGO completion, a submitted need, and the chat page URL printed as JSON; `--drain` spends
   the daily grant through JSON sends until the zero-credit refusal.
+- [`scripts/prepare-prd-screen.ts`](scripts/prepare-prd-screen.ts) — the Discovery setup above,
+  one confirmed Discovery revision, the Dev, a PRD fund credit, `prd-open`, and the PRD page
+  URL printed as JSON. `--delete` followed by a repository name deletes that one repository.
+- [`scripts/drive-prd-screen.ts`](scripts/drive-prd-screen.ts) — the wired PRD workspace on
+  desktop and phone: one main-chat reply, a draft that survives reload, the read-only NGO
+  view, Close anyway, five refusals, and the phone tabs. Needs the provider key and GitHub.

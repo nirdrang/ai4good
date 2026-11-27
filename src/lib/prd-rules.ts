@@ -250,8 +250,9 @@ export function canAffordReply(funds: Funds): boolean {
   return availableMicros(funds) >= funds.replyHoldMicros;
 }
 
-/** Green below 80% of the allocation settled, yellow from 80% through 95%, red above 95%. Unrounded. */
+/** Red with nothing allocated; otherwise green below 80% settled, yellow from 80% through 95%, red above 95%. Unrounded. */
 export function fundsBand(funds: Funds): FundsBand {
+  if (funds.allocationMicros === 0) return "red";
   const spent = funds.settledMicros * 100;
   if (spent < funds.allocationMicros * 80) return "green";
   if (spent <= funds.allocationMicros * 95) return "yellow";
@@ -778,7 +779,9 @@ function projectTopic(record: PrdRecord, topic: TopicRecord, role: Role): Topic 
     statements: statementsFor(topic, role),
     sources: [...topic.sources],
     stories: topic.stories === null ? null : [...topic.stories],
+    scope: null,
     changeSummary: changeSummary(record, topic, role),
+    author: null,
     confirm,
     reopen,
   };

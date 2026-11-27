@@ -1,0 +1,69 @@
+{
+  "organizationId": "3c5ee8fc-2609-4fd1-b31c-beac73415512",
+  "projectId": "9068496f-927d-4529-a0e6-d57b56360d0b",
+  "repoName": "volunteer-scheduling-9068496f927d",
+  "pageUrl": "http://localhost:8080/prd/3c5ee8fc-2609-4fd1-b31c-beac73415512/9068496f-927d-4529-a0e6-d57b56360d0b",
+  "steps": [
+    {
+      "step": "discovery-prepare",
+      "path": "product",
+      "organizationId": "3c5ee8fc-2609-4fd1-b31c-beac73415512",
+      "projectId": "9068496f-927d-4529-a0e6-d57b56360d0b",
+      "why": "Email signup, confirmation, NGO completion, need start, and need submit."
+    },
+    {
+      "step": "discovery-message",
+      "path": "product",
+      "status": 200,
+      "why": "The live route requires mode and userMessageId beside organizationId, projectId, and message. Opening mode is the first reply the screen sends, and it spends one real Discovery reply."
+    },
+    {
+      "step": "discovery-conversation",
+      "path": "product",
+      "status": 200,
+      "revision": 1
+    },
+    {
+      "step": "discovery-brief finish",
+      "path": "product",
+      "status": 200,
+      "revision": 1
+    },
+    {
+      "step": "dev-auth",
+      "path": "product",
+      "why": "Email signup and confirmation create the Auth user. Signup completion for a volunteer requires a linked GitHub identity, which a drive cannot produce."
+    },
+    {
+      "step": "insert accounts",
+      "path": "operator",
+      "why": "No product path writes the volunteer account row without a linked GitHub identity. The insert matches the acceptance helper for this screen: account_type volunteer."
+    },
+    {
+      "step": "insert acknowledgments",
+      "path": "operator",
+      "why": "The same gap. The screen reads the Dev name from this row. The columns match the acceptance helper for this screen."
+    },
+    {
+      "step": "seat volunteer",
+      "path": "operator",
+      "why": "No product path assigns the volunteer. The verify skill already allows this seating update."
+    },
+    {
+      "step": "prd_fund_credit",
+      "path": "operator",
+      "amount": "5.000000",
+      "why": "No edge function credits PRD funds. The credit is the service-role prd_fund_credit RPC."
+    },
+    {
+      "step": "prd-open",
+      "path": "product",
+      "status": 200
+    },
+    {
+      "step": "read repo_name",
+      "path": "operator-read",
+      "repoName": "volunteer-scheduling-9068496f927d"
+    }
+  ]
+}

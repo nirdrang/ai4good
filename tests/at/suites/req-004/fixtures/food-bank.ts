@@ -27,7 +27,7 @@ export const FOOD_BANK_ELICITATION: Elicitation = {
 export const FOOD_BANK_SCOPE: Scope = {
   summary: 'A shared shelf list of food items and a weekly first-name record of families already served, used by two volunteers with no developer.',
   userStories: FOOD_BANK_ELICITATION.userStories,
-  suggestedStack: ['Lovable', 'Supabase'],
+  suggestedStack: ['Supabase'],
   complexity: {
     tier: 'small',
     rationale: 'One shared shelf list and one weekly first-name record for two volunteers.',
@@ -43,14 +43,6 @@ export const FOOD_BANK_SCOPE: Scope = {
     rationale: 'Two non-technical volunteers can keep the lists by chat after the volunteer builder leaves.',
   },
   causeLabels: ['Food Security'],
-  lovableRecommendation: {
-    recommended: true,
-    rationale: 'The food bank edits the lists by chat and has no developer on staff.',
-  },
-  buildSplit: {
-    lovable: ['Shelf list screens', 'Weekly served-family record'],
-    claudeCode: ['A weekly reset of the served-family record'],
-  },
 };
 
 export const FOOD_BANK_ELICITATION_REPLY: ScriptedReply = {

@@ -81,7 +81,7 @@ async function registerConfirmAndSignIn(
 }
 
 const SERVICE_ROLE_SELECT = new Set(['accounts', 'org_memberships']);
-const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer', 'viewer_discovery_allowance', 'viewer_discovery_brief', 'viewer_discovery_files', 'viewer_may_read_project_files', 'viewer_project_file']);
+const VIEWER_FUNCTIONS = new Set(['viewer_is_org_member', 'viewer_is_platform_admin', 'viewer_is_volunteer', 'viewer_discovery_allowance', 'viewer_discovery_brief', 'viewer_discovery_files', 'viewer_may_read_project_files', 'viewer_project_file', 'prd_can_listen']);
 const PUBLIC_PAGE_KEYS = ['ok', 'organizationName', 'projectId', 'projectName'];
 
 async function assertTenantCatalog(sut: Awaited<ReturnType<Ctx['open']>>['sut']): Promise<void> {
@@ -1842,6 +1842,14 @@ function deactivatedSubject(
         route, organizationId, projectId: '00000000-0000-4000-8000-000000000001', action: 'edit',
         sectionId: 'need', text: `brief ${tag}`, baseRevision: 1,
       };
+    case 'prd-open':
+      return { route, organizationId, projectId: '00000000-0000-4000-8000-000000000001' };
+    case 'prd-draft':
+      return { route, projectId: '00000000-0000-4000-8000-000000000001', key: 'main', text: `draft ${tag}` };
+    case 'prd-message':
+      return { route, projectId: '00000000-0000-4000-8000-000000000001' };
+    case 'prd-action':
+      return { route, projectId: '00000000-0000-4000-8000-000000000001' };
   }
 }
 
@@ -1875,6 +1883,11 @@ async function snapshotWrite(sut: AccountsSut, session: Session | null, subject:
       return { organization: await sut.organization(subject.organizationId) };
     case 'discovery-brief':
       return { organization: await sut.organization(subject.organizationId) };
+    case 'prd-open':
+    case 'prd-draft':
+    case 'prd-message':
+    case 'prd-action':
+      return { account: session ? await sut.account(session.accountId) : null };
     case 'complete-signup':
       return { account: session ? await sut.account(session.accountId) : null };
   }
@@ -2049,6 +2062,78 @@ async function provisionActiveControl(
         },
       };
     }
+    case 'prd-open': {
+      if (accountType === 'volunteer') {
+        const volunteer = await signIn(w.email(`prd-open-vol-${tag}`));
+        await ensureVerified(sut, volunteer);
+        await completeVolunteer(sut, volunteer, `prd-open-${tag}-${volunteer.accountId.slice(0, 8)}`);
+        return {
+          session: volunteer,
+          subject: { route, organizationId: '00000000-0000-4000-8000-000000000001', projectId: '00000000-0000-4000-8000-000000000001' },
+        };
+      }
+      const ngo = await signIn(w.email(`prd-open-ngo-${tag}`));
+      await ensureVerified(sut, ngo);
+      await completeNgo(sut, ngo, `PRD Open Host ${tag}`);
+      return {
+        session: ngo,
+        subject: { route, organizationId: '00000000-0000-4000-8000-000000000001', projectId: '00000000-0000-4000-8000-000000000001' },
+      };
+    }
+    case 'prd-draft': {
+      if (accountType === 'volunteer') {
+        const volunteer = await signIn(w.email(`prd-draft-vol-${tag}`));
+        await ensureVerified(sut, volunteer);
+        await completeVolunteer(sut, volunteer, `prd-draft-${tag}-${volunteer.accountId.slice(0, 8)}`);
+        return {
+          session: volunteer,
+          subject: { route, projectId: '00000000-0000-4000-8000-000000000001', key: 'main', text: `draft ${tag}` },
+        };
+      }
+      const ngo = await signIn(w.email(`prd-draft-ngo-${tag}`));
+      await ensureVerified(sut, ngo);
+      await completeNgo(sut, ngo, `PRD Draft Host ${tag}`);
+      return {
+        session: ngo,
+        subject: { route, projectId: '00000000-0000-4000-8000-000000000001', key: 'main', text: `draft ${tag}` },
+      };
+    }
+    case 'prd-message': {
+      if (accountType === 'volunteer') {
+        const volunteer = await signIn(w.email(`prd-message-vol-${tag}`));
+        await ensureVerified(sut, volunteer);
+        await completeVolunteer(sut, volunteer, `prd-message-${tag}-${volunteer.accountId.slice(0, 8)}`);
+        return {
+          session: volunteer,
+          subject: { route, projectId: '00000000-0000-4000-8000-000000000001' },
+        };
+      }
+      const ngo = await signIn(w.email(`prd-message-ngo-${tag}`));
+      await ensureVerified(sut, ngo);
+      await completeNgo(sut, ngo, `PRD Message Host ${tag}`);
+      return {
+        session: ngo,
+        subject: { route, projectId: '00000000-0000-4000-8000-000000000001' },
+      };
+    }
+    case 'prd-action': {
+      if (accountType === 'volunteer') {
+        const volunteer = await signIn(w.email(`prd-action-vol-${tag}`));
+        await ensureVerified(sut, volunteer);
+        await completeVolunteer(sut, volunteer, `prd-action-${tag}-${volunteer.accountId.slice(0, 8)}`);
+        return {
+          session: volunteer,
+          subject: { route, projectId: '00000000-0000-4000-8000-000000000001' },
+        };
+      }
+      const ngo = await signIn(w.email(`prd-action-ngo-${tag}`));
+      await ensureVerified(sut, ngo);
+      await completeNgo(sut, ngo, `PRD Action Host ${tag}`);
+      return {
+        session: ngo,
+        subject: { route, projectId: '00000000-0000-4000-8000-000000000001' },
+      };
+    }
   }
 }
 
@@ -2102,7 +2187,7 @@ export async function assertDeactivationGatesEveryWrite(
 
       const fresh = await provisionActiveControl(sut, w, `${tag}-${name}-${accountType}`, signIn, name, accountType);
       const allowed = await sut.attemptWrite(fresh.subject, fresh.session);
-      if ((name === 'discovery-message' || name === 'discovery-scope' || name === 'discovery-brief' || name === 'discovery-file') && options.discoveryNeedsProvider) {
+      if ((name === 'discovery-message' || name === 'discovery-scope' || name === 'discovery-brief' || name === 'discovery-file' || name === 'prd-open' || name === 'prd-draft' || name === 'prd-message' || name === 'prd-action') && options.discoveryNeedsProvider) {
         expect(
           allowed.ok || allowed.kind !== 'account-deactivated',
           `an active ${accountType} was refused ${name} as account-deactivated`,

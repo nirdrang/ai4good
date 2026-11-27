@@ -23,6 +23,7 @@ import {
   EMPTY_OUTBOX,
   finish,
   holds,
+  newRequestId,
   offer,
   refuse,
   settle,
@@ -120,10 +121,6 @@ function streaming(chat: Chat<PrdUIMessage>): boolean {
 function mainBusy(snapshot: PrdSnapshot): boolean {
   const send = sendOf(snapshot, "main");
   return send.kind === "unavailable" && send.block === "busy";
-}
-
-function newRequestId(): RequestId {
-  return crypto.randomUUID() as RequestId;
 }
 
 function refusalOf(error: unknown): PrdRefusal {
