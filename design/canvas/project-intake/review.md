@@ -1,7 +1,7 @@
 # Project intake: review record
 
 Requirement: REQ-003 (with REQ-001 for the admin role). Screen: Your projects, the intake form, the public card preview, posting into the Discovery chat, and the public project list, on a phone (390 by 844) and on desktop (1280 by 900).
-Canvas: https://claude.ai/artifact/Lk9F7cGxK1X8yo17UgyxL1, version 12.
+Canvas: https://claude.ai/artifact/Lk9F7cGxK1X8yo17UgyxL1, version 13.
 Copy for screen build: `design/canvas/project-intake/project/` (all boards and `canvas.json`). The canvas player (`support.js`) is not committed.
 
 ## How this design was made
@@ -59,7 +59,7 @@ Each persona drove the canvas boards, served locally with the canvas player, wit
 
 Three reviewers tried to break the change: Codex GPT-6.2 Sol (high), Gemini 4 Neon through the Antigravity CLI, and Claude Opus. Each worked in its own worktree and proved each finding with a Playwright or shell run.
 
-Verified and fixed in version 12:
+Verified and fixed in version 12 (version 13 only simplifies two helpers after the deslop pass):
 
 - Some phone numbers (dotted, such as 06.12.34.56.78) passed, while number ranges, year ranges and dates were blocked as phone numbers.
 - Street addresses in lower case, with three words, or with Grove or Crescent passed, and their words were flagged as a name.

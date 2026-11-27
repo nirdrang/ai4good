@@ -450,8 +450,7 @@ class Component extends DCLogic {
     if (!empty) this.saveTimer = setTimeout(() => this.setState({ saving: false }), 800);
   }
   len(t) {
-    if (typeof Intl !== 'undefined' && Intl.Segmenter) return Array.from(new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(t)).length;
-    return Array.from(t).length;
+    return Array.from(new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(t)).length;
   }
   problems() {
     const s = this.state;
@@ -473,8 +472,7 @@ class Component extends DCLogic {
   }
   isPhone(run) {
     const r = run.trim();
-    if (/^\d{7,9}$/.test(r)) return false;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(r) || /^\d{1,2}[.:]\d{2}(\s*-\s*\d{1,2}[.:]\d{2})?$/.test(r)) return false;
+    if (/^\d{7,9}$|^\d{4}-\d{2}-\d{2}$|^\d{1,2}[.:]\d{2}(\s*-\s*\d{1,2}[.:]\d{2})?$/.test(r)) return false;
     return r.split(/\s+-\s+|(?<=^\d{4})-(?=\d{4}$)/).some((part) => part.replace(/\D/g, '').length >= 7);
   }
   addressRes(flags) {
