@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create an account</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0f172a}a:hover{color:#334155}
+button,input{font-family:inherit}
+button:disabled{cursor:not-allowed;opacity:.55}
+input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+label:has(input[type=radio]:focus-visible),label:has(input[type=checkbox]:focus-visible){outline:3px solid #2563eb;outline-offset:2px}
+summary{cursor:pointer}
+summary::-webkit-details-marker{display:none}
+details[open] summary svg{transform:rotate(90deg)}
+h1:focus{outline:none}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+
+  <sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}">
+    <aside style="flex:0 0 520px;box-sizing:border-box;background:#14532d;color:#ecfdf5;padding:64px 56px;display:flex;flex-direction:column;gap:28px">
+      <span style="font-size:20px;font-weight:700;letter-spacing:.02em;color:#ffffff">ai4good</span>
+      <h2 style="margin:0;font-size:34px;line-height:42px;font-weight:700;color:#ffffff">Software for nonprofits, built by volunteers with AI.</h2>
+      <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:18px;font-size:16px;line-height:24px;color:#d1fae5">
+        <li style="display:flex;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto;margin-top:1px"><path d="M20 6L9 17l-5-5"></path></svg><span>Nonprofits describe a problem in their own words. Discovery is free.</span></li>
+        <li style="display:flex;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto;margin-top:1px"><path d="M20 6L9 17l-5-5"></path></svg><span>Volunteer developers build it, and the code stays open source.</span></li>
+        <li style="display:flex;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#86efac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto;margin-top:1px"><path d="M20 6L9 17l-5-5"></path></svg><span>Your organisation's private information is seen only by you, your volunteer and the ai4good team.</span></li>
+      </ul>
+    </aside>
+  </sc-if>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+    <sc-if value="{{phone}}" hint-placeholder-val="{{ true }}">
+      <header style="flex:0 0 auto;height:60px;box-sizing:border-box;padding:0 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e2e8f0;background:#ffffff">
+        <sc-if value="{{showBack}}" hint-placeholder-val="{{ false }}">
+          <button type="button" data-testid="auth-back" onClick="{{goBack}}" disabled="{{busy}}" style="flex:0 0 auto;height:44px;padding:0 10px 0 6px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+            Back
+          </button>
+        </sc-if>
+        <span style="font-size:16px;font-weight:700;letter-spacing:.02em;color:#166534">ai4good</span>
+        <sc-if value="{{viewSignup}}" hint-placeholder-val="{{ true }}">
+          <a href="#" data-testid="header-sign-in" onClick="{{toSignIn}}" style="margin-left:auto;min-height:44px;display:flex;align-items:center;padding:0 4px;font-size:15px;font-weight:600">Sign in</a>
+        </sc-if>
+      </header>
+    </sc-if>
+    <sc-if value="{{desktopBack}}" hint-placeholder-val="{{ false }}">
+      <div style="padding:24px 40px 0">
+        <button type="button" data-testid="auth-back" onClick="{{goBack}}" disabled="{{busy}}" style="height:44px;padding:0 12px 0 8px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+          Back
+        </button>
+      </div>
+    </sc-if>
+
+    <div ref="{{setBody}}" style="flex:1;min-height:0;overflow-y:auto">
+      <main style="{{mainStyle}}">
+
+        <sc-if value="{{viewSignup}}" hint-placeholder-val="{{ true }}">
+          <form data-testid="signup-form" onSubmit="{{submitSignup}}" novalidate="novalidate" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Create your account</h1>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">ai4good gets free software built for nonprofits by volunteer developers.<sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}"> Already have an account? <a href="#" data-testid="intro-sign-in" onClick="{{toSignIn}}" style="font-weight:600">Sign in</a></sc-if></p>
+            </div>
+            <fieldset style="margin:0;padding:0;border:none;display:flex;flex-direction:column;gap:10px">
+              <legend style="padding:0;margin-bottom:10px;font-size:15px;font-weight:600">I am signing up as</legend>
+              <sc-for list="{{types}}" as="t" hint-placeholder-count="2">
+                <label data-testid="{{t.testid}}" style="{{t.style}}">
+                  <input type="radio" name="account-type" value="{{t.key}}" checked="{{t.checked}}" onChange="{{t.pick}}" aria-invalid="{{t.invalid}}" aria-describedby="type-error" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+                  <span style="display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:16px;font-weight:600">{{t.label}}</span>
+                    <span style="font-size:14px;line-height:20px;color:#475569">{{t.sub}}</span>
+                  </span>
+                </label>
+              </sc-for>
+              <sc-if value="{{isVolunteer}}" hint-placeholder-val="{{ false }}">
+                <p data-testid="volunteer-github-note" style="margin:0;padding:10px 14px;border-radius:10px;background:#f1f5f9;font-size:14px;line-height:20px;color:#334155"><strong>GitHub is required for volunteers, and the link is permanent.</strong> We read only your public profile and show it to nonprofits.</p>
+              </sc-if>
+              <sc-if value="{{isNgoType}}" hint-placeholder-val="{{ false }}">
+                <p data-testid="ngo-privacy-note" style="margin:0;padding:10px 14px;border-radius:10px;background:#f1f5f9;font-size:14px;line-height:20px;color:#334155"><strong>Who sees your information.</strong> The software we build is public code. Your organisation's private information is seen only by you, your volunteer and the ai4good team.</p>
+              </sc-if>
+              <sc-if value="{{typeError}}" hint-placeholder-val="{{ false }}">
+                <p id="type-error" role="alert" style="margin:0;font-size:14px;color:#b91c1c">Choose nonprofit or volunteer developer to continue.</p>
+              </sc-if>
+            </fieldset>
+
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <sc-if value="{{isVolunteer}}" hint-placeholder-val="{{ false }}">
+                <button type="button" data-testid="signup-github" onClick="{{githubSignup}}" disabled="{{busy}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.3 4.3 18.3 4.6 18.3 4.6c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"></path></svg>
+                  {{githubLabel}}
+                </button>
+              </sc-if>
+              <button type="button" data-testid="signup-google" onClick="{{googleSignup}}" disabled="{{busy}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"></path><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9h-4v3.1A12 12 0 0 0 12 24z"></path><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6h-4a12 12 0 0 0 0 10.9l4-3.1z"></path><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"></path></svg>
+                {{googleLabel}}
+              </button>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;color:#475569;font-size:14px">
+              <span style="flex:1;height:1px;background:#cbd5e1"></span>or with email<span style="flex:1;height:1px;background:#cbd5e1"></span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label for="signup-email" style="font-size:15px;font-weight:600">Email</label>
+              <input id="signup-email" data-testid="signup-email" type="email" autocomplete="email" value="{{email}}" onInput="{{typeEmail}}" aria-invalid="{{emailInvalid}}" aria-describedby="signup-email-help" style="{{emailStyle}}">
+              <sc-if value="{{emailError}}" hint-placeholder-val="{{ false }}">
+                <p id="signup-email-help" style="margin:0;font-size:14px;color:#b91c1c">{{emailErrorText}}</p>
+              </sc-if>
+              <sc-if value="{{showOrgEmailHint}}" hint-placeholder-val="{{ true }}">
+                <p id="signup-email-help" style="margin:0;font-size:14px;line-height:20px;color:#475569">Use your own work email at the organisation if you have one.</p>
+              </sc-if>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label for="signup-password" style="font-size:15px;font-weight:600">Password</label>
+              <div style="position:relative">
+                <input id="signup-password" data-testid="signup-password" type="{{pwType}}" autocomplete="new-password" value="{{password}}" onInput="{{typePassword}}" aria-invalid="{{passwordInvalid}}" aria-describedby="signup-password-help" style="{{passwordStyle}}">
+                <button type="button" data-testid="signup-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:2px;height:44px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
+              </div>
+              <p id="signup-password-help" style="{{passwordHelpStyle}}">{{passwordHelp}}</p>
+            </div>
+
+            <button type="submit" data-testid="signup-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{signupLabel}}</button>
+
+          </form>
+        </sc-if>
+
+        <sc-if value="{{viewCheck}}" hint-placeholder-val="{{ false }}">
+          <section data-testid="check-email" style="display:flex;flex-direction:column;gap:20px">
+            <div style="width:56px;height:56px;border-radius:16px;background:#dcfce7;display:flex;align-items:center;justify-content:center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Check your email</h1>
+              <p style="margin:0;font-size:16px;line-height:24px;color:#334155">We sent a confirmation link to <strong data-testid="check-email-address" style="overflow-wrap:anywhere">{{email}}</strong>. Open it on any device to confirm your address and finish signing up.</p>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">{{checkNote}}</p>
+            </div>
+            <div data-testid="preview-open-link" style="border:1px dashed #64748b;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc">
+              <span style="font-size:13px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.04em">Design preview only</span>
+              <button type="button" data-testid="preview-confirm" onClick="{{confirmEmail}}" style="height:44px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Open the confirmation link</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <button type="button" data-testid="resend-email" onClick="{{resend}}" disabled="{{resendDisabled}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer">{{resendLabel}}</button>
+              <sc-if value="{{resent}}" hint-placeholder-val="{{ false }}">
+                <p role="status" data-testid="resend-status" style="margin:0;font-size:14px;color:#166534">We sent another link. It can take a minute to arrive; check your spam folder too.</p>
+              </sc-if>
+              <button type="button" data-testid="change-email" onClick="{{changeEmail}}" style="height:44px;border:none;background:transparent;color:#0f172a;font-size:15px;font-weight:600;text-decoration:underline;cursor:pointer">Use a different email</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{viewFinishNgo}}" hint-placeholder-val="{{ false }}">
+          <form data-testid="finish-ngo-form" onSubmit="{{submitNgo}}" novalidate="novalidate" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:14px;font-weight:600;color:#166534">{{confirmedNote}}</span>
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Set up your organisation</h1>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">One account per organisation, and it is yours. You act for the organisation on ai4good, so we record who you are.</p>
+            </div>
+            <sc-for list="{{ngoFields}}" as="f" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label for="{{f.id}}" style="font-size:15px;font-weight:600">{{f.label}}</label>
+                <input id="{{f.id}}" data-testid="{{f.testid}}" type="text" autocomplete="{{f.auto}}" value="{{f.value}}" onInput="{{f.onInput}}" aria-invalid="{{f.invalid}}" style="{{f.style}}">
+                <sc-if value="{{f.error}}" hint-placeholder-val="{{ false }}">
+                  <p style="margin:0;font-size:14px;color:#b91c1c">{{f.errorText}}</p>
+                </sc-if>
+                <sc-if value="{{f.hasHint}}" hint-placeholder-val="{{ false }}">
+                  <p style="margin:0;font-size:14px;line-height:20px;color:#475569">{{f.hint}}</p>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div style="border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;background:#ffffff">
+              <span style="font-size:16px;font-weight:600">What you agree to</span>
+              <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:20px;color:#334155">
+                <li>ai4good connects you with volunteers and pays for AI. Nobody promises a finished product or a deadline.</li>
+                <li>All code is open source (MIT) and public.</li>
+                <li>The account is yours alone. Do not share your sign-in with colleagues.</li>
+              </ul>
+              <details data-testid="terms-details">
+                <summary style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;min-height:44px">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+                  Read the full Terms and Platform Promise
+                </summary>
+                <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:20px;color:#334155;padding-top:4px">
+                  <p style="margin:0"><strong>1. A coordination relationship.</strong> ai4good connects the parties and funds AI compute. No party owes a specific outcome. Volunteers donate their time.</p>
+                  <p style="margin:0"><strong>2. Open source.</strong> Every repository is MIT-licensed and public. Closed or confidential codebases are not in scope.</p>
+                  <p style="margin:0"><strong>3. No service level.</strong> There is no warranty and no delivery guarantee.</p>
+                  <p style="margin:0"><strong>4. Your data.</strong> Your organisation's private data is visible only to you, your assigned volunteer, and the ai4good team.</p>
+                  <p style="margin:0"><strong>5. One person, one account.</strong> Agreements are made by a named person. Shared credentials are prohibited.</p>
+                </div>
+              </details>
+            </div>
+            <sc-if value="{{consentReset}}" hint-placeholder-val="{{ false }}">
+              <p role="status" data-testid="consent-reset" style="margin:0;font-size:14px;line-height:20px;color:#9a3412">You changed the organisation name, so tick both boxes again for {{orgNameShown}}.</p>
+            </sc-if>
+            <label data-testid="finish-authority" style="{{authorityStyle}}">
+              <input type="checkbox" checked="{{authority}}" onChange="{{toggleAuthority}}" aria-invalid="{{authorityInvalid}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+              <span style="font-size:15px;line-height:22px">For <strong>{{orgNameShown}}</strong>: I attest that I have the authority to make this acknowledgment for my organisation — to bind it, to fund non-refundable model-fuel purchases, and to accept services that carry no SLA.</span>
+            </label>
+            <sc-if value="{{authorityError}}" hint-placeholder-val="{{ false }}">
+              <p style="margin:-12px 0 0;font-size:14px;color:#b91c1c">Confirm you may act for the organisation.</p>
+            </sc-if>
+            <label data-testid="finish-terms" style="{{termsStyle}}">
+              <input type="checkbox" checked="{{terms}}" onChange="{{toggleTerms}}" aria-invalid="{{termsInvalid}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+              <span style="font-size:15px;line-height:22px">I have read and agree to the Terms and the Platform Promise for {{orgNameShown}}.</span>
+            </label>
+            <sc-if value="{{termsError}}" hint-placeholder-val="{{ false }}">
+              <p style="margin:-12px 0 0;font-size:14px;color:#b91c1c">Agree to the Terms and the Platform Promise to finish.</p>
+            </sc-if>
+            <button type="submit" data-testid="finish-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{finishLabel}}</button>
+            <button type="button" data-testid="finish-later" onClick="{{finishLater}}" disabled="{{busy}}" style="height:44px;border:none;background:transparent;color:#0f172a;font-size:15px;font-weight:600;text-decoration:underline;cursor:pointer">Finish later</button>
+          </form>
+        </sc-if>
+
+        <sc-if value="{{viewFinishVol}}" hint-placeholder-val="{{ false }}">
+          <form data-testid="finish-volunteer-form" onSubmit="{{submitVol}}" novalidate="novalidate" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:14px;font-weight:600;color:#166534">{{confirmedNote}}</span>
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">{{volHeading}}</h1>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">{{volSub}}</p>
+            </div>
+            <sc-if value="{{notLinked}}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;background:#ffffff">
+                <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:20px;color:#334155">
+                  <li>We read your public profile: your handle, top languages, repository count and contributions. Nothing private.</li>
+                  <li>Your profile shows them so nonprofits can see your work.</li>
+                  <li>The link is permanent. You cannot unlink GitHub from this account later.</li>
+                </ul>
+                <button type="button" data-testid="link-github" onClick="{{linkGithub}}" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.3 4.3 18.3 4.6 18.3 4.6c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"></path></svg>
+                  {{linkLabel}}
+                </button>
+              </div>
+            </sc-if>
+            <sc-if value="{{linked}}" hint-placeholder-val="{{ false }}">
+              <div data-testid="github-linked" style="border:1px solid #86efac;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f0fdf4">
+                <span style="font-size:15px;font-weight:600;color:#166534;display:flex;align-items:center;gap:8px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>GitHub linked: @samrivera</span>
+                <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:14px;line-height:20px;color:#334155">
+                  <dt style="font-weight:600">Top languages</dt><dd style="margin:0">TypeScript, Python, SQL</dd>
+                  <dt style="font-weight:600">Public repositories</dt><dd style="margin:0">23</dd>
+                  <dt style="font-weight:600">Contributions</dt><dd style="margin:0">412 in the last year</dd>
+                </dl>
+                <span style="font-size:13px;color:#475569">This link is permanent.</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{githubError}}" hint-placeholder-val="{{ false }}">
+              <p role="alert" style="margin:-8px 0 0;font-size:14px;color:#b91c1c">Link GitHub to finish. Volunteers need a GitHub account.</p>
+            </sc-if>
+            <details data-testid="terms-details" style="border:1px solid #cbd5e1;border-radius:12px;padding:4px 16px;background:#ffffff">
+              <summary style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;min-height:44px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+                Read the Terms and Platform Promise
+              </summary>
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:20px;color:#334155;padding:4px 0 12px">
+                <p style="margin:0"><strong>1. You donate your time.</strong> You are not an employee or contractor of ai4good or the nonprofit, and nothing you build is paid work.</p>
+                <p style="margin:0"><strong>2. Open source.</strong> Every repository is MIT-licensed and public, so your work is a public portfolio.</p>
+                <p style="margin:0"><strong>3. No service level.</strong> No party owes a specific outcome or deadline.</p>
+                <p style="margin:0"><strong>4. Nonprofit data.</strong> You see a nonprofit's private information only on the project you are assigned to.</p>
+                <p style="margin:0"><strong>5. Acceptable use.</strong> No closed-source resale work, surveillance tools, spam or illegal use.</p>
+              </div>
+            </details>
+            <label data-testid="finish-terms" style="{{termsStyle}}">
+              <input type="checkbox" checked="{{terms}}" onChange="{{toggleTerms}}" aria-invalid="{{termsInvalid}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#166534;flex:0 0 auto">
+              <span style="font-size:15px;line-height:22px">I agree to the Terms and the Platform Promise: I donate my time, nothing I build is paid work, and all code is open source (MIT).</span>
+            </label>
+            <sc-if value="{{termsError}}" hint-placeholder-val="{{ false }}">
+              <p style="margin:-12px 0 0;font-size:14px;color:#b91c1c">Agree to the Terms and the Platform Promise to finish.</p>
+            </sc-if>
+            <sc-if value="{{linked}}" hint-placeholder-val="{{ false }}">
+              <button type="submit" data-testid="finish-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{finishLabel}}</button>
+            </sc-if>
+            <button type="button" data-testid="finish-later" onClick="{{finishLater}}" disabled="{{busy}}" style="height:44px;border:none;background:transparent;color:#0f172a;font-size:15px;font-weight:600;text-decoration:underline;cursor:pointer">Finish later</button>
+          </form>
+        </sc-if>
+
+        <sc-if value="{{viewSignin}}" hint-placeholder-val="{{ false }}">
+          <form data-testid="signin-form" onSubmit="{{submitSignin}}" novalidate="novalidate" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Sign in</h1>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">Welcome back.</p>
+            </div>
+            <sc-if value="{{notice}}" hint-placeholder-val="{{ false }}">
+              <p role="status" data-testid="signin-notice" style="margin:0;padding:12px 14px;border-radius:10px;background:#f0fdf4;border:1px solid #86efac;font-size:15px;line-height:22px;color:#14532d">{{noticeText}}</p>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <button type="button" data-testid="signin-google" onClick="{{googleSignin}}" disabled="{{busy}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"></path><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9h-4v3.1A12 12 0 0 0 12 24z"></path><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6h-4a12 12 0 0 0 0 10.9l4-3.1z"></path><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"></path></svg>
+                Sign in with Google
+              </button>
+              <button type="button" data-testid="signin-github" onClick="{{githubSignin}}" disabled="{{busy}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.6 22.4c.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.3 4.3 18.3 4.6 18.3 4.6c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A11.5 11.5 0 0 0 12 .5z"></path></svg>
+                Sign in with GitHub
+              </button>
+              <p data-testid="signin-github-note" style="margin:0;font-size:13px;line-height:18px;color:#475569">For volunteers, signing in with GitHub links it to your account for good.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;color:#475569;font-size:14px">
+              <span style="flex:1;height:1px;background:#cbd5e1"></span>or with email<span style="flex:1;height:1px;background:#cbd5e1"></span>
+            </div>
+            <sc-if value="{{signinError}}" hint-placeholder-val="{{ false }}">
+              <div role="alert" data-testid="signin-error" style="padding:12px 14px;border-radius:10px;background:#fef2f2;border:1px solid #fca5a5;display:flex;flex-direction:column;gap:10px">
+                <p style="margin:0;font-size:15px;line-height:22px;color:#991b1b">{{signinErrorText}}</p>
+                <sc-if value="{{unconfirmed}}" hint-placeholder-val="{{ false }}">
+                  <button type="button" data-testid="signin-resend-confirmation" onClick="{{resendFromSignin}}" style="height:44px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Send the confirmation link again</button>
+                </sc-if>
+              </div>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label for="signin-email" style="font-size:15px;font-weight:600">Email</label>
+              <input id="signin-email" data-testid="signin-email" type="email" autocomplete="email" value="{{email}}" onInput="{{typeEmail}}" style="{{plainInputStyle}}">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-if value="{{noticePw}}" hint-placeholder-val="{{ false }}">
+                <p role="status" data-testid="signin-notice" style="margin:0 0 4px;padding:12px 14px;border-radius:10px;background:#f0fdf4;border:1px solid #86efac;font-size:15px;line-height:22px;color:#14532d">{{noticeText}}</p>
+              </sc-if>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                <label for="signin-password" style="font-size:15px;font-weight:600">Password</label>
+                <a href="#" data-testid="forgot-password" onClick="{{toForgot}}" style="font-size:14px;font-weight:600;padding:6px 0">Forgot password?</a>
+              </div>
+              <div style="position:relative">
+                <input id="signin-password" data-testid="signin-password" type="{{pwType}}" autocomplete="current-password" value="{{password}}" onInput="{{typePassword}}" style="{{plainInputStyle}}">
+                <button type="button" data-testid="signin-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:2px;height:44px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
+              </div>
+            </div>
+            <button type="submit" data-testid="signin-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{signinLabel}}</button>
+            <p style="margin:0;font-size:15px;text-align:center;color:#334155">New to ai4good? <a href="#" data-testid="to-sign-up" onClick="{{toSignup}}" style="font-weight:600">Create an account</a></p>
+          </form>
+        </sc-if>
+
+        <sc-if value="{{viewForgot}}" hint-placeholder-val="{{ false }}">
+          <form data-testid="forgot-form" onSubmit="{{submitForgot}}" novalidate="novalidate" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Reset your password</h1>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">Enter the email you signed up with. We will send you a link to choose a new password.</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label for="forgot-email" style="font-size:15px;font-weight:600">Email</label>
+              <input id="forgot-email" data-testid="forgot-email" type="email" autocomplete="email" value="{{email}}" onInput="{{typeEmail}}" aria-invalid="{{emailInvalid}}" style="{{emailStyle}}">
+              <sc-if value="{{emailError}}" hint-placeholder-val="{{ false }}">
+                <p style="margin:0;font-size:14px;color:#b91c1c">{{emailErrorText}}</p>
+              </sc-if>
+            </div>
+            <button type="submit" data-testid="forgot-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{forgotLabel}}</button>
+            <p style="margin:0;font-size:15px;text-align:center;color:#334155">Remembered it? <a href="#" data-testid="forgot-to-sign-in" onClick="{{toSignIn}}" style="font-weight:600">Back to sign in</a></p>
+          </form>
+        </sc-if>
+
+        <sc-if value="{{viewForgotSent}}" hint-placeholder-val="{{ false }}">
+          <section data-testid="reset-sent" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Check your email</h1>
+              <p style="margin:0;font-size:16px;line-height:24px;color:#334155">If an account uses <strong style="overflow-wrap:anywhere">{{email}}</strong>, we sent it a link to reset the password. The link works once.</p>
+            </div>
+            <div style="border:1px dashed #64748b;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f8fafc">
+              <span style="font-size:13px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.04em">Design preview only</span>
+              <sc-if value="{{resetKnown}}" hint-placeholder-val="{{ true }}">
+                <button type="button" data-testid="preview-reset-link" onClick="{{openReset}}" style="height:44px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Open the reset link</button>
+              </sc-if>
+              <sc-if value="{{resetUnknown}}" hint-placeholder-val="{{ false }}">
+                <p style="margin:0;font-size:14px;line-height:20px;color:#475569">No account in this preview uses that email, so no link was sent. Try dana@harborkitchen.org or sam.rivera@gmail.com.</p>
+              </sc-if>
+            </div>
+            <button type="button" data-testid="reset-resend" onClick="{{resendReset}}" disabled="{{resetResent}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer">{{resetResendLabel}}</button>
+            <sc-if value="{{resetResent}}" hint-placeholder-val="{{ false }}">
+              <p role="status" style="margin:0;font-size:14px;color:#166534">We sent another link. It can take a minute to arrive; check your spam folder too.</p>
+            </sc-if>
+            <button type="button" data-testid="reset-sent-to-sign-in" onClick="{{toSignIn}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer">Back to sign in</button>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{viewReset}}" hint-placeholder-val="{{ false }}">
+          <form data-testid="new-password-form" onSubmit="{{submitReset}}" novalidate="novalidate" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">Choose a new password</h1>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#475569">For {{email}}. Your old password stops working once you save.</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label for="new-password" style="font-size:15px;font-weight:600">New password</label>
+              <div style="position:relative">
+                <input id="new-password" data-testid="new-password" type="{{pwType}}" autocomplete="new-password" value="{{password}}" onInput="{{typePassword}}" aria-invalid="{{passwordInvalid}}" aria-describedby="new-password-help" style="{{passwordStyle}}">
+                <button type="button" data-testid="new-password-toggle" onClick="{{togglePw}}" aria-label="{{pwToggleLabel}}" aria-pressed="{{showPw}}" style="position:absolute;right:4px;top:2px;height:44px;padding:0 10px;border:none;background:transparent;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer">{{pwToggleText}}</button>
+              </div>
+              <p id="new-password-help" style="{{passwordHelpStyle}}">{{passwordHelp}}</p>
+            </div>
+            <button type="submit" data-testid="new-password-submit" disabled="{{busy}}" style="height:48px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">{{resetLabel}}</button>
+          </form>
+        </sc-if>
+
+        <sc-if value="{{viewHome}}" hint-placeholder-val="{{ false }}">
+          <section data-testid="signed-in-home" style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:14px;font-weight:600;color:#166534">{{homeNote}}</span>
+              <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:26px;line-height:32px;font-weight:700">{{homeTitle}}</h1>
+              <p style="margin:0;font-size:16px;line-height:24px;color:#334155">{{homeText}}</p>
+            </div>
+            <p data-testid="preview-end" style="margin:0;padding:12px 14px;border:1px dashed #64748b;border-radius:10px;font-size:14px;line-height:20px;color:#475569">{{previewEnd}}</p>
+            <div style="border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px;background:#ffffff">
+              <span style="font-size:13px;color:#475569">Signed in as</span>
+              <span data-testid="signed-in-as" style="font-size:16px;font-weight:600;overflow-wrap:anywhere">{{homeWho}}</span>
+            </div>
+            <button type="button" data-testid="sign-out" onClick="{{signOut}}" style="height:48px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer">Sign out</button>
+          </section>
+        </sc-if>
+
+      </main>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"device":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"start":{"editor":"enum","options":["signup","check","finish-ngo","finish-volunteer","signin","forgot"],"default":"signup"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const start = props.start ?? 'signup';
+    const volunteer = start === 'finish-volunteer';
+    this.dana = { email: 'dana@harborkitchen.org', password: 'Harbor-2026', name: 'Dana Okonkwo', org: 'Harbor Community Kitchen' };
+    this.sam = { email: 'sam.rivera@gmail.com', name: 'Sam Rivera' };
+    this.state = {
+      view: start,
+      history: [],
+      type: start === 'signup' ? null : (volunteer ? 'volunteer' : 'ngo'),
+      email: start === 'check' || start === 'finish-ngo' ? this.dana.email : (volunteer ? this.sam.email : ''),
+      password: '',
+      showPw: false,
+      tried: false,
+      busy: false,
+      via: 'email',
+      resent: false,
+      orgName: '',
+      fullName: start === 'finish-ngo' ? this.dana.name : '',
+      title: '',
+      authority: false,
+      terms: false,
+      linked: false,
+      accounts: { 'dana@harborkitchen.org': { password: 'Harbor-2026', confirmed: true, who: 'Dana Okonkwo · Harbor Community Kitchen (dana@harborkitchen.org)', kind: 'ngo-return' }, 'sam.rivera@gmail.com': { password: 'Rivera-2026', confirmed: true, type: 'volunteer', who: 'Sam Rivera · @samrivera (sam.rivera@gmail.com)', kind: 'volunteer-return' } },
+      unconfirmed: false,
+      resetResent: false,
+      signinError: '',
+      notice: '',
+      who: ''
+    };
+    this.refs2 = {};
+    this.lastView = null;
+  }
+  componentDidMount() { this.lastView = this.state.view; }
+  componentDidUpdate() {
+    if (this.focusInvalid) {
+      this.focusInvalid = false;
+      const first = this.refs2.body && this.refs2.body.querySelector('[aria-invalid="true"]');
+      if (first) { first.focus({ preventScroll: true }); first.scrollIntoView({ block: 'center' }); }
+    }
+    if (this.state.view !== this.lastView) {
+      this.lastView = this.state.view;
+      if (this.refs2.body) this.refs2.body.scrollTop = 0;
+      const pw = this.focusPassword && this.refs2.body && this.refs2.body.querySelector('#signin-password');
+      this.focusPassword = false;
+      if (pw) pw.focus(); else if (this.refs2.heading) this.refs2.heading.focus({ preventScroll: true });
+    }
+  }
+  componentWillUnmount() { clearTimeout(this.timer); }
+  go(view, patch) {
+    const history = this.state.history.concat([this.state.view]);
+    this.setState(Object.assign({ view: view, history: history, tried: false, busy: false, busyVia: '', showPw: false, signinError: '', unconfirmed: false, noticeAtPassword: false }, patch || {}));
+  }
+  oauthSignin(email, via) {
+    const acct = this.state.accounts[email] || {};
+    if (!acct.who) {
+      const type = acct.type || (email === this.sam.email ? 'volunteer' : 'ngo');
+      this.go(this.finishFor(type), { history: [], type: type, email: email, via: via, linked: via === 'github' || this.state.linked });
+      return;
+    }
+    this.go('home', { history: [], who: acct.who, homeKind: acct.kind });
+  }
+  later(fn) { clearTimeout(this.timer); this.timer = setTimeout(fn, 700); }
+  emailProblem(email) {
+    const e = email.trim();
+    if (!e) return 'Enter your email address.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return 'Enter an email like name@example.org.';
+    return '';
+  }
+  passwordProblem(pw) {
+    if (!pw) return 'Choose a password.';
+    const n = Array.from(pw).length;
+    if (n < 8) return 'Use at least 8 characters. It has ' + n + '.';
+    return '';
+  }
+  finishFor(type, via) { return type === 'volunteer' ? 'finish-volunteer' : 'finish-ngo'; }
+  inputStyle(bad) {
+    return 'box-sizing:border-box;width:100%;height:48px;padding:0 64px 0 14px;border-radius:10px;font-size:16px;color:#0f172a;background:#ffffff;border:' + (bad ? '2px solid #b91c1c' : '1px solid #64748b');
+  }
+  renderVals() {
+    const s = this.state;
+    const desktop = (this.props.device ?? 'phone') === 'desktop';
+    const emailProblem = this.emailProblem(s.email);
+    const passwordProblem = this.passwordProblem(s.password);
+    const tried = s.tried;
+    const orgProblem = !s.orgName.trim() ? 'Enter your organisation’s name.' : '';
+    const nameProblem = !s.fullName.trim() ? 'Enter your full name.' : '';
+    const titleProblem = !s.title.trim() ? 'Enter your role, for example Director.' : '';
+    const self = this;
+    const types = [
+      { key: 'ngo', label: 'Nonprofit', sub: 'Get software built for your organisation.', testid: 'type-ngo' },
+      { key: 'volunteer', label: 'Volunteer developer', sub: 'Build software for nonprofits.', testid: 'type-volunteer' }
+    ].map((t) => Object.assign({}, t, {
+      checked: s.type === t.key,
+      invalid: (tried || s.oauthTried) && !s.type && t.key === 'ngo' ? 'true' : 'false',
+      pick: () => self.setState({ type: t.key, oauthTried: false }),
+      style: 'display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;cursor:pointer;background:' + (s.type === t.key ? '#f0fdf4' : '#ffffff') + ';border:' + (s.type === t.key ? '2px solid #166534' : ((tried || s.oauthTried) && !s.type ? '2px solid #b91c1c' : '1px solid #64748b'))
+    }));
+    const field = (id, testid, label, key, auto, problem, hint) => ({
+      id: id, testid: testid, label: label, auto: auto, value: s[key], hint: hint || '', hasHint: !!hint && !(tried && problem),
+      onInput: (e) => { const p = {}; p[key] = e.target.value; if (key === 'orgName' && (s.authority || s.terms)) { p.authority = false; p.terms = false; p.consentReset = true; } self.setState(p); },
+      invalid: tried && !!problem ? 'true' : 'false', error: tried && !!problem, errorText: problem,
+      style: self.inputStyle(tried && !!problem).replace('padding:0 64px 0 14px', 'padding:0 14px')
+    });
+    const ngoFields = [
+      field('org-name', 'finish-org-name', 'Organisation name', 'orgName', 'organization', orgProblem, ''),
+      field('full-name', 'finish-full-name', 'Your full name', 'fullName', 'name', nameProblem, ''),
+      field('job-title', 'finish-title', 'Your role at the organisation', 'title', 'organization-title', titleProblem, 'For example Director, Operations lead or Volunteer coordinator.')
+    ];
+    const view = s.view;
+    const isNgo = s.type === 'ngo';
+    const checkBox = (bad) => 'display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:12px;cursor:pointer;background:#ffffff;border:' + (bad ? '2px solid #b91c1c' : '1px solid #cbd5e1');
+    const viaNote = s.via === 'google' ? 'Signed in with Google as ' + s.email : s.via === 'github' ? 'Signed in with GitHub as @samrivera' : 'Email confirmed: ' + s.email;
+    return {
+      desktop: desktop,
+      phone: !desktop,
+      rootStyle: desktop
+        ? 'width:1280px;height:900px;display:flex;font-family:Inter,system-ui,sans-serif;color:#0f172a;background:#f8fafc;overflow:hidden'
+        : 'width:390px;height:844px;display:flex;flex-direction:column;font-family:Inter,system-ui,sans-serif;color:#0f172a;background:#f8fafc;overflow:hidden',
+      mainStyle: desktop
+        ? 'box-sizing:border-box;max-width:480px;margin:0 auto;padding:56px 40px 64px'
+        : 'box-sizing:border-box;padding:24px 16px 40px',
+      showBack: s.history.length > 0 && view !== 'home',
+      desktopBack: desktop && s.history.length > 0 && view !== 'home',
+      busy: s.busy,
+      setBody: (el) => { self.refs2.body = el; },
+      setHeading: (el) => { self.refs2.heading = el; },
+      goBack: () => {
+        const h = s.history.slice(0, -1);
+        const prev = s.history[s.history.length - 1];
+        const email = prev === 'check' && s.submittedEmail ? s.submittedEmail : s.email;
+        self.setState({ view: prev, history: h, tried: false, busy: false, signinError: '', email: email });
+      },
+      viewSignup: view === 'signup', viewCheck: view === 'check', viewFinishNgo: view === 'finish-ngo', viewFinishVol: view === 'finish-volunteer',
+      viewSignin: view === 'signin', viewForgot: view === 'forgot', viewForgotSent: view === 'forgot-sent', viewReset: view === 'reset', viewHome: view === 'home',
+      types: types,
+      typeError: (tried || s.oauthTried) && !s.type,
+      isVolunteer: s.type === 'volunteer',
+      isNgoType: isNgo,
+      email: s.email,
+      typeEmail: (e) => self.setState({ email: e.target.value, unconfirmed: false }),
+      emailError: tried && !!emailProblem,
+      emailErrorText: emailProblem,
+      emailInvalid: tried && !!emailProblem ? 'true' : 'false',
+      emailStyle: self.inputStyle(tried && !!emailProblem).replace('padding:0 64px 0 14px', 'padding:0 14px'),
+      showOrgEmailHint: isNgo && !(tried && emailProblem),
+      password: s.password,
+      typePassword: (e) => self.setState({ password: e.target.value }),
+      pwType: s.showPw ? 'text' : 'password',
+      showPw: s.showPw ? 'true' : 'false',
+      togglePw: () => self.setState({ showPw: !s.showPw }),
+      pwToggleText: s.showPw ? 'Hide' : 'Show',
+      pwToggleLabel: s.showPw ? 'Hide password' : 'Show password',
+      passwordInvalid: tried && !!passwordProblem ? 'true' : 'false',
+      passwordStyle: self.inputStyle(tried && !!passwordProblem),
+      passwordHelp: tried && passwordProblem ? passwordProblem : 'At least 8 characters.',
+      passwordHelpStyle: 'margin:0;font-size:14px;color:' + (tried && passwordProblem ? '#b91c1c' : '#475569'),
+      plainInputStyle: self.inputStyle(false),
+      signupLabel: s.busy && view === 'signup' ? 'Creating your account…' : 'Create account',
+      submitSignup: (e) => {
+        e.preventDefault();
+        if (!s.type || emailProblem || passwordProblem) { self.focusInvalid = true; self.setState({ tried: true, showPw: false }); return; }
+        self.setState({ busy: true });
+        const accounts = Object.assign({}, s.accounts);
+        accounts[s.email.trim().toLowerCase()] = { password: s.password, confirmed: false, type: s.type };
+        self.later(() => self.go('check', { via: 'email', resent: false, accounts: accounts }));
+      },
+      googleSignup: () => {
+        if (!s.type) { self.focusInvalid = true; self.setState({ oauthTried: true }); return; }
+        self.setState({ busy: true, busyVia: 'google' });
+        const email = s.type === 'volunteer' ? self.sam.email : self.dana.email;
+        const accounts = Object.assign({}, s.accounts);
+        accounts[email] = { password: '', confirmed: true, type: s.type };
+        self.later(() => self.go(self.finishFor(s.type), { via: 'google', googleEmail: email, email: email, accounts: accounts, history: [], fullName: s.type === 'ngo' ? self.dana.name : '' }));
+      },
+      githubSignup: () => {
+        self.setState({ busy: true, busyVia: 'github' });
+        const accounts = Object.assign({}, s.accounts);
+        accounts[self.sam.email] = { password: '', confirmed: true, type: 'volunteer' };
+        self.later(() => self.go('finish-volunteer', { via: 'github', email: self.sam.email, linked: true, accounts: accounts, history: [] }));
+      },
+      toSignIn: (e) => { if (e) e.preventDefault(); self.go('signin', { password: '', notice: '' }); },
+      toSignup: (e) => { if (e) e.preventDefault(); self.go('signup', { email: '', password: '', type: null, submittedEmail: '', orgName: '', fullName: '', title: '', authority: false, terms: false, linked: false, consentReset: false, via: 'email' }); },
+      resendLabel: s.resent ? 'Sent again' : 'Resend the email',
+      resendDisabled: s.resent,
+      resent: s.resent,
+      resend: () => self.setState({ resent: true }),
+      changeEmail: () => self.go('signup', { submittedEmail: s.email }),
+      confirmEmail: () => {
+        const accounts = Object.assign({}, s.accounts);
+        const key = s.email.trim().toLowerCase();
+        accounts[key] = Object.assign({ password: '', type: s.type }, accounts[key], { confirmed: true });
+        self.go(self.finishFor(s.type), { via: 'email', accounts: accounts, history: [] });
+      },
+      checkNote: s.type === 'volunteer'
+        ? 'Confirm your email to continue: you then link GitHub and finish signing up.'
+        : 'Confirm your email to continue: you then set up your organisation. You cannot sign in until the email is confirmed.',
+      confirmedNote: viaNote,
+      ngoFields: ngoFields,
+      orgNameShown: s.orgName.trim() || 'your organisation',
+      authority: s.authority,
+      consentReset: !!s.consentReset && !(s.authority && s.terms),
+      toggleAuthority: () => self.setState({ authority: !s.authority }),
+      authorityStyle: checkBox(tried && !s.authority),
+      authorityError: tried && !s.authority,
+      authorityInvalid: tried && !s.authority ? 'true' : 'false',
+      terms: s.terms,
+      toggleTerms: () => self.setState({ terms: !s.terms }),
+      termsStyle: checkBox(tried && !s.terms),
+      termsError: tried && !s.terms,
+      termsInvalid: tried && !s.terms ? 'true' : 'false',
+      finishLabel: s.busy ? 'Finishing…' : 'Finish sign-up',
+      submitNgo: (e) => {
+        e.preventDefault();
+        if (orgProblem || nameProblem || titleProblem || !s.authority || !s.terms) {
+          self.focusInvalid = true;
+          self.setState({ tried: true });
+          return;
+        }
+        self.setState({ busy: true });
+        const who = s.fullName.trim() + ' · ' + s.orgName.trim() + ' (' + s.email + ')';
+        const accounts = Object.assign({}, s.accounts);
+        const key = s.email.trim().toLowerCase();
+        accounts[key] = Object.assign({ password: '', confirmed: true }, accounts[key], { who: who, kind: 'ngo-return' });
+        self.later(() => self.go('home', { history: [], who: who, homeKind: 'ngo', accounts: accounts }));
+      },
+      finishLater: () => self.go('signin', { history: [], password: '', linked: s.linked, accounts: Object.assign({}, s.accounts, { [s.email]: Object.assign({ type: s.type, confirmed: true, password: s.password }, s.accounts[s.email], { who: undefined, kind: undefined }) }), notice: 'Your email is confirmed. When you are ready, sign in the same way you signed up and you continue where you left off.' }),
+      notLinked: !s.linked,
+      linked: s.linked,
+      linkLabel: s.busy && !s.linked ? 'Opening GitHub…' : 'Link GitHub',
+      linkGithub: () => { self.setState({ busy: true }); self.later(() => self.setState({ busy: false, linked: true })); },
+      githubError: tried && !s.linked,
+      volHeading: s.linked ? 'Review and finish' : 'Link your GitHub account',
+      volSub: s.linked ? 'Read the Terms and Platform Promise, then finish signing up.' : 'Volunteers build on GitHub, so a GitHub account is needed to finish signing up.',
+      submitVol: (e) => {
+        e.preventDefault();
+        if (!s.linked || !s.terms) { self.focusInvalid = true; self.setState({ tried: true }); return; }
+        self.setState({ busy: true });
+        const who = self.sam.name + ' · @samrivera (' + s.email + ')';
+        const accounts = Object.assign({}, s.accounts);
+        const key = s.email.trim().toLowerCase();
+        accounts[key] = Object.assign({ password: '', confirmed: true }, accounts[key], { who: who, kind: 'volunteer-return' });
+        self.later(() => self.go('home', { history: [], who: who, homeKind: 'volunteer', accounts: accounts }));
+      },
+      notice: !!s.notice && !s.noticeAtPassword,
+      noticePw: !!s.notice && !!s.noticeAtPassword,
+      githubLabel: s.busyVia === 'github' ? 'Opening GitHub…' : 'Continue with GitHub',
+      googleLabel: s.busyVia === 'google' ? 'Opening Google…' : 'Continue with Google',
+      noticeText: s.notice,
+      signinError: !!s.signinError,
+      signinErrorText: s.signinError,
+      unconfirmed: s.unconfirmed,
+      resendFromSignin: () => self.go('check', { type: (s.accounts[s.email.trim().toLowerCase()] || {}).type || 'ngo', resent: true }),
+      signinLabel: s.busy && view === 'signin' ? 'Signing in…' : 'Sign in',
+      submitSignin: (e) => {
+        e.preventDefault();
+        const email = s.email.trim().toLowerCase();
+        if (email && emailProblem) { self.setState({ signinError: 'Check the email address: ' + emailProblem, showPw: false, unconfirmed: false, notice: '' }); return; }
+        if (!email || !s.password) { self.setState({ signinError: 'Enter your email and password.', showPw: false, unconfirmed: false, notice: '' }); return; }
+        self.setState({ busy: true, notice: '' });
+        self.later(() => {
+          const acct = s.accounts[email];
+          if (acct && acct.password === s.password && !acct.confirmed) {
+            self.setState({ busy: false, showPw: false, unconfirmed: true, signinError: 'Confirm your email before you sign in. Open the link we sent to ' + email + '.' });
+          } else if (acct && acct.password === s.password && !acct.who) {
+            self.go(self.finishFor(acct.type), { history: [], type: acct.type, via: 'email', password: '' });
+          } else if (acct && acct.password === s.password) {
+            self.go('home', { history: [], who: acct.who || email, homeKind: acct.kind || (acct.type === 'volunteer' ? 'volunteer-return' : 'ngo-return') });
+          } else {
+            self.setState({ busy: false, password: '', showPw: false, unconfirmed: false, signinError: 'That email and password do not match. Try again, or reset your password.' });
+            if (self.refs2.body) { const p = self.refs2.body.querySelector('#signin-password'); if (p) p.focus(); }
+          }
+        });
+      },
+      googleSignin: () => { self.setState({ busy: true }); self.later(() => self.oauthSignin(s.googleEmail || self.dana.email, 'google')); },
+      githubSignin: () => { self.setState({ busy: true }); self.later(() => self.oauthSignin(self.sam.email, 'github')); },
+      toForgot: (e) => { e.preventDefault(); self.go('forgot', { password: '' }); },
+      forgotLabel: s.busy ? 'Sending…' : 'Send reset link',
+      submitForgot: (e) => {
+        e.preventDefault();
+        if (emailProblem) { self.focusInvalid = true; self.setState({ tried: true }); return; }
+        self.setState({ busy: true });
+        self.later(() => self.go('forgot-sent', { resetResent: false }));
+      },
+      openReset: () => self.go('reset', { history: [], password: '' }),
+      resetResent: s.resetResent,
+      resetKnown: !!s.accounts[s.email.trim().toLowerCase()],
+      resetUnknown: !s.accounts[s.email.trim().toLowerCase()],
+      resetResendLabel: s.resetResent ? 'Sent again' : 'Send another reset link',
+      resendReset: () => self.setState({ resetResent: true }),
+      resetLabel: s.busy ? 'Saving…' : 'Save new password',
+      submitReset: (e) => {
+        e.preventDefault();
+        if (passwordProblem) { self.focusInvalid = true; self.setState({ tried: true, showPw: false }); return; }
+        self.setState({ busy: true });
+        const key = s.email.trim().toLowerCase();
+        const accounts = Object.assign({}, s.accounts);
+        if (accounts[key]) accounts[key] = Object.assign({}, accounts[key], { password: s.password });
+        self.later(() => { self.focusPassword = true; self.go('signin', { history: [], password: '', accounts: accounts, notice: 'Password changed. Enter your new password below.', noticeAtPassword: true }); });
+      },
+      homeNote: s.homeKind === 'ngo' || s.homeKind === 'volunteer' ? 'Sign-up complete' : 'Signed in',
+      homeTitle: s.homeKind === 'volunteer' || s.homeKind === 'volunteer-return' ? 'Your volunteer profile' : s.homeKind === 'ngo' ? 'Your account is ready' : 'Your projects',
+      homeText: s.homeKind === 'volunteer' || s.homeKind === 'volunteer-return'
+        ? 'Your profile shows your GitHub work. Browse public projects and mark the ones you would like to build.'
+        : s.homeKind === 'ngo'
+          ? 'You are signed in. Next you finish your organisation profile: what it does and where it works.'
+          : 'No projects yet. Start a new project to describe a problem; Discovery then asks you questions about it.',
+      homeWho: s.who,
+      previewEnd: s.homeKind === 'ngo'
+        ? 'End of this preview. In the app, a "Set up organisation profile" button continues to the next screen.'
+        : s.homeKind === 'volunteer' || s.homeKind === 'volunteer-return'
+          ? 'End of this preview. In the app, this is the volunteer profile with a "Browse projects" button.'
+          : 'End of this preview. In the app, this is Your projects with a "Start a new project" button.',
+      signOut: () => self.go('signin', { history: [], password: '', email: '', notice: 'You are signed out.', type: null, terms: false, authority: false, linked: false, orgName: '', title: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

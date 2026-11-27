@@ -332,7 +332,7 @@ lifecycle badges.
 | # | Screen | Purpose & key elements | States | REQ |
 |---|--------|------------------------|--------|-----|
 | 1 | Marketing landing + waitlist | Explain the model honestly (coordination layer, fuel, open source); dual CTAs (NGO / volunteer); allow-list beta → waitlist form | open-beta / waitlist | Promise |
-| 2 | Sign up / log in | Email+password, GitHub, Google. **Volunteer signup requires GitHub link** (imports stats). NGO signup fires the full ToS+Promise acknowledgment (gates project creation; captures name/title/authority) | error, loading, awaiting-email-confirm | REQ-001/007 |
+| 2 | Sign up / log in | Email+password, GitHub, Google. **Volunteer signup requires GitHub link** (imports stats). NGO signup fires the full ToS+Promise acknowledgment (gates project creation; captures name/title/authority). The approved canvas copy is `design/canvas/sign-in/project/` (screen design 2026-11-27: account type first, confirm the email before sign-in, one finish step per account type, Finish later). | error, loading, awaiting-email-confirm | REQ-001/007 |
 | 3 | NGO org profile | Name, mission, country, website, logo. Vetting status display: unverified (10 credits/day, can't publish) vs **founder-vetted** (30/day, can publish+fund). No self-serve doc upload — vetting happens in concierge onboarding | unverified / vetted | REQ-002 |
 | 4 | Volunteer profile | GitHub-imported stats (languages, repos, contributions), skills, causes, availability h/week, optional bio | import loading | REQ-007 |
 

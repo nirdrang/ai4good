@@ -12,6 +12,15 @@
   ],
   "screens": [
     {
+      "id": "sign-in",
+      "title": "Sign-up and sign-in",
+      "canvas": "https://claude.ai/artifact/5coFbSEm9JzWJMiqM3mA5Y",
+      "canvasCopy": "design/canvas/sign-in/project/",
+      "audience": "ngo-and-volunteer",
+      "status": "ready-for-founder-review",
+      "reviewDocument": "design/canvas/sign-in/review.md"
+    },
+    {
       "id": "dashboard",
       "title": "NGO dashboard",
       "source": "ngo-dashboard.html",

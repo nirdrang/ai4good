@@ -1,0 +1,41 @@
+## A. First impression
+
+I thought ai4good was asking me to create an account so Harbor Community Kitchen could get help building software. On my phone, the big heading, roomy buttons and pale background made the form look simple. On my laptop, the green panel explained who the service was for, while the phone screen asked for my details before giving me that same context.
+
+## B. Does not work
+
+1. **My new password failed after sign-up.** On `Main`, I created a nonprofit account, confirmed my email, finished setup and saw “Your account is ready.” I tapped **Sign out** and tried the email and password I’d just entered, all on the same board. I got a mismatch error. The supplied sample password then let me in. [113-phone-created-password-after-sign-out.png](/tmp/claude-0/personas-signin/dana/shots/113-phone-created-password-after-sign-out.png) · [114-phone-sample-password-accepted-after-sign-up.png](/tmp/claude-0/personas-signin/dana/shots/114-phone-sample-password-accepted-after-sign-up.png)
+2. **I couldn’t sign in before confirming my email.** On `Main`, “Check your email” said I could sign in and look around before confirming. I left the confirmation link unopened, tapped **Back**, chose **Sign in** and entered the details I’d just used to create the account. I got a password mismatch instead of being let in or told what was still needed. [102-phone-unconfirmed-email-prompts-sign-in.png](/tmp/claude-0/personas-signin/dana/shots/102-phone-unconfirmed-email-prompts-sign-in.png) · [105-phone-unconfirmed-sign-in-rejected.png](/tmp/claude-0/personas-signin/dana/shots/105-phone-unconfirmed-sign-in-rejected.png)
+3. **A mistyped email sent me looking for a password problem.** On `PhoneSignIn` and `DesktopSignIn`, I entered an email address without an `@`, typed the supplied password and pressed **Sign in**. Both screens suggested resetting my password, cleared it and put me back in the password field. I needed to fix the email. [81-phone-bad-email-treated-as-password-mismatch.png](/tmp/claude-0/personas-signin/dana/shots/81-phone-bad-email-treated-as-password-mismatch.png) · [69-desktop-bad-email-treated-as-password-mismatch.png](/tmp/claude-0/personas-signin/dana/shots/69-desktop-bad-email-treated-as-password-mismatch.png)
+4. **Back silently cleared the password.** On `Main`, I submitted the form, reached “Check your email” and tapped **Back**. My role and email were still there, but the password was blank. I had to remember and type it again to continue. [103-phone-back-before-email-confirmed.png](/tmp/claude-0/personas-signin/dana/shots/103-phone-back-before-email-confirmed.png)
+5. **Changing roles hid a password error I hadn’t fixed.** On `Main`, I submitted a three-character password as a nonprofit and saw a red warning. I switched to volunteer. The same three characters stayed in the field, but the warning disappeared. [50-phone-short-password-error-stays-after-email-edit.png](/tmp/claude-0/personas-signin/dana/shots/50-phone-short-password-error-stays-after-email-edit.png) · [51-phone-switch-to-volunteer-with-invalid-password.png](/tmp/claude-0/personas-signin/dana/shots/51-phone-switch-to-volunteer-with-invalid-password.png)
+
+## C. Usability hints
+
+1. **Say who can see the charity’s information.** On `Desktop`, with the Google sign-up terms expanded, the green panel said our data stayed private to us and our volunteer. The terms also named the ai4good team. Use the same wording in both places, “The software code is public. Your organisation’s private information can be seen by you, your assigned volunteer and the ai4good team.” Link to that explanation from the first phone screen too. [22-desktop-google-full-terms.png](/tmp/claude-0/personas-signin/dana/shots/22-desktop-google-full-terms.png)
+2. **Put the terms before both checkboxes.** On `PhoneFinishNgo`, the box about my authority to agree appeared before the terms, and the full text was tucked behind a small arrow. I scrolled and opened it before ticking either box. I understood that the code would be public under the MIT licence, that there was no promised delivery date or warranty, and that people use individual logins. Put that summary and a prominent **Read the full terms** link above both boxes. Explain what “one account per organisation” means for a second member of staff who needs access. [07-phone-finish-nonprofit-start.png](/tmp/claude-0/personas-signin/dana/shots/07-phone-finish-nonprofit-start.png) · [10-phone-full-terms-and-platform-promise.png](/tmp/claude-0/personas-signin/dana/shots/10-phone-full-terms-and-platform-promise.png)
+3. **Explain the service before asking for an email.** On `Main`, the first phone screen said “Free to join” without saying what I was joining. Replace “Choose who you are first” with “ai4good helps nonprofits find volunteer developers. It’s free to join.” Shorten “A nonprofit (NGO)” to “A nonprofit” so the role cards take up less room. [01-phone-sign-up-start.png](/tmp/claude-0/personas-signin/dana/shots/01-phone-sign-up-start.png)
+4. **Bring the first missing field into view.** On `PhoneFinishNgo`, pressing **Finish sign-up** with required details missing showed some red messages, but the organisation name error was above the screen. Scroll to and focus the first field that needs attention, with its error visible below it. [63-phone-finish-required-fields-rejected.png](/tmp/claude-0/personas-signin/dana/shots/63-phone-finish-required-fields-rejected.png) · [64-phone-finish-organisation-error-above-viewport.png](/tmp/claude-0/personas-signin/dana/shots/64-phone-finish-organisation-error-above-viewport.png)
+5. **Give me somewhere to go when a reset email is slow.** On `PhoneReset`, “Check your email” offered **Back to sign in**, but I couldn’t see how to get another link. Add **Send another reset link** and the hint “It may take a minute. Check your spam folder too.” [83-phone-reset-board-email-sent-state.png](/tmp/claude-0/personas-signin/dana/shots/83-phone-reset-board-email-sent-state.png)
+6. **Make the next step visible after sign-up.** On `Main`, the success screen told me to finish my organisation profile, then said it was “designed in its own canvas.” The only button was **Sign out**. In the live flow, put a **Set up organisation profile** button there. In the preview, say “You’ve reached the end of this sign-up preview.” [16-phone-sign-up-complete.png](/tmp/claude-0/personas-signin/dana/shots/16-phone-sign-up-complete.png)
+
+## D. Works
+
+- The phone confirmation link took me to organisation setup, and finishing showed me signed in as Dana Okonkwo for Harbor Community Kitchen.
+- Google on desktop was quicker. It filled in my name and skipped creating a password and checking email. I could still review the terms before finishing.
+- Phone sign-in rejected my deliberately wrong password and accepted the supplied sample password. Phone reset filled in my email, rejected a short replacement and let me sign in with the new one. The old password failed after the reset.
+- Sign-up flagged empty fields, a malformed email and a short password. I could switch between nonprofit and volunteer, go back to the organisation form without losing the details I’d typed, and get clear feedback when I resent the confirmation email.
+
+## E. If I could change only three things
+
+1. Make the password I choose at sign-up work when I sign back in, and make the email confirmation screen match what I can actually do.
+2. Put the terms before the checkboxes and explain what I’m agreeing to on the charity’s behalf in plain language.
+3. State who can see the charity’s private information before asking me to enter my details.
+
+## F. Scores
+
+- **Looks 8/10.** The headings and buttons were easy to see, though the terms and some important links were easy to miss on my phone.
+- **Clarity 6/10.** I could follow the main route, but the sign-in messages sometimes pointed me toward the wrong fix.
+- **How safe I felt giving my details 4/10.** The conflicting privacy wording and the failure of the password I’d just chosen made me hesitate.
+
+5

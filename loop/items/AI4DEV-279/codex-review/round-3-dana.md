@@ -1,0 +1,44 @@
+## A. First impression
+
+I thought ai4good was offering Harbor Community Kitchen a way to get software built by volunteers. On my phone, the bold heading, pale background and big buttons made the form look approachable, though the page felt crowded once I picked Nonprofit. On my laptop, the dark green panel made it easier to understand the service and see who could access our information.
+
+## B. Does not work
+
+1. **Google sign-in still skips charity setup and consent. Round 2 issue partly fixed.** On `Main` and `PhoneCheck`, opening the email confirmation link now takes me to organisation setup without the Back button I used last round. On `Desktop`, I chose **Nonprofit → Continue with Google**, left the organisation fields and both boxes untouched, clicked **Back**, then chose **Sign in → Sign in with Google**. I landed on **Your projects** for Harbor Community Kitchen. On `Main`, I got the same result by going back from **Check your email** before confirming and choosing **Sign in with Google**. I expected to pick up at **Set up your organisation**. [46-r3-desktop-unfinished-google-setup.png](/tmp/claude-0/personas-signin/dana/shots/46-r3-desktop-unfinished-google-setup.png) · [49-r3-desktop-google-projects-without-consent.png](/tmp/claude-0/personas-signin/dana/shots/49-r3-desktop-google-projects-without-consent.png) · [45-r3-main-google-sign-in-after-unfinished-email-sign-up.png](/tmp/claude-0/personas-signin/dana/shots/45-r3-main-google-sign-in-after-unfinished-email-sign-up.png)
+2. **Trying Google replaced the email I’d already typed.** On `Main`, I chose **Volunteer developer**, typed my work email and a password, tried **Continue with Google**, then tapped **Back** and switched to **Nonprofit**. The form kept my password but replaced my work email with the sample volunteer’s Gmail address. When I tapped **Create account**, the confirmation screen showed the volunteer’s address. I expected Back to restore the email I’d typed. [62-r3-phone-original-email-draft-before-google.png](/tmp/claude-0/personas-signin/dana/shots/62-r3-phone-original-email-draft-before-google.png) · [64-r3-phone-google-back-overwrites-typed-email.png](/tmp/claude-0/personas-signin/dana/shots/64-r3-phone-google-back-overwrites-typed-email.png) · [66-r3-phone-confirmation-address-replaced-by-google.png](/tmp/claude-0/personas-signin/dana/shots/66-r3-phone-confirmation-address-replaced-by-google.png)
+3. **Google sign-up asks me to choose a password.** On `Desktop` and `Main`, I clicked **Continue with Google** before selecting an account type. The screen correctly asked me to pick a role, then also marked the email and password fields red and told me to fill them in. Selecting Nonprofit left those warnings on desktop, even though clicking Google again worked with both fields empty. [19-r3-desktop-google-asks-for-account-type.png](/tmp/claude-0/personas-signin/dana/shots/19-r3-desktop-google-asks-for-account-type.png) · [20-r3-desktop-role-selected-after-google-error.png](/tmp/claude-0/personas-signin/dana/shots/20-r3-desktop-role-selected-after-google-error.png) · [38-r3-phone-google-flags-email-and-password.png](/tmp/claude-0/personas-signin/dana/shots/38-r3-phone-google-flags-email-and-password.png)
+
+### Other round 2 rechecks
+
+- **Fixed — consent carried over when I renamed the charity.** On `PhoneFinishNgo`, I ticked both boxes for Harbor Community Kitchen and changed the name to Harbor Community Pantry. Both ticks cleared, a message explained why, and **Finish sign-up** required me to tick them again. [16-r3-phone-finish-renamed-consents-cleared.png](/tmp/claude-0/personas-signin/dana/shots/16-r3-phone-finish-renamed-consents-cleared.png) · [17-r3-phone-finish-requires-fresh-consent.png](/tmp/claude-0/personas-signin/dana/shots/17-r3-phone-finish-requires-fresh-consent.png)
+- **Fixed — Back made a confirmed email look unconfirmed.** On `Main` and `PhoneCheck`, the confirmed organisation form no longer offers the in-page Back button that returned me to **Check your email** last round. [05-r3-main-confirmed-setup.png](/tmp/claude-0/personas-signin/dana/shots/05-r3-main-confirmed-setup.png) · [11-r3-phone-check-confirmed-no-back.png](/tmp/claude-0/personas-signin/dana/shots/11-r3-phone-check-confirmed-no-back.png)
+
+## C. Usability hints
+
+1. **Give me time to check before I agree.** On `Main`, after confirming my email, I could read the terms but had no visible way to pause if I needed to check my authority with the trustees. Put **Finish later** beside **Finish sign-up** and say, “Your email is confirmed. Sign in when you’re ready to finish setting up your organisation.” [07-r3-main-terms-before-consent.png](/tmp/claude-0/personas-signin/dana/shots/07-r3-main-terms-before-consent.png)
+2. **Show who can see our information before I choose how to sign up.** On `Main`, the privacy note appeared under the email box after I chose Nonprofit, below the Google button. I could have chosen Google before seeing it. Add a **Who can see our information?** link just below the opening paragraph. Use “The software code is public. Your organisation’s private information is visible to you, your assigned volunteer and the ai4good team.” [01-r3-phone-sign-up-start.png](/tmp/claude-0/personas-signin/dana/shots/01-r3-phone-sign-up-start.png) · [02-r3-phone-nonprofit-form.png](/tmp/claude-0/personas-signin/dana/shots/02-r3-phone-nonprofit-form.png)
+3. **Explain how another staff member gets access.** On `PhoneFinishNgo`, “One account per organisation” was near the heading, while “Each person signs in with their own account” was down in the terms summary. I couldn’t tell what a colleague should do. Put the two ideas together under the heading. “Set up your organisation once. Each staff member uses their own sign-in.” Add a **Join an existing organisation** link that explains how to get access. [12-r3-phone-finish-standalone.png](/tmp/claude-0/personas-signin/dana/shots/12-r3-phone-finish-standalone.png)
+4. **Give the phone form more room.** On `Main`, picking Nonprofit left the bottom of **Create account** below the edge of my screen. There were three **Sign in** links, including one that wrapped onto a line by itself near the top. Keep the header link, remove the other two, and tighten the space between the role cards and the Google button. [01-r3-phone-sign-up-start.png](/tmp/claude-0/personas-signin/dana/shots/01-r3-phone-sign-up-start.png) · [02-r3-phone-nonprofit-form.png](/tmp/claude-0/personas-signin/dana/shots/02-r3-phone-nonprofit-form.png)
+5. **Take me straight to the new password field.** On `PhoneReset`, the green confirmation told me to use my new password, but Google and GitHub were the first two buttons underneath it. Put “Password changed. Enter your new password below.” directly above the password field and move the cursor there. [34-r3-phone-password-changed.png](/tmp/claude-0/personas-signin/dana/shots/34-r3-phone-password-changed.png)
+
+## D. Works
+
+- I read the terms before ticking either box. I understood that the code would be public under the MIT licence, there was no guarantee of delivery or warranty, and staff use individual logins. I finished sign-up as Dana Okonkwo for Harbor Community Kitchen and signed back in on the same board with the password I’d chosen.
+- Google was quicker on desktop once I chose Nonprofit. It filled in my name, skipped the email confirmation and password steps, and let me review the terms before finishing.
+- On the phone, one wrong password was rejected and the correct one let me in. The button stayed in place while I retried. **Forgot password?** carried my email into the reset form.
+- The phone reset let me resend the link, rejected a short password, accepted the new one and rejected the old one. The desktop reset also let me sign in with the replacement.
+- Email sign-up flagged blanks, a missing `@` and a short password. Switching roles kept the warnings, and going Back before confirming kept the details I’d entered.
+
+## E. If I could change only three things
+
+1. Let me pause before agreeing and send me back to organisation setup whenever I sign in with it unfinished.
+2. Restore the email I typed if I back out of Google sign-up.
+3. Put the privacy explanation where I can see it before choosing how to sign up.
+
+## F. Scores
+
+- **Looks 8/10.** The headings and buttons were easy to read, and the phone form could use some of the space taken up by repeated links.
+- **Clarity 7/10.** I could follow the main steps, but the Google warnings made me think I needed to create a password anyway.
+- **How safe I felt giving my details 6/10.** Seeing the terms before agreeing helped, but reaching projects without either tick made me wonder when my agreement actually counted.
+
+3

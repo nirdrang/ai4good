@@ -1,0 +1,47 @@
+## A. First impression
+
+I thought I was signing up to build open-source software for nonprofits in my spare time. The dark green mission panel and light form made the desktop screen feel calm, and the two account types were easy to tell apart. I saw Google and email first, so I only learned that GitHub was required after choosing volunteer.
+
+## B. Does not work
+
+1. **The reset board rejected the password it had just saved. Still fails from round one.** On `DesktopReset`, I requested a reset for my email, opened the preview link, saved a new password, and saw “Password changed.” The sign-in form immediately rejected that same password on the same board. Resetting the account I had created within `Desktop` did let me sign in with the new password. [42-r2-desktop-reset-retry-reports-success.png](/tmp/claude-0/personas-signin/sam/shots/42-r2-desktop-reset-retry-reports-success.png), [43-r2-desktop-reset-fresh-password-rejected.png](/tmp/claude-0/personas-signin/sam/shots/43-r2-desktop-reset-fresh-password-rejected.png), [76-r2-desktop-existing-account-new-password-result.png](/tmp/claude-0/personas-signin/sam/shots/76-r2-desktop-existing-account-new-password-result.png)
+2. **Browser Back left sign-up. Still fails from round one.** I opened `Desktop` after `DesktopReset`, chose volunteer, and continued with GitHub. From **Review and finish**, browser Back took me to the reset board. I expected it to return me to the previous sign-up step. [45-r2-desktop-before-browser-back.png](/tmp/claude-0/personas-signin/sam/shots/45-r2-desktop-before-browser-back.png), [46-r2-desktop-after-browser-back.png](/tmp/claude-0/personas-signin/sam/shots/46-r2-desktop-after-browser-back.png)
+3. **The on-screen Back asked me to confirm my email again. New.** On `Desktop`, I confirmed my email, linked GitHub, then clicked **Back** from **Review and finish**. The screen told me to check my email again. I had to reopen the preview confirmation link to get back to the review screen, which still showed my email confirmed and GitHub linked. [65-r2-desktop-on-screen-back-after-linking.png](/tmp/claude-0/personas-signin/sam/shots/65-r2-desktop-on-screen-back-after-linking.png), [66-r2-desktop-confirmation-reopened-after-linking.png](/tmp/claude-0/personas-signin/sam/shots/66-r2-desktop-confirmation-reopened-after-linking.png)
+4. **Escape left the password visible. Still fails from round one.** On `Desktop`, I tabbed to **Show**, pressed Space, then pressed Escape while **Hide** had focus. The password stayed visible until I pressed Space again. [52-r2-desktop-keyboard-after-escape.png](/tmp/claude-0/personas-signin/sam/shots/52-r2-desktop-keyboard-after-escape.png)
+
+**Round-one issues now fixed**
+
+- **Late GitHub warning.** On `Desktop`, selecting volunteer disclosed which public data the site reads, who sees it, and that the link is permanent before I clicked **Continue with GitHub**. [02-r2-desktop-volunteer-selected.png](/tmp/claude-0/personas-signin/sam/shots/02-r2-desktop-volunteer-selected.png)
+- **Mixed messages about signing in before confirmation.** On `Desktop`, I left the confirmation link unopened and tried signing in. The screen told me to confirm my email and offered to resend the link. [57-r2-desktop-unconfirmed-email-keyboard.png](/tmp/claude-0/personas-signin/sam/shots/57-r2-desktop-unconfirmed-email-keyboard.png), [61-r2-desktop-unconfirmed-sign-in-result.png](/tmp/claude-0/personas-signin/sam/shots/61-r2-desktop-unconfirmed-sign-in-result.png)
+- **Reading the Terms checked the agreement box.** On `PhoneFinishVolunteer`, I tapped the new **Read the Terms and Platform Promise** row. The terms opened and the checkbox stayed clear. [26-r2-phone-terms-and-unchecked-agreement.png](/tmp/claude-0/personas-signin/sam/shots/26-r2-phone-terms-and-unchecked-agreement.png)
+- **The next password attempt was visible.** On `DesktopReset`, I showed a wrong password and submitted it. The form cleared the field, and the next password I typed was masked. [37-r2-desktop-reset-new-password-retry-masked.png](/tmp/claude-0/personas-signin/sam/shots/37-r2-desktop-reset-new-password-retry-masked.png)
+- **Choosing a role cleared unrelated errors.** On `Desktop`, I submitted the blank form and selected volunteer. The role error cleared, and both empty fields kept their messages. [50-r2-desktop-keyboard-role-corrected.png](/tmp/claude-0/personas-signin/sam/shots/50-r2-desktop-keyboard-role-corrected.png)
+
+## C. Usability hints
+
+1. **Give me control over the GitHub link.** On `Desktop` with volunteer selected and on `DesktopFinishVolunteer` before linking, the site says it reads my public handle, top languages, public repository count, and contributions, and shows them to nonprofits. It says the connection is permanent, and I found no way to unlink. Clicking **Continue with GitHub** took me straight to a linked state in the preview, so I could verify the disclosure but couldn’t verify the live OAuth scopes. Add a **Review GitHub access** step with the exact requested permissions and a **Cancel** action. Put **Disconnect GitHub** in account settings and explain which profile details it removes. [02-r2-desktop-volunteer-selected.png](/tmp/claude-0/personas-signin/sam/shots/02-r2-desktop-volunteer-selected.png), [04-r2-desktop-github-finish.png](/tmp/claude-0/personas-signin/sam/shots/04-r2-desktop-github-finish.png), [80-r2-desktop-standalone-volunteer-github-disclosure.png](/tmp/claude-0/personas-signin/sam/shots/80-r2-desktop-standalone-volunteer-github-disclosure.png)
+2. **Let email volunteers finish with email.** On `Desktop`, I created a password, confirmed my email, and accepted the agreement. **Finish sign-up** still stopped me at GitHub. The warning told me this would happen, but the email route felt like extra work before I could see what projects were available. Let volunteers finish and browse, then say “Connect GitHub to start work on this project” when they choose a project that needs it. [08-r2-desktop-email-sign-up.png](/tmp/claude-0/personas-signin/sam/shots/08-r2-desktop-email-sign-up.png), [12-r2-desktop-email-blocked-without-github.png](/tmp/claude-0/personas-signin/sam/shots/12-r2-desktop-email-blocked-without-github.png)
+3. **Show the action I can take now.** On `PhoneFinishVolunteer` before linking, the outlined **Finish sign-up** still looked clickable and ready. On `Main` after linking, the heading says **Review and finish**, but the paragraph underneath still says I need a GitHub account. Reveal **Finish sign-up** after linking and change the paragraph to “Read the Terms and Platform Promise, then finish sign-up.” [24-r2-phone-standalone-finish-before-terms.png](/tmp/claude-0/personas-signin/sam/shots/24-r2-phone-standalone-finish-before-terms.png), [20-r2-phone-github-finish.png](/tmp/claude-0/personas-signin/sam/shots/20-r2-phone-github-finish.png)
+4. **Keep the form and Sign in easy to find.** On `Main` at 390 × 844, choosing volunteer pushed the password input and **Create account** below the fold. The GitHub notice was five lines of small text, with permanence at the very end. Shorten the role descriptions and give “GitHub is required for volunteers. The link is permanent.” its own bold line above the data details. On `Desktop` at 1280 × 900, the same selection pushed **Sign in** below the fold. Move it next to **Create your account**. [18-r2-phone-volunteer-selected.png](/tmp/claude-0/personas-signin/sam/shots/18-r2-phone-volunteer-selected.png), [02-r2-desktop-volunteer-selected.png](/tmp/claude-0/personas-signin/sam/shots/02-r2-desktop-volunteer-selected.png)
+5. **Put keyboard focus on the first thing I need to fix.** On `Desktop`, submitting the blank form focused Email even though the missing account type appeared first. Focus the first role option when the role is missing and associate the message “Choose an account type to continue” with that group. [49-r2-desktop-keyboard-empty-submit.png](/tmp/claude-0/personas-signin/sam/shots/49-r2-desktop-keyboard-empty-submit.png)
+
+## D. Works
+
+- GitHub sign-up reached my signed-in volunteer profile on desktop and phone. **Sign in with GitHub** worked on both dedicated sign-in boards.
+- Email confirmation and resend worked in the preview. After linking GitHub and finishing, I could sign out and sign back in with the password I created.
+- Tab showed a visible focus ring. Arrow keys switched roles without losing my inputs. Enter submitted the form and opened the Terms reader, and Space toggled the agreement and Show/Hide controls.
+- Empty and malformed inputs got specific messages. The phone finishing step told me what I needed to do when I submitted without agreeing.
+
+## E. If I could change only three things
+
+1. Let volunteers review the exact GitHub permissions before approving them and disconnect later.
+2. Let email volunteers finish sign-up and browse before asking them to link GitHub.
+3. Make browser Back and on-screen Back return to a sensible step and remember what I’ve already confirmed.
+
+## F. Scores
+
+- **Looks · 8/10.** The green and navy palette and readable type made the screens feel calm, though the volunteer form gets crowded on the phone.
+- **Clarity · 7/10.** I knew before choosing a sign-up method that GitHub was required, but going Back made it look like I needed to confirm my email again.
+- **Safety · 6/10.** I could see what the site said it would share before linking, but a permanent connection and permissions I couldn’t verify would make me hesitate.
+
+4
