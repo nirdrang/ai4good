@@ -269,7 +269,7 @@ export function prdPort(projectId: string): PrdPort {
       }
 
       function enqueue(sequence?: number) {
-        const run = chain.then(() => deliver(sequence));
+        const run = chain.then(() => installLatest(sequence));
         chain = run.then(
           () => undefined,
           () => undefined,
@@ -277,7 +277,7 @@ export function prdPort(projectId: string): PrdPort {
         return run;
       }
 
-      async function deliver(sequence?: number) {
+      async function installLatest(sequence?: number) {
         if (stopped || (sequence !== undefined && sequence <= installed)) return;
         const read = await readSnapshot(installed < 0 ? undefined : installed);
         if (stopped || read.kind !== "snapshot" || read.snapshot.sequence <= installed) return;
