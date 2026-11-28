@@ -10,5 +10,4 @@ atTest('AT-003.22', 'empty, spaces-only, too long or missing urgency stops at th
 atTest('AT-003.23', 'contact details block posting and a name only warns', pendingUntilBuilt('AT-003.23'));
 atTest('AT-003.24', 'the preview shows the exact public card and needs the confirmation', pendingUntilBuilt('AT-003.24'));
 atTest('AT-003.25', 'posting opens Discovery and the card leads the public list', pendingUntilBuilt('AT-003.25'));
-atTest('AT-003.26', 'a member without the admin role sees who can start a project', pendingUntilBuilt('AT-003.26'));
 atTest('AT-003.27', 'phone sizes, the Account dialog keyboard and signed-out visitors', pendingUntilBuilt('AT-003.27'));

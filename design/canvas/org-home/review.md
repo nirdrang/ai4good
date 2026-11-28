@@ -102,5 +102,5 @@ Calls 1 to 5 went into the REQ-002 text (decision d108), with the single-seat ru
 
 - What happens to the public intake card of a project Discovery declined is not defined: it belongs to the project lifecycle requirement (REQ-005.5), which is parked.
 - The edge function that returns the caller's own organisations is a screen wiring task (it is in the wiring item's text).
-- The intake design (merged) still shows a member without the admin role (AT-003.26). With the single-seat ruling, that test should also wait for the multi-member roadmap item; that is outside this pull request.
+- The intake canvas still has its member boards; its member test AT-003.26 is retired in this pull request under the same ruling, and screen build of the intake screen skips the member notice.
 - The founder has not seen the boards. Screen status is `ready-for-founder-review` in `design/astra/screens.json` (the "My projects" screen).
