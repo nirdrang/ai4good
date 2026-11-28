@@ -222,6 +222,10 @@ For `Fast compact`, the answer itself proves the plugin's state: it begins with 
 only when the plugin is loaded. Say in one line which holds: "The fast compact plugin is loaded:
 it compacts now and starts the next unit." or "The fast compact plugin is not loaded in this
 session, so nothing will compact: type /compact." For `Run /compact`, say "Type /compact."
+On a card gate the proof is different, and nobody types: the plugin is loaded when the card's
+answer arrives with the plugin's note "The fast compact gate compacts this session when this
+turn ends", and it then compacts for both compact options. Without that note, say in the
+thread that the plugin is not loaded and nothing will compact, and continue with the next unit.
 Send lookups that do not depend on each other together in one message. Each message is one
 step, and each step re-reads the whole conversation.
 Send a question whose answer is a fact or a short list to a subagent: where something is,
