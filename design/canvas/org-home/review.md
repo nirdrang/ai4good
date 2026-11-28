@@ -1,7 +1,7 @@
 # Create organization and home: review record
 
 Requirement: REQ-002 (with REQ-001 for sign-up and the admin role, and REQ-003 for the project cards). Screen: the organisation profile page after sign-up, its edit form, and Your projects, the NGO home, on a phone (390 by 844) and on desktop (1280 by 900).
-Canvas: https://claude.ai/artifact/G9FSxzJchMr81p7Xf2NXux, version 13.
+Canvas: https://claude.ai/artifact/G9FSxzJchMr81p7Xf2NXux, version 14.
 Copy for screen build: `design/canvas/org-home/project/` (all boards and `canvas.json`). The canvas player (`support.js`) is not committed.
 
 ## How this design was made
@@ -28,7 +28,7 @@ Sample: Dana Okonkwo, admin of Harbor Community Kitchen, United Kingdom, harbork
 6. Your projects shows the organisation card (logo or initials, name, country, website, what it does, and the vetting state "Not vetted yet" or "founder-vetted" with one line on what it means), then the projects. Each project card has its stage, one line on what happens next, and one next action. Projects that need the admin come first: the Discovery chat, then the draft, then the brief, then the declined project. A declined project explains why and what to try next in a disclosure.
 7. With a draft, "Start a new project" hides and a line under the heading says to post or discard the draft first. Discard asks first (the intake design's confirmation).
 8. Going back from a project, a public card or the public list returns to the same scroll position with focus on the button that was pressed.
-9. Edit profile (on the organisation card or in the Account dialog) opens the form with the saved values. Save returns to the screen the admin came from, Your projects or another screen, with "Profile changes saved." Cancel or Back after a change asks "Discard your changes?" with focus on Keep editing, which returns focus to the button that was pressed; the save button hides until the admin answers. With unsaved changes, the Account dialog says that signing out drops them and opens with focus on Close, not Sign out. Without a change, cancel leaves at once.
+9. Edit profile (on the organisation card or in the Account dialog) opens the form with the saved values. Save returns to the screen the admin came from, Your projects or another screen, with "Profile changes saved." Cancel or Back after a change asks "Discard your changes?" with focus on Keep editing, which returns focus to the button that was pressed; the save button hides until the admin answers. With unsaved changes, the Account dialog says that signing out drops them, its buttons read "Discard changes and sign out" and "Keep editing", and focus starts on Keep editing. Without a change, cancel leaves at once.
 10. A member without the admin role sees the organisation card without Edit, no draft, the projects with what they can read, and a notice naming the admin with an email link. The Account dialog has no Organisation profile button for a member; on the profile form itself it says the admin is already on that page.
 11. Account opens a dialog with the person's name, email, organisation, role, Sign out and Close. Focus moves into it, Tab stays inside (also after a click on its text), Escape closes it. Signed out, the page shows no organisation name and offers Sign in.
 12. Every control is at least 44 px high, and nothing scrolls sideways at 390 px, even with a 120-character name.
@@ -51,7 +51,7 @@ Each persona drove the canvas boards, served locally with the canvas player, wit
 | 6 | 7, 8, 7 | 6, 7, 7 | 7, 7, 8 | 2, 0, 2 | Moving to a field from the error summary, or showing a logo error, scrolled the whole board and hid the header; now only the page body scrolls. Maya's other point, that the email link to the admin opened nothing, is the test browser having no email app |
 | 7 | 8, 8, 8 | 7, 7, 7 | 7, 7, 7 | 2, 0, 2 | The past Discovery chat and the brief placeholders say who reads them (admin and members) and that the declined chat takes no new answers; Keep editing after the header Back returns to the place in the form where the admin was |
 | 8 | 8, 8, 8 | 7, 7, 7 | 7, 7, 7 | 1, 0, 2 | The country list is the full list of countries (Lee could not choose Belgium from the short sample); with unsaved changes the Account dialog opens on Close, and Sign out names the warning for screen readers. Maya's one point was again the email link in a browser with no email app |
-
+| 9 | 8, –, 8 | 7, –, 7 | 7, –, 8 | 2, –, 2 | Sign out with unsaved changes now reads "Discard changes and sign out" beside "Keep editing"; opening the decline reason near the bottom of the screen scrolls it into view; Your projects in the header, pressed on Your projects, goes back to the top. Omar did not run: the Gemini account's quota was used up |
 
 ## Adversarial review before the pull request
 

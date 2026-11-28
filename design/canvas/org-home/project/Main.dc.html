@@ -668,8 +668,8 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
           <sc-if value="{{dirtyForm}}" hint-placeholder-val="{{ false }}"><span id="account-unsaved-note" data-testid="account-unsaved-note" style="font-size:14px;line-height:20px;color:#7f1d1d">Signing out now discards the changes you have not saved.</span></sc-if>
           <sc-if value="{{onForm}}" hint-placeholder-val="{{ false }}"><span data-testid="account-on-profile" style="font-size:14px;line-height:20px;color:#475569">{{onFormText}}</span></sc-if>
         </sc-if>
-        <button type="button" data-testid="account-sign-out" onClick="{{signOut}}" aria-describedby="{{signOutDescribedBy}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">Sign out</button>
-        <button type="button" data-testid="account-close" onClick="{{closeAccount}}" style="height:44px;padding:0 14px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Close</button>
+        <button type="button" data-testid="account-sign-out" onClick="{{signOut}}" aria-describedby="{{signOutDescribedBy}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">{{signOutText}}</button>
+        <button type="button" data-testid="account-close" onClick="{{closeAccount}}" style="height:44px;padding:0 14px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">{{closeText}}</button>
       </div>
     </div>
   </sc-if>
@@ -821,7 +821,7 @@ class Component extends DCLogic {
         isDraft: p.stage === 'draft', isDeclined: p.stage === 'declined',
         hasCard: p.stage === 'discovery' || p.stage === 'brief',
         setDecline: (el) => { if (el && el.open !== !!this.state.declineOpen) el.open = !!this.state.declineOpen; },
-        declineToggle: (e) => { const o = e.currentTarget.open; if (o !== !!this.state.declineOpen) this.setState({ declineOpen: o }); },
+        declineToggle: (e) => { const d = e.currentTarget, o = d.open; if (o && d.contains(document.activeElement) && this.refs2.body && d.getBoundingClientRect().bottom > this.refs2.body.getBoundingClientRect().bottom) this.reveal(d); if (o !== !!this.state.declineOpen) this.setState({ declineOpen: o }); },
         cardLabel: 'View the public card for ' + p.title,
         confirming,
         showActions: !confirming,
@@ -868,7 +868,7 @@ class Component extends DCLogic {
       showBack: signedIn && (view === 'edit' || view === 'stub'),
       backLabel: 'Back to Your projects',
       goBack: () => { if (s.view === 'edit') { this.cancelOrigin = 'back'; this.cancelEdit(); } else this.backHome(); },
-      goHome: () => this.go('home', { stub: null, savedBanner: '' }),
+      goHome: () => { if (this.state.view === 'home' && !this.state.signedOut) { if (this.refs2.body) this.refs2.body.scrollTop = 0; if (this.refs2.heading) this.refs2.heading.focus({ preventScroll: true }); return; } this.go('home', { stub: null, savedBanner: '' }); },
       backHomeFromStub: () => this.backHome(),
       openPublicList: () => { this.remember(null); this.fromNav = true; this.go('stub', { stub: 'list' }); },
       viewForm: onForm, viewHome: view === 'home', viewStub: view === 'stub', viewSignedOut: view === 'out',
@@ -940,6 +940,8 @@ class Component extends DCLogic {
       personEmail: member ? 'sam@harborkitchen.org.uk' : 'dana@harborkitchen.org.uk',
       roleLine: orgName + ' · ' + (member ? 'Member' : 'Admin'),
       dirtyForm: onForm && this.dirty(),
+      signOutText: onForm && this.dirty() ? 'Discard changes and sign out' : 'Sign out',
+      closeText: onForm && this.dirty() ? 'Keep editing' : 'Close',
       signOutDescribedBy: onForm && this.dirty() ? 'account-unsaved-note' : '',
       notConfirmingCancel: !s.confirmingCancel,
       onForm, notOnForm: !onForm, onFormText: view === 'setup' ? 'You are finishing the organisation profile on this page.' : 'You are editing the organisation profile on this page.',
