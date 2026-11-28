@@ -32,7 +32,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
   <header style="{{headerStyle}}">
     <sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}">
       <span style="flex:0 0 auto;font-size:16px;font-weight:700;letter-spacing:.02em;color:#166534">ai4good</span>
-      <sc-if value="{{signedIn}}" hint-placeholder-val="{{ true }}"><span style="flex:0 0 auto;font-size:14px;color:#475569">{{orgLabel}}</span></sc-if>
+      <sc-if value="{{signedIn}}" hint-placeholder-val="{{ true }}"><span style="flex:0 1 auto;min-width:0;font-size:14px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{orgLabel}}</span></sc-if>
       <nav aria-label="Main" style="flex:1;display:flex;gap:6px;margin-left:16px">
         <sc-if value="{{showNav}}" hint-placeholder-val="{{ true }}">
           <button type="button" data-testid="nav-projects" onClick="{{goHome}}" disabled="{{busy}}" aria-current="{{navHomeCurrent}}" style="{{navHomeStyle}}">Your projects</button>
@@ -182,7 +182,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
               <span id="org-logo-hint" style="font-size:14px;line-height:20px;color:#475569">PNG, JPEG or WebP, up to 2 MB. A square image looks best. Without a logo, your initials show.</span>
               <sc-if value="{{logoError}}" hint-placeholder-val="{{ false }}">
                 <span id="org-logo-error" data-testid="org-logo-error" ref="{{setLogoError}}" style="font-size:14px;line-height:20px;color:#b91c1c;font-weight:600">{{logoErrorText}}</span>
-                
+
               </sc-if>
             </div>
 
@@ -404,6 +404,9 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
       </sc-if>
 
       <sc-if value="{{viewStub}}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{savedBanner}}" hint-placeholder-val="{{ false }}">
+          <div data-testid="profile-saved-banner" role="status" style="margin-bottom:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;font-size:15px;line-height:22px;color:#14532d">✓ {{savedText}}</div>
+        </sc-if>
         <div data-testid="next-screen" style="background:#ffffff;border:1px dashed #64748b;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px">
           <span style="font-size:13px;font-weight:600;color:#475569">Another canvas</span>
           <h1 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:22px;line-height:28px;font-weight:700">{{stubTitle}}</h1>
@@ -425,7 +428,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
 
   <sc-if value="{{account}}" hint-placeholder-val="{{ false }}">
     <div onClick="{{closeAccount}}" style="position:absolute;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:flex-start;justify-content:flex-end;padding:{{dialogPad}}">
-      <div data-testid="account-dialog" ref="{{setDialog}}" role="dialog" aria-modal="true" aria-labelledby="account-title" onClick="{{stop}}" onKeyDown="{{dialogKeys}}" style="{{dialogStyle}}">
+      <div data-testid="account-dialog" ref="{{setDialog}}" role="dialog" aria-modal="true" aria-labelledby="account-title" tabindex="-1" onClick="{{stop}}" onKeyDown="{{dialogKeys}}" style="{{dialogStyle}}">
         <h2 id="account-title" style="margin:0;font-size:18px;font-weight:700">Account</h2>
         <div style="display:flex;flex-direction:column;gap:2px;font-size:15px;line-height:22px">
           <span style="font-weight:600">{{personName}}</span>
@@ -513,8 +516,8 @@ class Component extends DCLogic {
   websiteOk(w) {
     const t = w.trim();
     if (!t) return true;
-    const host = t.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/^www\./i, '');
-    return !/\s/.test(t) && /^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(host);
+    const host = t.replace(/^https?:\/\//i, '').replace(/[/?#].*$/, '').replace(/:\d+$/, '').replace(/^www\./i, '');
+    return !/\s/.test(t) && /^([\p{L}\p{N}-]+\.)+(\p{L}{2,}|xn--[a-z0-9-]+)$/iu.test(host);
   }
   problems() {
     const s = this.state;
@@ -528,8 +531,8 @@ class Component extends DCLogic {
     return p;
   }
   initialsOf(n) {
-    const words = n.trim().split(/\s+/).filter((w) => /^[A-Za-z0-9]/.test(w));
-    return words.slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+    const words = n.trim().split(/\s+/).filter((w) => /^[\p{L}\p{N}]/u.test(w));
+    return words.slice(0, 2).map((w) => Array.from(w)[0].toUpperCase()).join('');
   }
   dirty() {
     const s = this.state, v = s.saved;
@@ -617,10 +620,10 @@ class Component extends DCLogic {
       list: ['The public project list', 'Here anyone can see every posted project card. It is designed on the Project intake canvas.']
     };
     const stub = stubs[s.stub] || stubs.list;
-    const vettingText = s.vetted ? 'Founder-vetted' : 'Not vetted yet';
+    const vettingText = s.vetted ? 'founder-vetted' : 'Not vetted yet';
     return {
       pinRoot: (e) => { if (e.currentTarget.scrollTop) e.currentTarget.scrollTop = 0; },
-      rootStyle: 'position:relative;width:' + (desktop ? '1280px;height:900px' : '390px;height:844px') + ';display:flex;flex-direction:column;font-family:Inter,system-ui,sans-serif;color:#0f172a;background:#f8fafc;overflow:hidden',
+      rootStyle: 'position:relative;width:' + (desktop ? '1280px;height:900px' : '390px;height:844px') + ';display:flex;flex-direction:column;overflow-wrap:anywhere;font-family:Inter,system-ui,sans-serif;color:#0f172a;background:#f8fafc;overflow:hidden',
       headerStyle: 'flex:0 0 auto;display:flex;align-items:center;gap:' + (desktop ? '12px;height:64px;padding:0 32px' : '10px;height:60px;padding:0 12px') + ';background:#ffffff;border-bottom:1px solid #e2e8f0',
       colStyle: desktop ? 'box-sizing:border-box;max-width:1040px;margin:0 auto;padding:32px 32px 48px' : 'box-sizing:border-box;padding:16px 16px 32px',
       formLayout: desktop ? 'display:flex;gap:32px;align-items:flex-start' : 'display:flex;flex-direction:column',
@@ -688,7 +691,7 @@ class Component extends DCLogic {
       orgName, orgMission: v.mission, orgCountry: v.country, orgWebsite: v.website,
       hasWebsite: !!site, websiteHref: /^https?:\/\//i.test(site) ? site : 'https://' + site,
       notVetted: !s.vetted, vettingText, vettingChip: 'align-self:flex-start;font-size:13px;font-weight:600;border-radius:999px;padding:2px 10px;' + (s.vetted ? 'color:#14532d;background:#dcfce7' : 'color:#334155;background:#e2e8f0'),
-      vettingExplain: s.vetted ? 'The ai4good team vetted your organisation on a call. Volunteers see "Founder-vetted" on your cards.' : 'You can start projects and use Discovery now. The ai4good team will email you to arrange a short call to vet your organisation.',
+      vettingExplain: s.vetted ? 'The ai4good team vetted your organisation on a call. Volunteers see "founder-vetted" on your cards.' : 'You can start projects and use Discovery now. The ai4good team will email you to arrange a short call to vet your organisation.',
       openEdit: () => this.toEdit('home'),
       isAdmin, isMember: member,
       showEmpty: s.projects.length === 0,
@@ -706,16 +709,16 @@ class Component extends DCLogic {
       stop: (e) => e.stopPropagation(),
       dialogKeys: (e) => this.dialogKeys(e),
       dialogPad: desktop ? '72px 32px' : '68px 12px',
-      dialogStyle: 'box-sizing:border-box;width:' + (desktop ? '320px' : '100%') + ';background:#ffffff;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 32px rgba(15,23,42,.25)',
+      dialogStyle: 'outline:none;box-sizing:border-box;width:' + (desktop ? '320px' : '100%') + ';background:#ffffff;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 32px rgba(15,23,42,.25)',
       personName: member ? 'Sam Patel' : 'Dana Okonkwo',
       personEmail: member ? 'sam@harborkitchen.org.uk' : 'dana@harborkitchen.org.uk',
       roleLine: orgName + ' · ' + (member ? 'Member' : 'Admin'),
       dirtyForm: onForm && this.dirty(),
       notConfirmingCancel: !s.confirmingCancel,
       onForm, notOnForm: !onForm, onFormText: view === 'setup' ? 'You are finishing the organisation profile on this page.' : 'You are editing the organisation profile on this page.',
-      accountToEdit: () => this.toEdit(s.view === 'stub' ? 'home' : s.view),
+      accountToEdit: () => this.toEdit(s.view),
       signOut: () => { const v = this.state.saved; this.dialogFocused = false; this.setState({ signedOut: true, account: false, confirmKey: null, confirmingCancel: false, discarded: false, savedBanner: '', tried: false, logoError: '', name: v.name, mission: v.mission, country: v.country, website: v.website, logo: v.logo }); },
-      signIn: () => this.setState({ signedOut: false })
+      signIn: () => this.go(this.state.saved.mission ? 'home' : 'setup', { signedOut: false, stub: null, savedBanner: '' })
     };
   }
   trySave() {
@@ -747,7 +750,7 @@ class Component extends DCLogic {
     if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { this.scrollLogoError = true; this.setState({ logoError: 'Choose a PNG, JPEG or WebP image. "' + f.name + '" is not one.' }); return; }
     if (f.size > 2 * 1024 * 1024) { this.scrollLogoError = true; this.setState({ logoError: 'Choose an image of 2 MB or less. This one is ' + (f.size / 1048576).toFixed(1) + ' MB.' }); return; }
     const r = new FileReader();
-    r.onload = () => this.setState({ logo: r.result, logoError: '' });
+    r.onload = () => { const img = new Image(); img.onload = () => this.setState({ logo: r.result, logoError: '' }); img.onerror = () => { this.scrollLogoError = true; this.setState({ logoError: 'This file is not a picture that can be opened. Choose a PNG, JPEG or WebP image.' }); }; img.src = r.result; };
     r.readAsDataURL(f);
   }
   closeAccount() {
