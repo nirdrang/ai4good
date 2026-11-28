@@ -21,7 +21,7 @@ The review runs three lanes at once, one model each, with the same prompt: the t
    If a Codex or agy lane fails to sign in, follow the sign-in rule of the session banner. Do not drop the lane.
 
 4. Stop the server. Its background task then reports exit code 255; that is expected.
-5. Save the reports as `loop/items/<item>/codex-review/round-<n>-<lane>.md`. Merge their lists into one list for the founder, and mark each defect with the lanes that found it.
+5. Save the reports as `loop/items/<item>/codex-review/round-<n>-<lane>.md`. Merge their lists into one list, and mark each defect with the lanes that found it.
 6. If a lane says it has no browser tool, stop and tell the founder. Do not replace the review with screenshots or with a script run of the board logic.
 
 ## The prompt template
@@ -56,8 +56,8 @@ Give the user a name, a role, and a worry from the PRD. Write each task as a goa
 ## Read the report
 
 - A control that does nothing, or does something wrong, is a defect. Fix it on the canvas.
-- A usability hint is a design choice. The founder accepts or declines it.
-- A finding about a design the founder ruled on goes to the founder. Do not change a ruled design on the agent's word.
+- A usability hint is a design choice. Apply it or decline it with a reason, as `SKILL.md` step 4 says.
+- A finding against a design the founder ruled on goes under Design decisions in the pull request. Do not change a ruled design on the agent's word.
 - A finding that a change on one page did not reach another page is the limit of separate boards, not a defect.
 
 ## What Codex can and cannot do
