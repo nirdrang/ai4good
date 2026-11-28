@@ -30,7 +30,7 @@ On the first screens, 2026-10-01: "the first /design with what we have in the pr
 Other choices, from options the design session gave:
 - A screen is designed on a Claude Design canvas only, not in `design/astra/` (2026-09-30).
 - pstack writes the screen code, and Lovable does not build screens (2026-09-30).
-- poteto-mode does not run screen design (2026-10-01).
+- poteto-mode does not run screen design (2026-10-01). Changed 2026-11-28 after the founder asked "how can we enrich ui design so poteto will induce more steps ?": the skill now runs under poteto-mode's Prototype playbook, adds interrogate after the acceptance tests, deslop and the comment audit before the pull request, and runs the review on three models. The founder's decision steps did not change.
 - The Codex review runs on GPT-6.1 Sol: at `xhigh` from 2026-09-30, at `high` from 2026-10-01.
 
 ## Where each layer of a screen lives

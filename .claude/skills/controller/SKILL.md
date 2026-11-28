@@ -139,6 +139,11 @@ falsely In Progress.
    > The lead merges when CI is green and you say "merge", then hands the board back to
    > `/controller done`.
 
+   In a project thread or a cloud session (`CLAUDE_CODE_REMOTE` is `true`), nobody types in
+   this session's terminal, so a printed instruction stops the item. Invoke
+   `pstack:poteto-mode` with the Skill tool and the argument
+   `Read loop/items/<item>/brief.md and follow it.` instead of printing it.
+
    **An item a project skill claims** (founder 2026-10-01: "Controller on a screen design
    should be able to utilize it without me typing it", and "it shouldn't be explicit
    frontmatter of the ui design should suffice"). Before the hand-over, read the

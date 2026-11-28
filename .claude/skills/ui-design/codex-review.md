@@ -2,23 +2,27 @@
 
 Codex plays the screen's user and operates a local copy of the canvas. It reports what works, what does not work, and usability hints. `SKILL.md` steps 3 and 4 run it.
 
-## The model
+## The models
 
-GPT-6 Astra at `low` effort, by founder ruling on 2026-10-11: "which model are you using this should be astra low". The Codex id is `gpt-6-astra`; the local Codex model list on 2026-10-11 lists `low` for it. Name the model and the effort in every run, so the run does not depend on the local Codex default. Until 2026-10-11 it was GPT-6.1 Sol at `high` (founder, 2026-10-01); to undo, use `-m gpt-6.1-sol -c model_reasoning_effort=high`.
+The review runs three lanes at once, one model each, with the same prompt: the three models of the `interrogate reviewers` row in `.claude/pstack-models.md`. Different models find different defects, and a defect two lanes report is high signal. Name the model and the effort in every run, so the run does not depend on a local default.
 
 ## Run it
 
 1. Download the boards (`project/*.dc.html`) and the canvas player (`artifact-type/dc-runtime.js`) with the Artifact tool. Copy them into one scratch folder, and save the player there as `support.js`, because each board loads `./support.js`. Do not commit the player.
 2. Serve the folder as a background command: `python -m http.server 4390 --bind 127.0.0.1 --directory <folder>`.
-3. Write the prompt file from the template below, and run Codex as a background command:
+3. Write the prompt file from the template below, and start the three lanes as background commands, each with its own empty folder. Each `<model>` and `<effort>` comes from that lane's entry in the sheet row:
 
    ```powershell
-   Get-Content <prompt file> -Raw | codex exec -m gpt-6-astra -c model_reasoning_effort=low --skip-git-repo-check -C <empty folder> -o <report file> -
+   Get-Content <prompt file> -Raw | codex exec -m <model> -c model_reasoning_effort=<effort> -s workspace-write -c sandbox_workspace_write.network_access=true --skip-git-repo-check -C <empty folder> -o <report file> -
+   agy --dangerously-skip-permissions --model <model> -p (Get-Content <prompt file> -Raw) > <report file>
    ```
 
+   The Claude lane is an `Agent` with the `subagent_type` of the native pstack lane for its sheet entry (`pstack:pstack-opus-medium` for `claude:opus@medium`) in the background. Give it the prompt file's text, and tell it to drive the boards with Playwright and to write its final report to its report file.
+   If a Codex or agy lane fails to sign in, follow the sign-in rule of the session banner. Do not drop the lane.
+
 4. Stop the server. Its background task then reports exit code 255; that is expected.
-5. Save the report as `loop/items/<item>/codex-review/round-<n>.md`.
-6. If Codex says it has no browser tool, stop and tell the founder. Do not replace the review with screenshots or with a script run of the board logic.
+5. Save the reports as `loop/items/<item>/codex-review/round-<n>-<lane>.md`. Merge their lists into one list for the founder, and mark each defect with the lanes that found it.
+6. If a lane says it has no browser tool, stop and tell the founder. Do not replace the review with screenshots or with a script run of the board logic.
 
 ## The prompt template
 
