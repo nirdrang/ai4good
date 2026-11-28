@@ -525,19 +525,12 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
                       <a href="{{websiteHref}}" target="_blank" rel="noopener" style="font-size:14px;overflow-wrap:anywhere;min-height:44px;display:inline-flex;align-items:center;align-self:flex-start">{{orgWebsite}}</a>
                     </sc-if>
                     <span style="font-size:14px;line-height:20px;color:#475569">{{vettingExplain}}</span>
-                    <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}">
-                      <button type="button" data-testid="org-edit" onClick="{{openEdit}}" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Edit the profile</button>
-                    </sc-if>
+                    <button type="button" data-testid="org-edit" onClick="{{openEdit}}" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Edit the profile</button>
                   </div>
                 </details>
               </div>
             </sc-if>
 
-            <sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}">
-              <div data-testid="admin-only-notice" style="background:#eff6ff;border:1px solid #93c5fd;border-radius:12px;padding:12px 14px;font-size:15px;line-height:22px;color:#1e3a8a">
-                You are a member of {{orgName}} without the admin role. Only an admin can start a project, continue a Discovery chat or change the profile. Your admin is Dana Okonkwo.<br><a data-testid="admin-email-link" href="mailto:dana@harborkitchen.org.uk" style="color:#1e3a8a;min-height:44px;display:inline-flex;align-items:center;font-weight:600">Email Dana: dana@harborkitchen.org.uk</a>
-              </div>
-            </sc-if>
 
             <sc-if value="{{showEmpty}}" hint-placeholder-val="{{ true }}">
               <div data-testid="projects-empty" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px">
@@ -547,9 +540,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
                   <li>A private chat with the AI asks about it, one step at a time. It is free during the pilot.</li>
                   <li>The chat ends with a brief: what to build and why, ready for a volunteer.</li>
                 </ol>
-                <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}">
-                  <button type="button" data-testid="projects-start-button" onClick="{{startProject}}" style="align-self:flex-start;height:48px;padding:0 20px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Start your first project</button>
-                </sc-if>
+                <button type="button" data-testid="projects-start-button" onClick="{{startProject}}" style="align-self:flex-start;height:48px;padding:0 20px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">Start your first project</button>
               </div>
             </sc-if>
 
@@ -584,7 +575,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
                 </sc-if>
                 <sc-if value="{{p.showActions}}" hint-placeholder-val="{{ true }}">
                   <div style="{{actionsRow}}">
-                    <sc-if value="{{p.showOpen}}" hint-placeholder-val="{{ true }}"><button type="button" data-testid="{{p.openTestid}}" onClick="{{p.open}}" aria-describedby="{{p.headId}}" style="{{p.openStyle}}">{{p.openText}}</button></sc-if>
+                    <button type="button" data-testid="{{p.openTestid}}" onClick="{{p.open}}" aria-describedby="{{p.headId}}" style="{{p.openStyle}}">{{p.openText}}</button>
                     <sc-if value="{{p.isDraft}}" hint-placeholder-val="{{ false }}">
                       <button type="button" data-testid="project-draft-discard" ref="{{p.setDiscard}}" onClick="{{p.askDiscard}}" style="height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Discard draft</button>
                     </sc-if>
@@ -622,9 +613,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
                   <a href="{{websiteHref}}" target="_blank" rel="noopener" style="font-size:14px;overflow-wrap:anywhere;min-height:44px;display:inline-flex;align-items:center;align-self:flex-start">{{orgWebsite}}</a>
                 </sc-if>
                 <span style="font-size:14px;line-height:20px;color:#475569">{{vettingExplain}}</span>
-                <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}">
-                  <button type="button" data-testid="org-edit" onClick="{{openEdit}}" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Edit the profile</button>
-                </sc-if>
+                <button type="button" data-testid="org-edit" onClick="{{openEdit}}" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Edit the profile</button>
               </div>
             </aside>
           </sc-if>
@@ -663,11 +652,9 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
           <span style="color:#475569;overflow-wrap:anywhere">{{personEmail}}</span>
           <span style="color:#475569">{{roleLine}}</span>
         </div>
-        <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}">
-          <sc-if value="{{notOnForm}}" hint-placeholder-val="{{ true }}"><button type="button" data-testid="account-org-profile" onClick="{{accountToEdit}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">Organisation profile</button></sc-if>
+        <sc-if value="{{notOnForm}}" hint-placeholder-val="{{ true }}"><button type="button" data-testid="account-org-profile" onClick="{{accountToEdit}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">Organisation profile</button></sc-if>
           <sc-if value="{{dirtyForm}}" hint-placeholder-val="{{ false }}"><span id="account-unsaved-note" data-testid="account-unsaved-note" style="font-size:14px;line-height:20px;color:#7f1d1d">Signing out now discards the changes you have not saved.</span></sc-if>
           <sc-if value="{{onForm}}" hint-placeholder-val="{{ false }}"><span data-testid="account-on-profile" style="font-size:14px;line-height:20px;color:#475569">{{onFormText}}</span></sc-if>
-        </sc-if>
         <button type="button" data-testid="account-sign-out" onClick="{{signOut}}" aria-describedby="{{signOutDescribedBy}}" style="height:44px;padding:0 14px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;text-align:left">{{signOutText}}</button>
         <button type="button" data-testid="account-close" onClick="{{closeAccount}}" style="height:44px;padding:0 14px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">{{closeText}}</button>
       </div>
@@ -675,7 +662,7 @@ button,a,input,select,textarea,summary,label{scroll-margin:16px}
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"device":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"start":{"editor":"enum","options":["setup","home","edit"],"default":"setup"},"role":{"editor":"enum","options":["admin","member"],"default":"admin"},"$preview":{"width":390,"height":844}}'>
+<script type="text/x-dc" data-dc-script data-props='{"device":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"start":{"editor":"enum","options":["setup","home","edit"],"default":"setup"},"$preview":{"width":390,"height":844}}'>
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -688,7 +675,7 @@ class Component extends DCLogic {
     };
     this.sampleProjects = [
       { key: 'food-donation-log', stage: 'draft', title: 'Food donation log', meta: 'Saved 2 days ago', line: 'Only your organisation\'s admins can see a draft. Nothing is public until you post it. You can work on one draft at a time: post or discard it to start another project.' },
-      { key: 'volunteer-scheduling', stage: 'discovery', title: 'Volunteer scheduling', meta: 'Public card posted 24 November · last reply 2 hours ago', line: 'The AI asked 3 questions that are waiting for your answer.', memberLine: 'The AI asked 3 questions. They are waiting for your admin, Dana Okonkwo.' },
+      { key: 'volunteer-scheduling', stage: 'discovery', title: 'Volunteer scheduling', meta: 'Public card posted 24 November · last reply 2 hours ago', line: 'The AI asked 3 questions that are waiting for your answer.' },
       { key: 'weekly-meal-counts', stage: 'brief', title: 'Weekly meal counts report', meta: 'Discovery finished 12 November', line: 'Your brief is ready. The ai4good team reads every brief and will email you about the next step.' },
       { key: 'client-case-notes', stage: 'declined', title: 'Client case notes', meta: 'Declined 3 November', line: 'Discovery found this is not a fit for a volunteer-built tool.' }
     ];
@@ -777,8 +764,6 @@ class Component extends DCLogic {
     const s = this.state;
     const desktop = (this.props.device ?? 'phone') === 'desktop';
     const phone = !desktop;
-    const member = (this.props.role ?? 'admin') === 'member';
-    const isAdmin = !member;
     const signedIn = !s.signedOut;
     const view = s.signedOut ? 'out' : s.view;
     const onForm = view === 'setup' || view === 'edit';
@@ -809,11 +794,11 @@ class Component extends DCLogic {
     };
     const primary = 'height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer';
     const secondary = 'height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer';
-    const cards = s.projects.filter((p) => isAdmin || p.stage !== 'draft').slice().sort((a, b) => rank[a.stage] - rank[b.stage]).map((p) => {
+    const cards = s.projects.slice().sort((a, b) => rank[a.stage] - rank[b.stage]).map((p) => {
       const confirming = s.confirmKey === p.key;
       const needsYou = p.stage === 'draft' || p.stage === 'discovery';
       return {
-        key: p.key, title: p.title, meta: p.meta, line: member && p.memberLine ? p.memberLine : p.line,
+        key: p.key, title: p.title, meta: p.meta, line: p.line,
         headId: 'project-' + p.key,
         testid: p.stage === 'draft' ? 'project-draft-card' : 'project-card',
         openTestid: { draft: 'project-draft-continue', discovery: 'project-continue-discovery', brief: 'project-read-brief', declined: 'project-read-chat' }[p.stage],
@@ -825,7 +810,6 @@ class Component extends DCLogic {
         cardLabel: 'View the public card for ' + p.title,
         confirming,
         showActions: !confirming,
-        showOpen: isAdmin || p.stage === 'brief' || p.stage === 'declined',
         openText: opens[p.stage][0], openStyle: needsYou ? primary : secondary,
         open: () => { this.remember(p.key, 'open'); this.go('stub', { stub: opens[p.stage][1], stubProject: p.title }); },
         openCard: () => { this.remember(p.key, 'card'); this.go('stub', { stub: 'card', stubProject: p.title }); },
@@ -841,8 +825,8 @@ class Component extends DCLogic {
     const stubs = {
       intake: ['The intake form', 'Here the admin writes the project\'s title, the problem and its urgency, checks the public card and posts it. It is designed on the Project intake canvas.'],
       discovery: ['The Discovery chat', 'Here the admin answers the AI\'s questions and builds the brief. It is designed on the Discovery canvas.'],
-      brief: ['The Discovery brief', 'Here the admin and the members read the finished brief. Nobody needs to change it; the ai4good team reviews it next. It is designed on the Discovery canvas.'],
-      pastChat: ['The past Discovery chat', 'Here the admin and the members read the closed chat. Discovery found this project is not a fit, so the chat takes no new answers. It is designed on the Discovery canvas.'],
+      brief: ['The Discovery brief', 'Here the admin reads the finished brief. Nobody needs to change it; the ai4good team reviews it next. It is designed on the Discovery canvas.'],
+      pastChat: ['The past Discovery chat', 'Here the admin reads the closed chat. Discovery found this project is not a fit, so the chat takes no new answers. It is designed on the Discovery canvas.'],
       card: ['The public project list', 'Here anyone can see the project\'s public card. It is designed on the Project intake canvas.'],
       list: ['The public project list', 'Here anyone can see every posted project card. It is designed on the Project intake canvas.']
     };
@@ -919,13 +903,12 @@ class Component extends DCLogic {
       notVetted: !s.vetted, vettingText, vettingChip: 'align-self:flex-start;font-size:13px;font-weight:600;border-radius:999px;padding:2px 10px;' + (s.vetted ? 'color:#14532d;background:#dcfce7' : 'color:#334155;background:#e2e8f0'),
       vettingExplain: s.vetted ? 'The ai4good team vetted your organisation on a call. Volunteers see "founder-vetted" on your cards.' : 'You can start projects and use Discovery now. The ai4good team will email you to arrange a short call to vet your organisation.',
       openEdit: () => this.toEdit('home'),
-      isAdmin, isMember: member,
       showEmpty: s.projects.length === 0,
       cards,
       showDraftRule: false,
       discardedNote: s.discarded,
-      showNewSecondary: isAdmin && !hasDraft && s.projects.length > 0,
-      showDraftNote: isAdmin && hasDraft, draftTitle: (s.projects.find((p) => p.stage === 'draft') || {}).title || '',
+      showNewSecondary: !hasDraft && s.projects.length > 0,
+      showDraftNote: hasDraft, draftTitle: (s.projects.find((p) => p.stage === 'draft') || {}).title || '',
       startProject: () => { this.remember(null, 'start'); this.go('stub', { stub: 'intake' }); },
       stubTitle: stub[0] + (s.stubProject && s.stub !== 'intake' && s.stub !== 'list' ? ': ' + s.stubProject : ''),
       stubText: stub[1],
@@ -936,9 +919,9 @@ class Component extends DCLogic {
       dialogKeys: (e) => this.dialogKeys(e),
       dialogPad: desktop ? '72px 32px' : '68px 12px',
       dialogStyle: 'outline:none;box-sizing:border-box;width:' + (desktop ? '320px' : '100%') + ';background:#ffffff;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 32px rgba(15,23,42,.25)',
-      personName: member ? 'Sam Patel' : 'Dana Okonkwo',
-      personEmail: member ? 'sam@harborkitchen.org.uk' : 'dana@harborkitchen.org.uk',
-      roleLine: orgName + ' · ' + (member ? 'Member' : 'Admin'),
+      personName: 'Dana Okonkwo',
+      personEmail: 'dana@harborkitchen.org.uk',
+      roleLine: orgName + ' · Admin',
       dirtyForm: onForm && this.dirty(),
       signOutText: onForm && this.dirty() ? 'Discard changes and sign out' : 'Sign out',
       closeText: onForm && this.dirty() ? 'Keep editing' : 'Close',

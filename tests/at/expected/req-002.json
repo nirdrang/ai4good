@@ -38,7 +38,6 @@
         "AT-002.35": {"kind":"pending","phase":"sut-missing"},
         "AT-002.36": {"kind":"pending","phase":"sut-missing"},
         "AT-002.37": {"kind":"pending","phase":"sut-missing"},
-        "AT-002.38": {"kind":"pending","phase":"sut-missing"},
         "AT-002.39": {"kind":"pending","phase":"sut-missing"}
       }
     },
@@ -79,7 +78,6 @@
         "AT-002.35": {"kind":"pending","phase":"sut-missing"},
         "AT-002.36": {"kind":"pending","phase":"sut-missing"},
         "AT-002.37": {"kind":"pending","phase":"sut-missing"},
-        "AT-002.38": {"kind":"pending","phase":"sut-missing"},
         "AT-002.39": {"kind":"pending","phase":"sut-missing"}
       }
     }

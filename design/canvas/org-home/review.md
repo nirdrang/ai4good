@@ -1,7 +1,7 @@
 # Create organization and home: review record
 
 Requirement: REQ-002 (with REQ-001 for sign-up and the admin role, and REQ-003 for the project cards). Screen: the organisation profile page after sign-up, its edit form, and Your projects, the NGO home, on a phone (390 by 844) and on desktop (1280 by 900).
-Canvas: https://claude.ai/artifact/G9FSxzJchMr81p7Xf2NXux, version 14.
+Canvas: https://claude.ai/artifact/G9FSxzJchMr81p7Xf2NXux, version 15.
 Copy for screen build: `design/canvas/org-home/project/` (all boards and `canvas.json`). The canvas player (`support.js`) is not committed.
 
 ## How this design was made
@@ -10,13 +10,12 @@ On 2026-11-27 the founder answered "Yes" to the coordinator's proposal to start 
 
 ## Boards
 
-- `Main.dc.html`: the whole flow in one component, with props `device` (`phone` or `desktop`), `start` (`setup`, `home` or `edit`) and `role` (`admin` or `member`).
+- `Main.dc.html`: the whole flow in one component, with props `device` (`phone` or `desktop`) and `start` (`setup`, `home` or `edit`).
 - `Main` (phone row) and `Desktop`: the profile page right after sign-up, then Your projects with no project.
 - `PhoneHome` / `DesktopHome`: Your projects for a returning admin with four projects, one at each pilot stage.
 - `PhoneEdit` / `DesktopEdit`: the edit form with the saved profile.
-- `PhoneMember` / `DesktopMember`: Your projects for a member without the admin role.
 
-Sample: Dana Okonkwo, admin of Harbor Community Kitchen, United Kingdom, harborkitchen.org.uk; Sam Patel, a member. Projects: Volunteer scheduling (Discovery chat in progress, three questions waiting), Food donation log (draft), Weekly meal counts report (brief ready for review), Client case notes (not a fit). The intake form, the Discovery chat, the brief and the public list have their own canvases; here their buttons open a placeholder.
+Sample: Dana Okonkwo, admin of Harbor Community Kitchen, United Kingdom, harborkitchen.org.uk. The pilot NGO is one account, the admin. Projects: Volunteer scheduling (Discovery chat in progress, three questions waiting), Food donation log (draft), Weekly meal counts report (brief ready for review), Client case notes (not a fit). The intake form, the Discovery chat, the brief and the public list have their own canvases; here their buttons open a placeholder.
 
 ## What the screen does
 
@@ -29,7 +28,7 @@ Sample: Dana Okonkwo, admin of Harbor Community Kitchen, United Kingdom, harbork
 7. With a draft, "Start a new project" hides and a line under the heading says to post or discard the draft first. Discard asks first (the intake design's confirmation).
 8. Going back from a project, a public card or the public list returns to the same scroll position with focus on the button that was pressed.
 9. Edit profile (on the organisation card or in the Account dialog) opens the form with the saved values. Save returns to the screen the admin came from, Your projects or another screen, with "Profile changes saved." Cancel or Back after a change asks "Discard your changes?" with focus on Keep editing, which returns focus to the button that was pressed; the save button hides until the admin answers. With unsaved changes, the Account dialog says that signing out drops them, its buttons read "Discard changes and sign out" and "Keep editing", and focus starts on Keep editing. Without a change, cancel leaves at once.
-10. A member without the admin role sees the organisation card without Edit, no draft, the projects with what they can read, and a notice naming the admin with an email link. The Account dialog has no Organisation profile button for a member; on the profile form itself it says the admin is already on that page.
+10. There is no member view: the founder ruled on 2026-11-28, "Members can wait post pilot", so the pilot NGO is a single admin account. The member boards and acceptance test AT-002.38 were removed after round 9 and the adversarial review, which had covered them.
 11. Account opens a dialog with the person's name, email, organisation, role, Sign out and Close. Focus moves into it, Tab stays inside (also after a click on its text), Escape closes it. Signed out, the page shows no organisation name and offers Sign in.
 12. Every control is at least 44 px high, and nothing scrolls sideways at 390 px, even with a 120-character name.
 
@@ -49,7 +48,7 @@ Each persona drove the canvas boards, served locally with the canvas player, wit
 | 4 | 8, 8, 8 | 7, 7, 7 | 7, 6, 7 | 2, 0, 1 | The Account dialog says the admin is already on the profile page instead of showing a greyed-out button; focus after a public card opened from Your projects (reached through the header) returns to that card; project titles are level-two headings; a line under the heading explains why Start a new project is hidden while a draft exists |
 | 5 | 8, 8, 8 | 7, 6, 7 | 7, 7, 7 | 3, 2, 3 | A refused logo no longer stops the save: the logo the admin had, or the initials, stays, and the banner says the chosen logo was not added (Maya expected to go on, and Lee found the old message pointed at the wrong button); the name, mission and country are marked required; the logo button names its state for screen readers and announces "Logo added"; the save button hides while "Discard your changes?" is open; Sign out warns about unsaved changes and drops them; an old "Draft discarded" line clears when the admin leaves the page |
 | 6 | 7, 8, 7 | 6, 7, 7 | 7, 7, 8 | 2, 0, 2 | Moving to a field from the error summary, or showing a logo error, scrolled the whole board and hid the header; now only the page body scrolls. Maya's other point, that the email link to the admin opened nothing, is the test browser having no email app |
-| 7 | 8, 8, 8 | 7, 7, 7 | 7, 7, 7 | 2, 0, 2 | The past Discovery chat and the brief placeholders say who reads them (admin and members) and that the declined chat takes no new answers; Keep editing after the header Back returns to the place in the form where the admin was |
+| 7 | 8, 8, 8 | 7, 7, 7 | 7, 7, 7 | 2, 0, 2 | The past Discovery chat and the brief placeholders say who reads them and that the declined chat takes no new answers; Keep editing after the header Back returns to the place in the form where the admin was |
 | 8 | 8, 8, 8 | 7, 7, 7 | 7, 7, 7 | 1, 0, 2 | The country list is the full list of countries (Lee could not choose Belgium from the short sample); with unsaved changes the Account dialog opens on Close, and Sign out names the warning for screen readers. Maya's one point was again the email link in a browser with no email app |
 | 9 | 8, –, 8 | 7, –, 7 | 7, –, 8 | 2, –, 2 | Sign out with unsaved changes now reads "Discard changes and sign out" beside "Keep editing"; opening the decline reason near the bottom of the screen scrolls it into view; Your projects in the header, pressed on Your projects, goes back to the top. Omar did not run: the Gemini account's quota was used up |
 
@@ -74,7 +73,7 @@ Not changed:
 
 - Shift+Tab out of "Discard your changes?" closes the question and brings Save back. Leaving the question is an answer of "keep editing", so this stays.
 - d108 builds on d107 (sign-up names the organisation), which is in the sign-in design pull request, not yet merged. This pull request should merge after it; both append to `loop/state/decisions.jsonl` and `design/ui-ux-instructions.md`.
-- Members against the single-seat rule: see Known gaps.
+- Members against the single-seat rule: the founder answered it (see Boards and What the screen does, point 10).
 
 ## Lead calls (under the founder's delegation, for review)
 
@@ -84,10 +83,10 @@ Not changed:
 4. The profile shows beside each project the NGO posts; the admin's own name and email stay private. This makes the profile public where it was not defined before, so AT-002.23 now covers it as part of the project surfaces.
 5. Your projects is the NGO home after every later sign-in, with the organisation card on top and the projects that need the admin first.
 6. The vetting state shows to the admin as "Not vetted yet" or "founder-vetted", with one line: vetting is a short call with the ai4good team, and Discovery works before it.
-7. A member sees the organisation and the projects, can read a finished brief and a past chat, and sees who the admin is; only the admin starts projects, continues Discovery, sees drafts and edits the profile.
+7. (Withdrawn) A member view: the founder ruled that members wait until after the pilot.
 8. A declined project keeps its card on Your projects with the reason and what to try next.
 
-Calls 1 to 5 went into the REQ-002 text (decision d108). The rest stay on the boards.
+Calls 1 to 5 went into the REQ-002 text (decision d108), with the single-seat ruling. The rest stay on the boards.
 
 ## Persona suggestions not taken
 
@@ -103,5 +102,5 @@ Calls 1 to 5 went into the REQ-002 text (decision d108). The rest stay on the bo
 
 - What happens to the public intake card of a project Discovery declined is not defined: it belongs to the project lifecycle requirement (REQ-005.5), which is parked.
 - The edge function that returns the caller's own organisations is a screen wiring task (it is in the wiring item's text).
-- Members: REQ-001 has an admin role and a member role per NGO (AT-001.36), and the intake design shows a member (AT-003.26), but REQ-001 and REQ-002 also say a v1 NGO is a single seat. This design follows the roles and the intake design. If v1 stays single-seat, AT-002.38 should wait for the multi-member roadmap item instead of being part of screen wiring.
+- The intake design (merged) still shows a member without the admin role (AT-003.26). With the single-seat ruling, that test should also wait for the multi-member roadmap item; that is outside this pull request.
 - The founder has not seen the boards. Screen status is `ready-for-founder-review` in `design/astra/screens.json` (the "My projects" screen).
