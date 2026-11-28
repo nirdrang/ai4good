@@ -1,0 +1,413 @@
+import { createHash } from "node:crypto";
+import type { Caller } from "../caller.ts";
+import type { CallerReads } from "../tenant-reads.ts";
+import {
+  catchUpChat,
+  prdHasRole,
+  prdModelReady,
+  PRD_MODEL_UNAVAILABLE,
+  runPrdTurn,
+  type PrdRelayDeps,
+} from "./relay.ts";
+import { CHECK_FAILED, runCompletionCheck, type StartedCheck } from "./check.ts";
+import { publishCloseTag } from "./git.ts";
+import { snapshotFromRecord, viewerFromRecord } from "./snapshot.ts";
+import type { ActionKind, ChatScope, PrdIntent, QuestionId, TopicId } from "./wire.ts";
+import {
+  integerField,
+  isRecord,
+  refuseWrite,
+  stringField,
+  uuidField,
+  type AccountWriteRouteInput,
+  type SettleActResult,
+  type SettleDatabase,
+  type WriteRouteDecision,
+} from "../write-routes.ts";
+
+export type PrdOpenArgs = {
+  p_actor: string;
+  p_organization: string;
+  p_project: string;
+};
+
+export type PrdDraftArgs = {
+  p_actor: string;
+  p_project: string;
+  p_key: string;
+  p_text: string;
+};
+
+export function projectTarget(body: Record<string, unknown>): string | null {
+  return stringField(body.projectId);
+}
+
+export function decidePrdOpen(input: AccountWriteRouteInput): WriteRouteDecision<PrdOpenArgs> {
+  const projectId = uuidField(input.body.projectId);
+  const organizationId = uuidField(input.body.organizationId);
+  if (projectId === null || organizationId === null) {
+    return refuseWrite("invalid-request", 400, "prd-open names the organisation and the project");
+  }
+  return {
+    ok: true,
+    args: {
+      p_actor: input.caller.id,
+      p_organization: organizationId,
+      p_project: projectId,
+    },
+  };
+}
+
+export function decidePrdDraft(input: AccountWriteRouteInput): WriteRouteDecision<PrdDraftArgs> {
+  const projectId = uuidField(input.body.projectId);
+  const key = stringField(input.body.key);
+  if (projectId === null || key === null || typeof input.body.text !== "string") {
+    return refuseWrite(
+      "invalid-request",
+      400,
+      "prd-draft names the project, a key, and the draft text",
+    );
+  }
+  return {
+    ok: true,
+    args: {
+      p_actor: input.caller.id,
+      p_project: projectId,
+      p_key: key,
+      p_text: input.body.text,
+    },
+  };
+}
+
+export function renderPrdFacts(value: unknown): Record<string, unknown> {
+  return { snapshot: snapshotFromRecord(value, viewerFromRecord(value)) };
+}
+
+const ACTION_KINDS = [
+  "post-question",
+  "complete-answer",
+  "confirm-topic",
+  "reopen-topic",
+  "close",
+  "close-anyway",
+  "keep-working",
+] as const satisfies readonly ActionKind[];
+
+export type PrdMessageArgs = {
+  p_actor: string;
+  p_project: string;
+  p_chat_key: string;
+  p_request_id: string;
+  p_base_revision: number;
+  p_intent: PrdIntent;
+  p_body_hash: string;
+  p_model?: string;
+};
+
+export type PrdActionArgs = {
+  p_actor: string;
+  p_project: string;
+  p_kind: ActionKind;
+  p_token: string;
+  p_request_id: string;
+  p_model?: string;
+};
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  if (typeof value === "object" && value !== null) {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+function prdBodyHash(value: unknown): string {
+  return createHash("sha256").update(canonicalJson(value)).digest("hex");
+}
+
+function chatScope(value: unknown): ChatScope | null {
+  if (!isRecord(value) || typeof value.kind !== "string") return null;
+  if (value.kind === "main") return { kind: "main" };
+  if (value.kind === "topic") {
+    const topicId = stringField(value.topicId);
+    if (topicId === null) return null;
+    return { kind: "topic", topicId: topicId as TopicId };
+  }
+  if (value.kind === "side") {
+    const questionId = uuidField(value.questionId);
+    if (questionId === null) return null;
+    return { kind: "side", questionId: questionId as QuestionId };
+  }
+  return null;
+}
+
+function chatKey(scope: ChatScope): string {
+  if (scope.kind === "main") return "main";
+  if (scope.kind === "topic") return `topic:${scope.topicId}`;
+  return `side:${scope.questionId}`;
+}
+
+function stringRecord(value: unknown): Readonly<Record<string, string>> | null {
+  if (!isRecord(value)) return null;
+  const picks: Record<string, string> = {};
+  for (const key of Object.keys(value)) {
+    if (typeof value[key] !== "string") return null;
+    picks[key] = value[key];
+  }
+  return picks;
+}
+
+function sendIntent(value: unknown): PrdIntent | null {
+  if (!isRecord(value) || typeof value.kind !== "string") return null;
+  if (value.kind === "text") {
+    if (typeof value.text !== "string") return null;
+    return { kind: "text", text: value.text };
+  }
+  if (value.kind === "answers") {
+    const picks = stringRecord(value.picks);
+    if (picks === null || typeof value.text !== "string") return null;
+    return { kind: "answers", picks, text: value.text };
+  }
+  if (value.kind === "use-answer") {
+    const questionId = uuidField(value.questionId);
+    if (questionId === null || typeof value.note !== "string") return null;
+    if (value.answer !== null && typeof value.answer !== "string") return null;
+    return {
+      kind: "use-answer",
+      questionId: questionId as QuestionId,
+      answer: value.answer,
+      note: value.note,
+    };
+  }
+  if (value.kind === "close-check") return { kind: "close-check" };
+  return null;
+}
+
+function actionKind(value: unknown): ActionKind | null {
+  const kind = stringField(value);
+  if (kind === null || !(ACTION_KINDS as readonly string[]).includes(kind)) return null;
+  return kind as ActionKind;
+}
+
+export function decidePrdMessage(input: AccountWriteRouteInput): WriteRouteDecision<PrdMessageArgs> {
+  const projectId = uuidField(input.body.projectId);
+  const scope = chatScope(input.body.scope);
+  const requestId = stringField(input.body.requestId);
+  const baseRevision = integerField(input.body.baseRevision);
+  const intent = sendIntent(input.body.intent);
+  if (
+    projectId === null ||
+    scope === null ||
+    requestId === null ||
+    baseRevision === null ||
+    intent === null
+  ) {
+    return refuseWrite(
+      "invalid-request",
+      400,
+      "prd-message names the project, the chat, a request, the revision, and an intent",
+    );
+  }
+  const parsed = { projectId, scope, requestId, baseRevision, intent };
+  return {
+    ok: true,
+    args: {
+      p_actor: input.caller.id,
+      p_project: projectId,
+      p_chat_key: chatKey(scope),
+      p_request_id: requestId,
+      p_base_revision: baseRevision,
+      p_intent: intent,
+      p_body_hash: prdBodyHash(parsed),
+    },
+  };
+}
+
+export function decidePrdAction(input: AccountWriteRouteInput): WriteRouteDecision<PrdActionArgs> {
+  const projectId = uuidField(input.body.projectId);
+  const kind = actionKind(input.body.kind);
+  const token = stringField(input.body.token);
+  const requestId = stringField(input.body.requestId);
+  if (projectId === null || kind === null || token === null || requestId === null) {
+    return refuseWrite(
+      "invalid-request",
+      400,
+      "prd-action names the project, the action, a token, and a request",
+    );
+  }
+  return {
+    ok: true,
+    args: {
+      p_actor: input.caller.id,
+      p_project: projectId,
+      p_kind: kind,
+      p_token: token,
+      p_request_id: requestId,
+    },
+  };
+}
+
+async function readyModelTurn<Args extends { p_model?: string }>(
+  deps: PrdRelayDeps,
+  args: Args,
+): Promise<WriteRouteDecision<Args>> {
+  if (!(await prdModelReady(deps)) || deps.settings === null) {
+    return refuseWrite("refused", 503, PRD_MODEL_UNAVAILABLE);
+  }
+  return { ok: true, args: { ...args, p_model: deps.settings.modelId } };
+}
+
+export function prdMessagePrepare(deps: PrdRelayDeps) {
+  return async (
+    _caller: Caller,
+    args: PrdMessageArgs,
+    _reads: CallerReads,
+    stream: boolean,
+  ): Promise<WriteRouteDecision<PrdMessageArgs>> => {
+    if (!(await prdHasRole(deps, args.p_project, _caller.id))) {
+      return refuseWrite("forbidden", 409, "this account has no role on the PRD");
+    }
+    await catchUpChat(deps, args.p_project, args.p_chat_key).catch(() => undefined);
+    if (args.p_intent.kind === "close-check") {
+      if (deps.settings === null) return { ok: true, args };
+      return { ok: true, args: { ...args, p_model: deps.settings.modelId } };
+    }
+    if (!stream) return { ok: true, args };
+    return readyModelTurn(deps, args);
+  };
+}
+
+export function prdActionPrepare(deps: PrdRelayDeps) {
+  return async (
+    _caller: Caller,
+    args: PrdActionArgs,
+    _reads: CallerReads,
+    _stream: boolean,
+  ): Promise<WriteRouteDecision<PrdActionArgs>> => {
+    if (deps.settings === null) return { ok: true, args };
+    return { ok: true, args: { ...args, p_model: deps.settings.modelId } };
+  };
+}
+
+function turnIdOf(reserved: unknown): string | null {
+  return isRecord(reserved) ? uuidField(reserved.turnId) : null;
+}
+
+export function prdMessageSettle(deps: PrdRelayDeps) {
+  return {
+    rpc: "prd_turn_ingest",
+    act: async (
+      reserved?: unknown,
+      args?: PrdMessageArgs,
+      database?: SettleDatabase,
+    ): Promise<SettleActResult> => {
+      if (args === undefined || args.p_intent.kind !== "close-check") {
+        return { args: null, failure: null, skipSettle: true };
+      }
+      return settleCloseCheck(deps, args.p_project, reserved, database ?? deps.rpc);
+    },
+    uiStream: async (
+      reserved: unknown,
+      args: PrdMessageArgs,
+      emit: (chunk: unknown) => void,
+      closed: () => boolean,
+    ): Promise<SettleActResult> => {
+      if (args.p_intent.kind === "close-check") {
+        return settleCloseCheck(deps, args.p_project, reserved, deps.rpc);
+      }
+      return runPrdTurn(deps, args.p_project, args.p_chat_key, turnIdOf(reserved), { emit, closed });
+    },
+  };
+}
+
+async function settleCloseCheck(
+  deps: PrdRelayDeps,
+  project: string,
+  reserved: unknown,
+  database: SettleDatabase,
+): Promise<SettleActResult> {
+  if (isRecord(reserved) && reserved.closeRejected === true) {
+    return { args: null, failure: CHECK_FAILED, status: 502 };
+  }
+  const started = startedCheck(reserved);
+  let turnId: string | null = null;
+  if (started !== null && started.sectionKey === "") {
+    const checked = await runCompletionCheck({ ...deps, rpc: database }, project, started);
+    if (checked.failure !== null) return checked;
+    turnId = started.turnId;
+  } else if (isRecord(reserved) && reserved.closeFollowUp === true) {
+    turnId = uuidField(reserved.turnId);
+    if (turnId === null) return { args: null, failure: CHECK_FAILED, status: 502 };
+  }
+  if (turnId !== null) {
+    const decided = await database("prd_close_after_check", { p_project: project, p_turn: turnId });
+    if (!decided.ok) {
+      const status = decided.code === "22023" || decided.code === "42501" ? 409 : 502;
+      return { args: null, failure: decided.message, status };
+    }
+  }
+  await publishCloseTag(project, { github: deps.github, rpc: database }).catch(() => undefined);
+  return { args: null, failure: null, skipSettle: true };
+}
+
+function startedCheck(reserved: unknown): StartedCheck | null {
+  if (!isRecord(reserved) || !isRecord(reserved.check)) return null;
+  const check = reserved.check;
+  const turnId = uuidField(check.turnId);
+  const sectionKey = typeof check.sectionKey === "string" ? check.sectionKey.trim() : null;
+  const priorState = stringField(check.priorState);
+  if (turnId === null || sectionKey === null || priorState === null) return null;
+  if (check.priorChanged !== null && check.priorChanged !== undefined && stringField(check.priorChanged) === null) {
+    return null;
+  }
+  return {
+    turnId,
+    sectionKey,
+    priorState,
+    priorChanged: stringField(check.priorChanged),
+  };
+}
+
+export function prdActionSettle(deps: PrdRelayDeps) {
+  return {
+    rpc: "prd_turn_ingest",
+    act: async (
+      reserved: unknown,
+      args: PrdActionArgs,
+      database?: SettleDatabase,
+    ): Promise<SettleActResult> => {
+      const db = database ?? deps.rpc;
+      const started = startedCheck(reserved);
+      if (started !== null) return runCompletionCheck({ ...deps, rpc: db }, args.p_project, started);
+      if (args.p_kind === "close" || args.p_kind === "close-anyway") {
+        await publishCloseTag(args.p_project, { github: deps.github, rpc: db }).catch(() => undefined);
+      }
+      if (args.p_kind === "complete-answer") {
+        const turnId = turnIdOf(reserved);
+        const question = /^complete-answer\|question:([0-9a-f-]{36})\|/i.exec(args.p_token)?.[1];
+        if (turnId !== null && question !== undefined) {
+          const turn = await runPrdTurn({ ...deps, rpc: db }, args.p_project, `side:${question}`, turnId, {
+            emit: () => undefined,
+            closed: () => true,
+          });
+          if (turn.failure !== null) return { ...turn, skipSettle: false };
+        }
+      }
+      return { args: null, failure: null, skipSettle: true };
+    },
+  };
+}
+
+export function renderPrdTurn(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) return {};
+  return { turnId: value.turnId, messageId: value.messageId, sequence: value.sequence };
+}
+
+export function renderPrdAction(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) return {};
+  return value;
+}

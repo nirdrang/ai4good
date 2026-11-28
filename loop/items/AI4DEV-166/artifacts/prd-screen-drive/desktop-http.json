@@ -1,0 +1,242 @@
+[
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "open"
+        },
+        {
+          "id": "rota-access",
+          "title": "Who can edit",
+          "state": "open"
+        },
+        {
+          "id": "rota-sharing",
+          "title": "How to share",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 0,
+        "pendingMicros": 0,
+        "replyHoldMicros": 50000,
+        "availableMicros": 5000000,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "draft"
+        },
+        {
+          "id": "rota-access",
+          "title": "Who can edit",
+          "state": "open"
+        },
+        {
+          "id": "rota-sharing",
+          "title": "How to share",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 366,
+        "pendingMicros": 49634,
+        "replyHoldMicros": 50000,
+        "availableMicros": 4950000,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b"
+    },
+    "status": 200,
+    "response": {
+      "topics": [
+        {
+          "id": "priority",
+          "title": "Main priority",
+          "state": "draft"
+        },
+        {
+          "id": "rota-access",
+          "title": "Who can edit",
+          "state": "open"
+        },
+        {
+          "id": "rota-sharing",
+          "title": "How to share",
+          "state": "open"
+        },
+        {
+          "id": "info",
+          "title": "Information handled",
+          "state": "open"
+        },
+        {
+          "id": "owner",
+          "title": "Maintenance owner",
+          "state": "open"
+        },
+        {
+          "id": "technical-scope",
+          "title": "Technical scope",
+          "state": "open"
+        }
+      ],
+      "funds": {
+        "allocationMicros": 5000000,
+        "settledMicros": 487,
+        "pendingMicros": 0,
+        "replyHoldMicros": 50000,
+        "availableMicros": 4999513,
+        "band": "green",
+        "replyFunded": true
+      },
+      "close": "open"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-snapshot",
+    "request": {
+      "projectId": "6bd22aa3-c417-4b60-aaa6-7c9e6c6f974e"
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "forbidden",
+      "reason": "this account has no role on the PRD"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-action",
+    "request": {
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b",
+      "kind": "close",
+      "token": "made-up",
+      "requestId": "2288a1ea-0ee2-4322-ae62-756a7163c77f"
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "invalid-request",
+      "reason": "this action could not be read"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-message",
+    "request": {
+      "projectId": "1721dc98-8cad-49c0-824c-54a94c8bc90b",
+      "scope": {
+        "kind": "main"
+      },
+      "requestId": "6840a0c5-5b57-405e-8c84-cf124533ae17",
+      "baseRevision": 0,
+      "intent": {
+        "kind": "text",
+        "text": "Too late"
+      }
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "closed",
+      "reason": "the PRD is closed"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-draft",
+    "request": {
+      "projectId": "993bb461-9270-4bef-9f2c-dcbeff2b2619",
+      "key": "main",
+      "text": "no"
+    },
+    "status": 409,
+    "response": {
+      "ok": false,
+      "kind": "forbidden",
+      "reason": "this account has no role on the PRD"
+    }
+  },
+  {
+    "as": "dev",
+    "name": "prd-github-hook",
+    "request": {
+      "headers": {
+        "x-github-event": "push",
+        "x-hub-signature-256": "sha256=0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "body": {
+        "zen": "verify"
+      }
+    },
+    "status": 401,
+    "response": {
+      "ok": false,
+      "reason": "the webhook signature does not match"
+    }
+  }
+]

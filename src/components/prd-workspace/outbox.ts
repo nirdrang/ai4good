@@ -10,6 +10,10 @@ export type Outbox = Readonly<{
 
 export const EMPTY_OUTBOX: Outbox = { running: null, queue: [], halted: null };
 
+export function newRequestId(): RequestId {
+  return crypto.randomUUID() as RequestId;
+}
+
 function sameWork(left: PrdIntent, right: PrdIntent): boolean {
   if (left.kind === "close-check") return right.kind === "close-check";
   if (left.kind === "use-answer") {
@@ -79,7 +83,11 @@ export function refuse(
     case "text":
       return composerEmpty
         ? { box: halted, composer: item.text, review: null }
-        : { box: { ...halted, queue: [item, ...box.queue] }, composer: null, review: null };
+        : {
+            box: { ...halted, queue: [{ ...item, id: newRequestId() }, ...box.queue] },
+            composer: null,
+            review: null,
+          };
     case "use-answer":
       return { box: halted, composer: null, review: item.intent.questionId };
     default:

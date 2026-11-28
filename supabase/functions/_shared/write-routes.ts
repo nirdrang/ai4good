@@ -81,6 +81,22 @@ export const WRITE_ROUTES = {
     surface: { kind: 'edge', rpc: 'set_organization_discovery' },
     standing: { kind: 'account-required', admits: ['platform_admin'] },
   },
+  'prd-open': {
+    surface: { kind: 'edge', rpc: 'prd_open_begin' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
+  'prd-draft': {
+    surface: { kind: 'edge', rpc: 'prd_save_draft' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
+  'prd-message': {
+    surface: { kind: 'edge', rpc: 'prd_turn_reserve' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
+  'prd-action': {
+    surface: { kind: 'edge', rpc: 'prd_action' },
+    standing: { kind: 'account-required', admits: ['volunteer', 'ngo'] },
+  },
 } as const satisfies Record<string, { surface: RouteSurface; standing: RouteStanding }>;
 
 export type WriteRouteName = keyof typeof WRITE_ROUTES;
@@ -114,6 +130,8 @@ export const WRITE_REFUSAL_KINDS = [
   'transferee-deactivated',
   'subject-no-account',
   'no-such-project',
+  'forbidden',
+  'discovery-frozen',
   'need-not-in-discovery',
   'turn-in-flight',
   'turn-not-open',
@@ -141,6 +159,14 @@ export const WRITE_REFUSAL_KINDS = [
   'unknown-section',
   'unknown-topic',
   'no-suggestion',
+  'stale',
+  'busy',
+  'closed',
+  'not-yet',
+  'follow-up-open',
+  'not-ready',
+  'not-confirmed',
+  'funds',
 ] as const;
 
 export type WriteRefusalKind = (typeof WRITE_REFUSAL_KINDS)[number];
@@ -251,10 +277,19 @@ export type WriteRouteDecision<Args> =
 export type SettleActResult = {
   readonly args: Record<string, unknown> | null;
   readonly failure: string | null;
+  readonly status?: number;
   readonly skipSettle?: boolean;
   readonly suffix?: string;
   readonly tail?: readonly Record<string, unknown>[];
 };
+
+export type SettleDatabase = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<
+  | { ok: true; value: unknown }
+  | { ok: false; message: string; details?: string | null; hint?: string | null; code?: string | null }
+>;
 export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput> = {
   readonly name: WriteRouteName;
   readonly readBody?: (request: Request) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; reason: string; kind?: WriteRefusalKind; status?: number }>;
@@ -263,10 +298,16 @@ export type WriteRouteSpec<Args, Input extends WriteRouteInput = WriteRouteInput
   readonly subject?: (body: Record<string, unknown>) => string | null;
   readonly from?: (body: Record<string, unknown>) => string | null;
   readonly decide: (input: Input) => WriteRouteDecision<Args>;
-  readonly prepare?: (caller: Caller, args: Args, reads: CallerReads) => Promise<WriteRouteDecision<Args>>;
+  readonly prepare?: (caller: Caller, args: Args, reads: CallerReads, stream: boolean) => Promise<WriteRouteDecision<Args>>;
   readonly settle?: {
     readonly rpc: string;
-    readonly act: (reserved: unknown, args: Args) => Promise<SettleActResult>;
+    readonly act: (reserved: unknown, args: Args, database?: SettleDatabase) => Promise<SettleActResult>;
+    readonly uiStream?: (
+      value: unknown,
+      args: Args,
+      emit: (chunk: unknown) => void,
+      closed: () => boolean,
+    ) => Promise<SettleActResult>;
     readonly stream?: (value: unknown, args: Args, onDelta: (text: string) => void, signal: AbortSignal) => Promise<SettleActResult>;
     readonly streamHead?: (value: unknown, args: Args) => {
       messageId: string;

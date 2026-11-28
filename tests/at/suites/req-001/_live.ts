@@ -804,6 +804,41 @@ export async function createLiveAdapter(opts: { stack: Stack }): Promise<{
           });
           return answer.ok ? { ok: true } : answer.refusal;
         },
+        'prd-open': async () => {
+          if (subject.route !== 'prd-open') throw new Error('unreachable');
+          const answer = await postWrite('prd-open', session, {
+            organizationId: subject.organizationId, projectId: subject.projectId,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
+        'prd-draft': async () => {
+          if (subject.route !== 'prd-draft') throw new Error('unreachable');
+          const answer = await postWrite('prd-draft', session, {
+            projectId: subject.projectId, key: subject.key, text: subject.text,
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
+        'prd-message': async () => {
+          if (subject.route !== 'prd-message') throw new Error('unreachable');
+          const answer = await postWrite('prd-message', session, {
+            projectId: subject.projectId,
+            scope: { kind: 'main' },
+            requestId: 'req-001-message',
+            baseRevision: 1,
+            intent: { kind: 'text', text: 'hello' },
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
+        'prd-action': async () => {
+          if (subject.route !== 'prd-action') throw new Error('unreachable');
+          const answer = await postWrite('prd-action', session, {
+            projectId: subject.projectId,
+            kind: 'close',
+            token: 'close|prd|1|1',
+            requestId: 'req-001-action',
+          });
+          return answer.ok ? { ok: true } : answer.refusal;
+        },
       };
       return attempts[subject.route]();
     },

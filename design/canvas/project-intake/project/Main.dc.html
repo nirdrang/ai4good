@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Start a project</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#0f172a}a:hover{color:#334155}
+button,input,textarea{font-family:inherit}
+button:disabled{cursor:not-allowed;opacity:.55}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+label:has(input[type=radio]:focus){outline:3px solid #2563eb;outline-offset:2px}
+summary{cursor:pointer}
+summary::-webkit-details-marker{display:none}
+details[open] summary svg{transform:rotate(90deg)}
+h2:focus{outline:none}
+.dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:#64748b;margin-right:4px;animation:dcdot 1s infinite ease-in-out}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes dcdot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.dots span{animation:none}}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+
+  <header style="{{headerStyle}}">
+    <sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}">
+      <span style="flex:0 0 auto;font-size:16px;font-weight:700;letter-spacing:.02em;color:#166534">ai4good</span>
+      <span style="flex:0 0 auto;font-size:14px;color:#475569">{{orgLabel}}</span>
+      <nav aria-label="Main" style="flex:1;display:flex;gap:6px;margin-left:16px">
+        <sc-if value="{{signedIn}}" hint-placeholder-val="{{ true }}">
+          <button type="button" data-testid="nav-projects" onClick="{{goHome}}" disabled="{{posting}}" aria-current="{{navProjectsCurrent}}" style="{{navProjectsStyle}}">Your projects</button>
+        </sc-if>
+        <button type="button" data-testid="nav-public-list" onClick="{{openList}}" disabled="{{posting}}" aria-current="{{navListCurrent}}" style="{{navListStyle}}">Public projects</button>
+      </nav>
+    </sc-if>
+    <sc-if value="{{phone}}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{showBack}}" hint-placeholder-val="{{ false }}">
+        <button type="button" data-testid="intake-back" onClick="{{goBack}}" disabled="{{posting}}" aria-label="{{backLabel}}" style="flex:0 0 auto;height:44px;padding:0 10px 0 6px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+          {{backText}}
+        </button>
+      </sc-if>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+        <span style="font-size:15px;line-height:20px;font-weight:700;letter-spacing:.02em;color:#166534">ai4good</span>
+        <span style="font-size:13px;line-height:18px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{orgLabel}}</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{headerSignIn}}" hint-placeholder-val="{{ false }}">
+      <button type="button" data-testid="header-sign-in" onClick="{{toSignIn}}" style="flex:0 0 auto;height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:14px;font-weight:600;cursor:pointer">Sign in</button>
+    </sc-if>
+    <sc-if value="{{signedIn}}" hint-placeholder-val="{{ true }}">
+      <button type="button" data-testid="account-button" ref="{{setAccountButton}}" onClick="{{openAccount}}" disabled="{{posting}}" aria-haspopup="dialog" style="flex:0 0 auto;height:44px;padding:0 12px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+        Account
+      </button>
+    </sc-if>
+  </header>
+
+  <div ref="{{setBody}}" style="flex:1;min-height:0;overflow-y:auto;background:#f8fafc">
+    <div style="{{colStyle}}">
+
+      <sc-if value="{{viewHome}}" hint-placeholder-val="{{ true }}">
+        <div style="{{mainStyle}}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <h2 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:24px;line-height:30px;font-weight:700">Your projects</h2>
+            <p style="margin:0;font-size:15px;line-height:22px;color:#475569">Projects of Harbor Community Kitchen.</p>
+          </div>
+          <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{hasDraft}}" hint-placeholder-val="{{ false }}">
+              <div data-testid="project-draft-card" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="font-size:13px;font-weight:600;color:#334155;background:#e2e8f0;border-radius:999px;padding:2px 10px">Draft · private</span>
+                  <span style="font-size:13px;color:#475569">{{draftSaved}}</span>
+                </div>
+                <span style="font-size:17px;line-height:24px;font-weight:600;overflow-wrap:anywhere">{{draftTitle}}</span>
+                <span style="font-size:14px;line-height:20px;color:#475569">Only your organisation's admins can see a draft. Nothing is public until you post it.</span>
+                <sc-if value="{{notConfirmingDiscard}}" hint-placeholder-val="{{ true }}">
+                  <div style="{{cardActions}}">
+                    <button type="button" data-testid="project-draft-continue" onClick="{{continueDraft}}" style="height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Continue the draft</button>
+                    <button type="button" data-testid="project-draft-discard" ref="{{setDiscard}}" onClick="{{askDiscard}}" style="height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Discard draft</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{confirmingDiscard}}" hint-placeholder-val="{{ false }}">
+                  <div data-testid="project-draft-discard-confirm" role="alertdialog" aria-label="Discard the draft?" tabindex="-1" onKeyDown="{{discardKeys}}" style="outline:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+                    <span style="font-size:15px;line-height:22px;color:#7f1d1d;overflow-wrap:anywhere">Discard the draft “{{draftTitle}}”? Its title and description are deleted. This cannot be undone.</span>
+                    <div style="{{cardActions}}">
+                      <button type="button" data-testid="project-draft-discard-no" ref="{{setKeep}}" onClick="{{keepDraft}}" style="height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Keep the draft</button>
+                      <button type="button" data-testid="project-draft-discard-yes" onClick="{{discard}}" style="height:44px;padding:0 16px;border-radius:10px;border:none;background:#b91c1c;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Discard the draft</button>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+              <span style="font-size:14px;line-height:20px;color:#475569">You can work on one draft at a time. Post or discard it to start another project.</span>
+            </sc-if>
+            <sc-for list="{{projects}}" as="p" hint-placeholder-count="0">
+              <div data-testid="project-card" data-testkey="{{p.key}}" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <span style="font-size:13px;font-weight:600;color:#1e3a8a;background:#dbeafe;border-radius:999px;padding:2px 10px">Discovery chat in progress</span>
+                  <span style="font-size:13px;color:#475569">Intake card public</span>
+                </div>
+                <span style="font-size:17px;line-height:24px;font-weight:600;overflow-wrap:anywhere">{{p.title}}</span>
+                <button type="button" data-testid="project-continue-discovery" onClick="{{p.open}}" aria-label="{{p.continueLabel}}" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">Continue the Discovery chat</button>
+              </div>
+            </sc-for>
+            <sc-if value="{{noProjects}}" hint-placeholder-val="{{ true }}">
+              <div data-testid="projects-empty" style="background:#ffffff;border:1px dashed #94a3b8;border-radius:14px;padding:20px 16px;display:flex;flex-direction:column;gap:8px">
+                <span style="font-size:17px;font-weight:600">No projects yet</span>
+                <span style="font-size:15px;line-height:22px;color:#475569">Describe what you need. You check and post a public card, then a free, private chat with our AI turns it into a brief that a volunteer can build from.</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{noDraft}}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{discarded}}" hint-placeholder-val="{{ false }}">
+                <p data-testid="project-draft-discarded" role="status" style="margin:0;font-size:15px;line-height:22px;color:#334155">Draft discarded.</p>
+              </sc-if>
+              <button type="button" data-testid="projects-start-button" onClick="{{openForm}}" style="{{startStyle}}">Start a new project</button>
+            </sc-if>
+          </sc-if>
+          <sc-if value="{{isMember}}" hint-placeholder-val="{{ false }}">
+            <div data-testid="admin-only-notice" role="note" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:17px;font-weight:600">Only an admin can start a project</span>
+              <span style="font-size:15px;line-height:22px;color:#334155">You are a member of Harbor Community Kitchen. An admin of your organisation starts each project. Your admin is Dana Okonkwo.</span>
+              <a href="mailto:dana@harborkitchen.org" data-testid="admin-email-link" style="align-self:flex-start;display:inline-flex;align-items:center;min-height:44px;font-size:15px;font-weight:600;color:#1e3a8a">dana@harborkitchen.org</a>
+              <span style="font-size:15px;line-height:22px;color:#334155">When Dana starts a project, it shows here. Only admins open its Discovery chat and files.</span>
+            </div>
+            <div data-testid="projects-empty" style="background:#ffffff;border:1px dashed #94a3b8;border-radius:14px;padding:20px 16px;display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:17px;font-weight:600">No projects yet</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{phone}}" hint-placeholder-val="{{ true }}">
+            <button type="button" data-testid="home-public-list" onClick="{{openList}}" style="align-self:flex-start;height:44px;padding:0 4px;border:none;background:none;color:#0f172a;font-size:15px;font-weight:600;text-decoration:underline;cursor:pointer">See the public project list</button>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{viewForm}}" hint-placeholder-val="{{ false }}">
+        <div style="{{mainStyle}}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}">
+              <button type="button" data-testid="desktop-back" onClick="{{goBack}}" disabled="{{posting}}" style="align-self:flex-start;height:44px;padding:0 12px 0 6px;margin-left:-6px;border:none;background:none;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>{{backText}}</button>
+            </sc-if>
+            <h2 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:24px;line-height:30px;font-weight:700">Tell us what you need</h2>
+            <p style="margin:0;font-size:15px;line-height:22px;color:#475569">Plain words are fine. After this, a short private chat with our AI, called Discovery, asks for the details.</p>
+            <p data-testid="draft-save-state" role="status" style="margin:0;font-size:14px;line-height:20px;color:#334155;display:flex;align-items:center;gap:6px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4 10-10"></path></svg>
+              {{saveState}}
+            </p>
+          </div>
+
+          <div data-testid="intake-public-notice" role="note" style="background:#fffbeb;border:1px solid #f59e0b;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;color:#78350f">
+            <span style="font-size:15px;line-height:22px;font-weight:700">The title, description and urgency will be public</span>
+            <span style="font-size:14px;line-height:20px">When you post, anyone can read them on the ai4good project list, with your organisation's name. Leave out names, contact details, addresses and health details of the people you help. Write "a family of four", not their name.</span>
+            <sc-if value="{{phone}}" hint-placeholder-val="{{ true }}">
+              <details data-testid="intake-private-details" style="font-size:14px;line-height:20px">
+                <summary style="font-weight:600;min-height:44px;display:flex;align-items:center;gap:6px;list-style:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>What stays private?</summary>
+                <span style="display:block;padding-top:2px">Your account name and email, the Discovery chat, and any files you share in it. Only your organisation's admins and the ai4good team can see them. The brief from the chat becomes public only if you choose to publish it at the end.</span>
+              </details>
+            </sc-if>
+          </div>
+
+          <p style="margin:0;font-size:14px;color:#334155">All three questions are needed.</p>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label for="intake-title" style="font-size:16px;font-weight:600">Project title</label>
+            <span id="title-hint" style="font-size:14px;line-height:20px;color:#475569">A short name for what you need, for example "Volunteer scheduling". Up to 80 characters.</span>
+            <input id="intake-title" data-testid="project-title-input" ref="{{setTitleInput}}" type="text" required aria-required="true" aria-describedby="{{titleDescribedBy}}" aria-invalid="{{titleInvalid}}" value="{{title}}" onChange="{{onTitle}}" onKeyDown="{{titleKeys}}" style="{{titleStyle}}">
+            <sc-if value="{{titlePersonal}}" hint-placeholder-val="{{ false }}">
+              <div id="title-personal" data-testid="personal-detail-hint" data-testkey="title" role="status" style="{{titlePersonalStyle}}">{{titlePersonalText}}</div>
+            </sc-if>
+            <div style="display:flex;gap:8px">
+              <sc-if value="{{titleError}}" hint-placeholder-val="{{ false }}">
+                <span id="title-error" data-testid="title-error" style="flex:1;font-size:14px;font-weight:600;color:#b91c1c">{{titleErrorText}}</span>
+              </sc-if>
+              <span data-testid="title-count" style="{{titleCountStyle}}">{{titleCount}} / 80</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label for="intake-description" style="font-size:16px;font-weight:600">What is the problem?</label>
+            <span id="description-hint" style="font-size:14px;line-height:20px;color:#475569">Who has the problem, how often, and what you do about it today. Up to 2,000 characters.</span>
+            <textarea id="intake-description" data-testid="problem-description-input" ref="{{setDescriptionInput}}" rows="5" required aria-required="true" aria-describedby="{{descriptionDescribedBy}}" aria-invalid="{{descriptionInvalid}}" value="{{description}}" onChange="{{onDescription}}" style="{{descriptionStyle}}"></textarea>
+            <sc-if value="{{descriptionPersonal}}" hint-placeholder-val="{{ false }}">
+              <div id="description-personal" data-testid="personal-detail-hint" data-testkey="description" role="status" style="{{descriptionPersonalStyle}}">{{descriptionPersonalText}}</div>
+            </sc-if>
+            <div style="display:flex;gap:8px">
+              <sc-if value="{{descriptionError}}" hint-placeholder-val="{{ false }}">
+                <span id="description-error" data-testid="description-error" style="flex:1;font-size:14px;font-weight:600;color:#b91c1c">{{descriptionErrorText}}</span>
+              </sc-if>
+              <span data-testid="description-count" style="{{descriptionCountStyle}}">{{descriptionCount}} / 2,000</span>
+            </div>
+          </div>
+
+          <fieldset data-testid="urgency-option-list" ref="{{setUrgencyGroup}}" aria-describedby="{{urgencyDescribedBy}}" style="margin:0;padding:0;border:none;display:flex;flex-direction:column;gap:8px">
+            <legend style="padding:0;margin-bottom:4px;font-size:16px;font-weight:600">How urgent is it?</legend>
+            <span id="urgency-hint" style="font-size:14px;line-height:20px;color:#475569">Your answer shows on the public card.</span>
+            <div style="{{urgencyGrid}}">
+              <sc-for list="{{urgencies}}" as="u" hint-placeholder-count="3">
+                <label data-testid="urgency-option" data-testkey="{{u.key}}" style="{{u.style}}">
+                  <input type="radio" name="urgency" value="{{u.key}}" ref="{{u.ref}}" required checked="{{u.checked}}" onChange="{{u.pick}}" onFocus="{{urgencyFocus}}" style="width:20px;height:20px;margin:2px 0 0;accent-color:#0f172a;flex:0 0 auto">
+                  <span style="display:flex;flex-direction:column;gap:2px">
+                    <span style="font-size:15px;font-weight:600">{{u.label}}</span>
+                    <span style="font-size:14px;line-height:20px;color:#475569">{{u.sub}}</span>
+                  </span>
+                </label>
+              </sc-for>
+            </div>
+            <sc-if value="{{urgencyError}}" hint-placeholder-val="{{ false }}">
+              <span id="urgency-error" data-testid="urgency-error" style="font-size:14px;font-weight:600;color:#b91c1c">Choose how urgent it is.</span>
+            </sc-if>
+          </fieldset>
+
+          <p style="margin:0;font-size:14px;line-height:20px;color:#475569">No files are needed here. If you share a sample later in the private Discovery chat, use a blank form or a spreadsheet with made-up entries.</p>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-if value="{{showErrorSummary}}" hint-placeholder-val="{{ false }}">
+              <span data-testid="intake-error-summary" role="alert" style="font-size:15px;line-height:22px;font-weight:600;color:#b91c1c">{{errorSummary}}</span>
+            </sc-if>
+            <button type="button" data-testid="intake-review-button" onClick="{{toReview}}" style="{{primaryStyle}}">Preview the public card</button>
+            <span style="font-size:14px;line-height:20px;color:#475569">Nothing is posted yet. You check the card on the next screen.</span>
+          </div>
+        </div>
+        <sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}">
+          <aside style="flex:0 0 300px;display:flex;flex-direction:column;gap:12px;position:sticky;top:24px">
+            <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <span style="font-size:15px;font-weight:600">What happens next</span>
+              <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:20px;color:#334155">
+                <li>You preview the public card and post it.</li>
+                <li>The Discovery chat with our AI asks the details and writes a brief with you. It is free.</li>
+                <li>You choose whether to publish the brief. Once it is published, volunteers can offer to help.</li>
+              </ol>
+            </div>
+            <div data-testid="intake-private-details" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px">
+              <span style="font-size:15px;font-weight:600">What stays private</span>
+              <span style="font-size:14px;line-height:20px;color:#334155">Your account name and email, the Discovery chat, and any files you share in it. Only your organisation's admins and the ai4good team can see them. The brief from the chat becomes public only if you choose to publish it at the end.</span>
+            </div>
+          </aside>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{viewReview}}" hint-placeholder-val="{{ false }}">
+        <div style="{{mainStyle}}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-if value="{{desktop}}" hint-placeholder-val="{{ false }}">
+              <button type="button" data-testid="desktop-back" onClick="{{goBack}}" disabled="{{posting}}" style="align-self:flex-start;height:44px;padding:0 12px 0 6px;margin-left:-6px;border:none;background:none;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>{{backText}}</button>
+            </sc-if>
+            <h2 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:24px;line-height:30px;font-weight:700">Preview your public card</h2>
+            <p style="margin:0;font-size:15px;line-height:22px;color:#475569">Not posted yet. Check the card, then confirm below to post it. After you post, anyone can see it on the ai4good project list.</p>
+          </div>
+          <sc-if value="{{reviewBlocked}}" hint-placeholder-val="{{ false }}">
+            <div data-testid="intake-personal-block" role="alert" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;color:#7f1d1d">
+              <span style="font-size:15px;line-height:22px;font-weight:700">Remove {{blockWhat}} before you post</span>
+              <span style="font-size:14px;line-height:20px">The {{blockWhere}} {{blockVerb}} to hold {{blockWhat}}. Contact details and addresses never go on a public card.</span>
+              <button type="button" data-testid="intake-personal-fix" onClick="{{fixBlocked}}" disabled="{{posting}}" style="align-self:flex-start;height:44px;padding:0 14px;border-radius:10px;border:1px solid #b91c1c;background:#ffffff;color:#7f1d1d;font-size:15px;font-weight:600;cursor:pointer">Edit the {{blockWhere}}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{reviewNameWarn}}" hint-placeholder-val="{{ false }}">
+            <div data-testid="intake-personal-warning" role="status" style="background:#fffbeb;border:1px solid #f59e0b;border-radius:12px;padding:12px 14px;font-size:14px;line-height:20px;color:#78350f;display:flex;flex-direction:column;gap:8px"><span style="overflow-wrap:anywhere">{{softText}}</span><button type="button" data-testid="intake-name-fix" onClick="{{fixName}}" disabled="{{posting}}" style="align-self:flex-start;height:44px;padding:0 14px;border-radius:10px;border:1px solid #b45309;background:#ffffff;color:#78350f;font-size:15px;font-weight:600;cursor:pointer">Edit the {{nameWhere}}</button></div>
+          </sc-if>
+          <sc-if value="{{showEdit}}" hint-placeholder-val="{{ true }}">
+            <button type="button" data-testid="intake-edit-button" onClick="{{openForm}}" disabled="{{posting}}" style="align-self:flex-start;height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Edit project details</button>
+          </sc-if>
+          <article data-testid="public-card-preview" style="background:#ffffff;border:2px dashed #94a3b8;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600;color:#1e3a8a;background:#dbeafe;border-radius:999px;padding:2px 10px">Intake</span>
+              <span style="{{urgencyChip}}">{{urgencyLabel}}</span>
+            </div>
+            <h3 style="margin:0;font-size:18px;line-height:24px;font-weight:700;overflow-wrap:anywhere">{{previewTitle}}</h3>
+            <span style="font-size:14px;color:#475569">Harbor Community Kitchen · Posted on the day you post</span>
+            <p style="margin:0;font-size:15px;line-height:22px;color:#334155;white-space:pre-wrap;overflow-wrap:anywhere">{{previewText}}</p>
+          </article>
+          <span style="font-size:14px;line-height:20px;color:#475569"><b>Intake</b> tells visitors your need is posted and the brief is being shaped.</span>
+          <div style="font-size:14px;line-height:20px;color:#334155;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px">
+            <span><b>Not on the card:</b> your account name and email, the Discovery chat and any files. Only your organisation's admins and the ai4good team see them.</span>
+          </div>
+          <label data-testid="intake-confirm-no-personal" style="{{ackRowStyle}}">
+            <input type="checkbox" ref="{{setAck}}" checked="{{ack}}" disabled="{{ackLocked}}" onChange="{{toggleAck}}" onFocus="{{ackFocus}}" aria-describedby="{{ackDescribedBy}}" style="width:24px;height:24px;margin:0;accent-color:#0f172a;flex:0 0 auto">
+            <span style="{{ackTextStyle}}">The title and description hold no names, contact details, health details or other personal details of the people we help.</span>
+          </label>
+          <sc-if value="{{ackError}}" hint-placeholder-val="{{ false }}">
+            <span id="ack-error" data-testid="intake-confirm-error" role="alert" style="font-size:14px;font-weight:600;color:#b91c1c">Tick the box to confirm, then post.</span>
+          </sc-if>
+          <div style="{{actionsStyle}}">
+            <button type="button" data-testid="intake-submit-button" onClick="{{post}}" disabled="{{postDisabled}}" aria-busy="{{postingAria}}" style="{{postStyle}}">{{postLabel}}</button>
+          </div>
+          <span style="font-size:14px;line-height:20px;color:#475569">Posting starts the Discovery chat. The chat is free.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{viewDiscovery}}" hint-placeholder-val="{{ false }}">
+        <div style="{{mainStyle}}">
+          <div data-testid="discovery-start" style="display:flex;flex-direction:column;gap:10px">
+            <h2 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:20px;line-height:28px;font-weight:700;overflow-wrap:anywhere">Discovery chat · {{cardTitle}}</h2>
+            <span style="font-size:14px;color:#475569">Private: your organisation's admins and the ai4good team.</span>
+            <sc-if value="{{resumed}}" hint-placeholder-val="{{ false }}">
+              <button type="button" data-testid="project-card-link" onClick="{{openCard}}" style="align-self:flex-start;height:44px;padding:0 14px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">View your public card</button>
+            </sc-if>
+            <sc-if value="{{justPosted}}" hint-placeholder-val="{{ true }}">
+              <div data-testid="intake-posted-banner" role="status" style="background:#f0fdf4;border:1px solid #16a34a;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+                <span style="font-size:15px;line-height:22px;font-weight:600;color:#14532d">Posted. Your intake card is now public on the ai4good project list.</span>
+                <button type="button" data-testid="intake-card-link" onClick="{{openCard}}" style="align-self:flex-start;height:44px;padding:0 14px;border-radius:10px;border:1px solid #16a34a;background:#ffffff;color:#14532d;font-size:15px;font-weight:600;cursor:pointer">See it on the public list</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{discoveryReady}}" hint-placeholder-val="{{ true }}">
+              <div style="align-self:flex-start;max-width:92%;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:15px;line-height:22px;white-space:pre-wrap;overflow-wrap:anywhere">{{discoveryHello}}</div>
+            </sc-if>
+            <sc-if value="{{discoveryThinking}}" hint-placeholder-val="{{ false }}">
+              <div class="dots" role="status" aria-label="The AI is writing" style="padding:6px 4px"><span></span><span></span><span></span></div>
+            </sc-if>
+            <span style="font-size:14px;line-height:20px;color:#475569;border-top:1px solid #e2e8f0;padding-top:10px">Preview note: the Discovery screen continues from here. It is designed on its own canvas.</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{viewList}}" hint-placeholder-val="{{ false }}">
+        <div style="{{mainStyle}}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <h2 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:24px;line-height:30px;font-weight:700">Projects looking for help</h2>
+            <p style="margin:0;font-size:15px;line-height:22px;color:#475569">Charities' needs on ai4good, newest first. <b>Intake</b> means the charity has just described its need and is shaping a brief with our AI. <b>Open for volunteers</b> means the brief is ready.</p>
+          </div>
+          <sc-for list="{{publicCards}}" as="c" hint-placeholder-count="2">
+            <article data-testid="{{c.testid}}" data-testkey="{{c.key}}" style="{{c.style}}">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="{{c.stateStyle}}">{{c.state}}</span>
+                <sc-if value="{{c.hasUrgency}}" hint-placeholder-val="{{ true }}">
+                  <span style="{{c.urgencyStyle}}">{{c.urgency}}</span>
+                </sc-if>
+                <sc-if value="{{c.mine}}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:13px;font-weight:600;color:#14532d">Your project</span>
+                </sc-if>
+              </div>
+              <h3 tabindex="-1" style="margin:0;font-size:18px;line-height:24px;font-weight:700;overflow-wrap:anywhere">{{c.title}}</h3>
+              <span style="font-size:14px;color:#475569">{{c.org}} · {{c.when}}</span>
+              <p style="margin:0;font-size:15px;line-height:22px;color:#334155;white-space:pre-wrap;overflow-wrap:anywhere">{{c.text}}</p>
+              <sc-if value="{{c.back}}" hint-placeholder-val="{{ false }}">
+                <button type="button" data-testid="list-back-to-chat" onClick="{{backToDiscovery}}" style="align-self:flex-start;height:44px;padding:0 14px 0 8px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+                  Back to the Discovery chat
+                </button>
+              </sc-if>
+            </article>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{viewSignedOut}}" hint-placeholder-val="{{ false }}">
+        <div style="{{mainStyle}}">
+          <h2 ref="{{setHeading}}" tabindex="-1" style="margin:0;font-size:24px;line-height:30px;font-weight:700">You are signed out</h2>
+          <p style="margin:0;font-size:15px;line-height:22px;color:#475569">{{signedOutText}}</p>
+          <button type="button" data-testid="sign-in-again" onClick="{{signIn}}" style="{{primaryStyle}}">Sign in</button>
+          <button type="button" data-testid="signed-out-public-list" onClick="{{openList}}" style="align-self:flex-start;height:44px;padding:0 4px;border:none;background:none;color:#0f172a;font-size:15px;font-weight:600;text-decoration:underline;cursor:pointer">See the public project list</button>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+
+  <sc-if value="{{accountOpen}}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:6;background:rgba(15,23,42,.3)" onClick="{{closeAccount}}" onKeyDown="{{accountKeys}}">
+      <div role="dialog" aria-modal="true" aria-label="Account" tabindex="-1" ref="{{setDialog}}" onClick="{{stop}}" style="outline:none;position:absolute;top:64px;right:12px;width:280px;background:#ffffff;border-radius:14px;border:1px solid #cbd5e1;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;font-weight:600">{{personName}} (sample account)</span>
+          <span style="font-size:14px;color:#475569">{{personEmail}}</span>
+          <span style="font-size:14px;color:#475569">Harbor Community Kitchen · {{roleLabel}}</span>
+        </div>
+        <button type="button" data-testid="sign-out" onClick="{{signOut}}" style="height:44px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer">Sign out</button>
+        <button type="button" data-testid="account-close" onClick="{{closeAccount}}" style="height:44px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;cursor:pointer">Close</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"device":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"start":{"editor":"enum","options":["home","form","filled","review","list"],"default":"home"},"role":{"editor":"enum","options":["admin","member"],"default":"admin"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.sample = {
+      title: 'Volunteer scheduling',
+      description: 'We serve hot meals three evenings a week with about 60 volunteers. Shifts are booked in a WhatsApp group and on a paper sheet in the kitchen, so some evenings have eight helpers and others have one. Our coordinator spends every Sunday evening phoning people to fill the gaps. We want volunteers to see the open shifts and sign up themselves, and we want to see who is coming each evening.'
+    };
+    this.urgencyList = [
+      { key: 'urgent', label: 'Urgent', sub: 'Needed within a month.', chip: 'Urgent: within a month' },
+      { key: 'soon', label: 'Soon', sub: 'Needed in one to three months.', chip: 'Soon: in 1 to 3 months' },
+      { key: 'flexible', label: 'No fixed date', sub: 'Whenever it is ready.', chip: 'No fixed date' }
+    ];
+    this.others = [
+      { key: 'northside-pickup-routes', title: 'Donation pickup routes', org: 'Northside Food Rescue', when: 'Posted 3 days ago', state: 'Open for volunteers', urgency: '', text: 'Drivers collect surplus food from 14 shops. Routes are planned on a whiteboard each morning.' },
+      { key: 'riverside-tutor-matching', title: 'Matching tutors to pupils', org: 'Riverside Reading Club', when: 'Posted 6 days ago', state: 'Intake', urgency: 'soon', text: 'About 40 volunteer tutors and 90 pupils are matched by hand in a spreadsheet each term.' }
+    ];
+    const start = props.start ?? 'home';
+    const filled = start === 'filled' || start === 'review';
+    const posted = start === 'list';
+    this.state = {
+      view: start === 'filled' ? 'form' : start,
+      draftStep: start === 'review' ? 'review' : 'form',
+      title: filled ? this.sample.title : '',
+      description: filled ? this.sample.description : '',
+      urgency: filled ? 'soon' : null,
+      started: filled,
+      saving: false,
+      tried: false,
+      ack: false,
+      ackTried: false,
+      posting: false,
+      projects: posted ? [{ key: 'harbor-volunteer-scheduling', title: this.sample.title, description: this.sample.description, urgency: 'soon' }] : [],
+      current: 0,
+      justPosted: false,
+      listFrom: null,
+      discoveryThinking: false,
+      account: false,
+      signedOut: false,
+      confirmingDiscard: false
+    };
+    this.refs2 = {};
+    this.keep = (name) => (el) => { this.refs2[name] = el; };
+    this.lastView = null;
+  }
+  componentDidMount() { this.lastView = this.viewKey(); }
+  componentDidUpdate() {
+    const key = this.viewKey();
+    if (key !== this.lastView) {
+      this.lastView = key;
+      if (this.refs2.body) this.refs2.body.scrollTop = 0;
+      if (this.refs2.heading && !this.state.account) this.refs2.heading.focus({ preventScroll: true });
+    }
+    if (this.cardFocus && this.state.view === 'list' && this.refs2.body) {
+      const card = this.refs2.body.querySelector('[data-testkey="' + this.cardFocus + '"]');
+      this.cardFocus = null;
+      if (card) { card.scrollIntoView({ block: 'start' }); const h = card.querySelector('h3'); if (h) h.focus({ preventScroll: true }); }
+    }
+    if (this.state.account && !this.dialogFocused && this.refs2.dialog) {
+      this.dialogFocused = true;
+      const first = this.refs2.dialog.querySelector('button');
+      if (first) first.focus();
+    }
+  }
+  componentWillUnmount() { clearTimeout(this.saveTimer); clearTimeout(this.postTimer); clearTimeout(this.chatTimer); }
+  viewKey() { return (this.state.signedOut ? 'signedout' : this.state.view) + ':' + this.state.current; }
+  edit(patch) {
+    const next = Object.assign({}, this.state, patch);
+    const empty = !next.title.trim() && !next.description.trim();
+    this.setState(Object.assign({ started: !empty, saving: !empty, ack: false, ackTried: false, discarded: false }, patch));
+    clearTimeout(this.saveTimer);
+    if (!empty) this.saveTimer = setTimeout(() => this.setState({ saving: false }), 800);
+  }
+  len(t) {
+    return Array.from(new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(t)).length;
+  }
+  problems() {
+    const s = this.state;
+    const p = {};
+    if (!s.title.trim()) p.title = 'Add a project title.';
+    else if (this.len(s.title) > 80) p.title = 'Shorten the title to 80 characters or fewer. It has ' + this.len(s.title) + '.';
+    if (!s.description.trim()) p.description = 'Describe the problem.';
+    else if (this.len(s.description) > 2000) p.description = 'Shorten the description to 2,000 characters or fewer. It has ' + this.len(s.description).toLocaleString('en-US') + '.';
+    if (!s.urgency) p.urgency = 'Choose how urgent it is.';
+    return p;
+  }
+  contacts(text) {
+    const kinds = [];
+    if (/[\w.+-]+@[\w-]+\.[\w.-]+/.test(text)) kinds.push('an email address');
+    const runs = text.match(/\+?\(?\d[\d\s().-]{5,}\d/g) || [];
+    if (runs.some((r) => this.isPhone(r))) kinds.push('a phone number');
+    if (this.addressRes().some((re) => re.test(text))) kinds.push('a street address');
+    return kinds;
+  }
+  isPhone(run) {
+    const r = run.trim();
+    if (/^\d{7,9}$|^\d{4}-\d{2}-\d{2}$|^\d{1,2}[.:]\d{2}(\s*-\s*\d{1,2}[.:]\d{2})?$/.test(r)) return false;
+    return r.split(/\s+-\s+|(?<=^\d{4})-(?=\d{4}$)/).some((part) => part.replace(/\D/g, '').length >= 7);
+  }
+  addressRes(flags) {
+    const f = flags || '';
+    return [
+      new RegExp("\\b\\d{1,5}[a-z]?\\s+([A-Za-z'-]+\\s+){1,3}(street|st|road|rd|avenue|ave|lane|ln|drive|dr|boulevard|blvd|crescent|terrace|gardens|mews|parade|grove|square|sq)\\b", f + 'i'),
+      new RegExp("\\b\\d{1,5}[a-z]?\\s+([A-Z][A-Za-z'-]*\\s+){1,3}(Way|Court|Ct|Place|Pl|Close|Green|Row|Walk|Hill|Rise)\\b", f)
+    ];
+  }
+  joinKinds(kinds) {
+    return kinds.length <= 1 ? (kinds[0] || '') : kinds.slice(0, -1).join(', ') + ' and ' + kinds[kinds.length - 1];
+  }
+  healthIn(text) {
+    const m = text.match(/\b(epilepsy|epileptic|seizures?|diabetes|diabetic|cancer|leukaemia|leukemia|HIV|autism|autistic|dementia|Alzheimer'?s|pregnant|pregnancy|diagnos[a-z]*|depression|schizophrenia|bipolar|dialysis|chemotherapy|ADHD|tuberculosis|hepatitis|asthma)\b/i);
+    return m ? m[0] : '';
+  }
+  nameIn(text) {
+    this.addressRes('g').forEach((re) => { text = text.replace(re, ' '); });
+    const titled = text.match(/\b(Mr|Mrs|Ms|Miss|Dr)\.?\s+[A-Z][a-z]+/);
+    if (titled) return titled[0];
+    const skip = /^(The|This|That|These|Every|Each|Our|We|Some|Most|Last|Next|On|In|At|For|When|If|Then|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December|Google|Microsoft|Excel|Sheets|Word|Facebook|Harbor|Community|Kitchen|Food|Bank|Pantry|Eastside|Northside|High|Street|Road|Avenue|Lane|Animal|Shelter|Centre|Center|Church|School|Club|Trust|Foundation|Society|Charity|Council|House|Hall|Library|Hospital|Clinic|Group|Project|Garden|Park|Market|Youth|Legal|Aid|Refugee|Women|Men|Family|Families|Reading|City|Town|North|South|East|West|Saint|St)$/;
+    const re = /\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\b/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (!skip.test(m[1]) && !skip.test(m[2])) return m[0];
+    }
+    return '';
+  }
+  chip(key) { const x = this.urgencyList.find((y) => y.key === key); return x ? x.chip : ''; }
+  chipStyle(key) {
+    return key === 'urgent'
+      ? 'font-size:13px;font-weight:600;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 10px'
+      : 'font-size:13px;font-weight:600;color:#334155;background:#e2e8f0;border-radius:999px;padding:2px 10px';
+  }
+  focusFirstProblem() {
+    const p = this.problems();
+    const el = p.title ? this.refs2.title : p.description ? this.refs2.description : p.urgency ? this.refs2.urgency0 : null;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const err = this.refs2.body && this.refs2.body.querySelector(p.title ? '#title-error' : p.description ? '#description-error' : '#urgency-error');
+    const tall = el.offsetHeight > window.innerHeight * 0.5;
+    if (tall && err) err.scrollIntoView({ block: 'end' }); else el.scrollIntoView({ block: 'center' });
+  }
+  renderVals() {
+    const s = this.state;
+    const desktop = (this.props.device ?? 'phone') === 'desktop';
+    const member = (this.props.role ?? 'admin') === 'member';
+    const cur = s.projects[s.current];
+    const view = s.signedOut ? (s.view === 'list' ? 'list' : 'signedout') : s.view;
+    const problems = this.problems();
+    const tried = s.tried;
+    const titleError = tried && !!problems.title;
+    const descriptionError = tried && !!problems.description;
+    const urgencyError = tried && !!problems.urgency;
+    const field = (bad) => 'box-sizing:border-box;width:100%;border-radius:10px;border:' + (bad ? '2px solid #b91c1c' : '1px solid #64748b') + ';padding:12px 14px;font-size:16px;line-height:24px;background:#ffffff;color:#0f172a';
+    const titleKinds = this.contacts(s.title);
+    const descKinds = this.contacts(s.description);
+    const titleName = this.nameIn(s.title);
+    const descName = this.nameIn(s.description);
+    const allKinds = titleKinds.concat(descKinds.filter((k) => !titleKinds.includes(k)));
+    const blockWhere = titleKinds.length && descKinds.length ? 'title and description' : titleKinds.length ? 'title' : descKinds.length ? 'description' : '';
+    const blockWhat = this.joinKinds(allKinds);
+    const titleHealth = this.healthIn(s.title);
+    const descHealth = this.healthIn(s.description);
+    const softWhat = (name, health) => [name ? 'a person’s name (“' + name + '”)' : '', health ? 'a health detail (“' + health + '”)' : ''].filter(Boolean).join(' and ');
+    const hint = (field, kinds, name, health) => kinds.length
+      ? 'The ' + field + ' seems to hold ' + this.joinKinds(kinds) + '. The ' + field + ' will be public, so please remove ' + (kinds.length > 1 ? 'them' : 'it') + '.'
+      : (name || health) ? 'The ' + field + ' may hold ' + softWhat(name, health) + ((name && health) ? '. If they are about someone you help, remove them.' : '. If it is about someone you help, remove it.') : '';
+    const hintStyle = (kinds) => kinds.length
+      ? 'background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:8px 12px;font-size:14px;line-height:20px;color:#7f1d1d;overflow-wrap:anywhere'
+      : 'background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:8px 12px;font-size:14px;line-height:20px;color:#78350f;overflow-wrap:anywhere';
+    const titlePersonalText = hint('title', titleKinds, titleName, titleHealth);
+    const descriptionPersonalText = hint('description', descKinds, descName, descHealth);
+    const u = this.urgencyList.find((x) => x.key === s.urgency);
+    const missing = [problems.title, problems.description, problems.urgency].filter(Boolean);
+    const nav = (active) => 'height:44px;padding:0 12px;border-radius:8px;border:none;font-size:15px;font-weight:600;cursor:pointer;color:#0f172a;background:' + (active ? '#e2e8f0' : 'transparent');
+    const primary = 'height:48px;padding:0 20px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer';
+    const ackError = s.ackTried && !s.ack;
+    const reviewBlocked = !!blockWhat;
+    const publicCards = [];
+    s.projects.slice().reverse().forEach((x) => publicCards.push({
+      testid: 'public-intake-card', key: x.key, title: x.title, org: 'Harbor Community Kitchen', when: 'Posted today', state: 'Intake',
+      hasUrgency: true, urgency: this.chip(x.urgency), urgencyStyle: this.chipStyle(x.urgency), text: x.description, mine: !member && !s.signedOut, back: s.listFrom === 'discovery' && !s.signedOut && !!cur && x.key === cur.key,
+      stateStyle: 'font-size:13px;font-weight:600;color:#1e3a8a;background:#dbeafe;border-radius:999px;padding:2px 10px',
+      style: 'background:#ffffff;border:' + (member || s.signedOut ? '1px solid #cbd5e1' : '2px solid #16a34a') + ';border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px'
+    }));
+    this.others.forEach((x) => publicCards.push({
+      testid: x.state === 'Intake' ? 'public-intake-card' : 'public-open-card', key: x.key, title: x.title, org: x.org, when: x.when, state: x.state,
+      hasUrgency: !!x.urgency, urgency: this.chip(x.urgency), urgencyStyle: this.chipStyle(x.urgency), text: x.text, mine: false, back: false,
+      stateStyle: x.state === 'Intake' ? 'font-size:13px;font-weight:600;color:#1e3a8a;background:#dbeafe;border-radius:999px;padding:2px 10px' : 'font-size:13px;font-weight:600;color:#14532d;background:#dcfce7;border-radius:999px;padding:2px 10px',
+      style: 'background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px'
+    }));
+    const vals = {
+      desktop: desktop, phone: !desktop,
+      rootStyle: 'width:' + (desktop ? 1280 : 390) + 'px;height:' + (desktop ? 900 : 844) + 'px;position:relative;overflow:hidden;background:#ffffff;color:#0f172a;font-family:Inter,system-ui,-apple-system,sans-serif;display:flex;flex-direction:column',
+      headerStyle: 'flex:0 0 auto;min-height:68px;box-sizing:border-box;padding:' + (desktop ? '12px 32px' : '12px 16px') + ';border-bottom:1px solid #cbd5e1;display:flex;align-items:center;gap:' + (desktop ? '14px' : '10px') + ';background:#ffffff',
+      colStyle: desktop
+        ? 'max-width:' + (view === 'form' ? 1040 : 720) + 'px;margin:0 auto;padding:32px 32px 48px;display:flex;gap:32px;align-items:flex-start'
+        : 'padding:20px 16px 32px;display:flex;flex-direction:column;gap:20px',
+      mainStyle: desktop ? 'flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:18px' : 'display:flex;flex-direction:column;gap:18px',
+      urgencyGrid: desktop ? 'display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:10px' : 'display:flex;flex-direction:column;gap:8px',
+      actionsStyle: 'display:flex;flex-direction:column;gap:10px;align-items:' + (desktop ? 'flex-start' : 'stretch'),
+      cardActions: desktop ? 'display:flex;gap:10px;flex-wrap:wrap' : 'display:flex;flex-direction:column;gap:8px',
+      startStyle: (s.projects.length ? 'height:48px;padding:0 20px;border-radius:10px;border:1px solid #0f172a;background:#ffffff;color:#0f172a;font-size:16px;font-weight:600;cursor:pointer' : primary) + (desktop ? ';align-self:flex-start' : ''),
+      primaryStyle: primary + (desktop ? ';align-self:flex-start' : ''),
+      signedIn: !s.signedOut, headerSignIn: s.signedOut && view === 'list',
+      orgLabel: s.signedOut ? 'Not signed in' : 'Harbor Community Kitchen',
+      navProjectsStyle: nav(view === 'home' || view === 'form' || view === 'review' || view === 'discovery'),
+      navListStyle: nav(view === 'list'),
+      navProjectsCurrent: view === 'home' ? 'page' : 'false',
+      navListCurrent: view === 'list' ? 'page' : 'false',
+      showBack: view !== 'home' && view !== 'signedout',
+      backText: s.signedOut ? 'Back' : view === 'list' && s.listFrom === 'discovery' ? 'Chat' : desktop ? 'Your projects' : 'Projects',
+      backLabel: s.signedOut ? 'Back' : view === 'list' && s.listFrom === 'discovery' ? 'Back to the Discovery chat' : 'Back to your projects',
+      viewHome: view === 'home', viewForm: view === 'form', viewReview: view === 'review', viewDiscovery: view === 'discovery', viewList: view === 'list', viewSignedOut: view === 'signedout',
+      isAdmin: !member, isMember: member,
+      hasDraft: s.started, discarded: !!s.discarded, noDraft: !s.started, noProjects: !s.started && s.projects.length === 0,
+      confirmingDiscard: s.confirmingDiscard, notConfirmingDiscard: !s.confirmingDiscard,
+      projects: s.projects.map((x, i) => ({ key: x.key, title: x.title, continueLabel: 'Continue the Discovery chat for ' + x.title, open: () => this.setState({ view: 'discovery', current: i, justPosted: false, discoveryThinking: false }) })),
+      draftTitle: s.title.trim() || 'Untitled draft',
+      draftSaved: s.saving ? 'Saving…' : 'Saved automatically',
+      saveState: !s.started ? 'Saves automatically as you type' : s.saving ? 'Saving…' : 'Draft saved · private to your admins',
+      title: s.title, description: s.description, previewTitle: s.title.trim(), previewText: s.description.trim(),
+      titleCount: this.len(s.title), descriptionCount: this.len(s.description).toLocaleString('en-US'),
+      titleCountStyle: 'margin-left:auto;font-size:13px;font-weight:' + (this.len(s.title) > 80 ? '700;color:#b91c1c' : '400;color:#475569'),
+      descriptionCountStyle: 'margin-left:auto;font-size:13px;font-weight:' + (this.len(s.description) > 2000 ? '700;color:#b91c1c' : '400;color:#475569'),
+      titleError: titleError, descriptionError: descriptionError, urgencyError: urgencyError,
+      titleErrorText: problems.title || '', descriptionErrorText: problems.description || '',
+      titleInvalid: titleError || titleKinds.length ? 'true' : 'false', descriptionInvalid: descriptionError || descKinds.length ? 'true' : 'false',
+      titleDescribedBy: 'title-hint' + (titleError ? ' title-error' : '') + (titlePersonalText ? ' title-personal' : ''),
+      descriptionDescribedBy: 'description-hint' + (descriptionError ? ' description-error' : '') + (descriptionPersonalText ? ' description-personal' : ''),
+      titleStyle: field(titleError) + ';height:48px',
+      descriptionStyle: field(descriptionError) + ';resize:vertical;min-height:132px;field-sizing:content',
+      titlePersonal: !!titlePersonalText, titlePersonalText: titlePersonalText, titlePersonalStyle: hintStyle(titleKinds),
+      descriptionPersonal: !!descriptionPersonalText, descriptionPersonalText: descriptionPersonalText, descriptionPersonalStyle: hintStyle(descKinds),
+      urgencyDescribedBy: 'urgency-hint' + (urgencyError ? ' urgency-error' : ''),
+      showErrorSummary: tried && missing.length > 0,
+      errorSummary: 'Before the preview: ' + missing.join(' '),
+      urgencies: this.urgencyList.map((x, i) => ({
+        key: x.key, label: x.label, sub: x.sub, checked: s.urgency === x.key,
+        ref: this.keep('urgency' + i),
+        style: 'display:flex;gap:12px;align-items:flex-start;min-height:44px;box-sizing:border-box;padding:12px 14px;border-radius:12px;cursor:pointer;background:#ffffff;border:' + (s.urgency === x.key ? '2px solid #0f172a' : (urgencyError ? '2px solid #b91c1c' : '1px solid #64748b')),
+        pick: () => this.edit({ urgency: x.key })
+      })),
+      urgencyLabel: u ? u.chip : '', urgencyChip: this.chipStyle(s.urgency),
+      reviewBlocked: reviewBlocked, blockWhere: blockWhere, blockWhat: blockWhat, blockVerb: blockWhere === 'title and description' ? 'seem' : 'seems', showEdit: !reviewBlocked,
+      reviewNameWarn: !reviewBlocked && !!(titleName || descName || titleHealth || descHealth),
+      nameWhere: (titleName || titleHealth) && (descName || descHealth) ? 'title and description' : titleName || titleHealth ? 'title' : 'description',
+      softText: (() => {
+        const parts = [];
+        if (titleName || titleHealth) parts.push(((descName || descHealth) ? 'the title may hold ' : '') + softWhat(titleName, titleHealth));
+        if (descName || descHealth) parts.push(((titleName || titleHealth) ? 'the description may hold ' : '') + softWhat(descName, descHealth));
+        const where = parts.length > 1 ? 'Check the title and description: ' : 'Check the ' + ((titleName || titleHealth) ? 'title' : 'description') + ': it may hold ';
+        const many = [titleName, titleHealth, descName, descHealth].filter(Boolean).length > 1;
+        return where + parts.join(', and ') + (many ? '. Remove them if they are about someone you help. If not, you can post.' : '. Remove it if it is about someone you help. If not, you can post.');
+      })(),
+      ack: s.ack, ackError: ackError, ackLocked: s.posting || reviewBlocked,
+      ackDescribedBy: ackError ? 'ack-error' : '',
+      ackRowStyle: 'display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:14px;min-height:48px;box-sizing:border-box;' + (reviewBlocked
+        ? 'background:#f1f5f9;border:1px dashed #94a3b8;cursor:not-allowed'
+        : 'background:#ffffff;cursor:pointer;border:' + (ackError ? '2px solid #b91c1c' : '1px solid #64748b')),
+      ackTextStyle: 'font-size:15px;line-height:22px;color:' + (reviewBlocked ? '#334155' : '#0f172a'),
+      posting: s.posting, postingAria: s.posting ? 'true' : 'false',
+      postDisabled: s.posting || reviewBlocked,
+      postLabel: s.posting ? 'Posting…' : 'Post and start the Discovery chat',
+      postStyle: primary + (s.posting ? ';background:#334155;opacity:1' : ''),
+      justPosted: s.justPosted, resumed: !s.justPosted,
+      cardTitle: cur ? cur.title : '',
+      discoveryHello: 'Hi Dana. I have read your intake about “' + (cur ? cur.title : '') + '”.\n\nLet’s start with what matters most. Which part should the new tool make easier first?',
+      discoveryThinking: s.discoveryThinking, discoveryReady: !s.discoveryThinking,
+      publicCards: publicCards,
+      signedOutText: s.started ? 'Your draft is saved. Sign in to continue it.' : 'Sign in to return to your projects.',
+      accountOpen: s.account,
+      personName: member ? 'Sam Ortiz' : 'Dana Okonkwo',
+      personEmail: member ? 'sam@harborkitchen.org' : 'dana@harborkitchen.org',
+      roleLabel: member ? 'Member' : 'Admin',
+      setBody: this.keep('body'), setHeading: this.keep('heading'), setTitleInput: this.keep('title'), setDescriptionInput: this.keep('description'),
+      setAck: this.keep('ack'), setKeep: this.keep('keep'), setDiscard: this.keep('discard'), setDialog: this.keep('dialog'), setAccountButton: this.keep('accountButton'), setUrgencyGroup: this.keep('urgencyGroup'),
+      openForm: () => this.setState({ view: 'form', confirmingDiscard: false, discarded: false, draftStep: 'form' }),
+      goHome: () => this.setState({ view: 'home', listFrom: null, confirmingDiscard: false }),
+      goBack: () => {
+        if (s.view === 'list' && s.listFrom === 'discovery' && !s.signedOut) { this.setState({ view: 'discovery', listFrom: null }); return; }
+        this.setState({ view: 'home', listFrom: null, confirmingDiscard: false });
+      },
+      fixBlocked: () => this.setState({ view: 'form', draftStep: 'form' }, () => { const el = titleKinds.length ? this.refs2.title : this.refs2.description; if (el) { el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); } }),
+      fixName: () => this.setState({ view: 'form', draftStep: 'form' }, () => { const el = titleName || titleHealth ? this.refs2.title : this.refs2.description; if (el) { el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); } }),
+      openList: () => this.setState({ view: 'list', listFrom: null, confirmingDiscard: false }),
+      onTitle: (e) => this.edit({ title: e.target.value }),
+      onDescription: (e) => this.edit({ description: e.target.value }),
+      toReview: () => {
+        if (Object.keys(this.problems()).length > 0) { this.setState({ tried: true }, () => this.focusFirstProblem()); return; }
+        this.setState({ view: 'review', tried: false, ackTried: false, draftStep: 'review' });
+      },
+      titleKeys: (e) => { if (e.key === 'Enter') { e.preventDefault(); vals.toReview(); } },
+      continueDraft: () => this.setState({ view: this.state.draftStep === 'review' && Object.keys(this.problems()).length === 0 ? 'review' : 'form', confirmingDiscard: false, discarded: false }),
+      urgencyFocus: (e) => { if (this.refs2.urgencyGroup && e.target.matches(':focus-visible')) this.refs2.urgencyGroup.scrollIntoView({ block: 'nearest' }); },
+      ackFocus: (e) => { const row = e.target.closest('label'); if (row && e.target.matches(':focus-visible')) row.scrollIntoView({ block: 'nearest' }); },
+      toggleAck: (e) => { if (!s.posting) this.setState({ ack: e.target.checked }); },
+      post: () => {
+        if (this.state.posting || reviewBlocked) return;
+        if (!this.state.ack) { this.setState({ ackTried: true }, () => this.refs2.ack && this.refs2.ack.focus()); return; }
+        this.setState({ posting: true });
+        clearTimeout(this.postTimer);
+        this.postTimer = setTimeout(() => {
+          const st = this.state;
+          const key = 'harbor-' + st.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '-' + (st.projects.length + 1);
+          const projects = st.projects.concat([{ key: key, title: st.title.trim(), description: st.description.trim(), urgency: st.urgency }]);
+          this.setState({ posting: false, projects: projects, current: projects.length - 1, view: 'discovery', justPosted: true, discoveryThinking: true,
+            title: '', description: '', urgency: null, started: false, ack: false, ackTried: false, tried: false, draftStep: 'form' });
+          this.chatTimer = setTimeout(() => this.setState({ discoveryThinking: false }), 900);
+        }, 1100);
+      },
+      askDiscard: () => this.setState({ confirmingDiscard: true }, () => this.refs2.keep && this.refs2.keep.focus()),
+      keepDraft: () => this.setState({ confirmingDiscard: false }, () => this.refs2.discard && this.refs2.discard.focus()),
+      discardKeys: (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.setState({ confirmingDiscard: false }, () => this.refs2.discard && this.refs2.discard.focus()); } },
+      discard: () => this.setState({ confirmingDiscard: false, title: '', description: '', urgency: null, started: false, saving: false, tried: false, ack: false, draftStep: 'form', discarded: true }, () => this.refs2.heading && this.refs2.heading.focus()),
+      openCard: () => { this.cardFocus = cur ? cur.key : null; this.setState({ view: 'list', listFrom: 'discovery' }); },
+      backToDiscovery: () => this.setState({ view: 'discovery', listFrom: null }),
+      openAccount: () => { this.dialogFocused = false; this.setState({ account: true }); },
+      closeAccount: () => { this.setState({ account: false }, () => this.refs2.accountButton && this.refs2.accountButton.focus()); },
+      accountKeys: (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); this.setState({ account: false }, () => this.refs2.accountButton && this.refs2.accountButton.focus()); return; }
+        if (e.key === 'Tab' && this.refs2.dialog) {
+          const items = Array.from(this.refs2.dialog.querySelectorAll('button'));
+          const i = items.indexOf(document.activeElement);
+          e.preventDefault();
+          const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i === items.length - 1 ? 0 : i + 1);
+          items[next].focus();
+        }
+      },
+      stop: (e) => e.stopPropagation(),
+      signOut: () => this.setState({ account: false, signedOut: true, view: 'home', listFrom: null, confirmingDiscard: false }),
+      signIn: () => this.setState({ signedOut: false, view: 'home' }),
+      toSignIn: () => this.setState({ view: 'home', listFrom: null })
+    };
+    return vals;
+  }
+}
+</script>
+</body>
+</html>

@@ -29,8 +29,6 @@ export type Scope = {
   dataSensitivity: { tier: DataTier; rationale: string };
   maintainabilityFit: { verdict: FitVerdict; rationale: string };
   causeLabels: string[];
-  lovableRecommendation: { recommended: boolean; rationale: string };
-  buildSplit: { lovable: string[]; claudeCode: string[] };
 };
 
 const strings = { type: 'array', items: { type: 'string' } };
@@ -62,24 +60,15 @@ export const RECORD_SCOPE_TOOL = {
         properties: { verdict: { type: 'string', enum: ['fit', 'declined'] }, rationale: { type: 'string' } },
         required: ['verdict', 'rationale'] },
       causeLabels: strings,
-      lovableRecommendation: { type: 'object', additionalProperties: false,
-        properties: { recommended: { type: 'boolean' }, rationale: { type: 'string' } },
-        required: ['recommended', 'rationale'] },
-      buildSplit: { type: 'object', additionalProperties: false,
-        properties: {
-          lovable: { type: 'array', minItems: 1, items: { type: 'string' } },
-          claudeCode: { type: 'array', minItems: 1, items: { type: 'string' } },
-        },
-        required: ['lovable', 'claudeCode'] },
     },
     required: ['summary', 'userStories', 'suggestedStack', 'complexity', 'riskFlags', 'dataSensitivity',
-      'maintainabilityFit', 'causeLabels', 'lovableRecommendation', 'buildSplit'],
+      'maintainabilityFit', 'causeLabels'],
   },
 } as const;
 export type RecordScopeTool = typeof RECORD_SCOPE_TOOL;
 
-const SCOPE_KEYS = ['summary', 'userStories', 'suggestedStack', 'complexity', 'riskFlags', 'dataSensitivity',
-  'maintainabilityFit', 'causeLabels', 'lovableRecommendation', 'buildSplit'] as const;
+export const SCOPE_KEYS = ['summary', 'userStories', 'suggestedStack', 'complexity', 'riskFlags', 'dataSensitivity',
+  'maintainabilityFit', 'causeLabels'] as const;
 
 function trimmed(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -143,16 +132,6 @@ export function parseScope(input: unknown): Scope | null {
     seen.add(label);
     causeLabels.push(label);
   }
-  if (!isRecord(input.lovableRecommendation) || !exactKeys(input.lovableRecommendation, ['recommended', 'rationale'])) {
-    return null;
-  }
-  if (typeof input.lovableRecommendation.recommended !== 'boolean') return null;
-  const lovableRationale = trimmed(input.lovableRecommendation.rationale);
-  if (lovableRationale === null) return null;
-  if (!isRecord(input.buildSplit) || !exactKeys(input.buildSplit, ['lovable', 'claudeCode'])) return null;
-  const lovable = trimmedStrings(input.buildSplit.lovable, 1);
-  const claudeCode = trimmedStrings(input.buildSplit.claudeCode, 1);
-  if (lovable === null || claudeCode === null) return null;
   return {
     summary, userStories, suggestedStack,
     complexity: { tier: complexityTier, rationale: complexityRationale, startSmallAdvice },
@@ -160,8 +139,6 @@ export function parseScope(input: unknown): Scope | null {
     dataSensitivity: { tier: dataTier, rationale: dataRationale },
     maintainabilityFit: { verdict: fitVerdict, rationale: fitRationale },
     causeLabels,
-    lovableRecommendation: { recommended: input.lovableRecommendation.recommended, rationale: lovableRationale },
-    buildSplit: { lovable, claudeCode },
   };
 }
 
@@ -175,7 +152,7 @@ export function buildScopeRequest(input: ConfirmedDiscovery, skills: readonly Di
     maxTokens: DISCOVERY_REQUEST_SETTINGS.maxOutputTokens,
     effort: DISCOVERY_REQUEST_SETTINGS.effort,
     system: [
-      { text: `You produce a technical scope in the PRD step. Ground every story in an agreed answer or a kept open question. Set discoveryTopicId to its topic id. Never turn uncertainty into an agreed fact. Preserve the data tier and maintainability verdict in the confirmed brief. Include both build-split parts. Never give a money figure for the project or the build.\n\n${discoverySkillsText(skills)}`, cached: true },
+      { text: `You produce a technical scope in the PRD step. Ground every story in an agreed answer or a kept open question. Set discoveryTopicId to its topic id. Never turn uncertainty into an agreed fact. Preserve the data tier and maintainability verdict in the confirmed brief. Never give a money figure for the project or the build.\n\n${discoverySkillsText(skills)}`, cached: true },
       { text: `Confirmed Discovery document:\n${JSON.stringify(input)}`, cached: false },
     ],
     messages: [{ role: 'user', content: SCOPE_REQUEST_MESSAGE }],
@@ -192,19 +169,27 @@ export async function generateConfirmedScope(input: ConfirmedDiscovery, skills: 
   const scope = answer.toolUse?.name === 'record_scope' ? parseScope(answer.toolUse.input) : null;
   if (answer.stopReason === 'refusal' || scope === null) throw new Error('The model did not record a valid scope.');
   scope.causeLabels = [...input.brief.document.causeLabels];
+  const problems = scopeSourceProblems(scope, input);
+  if (problems.length > 0) throw new Error(problems[0]);
+  return { scope, markdown: renderScopeMarkdown(scope, { title: input.brief.document.need.text }), model: answer.model, usage: answer.usage };
+}
+
+/** Every way a parsed scope departs from the confirmed Discovery document, in plain English. */
+export function scopeSourceProblems(scope: Scope, input: ConfirmedDiscovery): string[] {
+  const problems: string[] = [];
   const gaps = new Set(input.confirmation.acceptedGaps.map((gap) => gap.topicId));
   for (const story of scope.userStories) {
     const topic = input.brief.document.topics[story.discoveryTopicId ?? ''];
     if (!topic || !((topic.state.kind === 'agreed' && !topic.needsReview) || gaps.has(topic.id))) {
-      throw new Error('A scope story has no confirmed Discovery source.');
+      problems.push(`A scope story has no confirmed Discovery source: ${story.story}`);
     }
   }
   const data = input.brief.document.dataTier;
   const fit = input.brief.document.fit;
-  if (data && scope.dataSensitivity.tier !== `tier${data.tier}`) throw new Error('The scope changed the confirmed data tier.');
-  if (fit && scope.maintainabilityFit.verdict !== (fit.verdict === 'fits' ? 'fit' : 'declined')) throw new Error('The scope changed the confirmed fit verdict.');
-  if (scopeMoneyProblems(scopeModelText(scope)).length > 0) throw new Error('The scope contains a forbidden money figure.');
-  return { scope, markdown: renderScopeMarkdown(scope, { title: input.brief.document.need.text }), model: answer.model, usage: answer.usage };
+  if (data && scope.dataSensitivity.tier !== `tier${data.tier}`) problems.push('The scope changed the confirmed data tier.');
+  if (fit && scope.maintainabilityFit.verdict !== (fit.verdict === 'fits' ? 'fit' : 'declined')) problems.push('The scope changed the confirmed fit verdict.');
+  if (scopeMoneyProblems(scopeModelText(scope)).length > 0) problems.push('The scope contains a forbidden money figure.');
+  return problems;
 }
 
 function listBlock(items: readonly string[]): string {
@@ -214,12 +199,6 @@ function listBlock(items: readonly string[]): string {
 export function renderScopeMarkdown(scope: Scope, need: { title: string }): string {
   const stories = scope.userStories.map((story) =>
     `### ${story.story}\n${listBlock(story.acceptanceCriteria)}`).join('\n\n');
-  const lovable = [
-    scope.lovableRecommendation.rationale,
-    scope.lovableRecommendation.recommended
-      ? '[Lovable pricing](' + SCOPE_COPY.lovablePricingUrl + ')'
-      : '',
-  ].filter((part) => part !== '').join('\n\n');
   return [
     `# ${need.title}`,
     `## Summary\n${scope.summary}`,
@@ -230,20 +209,14 @@ export function renderScopeMarkdown(scope: Scope, need: { title: string }): stri
     `## Data sensitivity\n${SCOPE_COPY.dataTier[scope.dataSensitivity.tier]}\n${scope.dataSensitivity.rationale}`,
     `## Maintainability fit\n- Verdict: ${scope.maintainabilityFit.verdict}\n- Rationale: ${scope.maintainabilityFit.rationale}`,
     `## Cause labels\n${listBlock(scope.causeLabels)}`,
-    `## Maintenance\n${SCOPE_COPY.maintenance}`,
-    `## Lovable recommendation\n${lovable}`,
-    `## Build split\n### Lovable\n${listBlock(scope.buildSplit.lovable)}\n### Claude Code\n${listBlock(scope.buildSplit.claudeCode)}`,
   ].join('\n\n');
 }
 
 export const SCOPE_MONEY = /\$|\bUSD\b|\bdollars?\b|\bcost\b|\bestimate\b|\bbudget\b|\bprice\b/gi;
 
 export function scopeMoneyProblems(markdown: string): string[] {
-  const allowed = [SCOPE_COPY.maintenance, SCOPE_COPY.lovablePricingUrl];
-  let rest = markdown;
-  for (const piece of allowed) rest = rest.split(piece).join('');
   const problems: string[] = [];
-  const lines = rest.split('\n');
+  const lines = markdown.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
     for (const match of lines[i].matchAll(SCOPE_MONEY)) {
       problems.push('line ' + String(i + 1) + ': ' + match[0]);
@@ -261,8 +234,6 @@ export function scopeModelText(scope: Scope): string {
     ...scope.riskFlags,
     scope.dataSensitivity.rationale,
     scope.maintainabilityFit.rationale,
-    scope.lovableRecommendation.rationale,
-    ...scope.buildSplit.lovable, ...scope.buildSplit.claudeCode,
   ].join('\n');
 }
 

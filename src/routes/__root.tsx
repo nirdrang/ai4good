@@ -117,6 +117,14 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => document.documentElement.classList.toggle("dark", scheme.matches);
+    apply();
+    scheme.addEventListener("change", apply);
+    return () => scheme.removeEventListener("change", apply);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />

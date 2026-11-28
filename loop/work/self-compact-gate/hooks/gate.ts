@@ -7,6 +7,11 @@ const INSTRUCTIONS =
 const GO = 'Compaction done. Read the resume note of the item on this branch (loop/items/<item>/resume.md), then start the next unit.';
 const STUB = '[output removed by fast compact]';
 
+type Mode = 'fast' | 'full';
+type Run = { mode: Mode; gateId: string | undefined; compacted: boolean };
+
+const isGate = (q: any) => (q.options ?? []).some((o: any) => String(o.label).startsWith(FAST));
+
 function chosen(out: any): string[] {
   const answers = out?.result?.answers;
   if (answers && typeof answers === 'object') return Object.values(answers).map(String);
@@ -18,71 +23,59 @@ async function contextSize($: any) {
   return b ? `${Math.round(b.totalTokens / 1000)}k tokens (${b.percentage}% of the window)` : 'unknown';
 }
 
-async function fullCompact($: any) {
-  await $.session.compact({ instructions: INSTRUCTIONS });
-  await $.prompt.submit({ text: GO });
-}
-
 export const register = (on: any) => {
-  let pending: 'fast' | 'full' | null = null;
-  let trimming = false;
-  let gateId: string | undefined;
+  let pending: Run | null = null;
+  let current: Run | null = null;
 
   on('tool.call', async ($: any, e: any, next: any) => {
-    if (e.tool === 'AskUserQuestion' && e.agentId === undefined && Array.isArray(e.questions)) {
-      const isGate = (q: any) => (q.options ?? []).some((o: any) => String(o.label).startsWith(FAST));
-      if (e.questions.some(isGate)) {
-        const size = await contextSize($).catch(() => undefined);
-        if (size) e = { ...e, questions: e.questions.map((q: any) => (isGate(q) ? { ...q, question: `Context now: ${size}. ${q.question}` } : q)) };
-      }
-    }
+    if (e.tool !== 'AskUserQuestion' || e.agentId !== undefined || !Array.isArray(e.questions) || !e.questions.some(isGate)) return next(e);
+    const size = await contextSize($).catch(() => undefined);
+    if (size) e = { ...e, questions: e.questions.map((q: any) => (isGate(q) ? { ...q, question: `Context now: ${size}. ${q.question}` } : q)) };
     const out = await next(e);
-    if (e.tool !== 'AskUserQuestion' || e.agentId !== undefined) return out;
     const labels = chosen(out);
-    if (labels.some((l) => l.startsWith(FAST))) pending = 'fast';
-    else if (labels.some((l) => l.startsWith(FULL))) pending = 'full';
-    else return out;
-    gateId = e.tool_use_id;
-    $.ui.log(`SELFCOMPACT gate answered ${pending}`);
+    const mode: Mode | null = labels.some((l) => l.startsWith(FAST)) ? 'fast' : labels.some((l) => l.startsWith(FULL)) ? 'full' : null;
+    if (!mode) return out;
+    pending = { mode, gateId: e.tool_use_id, compacted: false };
+    $.ui.log(`SELFCOMPACT gate answered ${mode}`);
     return out;
   });
 
+  // $.session.compact() is refused in SDK sessions (the desktop app); /compact queued from here runs at idle.
   on('turn.complete', async ($: any, e: any, next: any) => {
     const r = await next(e);
     if (e.agentId !== undefined || !pending) return r;
-    const mode = pending;
+    const run = pending;
     pending = null;
-    try {
-      if (mode === 'full') {
-        await fullCompact($);
-        return r;
-      }
-      const before = await contextSize($);
-      trimming = true;
-      await $.session.compact({ instructions: INSTRUCTIONS });
-      const after = await contextSize($);
-      $.ui.log(`SELFCOMPACT fast compact: ${before} -> ${after}`);
-      const pick = await $.ui.ask(`Fast compact done. Context was ${before}, now ${after}. Continue, or run the full /compact too?`, [
-        'Continue',
-        FULL,
-      ]);
-      if (pick === FULL) await fullCompact($);
-      else await $.prompt.submit({ text: pick === 'Continue' ? GO : pick });
-    } catch (err: any) {
-      $.ui.log('SELFCOMPACT gate compaction failed: ' + (err?.message ?? String(err)));
-      $.ui.toast('Gate compaction failed; see the debug log. Type /compact or continue by hand.');
-    } finally {
-      trimming = false;
-    }
+    current = run;
+    $.ui.log(`SELFCOMPACT ${run.mode} compact queued at ${await contextSize($).catch(() => 'unknown')}`);
+    $.command
+      .run({ command: 'compact', args: INSTRUCTIONS })
+      .then((res: any) => {
+        if (!run.compacted) throw new Error(res?.text ?? 'the compaction did not run');
+        return $.prompt.submit({ text: GO });
+      })
+      .catch((err: any) => {
+        $.ui.log('SELFCOMPACT gate compaction failed: ' + (err?.message ?? String(err)));
+        $.ui.toast('Gate compaction failed; see the debug log. Type /compact or continue by hand.');
+      })
+      .finally(() => {
+        if (current === run) current = null;
+      });
     return r;
   });
 
   on('session.compact', async ($: any, e: any, next: any) => {
-    if (!trimming) return next(e);
-    trimming = false;
+    const run = current;
+    if (!run || e.agentId !== undefined || e.instructions !== INSTRUCTIONS) return next(e);
+    if (run.mode === 'full') {
+      const res = await next(e);
+      run.compacted = !res?.skip;
+      return res;
+    }
     const rows = e.messages;
-    const cut = rows.findIndex((m: any) => m.toolResults?.some((t: any) => t.tool_use_id === gateId));
+    const cut = rows.findIndex((m: any) => m.toolResults?.some((t: any) => t.tool_use_id === run.gateId));
     const end = cut < 0 ? rows.length : cut;
+    run.compacted = true;
     return {
       messages: rows.map((m: any, i: number) =>
         i >= end

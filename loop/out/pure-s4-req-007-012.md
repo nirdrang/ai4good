@@ -18,7 +18,7 @@ Dependencies: REQ-001, REQ-005, REQ-008.
 
 #### REQ-008: GitHub Integration (Code substrate + dev-internal issue tracker)
 
-Every funded project has a public-MIT repository in the platform GitHub org (all public), created through the volunteer-driven Lovable→GitHub setup.
+Every funded project has a public-MIT repository in the platform GitHub org (all public), created by the platform, private, when the developer opens the project PRD (REQ-036).
 
 - **Uniform repo home:** repositories remain in the platform org permanently — no transfer; MIT licensing + Lovable's two-way sync keep the code forkable and exportable; the NGO admin holds admin access from completion onward.
 - Access: the volunteer maintains the repo; the NGO admin has read + comment, never push.
@@ -28,7 +28,8 @@ Every funded project has a public-MIT repository in the platform GitHub org (all
 - The platform holds only short-lived, on-demand GitHub credentials; no user PATs.
 - **One-time org setup at launch:** the platform and Lovable GitHub Apps are installed org-wide under least-privilege scopes, with credential rotation and a break-glass org-compromise runbook. Org membership grants no repo access by default (explicit adds only); orphan repos matching no active project are monitored; NGO admins are per-project outside collaborators, never members.
 - **Continuously-asserted base-permission invariant (P0):** members have no default repo access; repository visibility changes are limited to owners and platform automation; desired repo visibility is EXACT — private before setup validation of the repo URL, public after validation when no active REQ-031 hide exists, and private while an audited hide is active — and scheduled verification continuously remediates to that exact state in both directions, never inferring authorization from private visibility alone (REQ-009 org-namespace guard). The hide exception relaxes nothing else: base permissions, change authority, participant access, secret scanning, and push protection stay in force.
-- **Lovable path (v1 default):** no repo is pre-created at funding; the Lovable→GitHub setup is volunteer-driven with no admin involvement, the platform validates and records the resulting repo URL, and unresolved setup is surfaced for follow-up. A recorded repo URL is a hard precondition for completion.
+- **Repo creation:** no repo is created at funding. When the developer opens the PRD, the platform GitHub App creates the repo, private, records its URL, and writes the PRD files through the GitHub API (REQ-036).
+- **Lovable path (v1 default):** the Lovable→GitHub setup is volunteer-driven with no admin involvement and connects to that existing repo; the platform validates the setup, and unresolved setup is surfaced for follow-up. A recorded repo URL is a hard precondition for completion.
 - The seeded README carries the title, NGO name, plain-language summary, license, and project-page link.
 - **At completion:** the volunteer drops to read/triage and the NGO admin holds admin — no org transfer; the NGO removes both the volunteer and ai4good's read-only monitoring account from the Lovable workspace.
 
@@ -44,7 +45,7 @@ A platform-controlled LLM gateway sits in the request path; hosting is open (**O
 
 **Discovery boundary:** platform-owned Discovery uses the free-first routing and request settlement in REQ-004/006. Sponsored calls use the platform budget even when the project's paid key is inactive. Paid Discovery debits reconcile against its project workspace. Gateway request telemetry remains attribution-only; this exception adds no token-based gateway charge or gateway money gate.
 
-**PRD boundary:** the platform-owned PRD workspace runs Claude Managed Agents sessions with a server-held key (REQ-036). The PRD tools are a platform MCP server; each session reaches it with a token that names one chat and one project, expires, and is held in a vault created for that session. Its billing handler reserves project funds and settles priced model requests and session runtime under REQ-006. Enforce project binding, membership, role authority, funding, and revocation before dispatch. Scoring and the planning package require their own authorized operation. These rules do not change the Claude Code build gateway or make attribution rows a money source. Store the shared conversation as product authoring data, separate from the gateway telemetry log.
+**PRD boundary:** the platform-owned PRD workspace calls its model from an edge function with a server-held key (REQ-036); the model and its provider are a setting. The PRD tools are functions the backend runs inside a turn, limited to that turn's chat and project. Its billing handler reserves project funds and settles priced model requests under REQ-006. Enforce project binding, membership, role authority, funding, and revocation before dispatch. Scoring and the planning package require their own authorized operation. These rules do not change the Claude Code build gateway or make attribution rows a money source. Store the shared conversation as product authoring data, separate from the gateway telemetry log.
 
 **Threat posture:** the project-binding marker detects misuse; it does not prevent it (the marker is copyable). The real bounds are the provider-executed stop (never more than the funded provider budget plus a bounded stopping distance), the workspace's rate limits (never faster than allowed), attribution of every request, and instant revocation. Volunteers are told at onboarding that usage is attributed and reviewed.
 
