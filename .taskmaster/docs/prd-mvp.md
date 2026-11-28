@@ -152,7 +152,9 @@ NGOs sign up (email-verified) and complete an org profile. v1 trust is a founder
 1. **Unverified** — email-verified, the Discovery access floor. May draft projects and use an enrolled project's daily allowance or paid fuel. Cannot publish.
 2. **Vetted** — one audited admin action at concierge onboarding. May publish and fund. The default for admitted pilot NGOs. Vetting raises the daily Discovery grant from 10 to 30 free turns.
 
-- The NGO admin creates and edits the profile (name, mission, country, website, logo).
+- Sign-up creates the NGO account and the organisation with its name (REQ-001). The NGO admin then finishes the profile: the mission and the country are required, the website and the logo are optional. The name has at most 120 characters and the mission at most 600. The logo is a PNG, JPEG or WebP image of at most 2 MB; without one the organisation's initials show. The admin edits all five fields later.
+- The organisation's name, mission, country, website and logo show beside each project the NGO posts. The admin's own name and email stay private.
+- After sign-in, an NGO admin whose profile is not finished opens the profile page. Otherwise the admin opens Your projects: the organisation, its vetting state, and its projects, each with its stage (draft, Discovery chat in progress, brief ready, or not a fit) and the next action (screen design 2026-11-28). The pilot NGO is the single admin account; members come after the pilot (founder 2026-11-28).
 - The profile's mission text is one input the Discovery pass reads to generate cause labels (REQ-004); there is no separate cause-category field or admin taxonomy surface here.
 - Email verification precedes any Discovery message; vetting gates publishing, never Discovery.
 - **The vetting action is audited:** it records who vetted and when, the NGO legal/display name, a public reference link, the contact's name + title + authority attestation, the evidence type, and a note; unvet/revoke exists; vet/unvet emits the verification-outcome notification through the normal event path (REQ-016).
