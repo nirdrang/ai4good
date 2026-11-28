@@ -56,6 +56,16 @@ else
   lines+=("pstack: marketplace NOT cloned yet - restart this session once")
 fi
 
+# The setup script installs the fast compact plugin. If the clone was missing at setup, install
+# it here; a plugin installed during a session loads from the next start.
+if claude plugin list 2>/dev/null | grep -q 'self-compact-gate@ai4good-local'; then
+  lines+=("fast compact: plugin installed")
+elif claude plugin marketplace add "$CLAUDE_PROJECT_DIR/loop/work" >&2 && claude plugin install self-compact-gate@ai4good-local >&2; then
+  lines+=("fast compact: plugin installed now - restart this session once to load it")
+else
+  lines+=("fast compact: plugin install FAILED - see the hook output")
+fi
+
 # The snapshot freezes both agent CLIs at the version the setup script installed, and the model
 # sheet names models only a current CLI knows. Bring each to the newest version before any lane
 # runs (founder 2026-11-21).

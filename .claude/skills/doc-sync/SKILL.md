@@ -50,7 +50,7 @@ holds pointers and a sync-stamp per PM item; the repo is the only place meaning 
       founder's rulings in their words, the changed requirement text verbatim, the
       contract edits) and commits it as the durable record.
    c. The affected screen's canvas is revised through the `ui-design` skill: the Codex
-      review runs until all works, and the founder agrees that the screen is complete.
+      review runs until all works, and the lead decides that the screen is complete.
       The complete canvas is copied into `design/canvas/<screen>/`.
    (Reverse direction: a design ruling that changes a requirement STARTS a fold — decision
    d94, Discovery is about the need, is the worked example.)

@@ -7,9 +7,9 @@ The controller writes these texts into a screen's three dev items when it materi
 ```markdown
 The screen design stage of the <Screen> screen, for <reqs>. The ui-design skill runs this item.
 
-It makes the screen on a Claude Design canvas from the PRD, in desktop and phone sizes. The canvas is a design, not app code, and this stage commits nothing under src/ or supabase/. The founder changes it in chat, and Codex reviews it as the screen's user until every interaction works. When the founder agrees the screen is complete, it updates the PRD for contract changes and big changes or additions, and it writes the acceptance tests. It adds their ids to the `verify:` field of the screen wiring leaf of <D> in the manifest. That field lists the acceptance tests that leaf must turn green.
+It makes the screen on a Claude Design canvas from the PRD, in desktop and phone sizes. The canvas is a design, not app code, and this stage commits nothing under src/ or supabase/. The lead decides each design choice, and persona lanes review it as the screen's user until every interaction works. When the lead decides the screen is complete, it updates the PRD for contract changes and big changes or additions, and it writes the acceptance tests. It adds their ids to the `verify:` field of the screen wiring leaf of <D> in the manifest. That field lists the acceptance tests that leaf must turn green.
 
-Done when: the founder agrees the screen is complete, the canvas copy is in design/canvas/<screen>/project/, and the new acceptance tests are pending stubs.
+Done when: the lead has decided the screen is complete, the canvas copy is in design/canvas/<screen>/project/, and the new acceptance tests are pending stubs.
 Acceptance tests: none turn green in this stage. New ids register as pending.
 ```
 

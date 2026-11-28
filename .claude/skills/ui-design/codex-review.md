@@ -2,23 +2,29 @@
 
 Codex plays the screen's user and operates a local copy of the canvas. It reports what works, what does not work, and usability hints. `SKILL.md` steps 3 and 4 run it.
 
-## The model
+## The models
 
-GPT-6 Astra at `low` effort, by founder ruling on 2026-10-11: "which model are you using this should be astra low". The Codex id is `gpt-6-astra`; the local Codex model list on 2026-10-11 lists `low` for it. Name the model and the effort in every run, so the run does not depend on the local Codex default. Until 2026-10-11 it was GPT-6.1 Sol at `high` (founder, 2026-10-01); to undo, use `-m gpt-6.1-sol -c model_reasoning_effort=high`.
+The review runs three lanes at once, one model each, with the same prompt: Codex at the codex entry of the `interrogate reviewers` row in `.claude/pstack-models.md`, agy at `gemini-4-neon-high`, and Claude at the row's claude entry. The tracked row names grok for the second lane, and cloud sessions replace it with agy; the review uses agy in both places. Different models find different defects, and a defect two lanes report is high signal. Name the model and the effort in every run, so the run does not depend on a local default.
 
 ## Run it
 
 1. Download the boards (`project/*.dc.html`) and the canvas player (`artifact-type/dc-runtime.js`) with the Artifact tool. Copy them into one scratch folder, and save the player there as `support.js`, because each board loads `./support.js`. Do not commit the player.
 2. Serve the folder as a background command: `python -m http.server 4390 --bind 127.0.0.1 --directory <folder>`.
-3. Write the prompt file from the template below, and run Codex as a background command:
+3. Write the prompt file from the template below, and start the three lanes as background commands, each with its own empty folder. Each `<model>` and `<effort>` comes from that lane's entry above:
 
-   ```powershell
-   Get-Content <prompt file> -Raw | codex exec -m gpt-6-astra -c model_reasoning_effort=low --skip-git-repo-check -C <empty folder> -o <report file> -
+   ```bash
+   codex exec -m <model> -c model_reasoning_effort=<effort> -s workspace-write -c sandbox_workspace_write.network_access=true --skip-git-repo-check -C <empty folder> -o <report file> - < <prompt file>
+   (cd <empty folder> && agy --dangerously-skip-permissions --model gemini-4-neon-high -p "$(cat <prompt file>)" > <report file>)
    ```
 
-4. Stop the server. Its background task then reports exit code 255; that is expected.
-5. Save the report as `loop/items/<item>/codex-review/round-<n>.md`.
-6. If Codex says it has no browser tool, stop and tell the founder. Do not replace the review with screenshots or with a script run of the board logic.
+   In PowerShell, pipe `Get-Content <prompt file> -Raw` into the same `codex exec`, and run agy after `Set-Location <empty folder>` with `-p (Get-Content <prompt file> -Raw)`.
+
+   The Claude lane is an `Agent` with the `subagent_type` of the native pstack lane for its sheet entry (`pstack:pstack-opus-medium` for `claude:opus@medium`) in the background. Give it the prompt file's text, and tell it to drive the boards with Playwright and to write its final report to its report file.
+   If a Codex or agy lane fails to sign in, follow the sign-in rule of the session banner. Do not drop the lane.
+
+4. When all three lanes have finished, stop the server. Its background task then reports exit code 255; that is expected.
+5. Save the reports as `loop/items/<item>/codex-review/round-<n>-<lane>.md`. Merge their lists into one list, and mark each defect with the lanes that found it.
+6. If a lane cannot open the pages in a real browser, neither with a browser tool nor with Playwright, stop and tell the founder. Do not replace the review with screenshots or with a script run of the board logic.
 
 ## The prompt template
 
@@ -26,9 +32,9 @@ GPT-6 Astra at `low` effort, by founder ruling on 2026-10-11: "which model are y
 You are <the screen's user, from section 2 of design/ui-ux-instructions.md: who you are, what you know, what device you use>.
 Stay in this role for the whole review.
 
-Use your browser tool. Open only these addresses:
+Drive the pages in a real browser: your browser tool if you have one, otherwise Playwright from the shell (`require('playwright')`, headless Chromium). Open only these addresses:
 <one line for each board: the address, the page it shows, and the screen size>
-Reload a page to start it again. Do not read or edit files. Do not open any other address.
+Reload a page to start it again. Do not read or edit any file except your own Playwright scripts. Do not open any other address.
 Act only through the page, the way this person would: click, type, press keys, scroll, and look.
 Do not run scripts on the page to change it.
 
@@ -52,8 +58,8 @@ Give the user a name, a role, and a worry from the PRD. Write each task as a goa
 ## Read the report
 
 - A control that does nothing, or does something wrong, is a defect. Fix it on the canvas.
-- A usability hint is a design choice. The founder accepts or declines it.
-- A finding about a design the founder ruled on goes to the founder. Do not change a ruled design on the agent's word.
+- A usability hint is a design choice. Apply it or decline it with a reason, as `SKILL.md` step 4 says.
+- A finding against a design the founder ruled on goes under Design decisions in the pull request. Do not change a ruled design on the agent's word.
 - A finding that a change on one page did not reach another page is the limit of separate boards, not a defect.
 
 ## What Codex can and cannot do
