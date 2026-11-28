@@ -31,7 +31,15 @@
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
         "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
         "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
-        "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] }
+        "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] },
+        "AT-002.32": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.33": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.34": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.35": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.36": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.37": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.38": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.39": {"kind":"pending","phase":"sut-missing"}
       }
     },
     "integration": {
@@ -64,7 +72,15 @@
         "AT-002.12": { "kind": "capability-pending", "capabilities": ["publish.flow", "checkout.project-fuel"] },
         "AT-002.19": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
         "AT-002.20": { "kind": "capability-pending", "capabilities": ["publish.flow"] },
-        "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] }
+        "AT-002.23": { "kind": "capability-pending", "capabilities": ["ui.public-listing-screens"] },
+        "AT-002.32": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.33": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.34": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.35": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.36": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.37": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.38": {"kind":"pending","phase":"sut-missing"},
+        "AT-002.39": {"kind":"pending","phase":"sut-missing"}
       }
     }
   }
