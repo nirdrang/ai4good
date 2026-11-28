@@ -209,7 +209,9 @@ commit group per unit.
 At every unit boundary, after the unit's commit is on the branch and the resume note is
 rewritten, stop at a gate opened with the `AskUserQuestion` tool, never as prose. Ask one
 question with three options, labelled exactly `Continue`, `Run /compact` and `Fast compact`,
-and put in its text what the unit landed, its commit, and the remaining context budget. Always
+and put in its text what the unit landed, its commit, and the remaining context budget. In a
+project thread, where `AskUserQuestion` does not reach the founder, open the same gate as a
+`request_decision` card with the same three labels; the plugin reads the card's answer. Always
 state in the question text and in the `Fast compact` option's description whether the
 `self-compact-gate` plugin is loaded in this session: loaded when an earlier gate answer in this
 session began with the plugin's "Context now:" prefix, not loaded when a check showed it absent,
