@@ -25,7 +25,7 @@ atTest('AT-004.16', 'Discovery answers from a fact only an uploaded file holds',
     try {
       const added = await uploadFile(stack, seed.bearer, scope.organizationId, scope.projectId, 'harbor-saturdays.txt', SATURDAY);
       expect(added, JSON.stringify(added)).toMatchObject({ status: 200, body: { ok: true } });
-      const file = await waitForFile(stack, seed.bearer, scope.projectId, String((added.body.file as { id: string }).id));
+      const file = await waitForFile(stack, seed.freshBearer, scope.projectId, String((added.body.file as { id: string }).id));
       const reply = await say(sut, seed.ngo.session, scope, 'How many volunteers does the Harbor kitchen need on Saturday mornings, and where do they sign in?', [file]);
       expect(reply, 'the reply gives the count from the file').toMatch(/\b17\b/);
       expect(reply, 'the reply gives the place from the file').toMatch(/blue cupboard/i);
@@ -46,7 +46,7 @@ atTest('AT-004.18', 'mid-conversation, the AI asks for a file and uses it in a l
       expect(ask, 'the reply asks the NGO to add the spreadsheet').toMatch(ASKS_FOR_FILE);
       const added = await uploadFile(stack, seed.bearer, scope.organizationId, scope.projectId, 'shift-rules.csv', SHIFT_RULES, 'text/csv');
       expect(added, JSON.stringify(added)).toMatchObject({ status: 200, body: { ok: true } });
-      const file = await waitForFile(stack, seed.bearer, scope.projectId, String((added.body.file as { id: string }).id));
+      const file = await waitForFile(stack, seed.freshBearer, scope.projectId, String((added.body.file as { id: string }).id));
       const used = await say(sut, seed.ngo.session, scope, 'I added the spreadsheet. Who approves a shift swap, and how early?', [file]);
       expect(used, 'the later reply names the approver from the file').toMatch(/Marisol/);
       expect(used, 'the later reply gives the notice from the file').toMatch(/\b36\b/);
