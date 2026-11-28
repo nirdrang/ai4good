@@ -37,7 +37,7 @@ to "a session works where it was launched", and it exists only for this hand-off
 | `/controller AI4DEV-19 cloud` | the same, but the mechanic is a cloud session started with `claude --cloud`. The session stays in the main folder. |
 | `/controller done AI4DEV-19` | the lead merged. Steer the board: confirm Done, clear the held item, fold upward, judge the filing candidates (phase C). The lead invokes this itself as its last closing step. |
 | `/controller AI4DEV-3` | a PARENT. A subtree run (founder ruling 2026-09-03: "parent and children for a beefy run"). List the children with short labels and state. The run takes every open, unblocked child. Blocked, Done, and Cancelled children stay out and are named. If no child is startable, stop and say so. Otherwise start the parent (phase B): one branch, one worktree, one brief with one unit per child, one pull request. |
-| `/controller AI4DEV-19` on an item already started | a RESUME (founder 2026-09-09: "i want to have /controller such that on new session ready to process the brief it will do all the required steps"). The item is In Progress, its branch exists on origin, and `loop/items/<item>/brief.md` is on that branch. Do no validation, no claim, no brief. If the worktree under `.claude/worktrees/<item>` is missing, `git fetch origin` and `git worktree add .claude/worktrees/<item> <branch>`; if present, `git -C <worktree> pull --ff-only`. Then the local hand-over of phase B step 9: `EnterWorktree`, the transition line, the exact instruction, stop. For an item a project skill claims, invoke that skill instead of printing the instruction. A new session launched in the main folder reaches the brief this way. |
+| `/controller AI4DEV-19` on an item already started | a RESUME (founder 2026-09-09: "i want to have /controller such that on new session ready to process the brief it will do all the required steps"). The item is In Progress, its branch exists on origin, and `loop/items/<item>/brief.md` is on that branch. Do no validation, no claim, no brief. If the worktree under `.claude/worktrees/<item>` is missing, `git fetch origin` and `git worktree add .claude/worktrees/<item> <branch>`; if present, `git -C <worktree> pull --ff-only`. Then the local hand-over of phase B step 9: `EnterWorktree`, the transition line, the exact instruction, stop (in a project thread or a cloud session, invoke `pstack:poteto-mode` instead, as step 9 says). For an item a project skill claims, invoke that skill instead of printing the instruction. A new session launched in the main folder reaches the brief this way. |
 | `/controller AI4PM-12` | a requirement. Apply the requirement states below. |
 | `/controller` | recommend and wait: In Progress first, then open leaves and parents whose open children are leaves, then a new requirement. Top three, one-line reasons, wait. |
 
@@ -66,8 +66,8 @@ leaves, one for each stage, each blocked by the one before it:
   - L3 Screen wiring · verify: AT-004.61,62,… · blocked-by: L2
 ```
 
-1. **Screen design.** The screen is designed on a Claude Design canvas with the founder. Codex
-   plays the screen's user and reviews every interaction until all works. Then the PRD gets
+1. **Screen design.** The lead designs the screen on a Claude Design canvas, and the founder
+   reviews it once, at the pull request. Persona lanes play the screen's user and reviews every interaction until all works. Then the PRD gets
    the contract changes and big additions, and the acceptance tests are written. Their ids go in
    the `verify:` field of the screen wiring leaf: the list of tests that leaf must turn green. The `ui-design` skill claims this item and runs it,
    not poteto-mode (step 9, "An item a project skill claims").
@@ -153,8 +153,7 @@ falsely In Progress.
    the Skill tool and the argument `loop/items/<item>/brief.md`. Do not print the poteto-mode
    instruction. Write the brief's ask as one line: `Follow the <skill> skill. It opens the
    pull request and closes the item.` If two skills claim the item, or a claim is unclear,
-   ask the founder with `AskUserQuestion`. An item a skill claims runs locally, not in a
-   cloud session.
+   ask the founder with `AskUserQuestion`.
 
    The founder runs the mechanic here and talks to it directly. You have no further part in
    the item. To run the mechanic in a different session, the founder opens that session in

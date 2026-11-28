@@ -93,7 +93,8 @@ with its open children as units (founder ruling 2026-09-03: "parent and children
 run"): it creates the branch
 and the worktree under `.claude/worktrees/`, writes the brief, moves this session into the
 worktree, and stops. The founder then types
-`/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session. The
+`/pstack:poteto-mode Read loop/items/<item>/brief.md and follow it.` in the same session. In a
+project thread or a cloud session, the controller invokes that skill itself. The
 lead runs the pstack stations from the installed plugin, opens the pull request, and merges.
 `/controller done <id>` steers the board afterwards. **Invoke `/controller` fresh at every item
 start; never run it from memory of a prior reading** (founder ruling 2026-08-11, kept). The v1
