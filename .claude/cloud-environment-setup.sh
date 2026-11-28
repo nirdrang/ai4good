@@ -88,6 +88,12 @@ jq '.extraKnownMarketplaces["ai4good-local"].source = {source: "directory", path
   | .enabledPlugins["self-compact-gate@ai4good-local"] = true' \
   "$user_settings" > "$user_settings.new"
 mv "$user_settings.new" "$user_settings"
+# The settings only switch the plugin on. Like pstack, it must also be registered and installed,
+# or no session loads it (seen 2026-11-28). The check keeps a missing clone from failing setup.
+if [ -d /home/user/ai4good/loop/work/self-compact-gate ]; then
+  claude plugin marketplace add /home/user/ai4good/loop/work
+  claude plugin install self-compact-gate@ai4good-local
+fi
 
 # --- 2. PowerShell -----------------------------------------------------------------
 # The /controller, /doc-sync and /ui-design skills run PowerShell scripts under loop/, and
