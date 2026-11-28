@@ -496,6 +496,7 @@ class Component extends DCLogic {
     if (this.focusKeepEditing && this.refs2.keepEditing) { this.focusKeepEditing = false; this.refs2.keepEditing.focus(); }
     if (this.scrollLogoError && this.refs2.logoError) { this.scrollLogoError = false; this.reveal(this.refs2.logoError); }
     if (this.restoreScroll != null && this.state.view === 'home' && this.refs2.body) { this.refs2.body.scrollTop = this.restoreScroll; this.restoreScroll = null; const sel = this.returnWhich === 'card' ? '[data-testid="project-card-link"]' : this.returnWhich === 'start' ? null : 'button'; const el = this.returnKey ? this.refs2.body.querySelector('[data-testkey="' + this.returnKey + '"] ' + sel) : (this.returnWhich === 'start' ? this.refs2.body.querySelector('[data-testid="projects-start-button"]') : null); this.returnKey = null; this.returnWhich = null; if (el) el.focus({ preventScroll: true }); }
+    if (this.restoreCancelScroll && this.refs2.body) { this.restoreCancelScroll = false; this.refs2.body.scrollTop = this.cancelScroll || 0; }
     if (this.focusAfter) { const el = this.refs2[this.focusAfter]; this.focusAfter = null; if (el) el.focus(); }
   }
   componentWillUnmount() { clearTimeout(this.saveTimer); }
@@ -574,7 +575,7 @@ class Component extends DCLogic {
       draft: ['Continue the draft', 'intake'],
       discovery: ['Continue the Discovery chat', 'discovery'],
       brief: ['Read the brief', 'brief'],
-      declined: ['Read the past Discovery chat', 'discovery']
+      declined: ['Read the past Discovery chat', 'pastChat']
     };
     const primary = 'height:44px;padding:0 16px;border-radius:10px;border:none;background:#0f172a;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer';
     const secondary = 'height:44px;padding:0 16px;border-radius:10px;border:1px solid #64748b;background:#ffffff;color:#0f172a;font-size:15px;font-weight:600;cursor:pointer';
@@ -610,7 +611,8 @@ class Component extends DCLogic {
     const stubs = {
       intake: ['The intake form', 'Here the admin writes the project\'s title, the problem and its urgency, checks the public card and posts it. It is designed on the Project intake canvas.'],
       discovery: ['The Discovery chat', 'Here the admin answers the AI\'s questions and builds the brief. It is designed on the Discovery canvas.'],
-      brief: ['The Discovery brief', 'Here the admin reads the finished brief. It is designed on the Discovery canvas.'],
+      brief: ['The Discovery brief', 'Here the admin and the members read the finished brief. Nobody needs to change it; the ai4good team reviews it next. It is designed on the Discovery canvas.'],
+      pastChat: ['The past Discovery chat', 'Here the admin and the members read the closed chat. Discovery found this project is not a fit, so the chat takes no new answers. It is designed on the Discovery canvas.'],
       card: ['The public project list', 'Here anyone can see the project\'s public card. It is designed on the Project intake canvas.'],
       list: ['The public project list', 'Here anyone can see every posted project card. It is designed on the Project intake canvas.']
     };
@@ -729,10 +731,11 @@ class Component extends DCLogic {
     }, 900);
   }
   cancelEdit() {
+    this.cancelScroll = this.refs2.body ? this.refs2.body.scrollTop : 0;
     if (this.dirty()) { this.focusKeepEditing = true; this.setState({ confirmingCancel: true }); return; }
     this.leaveEdit();
   }
-  keepEditing() { this.focusAfter = this.cancelOrigin === 'back' ? 'backButton' : 'cancel'; this.setState({ confirmingCancel: false }); }
+  keepEditing() { this.restoreCancelScroll = true; this.focusAfter = this.cancelOrigin === 'back' ? 'backButton' : 'cancel'; this.setState({ confirmingCancel: false }); }
   leaveEdit() {
     const v = this.state.saved;
     this.go(this.state.returnTo === 'edit' ? 'home' : this.state.returnTo, { name: v.name, mission: v.mission, country: v.country, website: v.website, logo: v.logo, savedBanner: '' });
