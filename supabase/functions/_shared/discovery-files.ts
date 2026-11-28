@@ -2,13 +2,7 @@ import type { FileFact } from './discovery-brief.ts';
 import { isRecord } from './write-routes.ts';
 
 export const FILE_MAX_BYTES = 10 * 1024 * 1024;
-export const FILE_PART_CHARS = 16000;
-export const FILE_MEDIA_TYPES = [
-  'text/plain', 'text/csv', 'text/tab-separated-values', 'application/pdf',
-  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-] as const;
+export const FILE_MEDIA_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const;
 
 export type FileDigest = { facts: FileFact[]; questions: string[] };
 export type FileRow = {
@@ -22,19 +16,6 @@ export function fileLimitReached(funded: boolean, files: readonly { removedAt?: 
   return !funded && files.filter((file) => !file.removedAt).length >= 3;
 }
 
-export function splitFileText(text: string, maxChars = FILE_PART_CHARS): string[] {
-  if (!Number.isInteger(maxChars) || maxChars < 2) throw new Error('the file part size must be at least two');
-  const parts: string[] = [];
-  for (let start = 0; start < text.length;) {
-    let end = Math.min(start + maxChars, text.length);
-    const code = text.charCodeAt(end - 1);
-    if (end < text.length && code >= 0xd800 && code <= 0xdbff) end--;
-    parts.push(text.slice(start, end));
-    start = end;
-  }
-  return parts.length ? parts : [''];
-}
-
 export function parseFileDigest(value: unknown, sectionIds: readonly string[]): FileDigest | null {
   if (!isRecord(value) || !Array.isArray(value.facts) || !Array.isArray(value.questions)) return null;
   const facts: FileFact[] = [];
@@ -45,16 +26,6 @@ export function parseFileDigest(value: unknown, sectionIds: readonly string[]): 
   }
   if (!value.questions.every((question) => typeof question === 'string')) return null;
   return { facts, questions: value.questions as string[] };
-}
-
-export function mergeFileDigests(parts: readonly FileDigest[]): FileDigest {
-  const facts = new Map<string, FileFact>();
-  const questions = new Set<string>();
-  for (const part of parts) {
-    for (const fact of part.facts) facts.set(JSON.stringify([fact.sectionId, fact.text]), fact);
-    for (const question of part.questions) if (question.trim()) questions.add(question.trim());
-  }
-  return { facts: [...facts.values()], questions: [...questions] };
 }
 
 export function screenFile(row: FileRow) {

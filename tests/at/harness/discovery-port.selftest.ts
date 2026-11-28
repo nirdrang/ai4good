@@ -40,7 +40,7 @@ describe('Discovery response parsing', () => {
   it('only files being read keep polling', () => {
     expect(filesReading([])).toBe(false);
     for (const status of [{ kind: 'reading', percent: 0 }, { kind: 'ready', facts: 2 }, { kind: 'failed', reason: 'Bad file' }] as const) {
-      expect(filesReading([{ id: 'f', name: 'file.txt', sizeBytes: 4, tookFromIt: null, status }])).toBe(status.kind === 'reading');
+      expect(filesReading([{ id: 'f', name: 'file.pdf', sizeBytes: 4, tookFromIt: null, status }])).toBe(status.kind === 'reading');
     }
   });
 });
@@ -60,7 +60,7 @@ describe('Discovery polling and writes', () => {
   });
   it('polls while reading, stops at ready, and stops when the last subscriber leaves', async () => {
     vi.useFakeTimers();
-    const reading = { ...state, files: [{ id: 'f', name: 'file.txt', sizeBytes: 4, tookFromIt: null, status: { kind: 'reading', percent: 0 } }] };
+    const reading = { ...state, files: [{ id: 'f', name: 'file.pdf', sizeBytes: 4, tookFromIt: null, status: { kind: 'reading', percent: 0 } }] };
     const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, state: reading })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, state })));
     vi.stubGlobal('fetch', fetcher);

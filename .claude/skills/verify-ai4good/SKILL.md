@@ -9,7 +9,7 @@ The real Discovery route `/discovery/:organizationId/:projectId` mounts the shar
 
 The real PRD route `/prd/:organizationId/:projectId` mounts the PRD workspace behind an edge-function port. The assigned volunteer, the Dev, writes. The NGO administrator reads along and answers questions in side chats. Its live recipe is [features/prd-screen.md](features/prd-screen.md), driven by `scripts/drive-prd-screen.ts` on desktop and phone.
 
-All model calls go through `discoveryModelPort()`. `DISCOVERY_PROVIDER` selects Anthropic, OpenAI-compatible Chat Completions, or OpenAI Responses. The chosen adapter reads its model and credential settings from `supabase/functions/.env`. Never print or commit those settings. The write-route registry remains the authority for admission. Acceptance execution and the live screen drive are separate checks.
+All model calls go through `discoveryModelPort()`, except file reads, which always use OpenAI Responses through `fileReadModelPort()` with `OPENAI_API_KEY` and `FILE_READ_MODEL`. `DISCOVERY_PROVIDER` selects Anthropic, OpenAI-compatible Chat Completions, or OpenAI Responses. The chosen adapter reads its model and credential settings from `supabase/functions/.env`. Never print or commit those settings. The write-route registry remains the authority for admission. Acceptance execution and the live screen drive are separate checks.
 
 **One stack per machine.** The stack on the 44321 block is THE stack, the one
 `supabase/config.toml` describes; the slot pool is parked (founder, 2026-08-29 and 2026-09-01).

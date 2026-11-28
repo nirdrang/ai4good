@@ -3,8 +3,9 @@ import { atTest, AtPending } from './_bind.ts';
 import { stackFromEnv, functionPost } from '../../harness/live-stack.ts';
 import { fileLimitReached } from '../../../../supabase/functions/_shared/discovery-files.ts';
 import { seedFileProject, uploadFile, waitForFile } from './_files.ts';
+import { pdfFromText } from '../../harness/pdf.ts';
 
-atTest('AT-032.13', 'three unfunded Discovery files, removal frees a place, funded unlimited', { timeoutMs: { integration: 300_000 } }, {
+atTest('AT-032.13', 'three unfunded Discovery files, removal frees a place, funded unlimited', { timeoutMs: { integration: 900_000 } }, {
   loop: async ({ open }) => {
     await open();
     const files = Array.from({ length: 3 }, () => ({ removedAt: null as string | null }));
@@ -22,25 +23,25 @@ atTest('AT-032.13', 'three unfunded Discovery files, removal frees a place, fund
     try {
       const ids: string[] = [];
       for (let index = 1; index <= 3; index++) {
-        const added = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, `rota-${index}.txt`, `Kitchen ${index} has ${index * 10} volunteers.`);
+        const added = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, `rota-${index}.pdf`, pdfFromText(`Kitchen ${index} has ${index * 10} volunteers.`));
         expect(added, JSON.stringify(added)).toMatchObject({ status: 200, body: { ok: true, file: { status: { kind: 'reading' } } } });
         ids.push(String((added.body.file as { id: string }).id));
       }
-      const refused = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'fourth.txt', 'A fourth kitchen coordinates volunteers.');
+      const refused = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'fourth.pdf', pdfFromText('A fourth kitchen coordinates volunteers.'));
       expect(refused).toMatchObject({ status: 409, body: { kind: 'file-limit' } });
       expect(String(refused.body.reason)).toContain('three');
       const removed = await functionPost(stack, 'discovery-file', { action: 'remove', organizationId: seed.ngo.organizationId, projectId: seed.projectId, fileId: ids.shift() }, seed.bearer);
       expect(removed).toMatchObject({ status: 200, json: { ok: true } });
-      const replacement = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'replacement.txt', 'Replacement rota: coordinators book volunteers on Sundays.');
+      const replacement = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'replacement.pdf', pdfFromText('Replacement rota: coordinators book volunteers on Sundays.'));
       expect(replacement.status).toBe(200);
       ids.push(String((replacement.body.file as { id: string }).id));
       await seed.sql`update public.projects set funded_at = clock_timestamp() where id = ${seed.projectId}::uuid`;
-      const funded = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'funded-fourth.txt', 'Funded rota: volunteers cover four kitchens.');
+      const funded = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'funded-fourth.pdf', pdfFromText('Funded rota: volunteers cover four kitchens.'));
       expect(funded.status).toBe(200);
       ids.push(String((funded.body.file as { id: string }).id));
       const loaded = await functionPost(stack, 'discovery-conversation', { projectId: seed.projectId }, seed.bearer);
       expect(loaded.json.files as unknown[]).toHaveLength(4);
-      for (const id of ids) expect((await waitForFile(stack, seed.bearer, seed.projectId, id)).status).toBe('read');
+      for (const id of ids) expect((await waitForFile(stack, seed.freshBearer, seed.projectId, id)).status).toBe('read');
     } finally { await seed.sql.close(); }
   },
   default: async () => { throw new AtPending('AT-032.13', 'sut-missing', 'The drill stack has not been configured.'); },

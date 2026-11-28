@@ -2,6 +2,7 @@ import { expect } from 'vitest';
 import { atTest, AtPending } from './_bind.ts';
 import { authPost, functionPostRaw, sqlClient, stackFromEnv, type Stack } from '../../harness/live-stack.ts';
 import { seedFileProject, uploadFile } from './_files.ts';
+import { pdfFromText } from '../../harness/pdf.ts';
 
 const PASSWORD = 'correct horse battery staple';
 
@@ -25,8 +26,9 @@ atTest('AT-032.04', 'attachment actor access matrix', { timeoutMs: { integration
     const stack = stackFromEnv();
     const seed = await seedFileProject(stack, sut, w.email('readers-owner'));
     try {
-      const sentinel = `reader sentinel ${crypto.randomUUID()}\n`;
-      const added = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'rota.txt', sentinel);
+      const sentinel = `reader sentinel ${crypto.randomUUID()}`;
+      const pdf = pdfFromText(sentinel);
+      const added = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'rota.pdf', pdf);
       expect(added, JSON.stringify(added)).toMatchObject({ status: 200, body: { ok: true } });
       const fileId = String((added.body.file as { id: string }).id);
 
@@ -46,12 +48,12 @@ atTest('AT-032.04', 'attachment actor access matrix', { timeoutMs: { integration
       }).then(async (response) => ({ status: response.status, text: await response.text() }));
 
       for (const [who, bearer] of [['the project NGO', seed.bearer], ['the assigned volunteer', assigned.bearer], ['the platform admin', admin.bearer]] as const) {
-        expect(await request(bearer), `${who} reads the file`).toEqual({ status: 200, text: sentinel });
+        expect(await request(bearer), `${who} reads the file`).toEqual({ status: 200, text: new TextDecoder().decode(pdf) });
       }
       for (const [who, bearer] of [['a different NGO', String(otherLogin.json.access_token)], ['an unassigned volunteer', unassigned.bearer]] as const) {
         const refused = await request(bearer);
         expect(refused.status, `${who} is refused`).toBe(404);
-        expect(refused.text, `${who} sees none of the file`).not.toContain(sentinel.trim());
+        expect(refused.text, `${who} sees none of the file`).not.toContain(sentinel);
       }
       const anonymous = await functionPostRaw(stack, 'project-file', { fileId }, null);
       expect(anonymous.status, 'a request with only the public key is refused').toBe(401);

@@ -17,7 +17,7 @@ export function decideDiscoveryFile(input: AccountWriteRouteInput) {
     const size = integerField(file.sizeBytes);
     if (size !== null && size > FILE_MAX_BYTES) return refuseWrite('file-too-large', 413, 'Choose a file of 10 MB or less.');
     if (typeof file.mediaType !== 'string' || !(FILE_MEDIA_TYPES as readonly string[]).includes(file.mediaType)) {
-      return refuseWrite('unsupported-file-type', 415, 'Choose a PDF, image, CSV, TSV, text, Word or Excel file.');
+      return refuseWrite('unsupported-file-type', 415, 'Add a PDF or a picture (PNG, JPEG, GIF or WebP).');
     }
     const name = stringField(file.name);
     if (name === null || name.length > 255 || size === null || size <= 0 || typeof file.contentHash !== 'string' || !/^[a-f0-9]{64}$/.test(file.contentHash)) {

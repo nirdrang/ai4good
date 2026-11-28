@@ -19,7 +19,7 @@ const THANKS =
   "Thanks, I read your intake. We need to agree six topics before a volunteer developer can start. I will ask the questions that do not depend on each other together.";
 
 const FILE_KINDS = GIVEN["first-reply"].fileKinds;
-const FILE_REQUEST = `Before we start: do you have ${GIVEN["first-reply"].filePhrase}? A ${FILE_KINDS[0]}, a ${FILE_KINDS[1]}, or your ${FILE_KINDS[2]} would help this need. Add a file in Your files. Attaching is free, and you can also add files later.`;
+const FILE_REQUEST = `Before we start: do you have ${GIVEN["first-reply"].filePhrase}? A ${FILE_KINDS[0]}, a ${FILE_KINDS[1]}, or your ${FILE_KINDS[2]} would help this need. Add a file in Your files, as a PDF or a picture. Attaching is free, and you can also add files later.`;
 
 const QUESTIONS_INTRO = "Here are the first two questions. Each has my suggestion, but you decide.";
 
@@ -40,27 +40,27 @@ const KITCHEN_FACT = "volunteers must be 16 or older and finish a hygiene course
 const FILE_SCRIPTS: readonly FileScript[] = [
   {
     id: "volunteer-rota",
-    name: "volunteer-rota.xlsx",
+    name: "volunteer-rota.pdf",
     size: "48 KB",
     facts: 4,
     fact: ROTA_FACT,
-    report: `I finished reading volunteer-rota.xlsx, and it shows that ${ROTA_FACT}.`,
+    report: `I finished reading volunteer-rota.pdf, and it shows that ${ROTA_FACT}.`,
   },
   {
     id: "sunday-gaps",
-    name: "sunday-gaps.csv",
+    name: "sunday-gaps.pdf",
     size: "6 KB",
     facts: 3,
     fact: SUNDAY_FACT,
-    report: `I finished reading sunday-gaps.csv, and it shows that ${SUNDAY_FACT}.`,
+    report: `I finished reading sunday-gaps.pdf, and it shows that ${SUNDAY_FACT}.`,
   },
   {
     id: "kitchen-rules",
-    name: "kitchen-rules.docx",
+    name: "kitchen-rules.pdf",
     size: "31 KB",
     facts: 5,
     fact: KITCHEN_FACT,
-    report: `I finished reading kitchen-rules.docx, and it shows that ${KITCHEN_FACT}.`,
+    report: `I finished reading kitchen-rules.pdf, and it shows that ${KITCHEN_FACT}.`,
   },
 ];
 

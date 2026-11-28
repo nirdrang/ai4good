@@ -10,10 +10,11 @@ export function responsesBody(request: DiscoveryModelRequest, stream: boolean, m
   return {
     model,
     instructions: system + forced,
-    input: request.messages.map((message, index) => index === request.messages.length - 1 && request.images?.length
+    input: request.messages.map((message, index) => index === request.messages.length - 1 && (request.images?.length || request.files?.length)
       ? { role: message.role, content: [
           { type: 'input_text', text: message.content },
-          ...request.images.map((image) => ({ type: 'input_image', image_url: `data:${image.mediaType};base64,${image.data}` })),
+          ...(request.images ?? []).map((image) => ({ type: 'input_image', image_url: `data:${image.mediaType};base64,${image.data}` })),
+          ...(request.files ?? []).map((file) => ({ type: 'input_file', filename: file.name, file_data: `data:${file.mediaType};base64,${file.data}` })),
         ] }
       : { role: message.role, content: message.content }),
     max_output_tokens: request.maxTokens,

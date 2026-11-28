@@ -7,7 +7,7 @@ Source: requirements/req-032.md (prd-mvp.md REQ-032). Dependencies: REQ-004, REQ
 ## A. Upload moments & constraints
 
 - **AT-032.01 (P0)** — Given the two upload moments — during Discovery (on the agent's ask) and the project page before completion — When a file is uploaded at each, Then each upload succeeds and the file is attached to the project, and intake offers no upload [d101]; and Given a COMPLETED project, When an upload is attempted from its page, Then it is rejected — pre-completion is the boundary.
-- **AT-032.02 (P0)** — Given one file of each named supported type (PDF, an image, CSV, TSV, TXT, DOCX, XLSX), When each is uploaded, Then each is accepted. No unsupported-type rejection is asserted — the requirement says supported types "include" these; it defines no exhaustive allow-list. [cx r2: the rejection assertion added behavior]
+- **AT-032.02 (P0)** — Given one file of each supported type at this stage (PDF, PNG, JPEG, GIF, WebP), When each is uploaded, Then each is accepted; and Given a file of an unsupported type (a CSV), When it is uploaded, Then it is refused with a message that names the supported types, and nothing is stored. [cx r2] [d105: PDFs and images only at this stage; the requirement now names the full list, so the refusal is asserted]
 - **AT-032.03 (P0)** — Given the configured per-file and per-project size caps, When a file just under the per-file cap is uploaded, Then it succeeds; just over, Then it is rejected; and When an upload would push the project's aggregate just over the per-project cap, Then it is rejected while the just-under aggregate stands — both caps discriminate independently.
 
 ## B. Access model
@@ -31,20 +31,20 @@ Source: requirements/req-032.md (prd-mvp.md REQ-032). Dependencies: REQ-004, REQ
 ## E. Listing, deletion & audit
 
 - **AT-032.11 (P0)** — Given uploaded files, When the project page lists them, Then each shows name, type, uploader, and description; When a file is deleted, Then it leaves the listing; When it is RECOVERED, Then it reappears in the listing with its original metadata AND an authorized download returns the original sentinel content — recovery proven, not asserted; after recovery the deletion history is still auditable; and every upload and delete carries an audit record (actor + timestamp). [cx: a no-op recovery could have passed]
-- **AT-032.12 (P0)** — Given content-only sentinels embedded INSIDE one file of EVERY named supported format — a PDF phrase, an image-rendered sentinel, a CSV cell, a TSV cell, a TXT line, a DOCX paragraph, and an XLSX cell (none present in any file name or description), When Discovery engages the files, Then an observable Discovery question or Discovery-document output derives content from EACH — the files are READ multimodally across all seven formats, not merely listed. [cx: added] [cx r2: extended from three formats to all seven — TSV/TXT/DOCX/XLSX read-paths were uncovered]
+- **AT-032.12 (P0)** — Given content-only sentinels embedded INSIDE one file of each supported kind — a phrase in a text PDF, a sentinel rendered in an image, and a sentinel in a scanned PDF that holds only a picture of its text (none present in any file name or description), When Discovery engages the files, Then an observable Discovery question or Discovery-document output derives content from EACH — the files are READ multimodally, scans included, not merely listed. [cx: added] [cx r2: extended to every named format] [d105: the named formats are PDF and images; the scanned PDF proves a scan is read]
 
 ## Coverage map
 
 | REQ-032 clause | Tests |
 |---|---|
 | Two upload moments (Discovery, project page), none at intake; pre-completion boundary | 01 [d101] |
-| Named supported types accepted (no exhaustive allow-list asserted) | 02 [cx r2] |
+| Supported types (PDF and images) accepted; another type refused with a message | 02 [cx r2] [d105] |
 | Per-file + per-project caps (both discriminate) | 03 |
 | Access limited to NGO/CURRENTLY-assigned volunteer/admin; others + former volunteer rejected | 04 [cx] |
 | Short-lived authorized links; no storage credentials in the UI | 05 |
 | Disclosure delivered; Tier-2 hard ack gates upload with CONTENT verified + auditable + post-ack retry succeeds; Tier-1 = no REQ-032-specific ack (other PRD ack gates untouched); no invented cadence | 06 [cx r2] |
 | No upload scanning in v1 (instrumented: zero scan calls/jobs, sync or async) | 07 [cx r2] |
-| Discovery cites files; names + descriptions ride context; contents READ multimodally across ALL seven formats | 08, 12 [cx r2] |
+| Discovery cites files; names + descriptions ride context; contents READ multimodally from a text PDF, an image and a scanned PDF | 08, 12 [cx r2] [d105] |
 | File reads: no credit or fuel charge (differential), never interrupt; a read is not a turn | 09 [cx] [d94] [founder decision 2026-10-01] |
 | Three Discovery files while not funded; no limit once funded | 13 [d94] [d101] |
 | Volunteer download from page; kept out of repo tracked contents (outcome only, mechanism unprescribed; residual accepted) | 10 [cx r2] |

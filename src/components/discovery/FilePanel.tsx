@@ -8,7 +8,7 @@ import type { FileReadView } from "./model";
 const FULL_SCREEN =
   "inset-0 top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 p-0 sm:rounded-none";
 
-const ACCEPT = ".pdf,.png,.jpg,.jpeg,.gif,.webp,.csv,.tsv,.txt,.doc,.docx,.xls,.xlsx";
+const ACCEPT = ".pdf,.png,.jpg,.jpeg,.gif,.webp";
 
 function useFinePointer(): boolean {
   const query = "(pointer: fine)";

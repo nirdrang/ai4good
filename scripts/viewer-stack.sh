@@ -27,13 +27,14 @@ echo "viewer: waiting for docker"
 for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
 
 if [ -z "${VIEWER_KEEP_ENV:-}" ] || [ ! -f supabase/functions/.env ]; then
-case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses ;; *) provider=openai-compatible ;; esac
+case "${DISCOVERY_BASE_URL:-}" in https://api.openai.com/*) provider=openai-responses; : "${OPENAI_API_KEY:=${DISCOVERY_API_KEY:-}}" ;; *) provider=openai-compatible ;; esac
 {
   printf 'DISCOVERY_PROVIDER=%s\n' "${DISCOVERY_PROVIDER:-$provider}"
   printf 'DISCOVERY_MODEL=%s\n' "${DISCOVERY_MODEL:-deepseek-v4.1-flash}"
   printf 'DISCOVERY_BASE_URL=%s\n' "${DISCOVERY_BASE_URL:-https://opencode.ai/zen/go/v1}"
   printf 'DISCOVERY_REASONING_EFFORT=%s\n' "${DISCOVERY_REASONING_EFFORT:-low}"
-  for name in DISCOVERY_API_KEY ANTHROPIC_API_KEY; do
+  printf 'FILE_READ_MODEL=%s\n' "${FILE_READ_MODEL:-gpt-6-luna}"
+  for name in DISCOVERY_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY; do
     if [ -n "${!name:-}" ]; then printf '%s=%s\n' "$name" "${!name}"; fi
   done
 } > supabase/functions/.env

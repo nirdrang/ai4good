@@ -99,7 +99,7 @@ const FINISH_OPEN = {
   ],
   label: "food security",
   files: [
-    { name: "volunteer-rota.xlsx", took: "38 volunteers booked at least one shift, and shifts are 4 hours" },
+    { name: "volunteer-rota.pdf", took: "38 volunteers booked at least one shift, and shifts are 4 hours" },
   ],
 } as const;
 
@@ -128,7 +128,7 @@ const CONFIRMED = {
     },
   ],
   files: [
-    { name: "volunteer-rota.xlsx", took: "38 volunteers booked at least one shift, and shifts are 4 hours" },
+    { name: "volunteer-rota.pdf", took: "38 volunteers booked at least one shift, and shifts are 4 hours" },
   ],
 } as const;
 
@@ -143,18 +143,18 @@ export const GIVEN = {
   "first-reply-three-files": {
     start: "chat" as Start,
     questions: QUESTIONS,
-    files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
+    files: ["volunteer-rota.pdf", "sunday-gaps.pdf", "kitchen-rules.pdf"] as const,
   },
   "mid-interview": INTERVIEW,
   "mid-interview-paid": INTERVIEW,
   "three-files-unfunded": {
     start: "chat" as Start,
-    files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
+    files: ["volunteer-rota.pdf", "sunday-gaps.pdf", "kitchen-rules.pdf"] as const,
     funded: false,
   },
   "three-files-funded": {
     start: "chat" as Start,
-    files: ["volunteer-rota.xlsx", "sunday-gaps.csv", "kitchen-rules.docx"] as const,
+    files: ["volunteer-rota.pdf", "sunday-gaps.pdf", "kitchen-rules.pdf"] as const,
     funded: true,
   },
   "finish-open": FINISH_OPEN,

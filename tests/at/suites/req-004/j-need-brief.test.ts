@@ -21,7 +21,8 @@ import {
   expectUsage,
   readRotaUntilReady,
 } from './_flows.ts';
-import { FILE_PART_CHARS, fileDigestContext, splitFileText, type FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
+import { fileDigestContext, type FileRow } from '../../../../supabase/functions/_shared/discovery-files.ts';
+import { pdfFromText } from '../../harness/pdf.ts';
 
 const withDiscovery = discoveryScreens();
 const SCHEMES = ['light', 'dark'] as const;
@@ -292,7 +293,7 @@ atTest(
           await expectChooser(screen, viewport === 'desktop');
           await screen.chooser.cancel();
           expect(await screen.files.text(), 'Cancel adds nothing: the count stays 0 of 3 added').toContain('0 of 3 added');
-          expect(await screen.files.has('volunteer-rota.xlsx'), 'Cancel adds nothing: volunteer-rota.xlsx is not listed').toBe(false);
+          expect(await screen.files.has('volunteer-rota.pdf'), 'Cancel adds nothing: volunteer-rota.pdf is not listed').toBe(false);
           await readRotaUntilReady(screen);
         });
       }
@@ -317,10 +318,10 @@ atTest(
           const saved = screen.backend ? await screen.backend.read() : null;
           expect(before, 'Free today starts at 3 left today').toContain('3 left today');
           await addRota(screen);
-          if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+          if (screen.backend) await fileReady(screen, 'volunteer-rota.pdf');
           else await eventually(
             'the read reaches Ready · 4 facts',
-            () => screen.files.row('volunteer-rota.xlsx'),
+            () => screen.files.row('volunteer-rota.pdf'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
@@ -328,8 +329,8 @@ atTest(
           expect(await screen.modelCalls(), 'the read is one file-read and no turn').toEqual(['file-read']);
           if (screen.backend) {
             await screen.files.openAdd();
-            await screen.files.choose({ name: 'second-rota.txt', mimeType: 'text/plain', base64: Buffer.from('Kitchen coordinators fill Sunday shifts by phone.').toString('base64') });
-            await fileReady(screen, 'second-rota.txt');
+            await screen.files.choose({ name: 'second-rota.pdf', mimeType: 'application/pdf', base64: Buffer.from(pdfFromText('Kitchen coordinators fill Sunday shifts by phone.')).toString('base64') });
+            await fileReady(screen, 'second-rota.pdf');
             expect((await screen.backend.read()).usage).toEqual(saved!.usage);
             const turns = await screen.backend.sql`select charged_credits, actual_micros from public.discovery_turns where project_id = ${screen.backend.projectId}::uuid` as { charged_credits: number; actual_micros: number }[];
             expect(turns).toHaveLength(4);
@@ -343,7 +344,7 @@ atTest(
           await addRota(screen);
           await eventually(
             'the paid read reaches Ready · 4 facts',
-            () => screen.files.row('volunteer-rota.xlsx'),
+            () => screen.files.row('volunteer-rota.pdf'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
@@ -378,10 +379,10 @@ atTest(
           if (!screen.backend) expect(during, 'a main-chat reply during the read does not report 38 of your 45').not.toContain('38 of your 45');
           const duringCalls = await screen.modelCalls();
           if (!screen.backend) expect(duringCalls, 'the read is one file-read and the reply is one turn').toEqual(['file-read', 'chat-turn']);
-          if (screen.backend) await fileReady(screen, 'volunteer-rota.xlsx');
+          if (screen.backend) await fileReady(screen, 'volunteer-rota.pdf');
           else await eventually(
             'the row shows Ready · 4 facts',
-            () => screen.files.row('volunteer-rota.xlsx'),
+            () => screen.files.row('volunteer-rota.pdf'),
             (text) => text.includes('Ready · 4 facts'),
             8_000,
           );
@@ -409,7 +410,7 @@ atTest(
             expect(brief).toContain(state.files[0]!.tookFromIt!);
             expect(await screen.modelCalls()).toEqual(['file-read', 'chat-turn', 'chat-turn']);
           } else {
-          const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.xlsx'));
+          const fromAt = brief.indexOf(TEXT.source.file('volunteer-rota.pdf'));
           const tookAt = brief.indexOf('The AI took from it:');
           const factAt = brief.indexOf(fact);
           expect(fromAt, 'the brief marks the fact as from the file').toBeGreaterThan(-1);
@@ -425,28 +426,23 @@ atTest(
     },
   },
 );
-atTest('AT-004.69', 'a large file is read in parts into one digest', { surface: 'ui', timeoutMs: { integration: 600_000 } }, {
-  default: async (ctx) => {
-    await ctx.open();
-    const text = 'Kitchen volunteers cover Sunday shifts. '.repeat(450);
-    const parts = splitFileText(text);
-    expect(parts.length).toBe(2);
-    expect(parts.join('')).toBe(text);
-    expect(parts.every((part) => part.length <= FILE_PART_CHARS)).toBe(true);
-    if (TIER === 'integration') await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
+atTest('AT-004.69', 'a long PDF is read whole into one digest', { surface: 'ui', timeoutMs: { integration: 600_000 } }, {
+  integration: async (ctx) => {
+    await withDiscovery(ctx, { scenario: 'mid-interview', viewport: 'desktop' }, async (screen) => {
       const before = await screen.backend!.read();
       await screen.files.openAdd();
-      await screen.files.choose({ name: 'large-rota.txt', mimeType: 'text/plain', base64: Buffer.from(text).toString('base64') });
-      await fileReady(screen, 'large-rota.txt');
+      await screen.files.choose({ name: 'long-rota.pdf', mimeType: 'application/pdf', base64: Buffer.from(pdfFromText('Kitchen volunteers cover Sunday shifts. '.repeat(450))).toString('base64') });
+      await fileReady(screen, 'long-rota.pdf');
       const rows = await screen.backend!.sql`select f.total_parts, f.completed_parts, f.digest, count(p.*)::integer as parts
         from public.discovery_files f join public.discovery_file_parts p on p.file_id = f.id
         where f.project_id = ${screen.backend!.projectId}::uuid group by f.id` as { total_parts: number; completed_parts: number; digest: { facts: unknown[] }; parts: number }[];
-      expect(rows[0]).toMatchObject({ total_parts: 2, completed_parts: 2, parts: 2 });
+      expect(rows[0]).toMatchObject({ total_parts: 1, completed_parts: 1, parts: 1 });
       expect(rows[0]!.digest.facts.length).toBeGreaterThan(0);
       expect((await screen.backend!.read()).usage).toEqual(before.usage);
-      expect(await screen.modelCalls()).toEqual(['file-read', 'file-read']);
+      expect(await screen.modelCalls()).toEqual(['file-read']);
     });
   },
+  default: async () => { throw new AtPending('AT-004.69', 'sut-missing', 'Only the real reader sends a PDF whole to the model; the loop tier has no reader.'); },
   drill: notYet('AT-004.69'),
 });
 atTest(

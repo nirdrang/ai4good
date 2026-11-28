@@ -62,16 +62,15 @@ try {
   assert.equal(saved.usage.dailyLeft, first.usage.dailyLeft - 1);
   pass('answer saved, brief revision rose and one credit was used');
   await page.getByRole('button', { name: 'Add a file', exact: true }).click();
-  await page.locator('input[type=file]').setInputFiles({ name: 'sample-rota.txt', mimeType: 'text/plain',
-    buffer: Buffer.from('The kitchen has 45 volunteers. Shifts last four hours. Coordinators schedule Sunday shifts by phone. Last month 38 volunteers booked a shift.') });
+  await page.locator('input[type=file]').setInputFiles({ name: 'sample-rota.pdf', mimeType: 'application/pdf', buffer: Buffer.from(input.rotaPdf, 'base64') });
   const withFile = await until('file read', async () => {
     const state = await read();
-    const file = state.files.find((file) => file.name === 'sample-rota.txt');
+    const file = state.files.find((file) => file.name === 'sample-rota.pdf');
     if (file?.status?.kind === 'failed') throw new Error(file.status.reason);
     return file?.status?.kind === 'ready' ? state : null;
   });
   assert.deepEqual(withFile.usage, saved.usage);
-  assert.ok(withFile.files.find((file) => file.name === 'sample-rota.txt').tookFromIt);
+  assert.ok(withFile.files.find((file) => file.name === 'sample-rota.pdf').tookFromIt);
   pass('file reached read with facts and unchanged usage');
   await page.reload();
   await page.getByRole('button', { name: 'Finish Discovery', exact: true }).click();

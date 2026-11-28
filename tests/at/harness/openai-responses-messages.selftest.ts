@@ -24,3 +24,17 @@ it('keeps one conversation id across turns and a different one for another conve
   expect(other).not.toBe(first);
   expect(first).toMatch(/^[0-9a-f]{32}$/);
 });
+
+it('sends a PDF whole as an input_file part after the text of the last message', () => {
+  const body = responsesBody({
+    ...request([{ role: 'user', content: 'Earlier.' }, { role: 'user', content: 'Read the complete file.' }]),
+    files: [{ name: 'rota.pdf', mediaType: 'application/pdf', data: 'JVBERi0=' }],
+  }, false, 'real-model', 'low');
+  expect(body.input).toEqual([
+    { role: 'user', content: 'Earlier.' },
+    { role: 'user', content: [
+      { type: 'input_text', text: 'Read the complete file.' },
+      { type: 'input_file', filename: 'rota.pdf', file_data: 'data:application/pdf;base64,JVBERi0=' },
+    ] },
+  ]);
+});

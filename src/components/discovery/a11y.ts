@@ -90,7 +90,7 @@ export const TEXT = {
   carried: "Still open from last round",
   changing: "Changing your earlier answer",
   freeReceipt: "Free reply · no charge",
-  acceptedTypes: "PDF, images, CSV, TSV, TXT, Word, or Excel.",
+  acceptedTypes: "A PDF or a picture (PNG, JPEG, GIF or WebP).",
   sampleData: "Use sample or redacted data, not real records. ai4good and your volunteer will see it.",
   fileLimit: "Free projects can add 3 files in Discovery.",
   fileLimitFull: "Free projects can add 3 files in Discovery. Open a file to remove it and free a place.",

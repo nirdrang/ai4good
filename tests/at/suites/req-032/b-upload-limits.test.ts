@@ -8,15 +8,14 @@ import { seedFileProject, uploadFile } from './_files.ts';
 
 const PROJECT_FILES_MAX_BYTES = 100 * 1024 * 1024;
 
-const NAMED_TYPES = [
+const SUPPORTED_TYPES = [
   ['brief.pdf', 'application/pdf'],
   ['photo.png', 'image/png'],
-  ['rota.csv', 'text/csv'],
-  ['rota.tsv', 'text/tab-separated-values'],
-  ['notes.txt', 'text/plain'],
-  ['process.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  ['shifts.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  ['photo.jpg', 'image/jpeg'],
+  ['photo.gif', 'image/gif'],
+  ['photo.webp', 'image/webp'],
 ] as const;
+const REFUSAL = 'Add a PDF or a picture (PNG, JPEG, GIF or WebP).';
 
 function addInput(name: string, mediaType: string, sizeBytes: number): AccountWriteRouteInput {
   return {
@@ -28,10 +27,11 @@ function addInput(name: string, mediaType: string, sizeBytes: number): AccountWr
   } as AccountWriteRouteInput;
 }
 
-atTest('AT-032.02', 'all supported attachment types', { timeoutMs: { integration: 120_000 } }, {
+atTest('AT-032.02', 'PDFs and images are accepted and other types refused', { timeoutMs: { integration: 120_000 } }, {
   loop: async ({ open }) => {
     await open();
-    for (const [name, mediaType] of NAMED_TYPES) expect(decideDiscoveryFile(addInput(name, mediaType, 42)).ok, mediaType).toBe(true);
+    for (const [name, mediaType] of SUPPORTED_TYPES) expect(decideDiscoveryFile(addInput(name, mediaType, 42)).ok, mediaType).toBe(true);
+    expect(decideDiscoveryFile(addInput('rota.csv', 'text/csv', 42))).toMatchObject({ ok: false, kind: 'unsupported-file-type', reason: REFUSAL });
   },
   integration: async ({ open }) => {
     const { w, sut } = await open();
@@ -39,12 +39,14 @@ atTest('AT-032.02', 'all supported attachment types', { timeoutMs: { integration
     const seed = await seedFileProject(stack, sut, w.email('types'));
     try {
       await seed.sql`update public.projects set funded_at = clock_timestamp() where id = ${seed.projectId}::uuid`;
-      for (const [name, mediaType] of NAMED_TYPES) {
+      for (const [name, mediaType] of SUPPORTED_TYPES) {
         const added = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, name, `Sample ${name} for the kitchen rota.`, mediaType);
         expect(added, `${mediaType}: ${JSON.stringify(added)}`).toMatchObject({ status: 200, body: { ok: true, file: { name } } });
       }
+      const refused = await uploadFile(stack, seed.bearer, seed.ngo.organizationId, seed.projectId, 'rota.csv', 'kitchen,volunteers\nHarbor,17\n', 'text/csv');
+      expect(refused).toMatchObject({ status: 415, body: { kind: 'unsupported-file-type', reason: REFUSAL } });
       const rows = await seed.sql`select media_type from public.discovery_files where project_id = ${seed.projectId}::uuid and removed_at is null` as { media_type: string }[];
-      expect(rows.map((row) => row.media_type).sort()).toEqual(NAMED_TYPES.map(([, mediaType]) => mediaType).sort());
+      expect(rows.map((row) => row.media_type).sort()).toEqual(SUPPORTED_TYPES.map(([, mediaType]) => mediaType).sort());
     } finally { await seed.sql.close(); }
   },
   default: async () => { throw new AtPending('AT-032.02', 'sut-missing', 'The drill stack has not been configured.'); },
